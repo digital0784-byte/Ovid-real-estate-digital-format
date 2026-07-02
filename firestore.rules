@@ -1,0 +1,110 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Common global helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for Worker entity
+    function isValidWorker(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.name is string && data.name.size() <= 128 &&
+             data.company is string && data.company.size() <= 128 &&
+             data.department is string && data.department.size() <= 128 &&
+             data.trade is string && data.trade.size() <= 128 &&
+             data.status is string && (data.status == "Active" || data.status == "Inactive") &&
+             data.teamId is string && data.teamId.size() <= 64;
+    }
+
+    // Validation for Attendance Record
+    function isValidAttendanceRecord(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.workerId is string && data.workerId.size() <= 64 &&
+             data.workerName is string && data.workerName.size() <= 128 &&
+             data.date is string && data.date.size() == 10 &&
+             data.status is string && (data.status == "Present" || data.status == "Absent" || data.status == "Late" || data.status == "Leave" || data.status == "Holiday") &&
+             (data.workingHours is number && data.workingHours >= 0 && data.workingHours <= 24) &&
+             (data.overtime is number && data.overtime >= 0 && data.overtime <= 24);
+    }
+
+    // Validation for Performance Evaluation
+    function isValidPerformanceEvaluation(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.workerId is string && data.workerId.size() <= 64 &&
+             data.workerName is string && data.workerName.size() <= 128 &&
+             data.date is string && data.date.size() == 10 &&
+             data.totalScore is number && data.totalScore >= 0 && data.totalScore <= 100 &&
+             data.level is string && (data.level == "Excellent" || data.level == "Very Good" || data.level == "Good" || data.level == "Average" || data.level == "Poor") &&
+             data.evaluatedBy is string && data.evaluatedBy.size() <= 128;
+    }
+
+    // Validation for Audit Log
+    function isValidAuditLog(data) {
+      return data.id is string && data.id.size() <= 64 &&
+             data.timestamp is string && data.timestamp.size() <= 64 &&
+             data.userId is string && data.userId.size() <= 128 &&
+             data.userName is string && data.userName.size() <= 128 &&
+             data.role is string && data.action is string && data.action.size() <= 256 &&
+             data.details is string && data.details.size() <= 2048;
+    }
+
+    // MATCH BLOCK: Workers
+    match /workers/{workerId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(workerId) && isValidWorker(incoming());
+      allow update: if isSignedIn() && isValidId(workerId) && isValidWorker(incoming()) && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'assignedProject', 'building', 'floor', 'zone'])
+      );
+      allow delete: if isSignedIn();
+    }
+
+    // MATCH BLOCK: Attendance records
+    match /attendance/{attendanceId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(attendanceId) && isValidAttendanceRecord(incoming());
+      allow update: if isSignedIn() && isValidId(attendanceId) && isValidAttendanceRecord(incoming()) && (
+        // Action Check: Checkout session completion or foreman correction
+        incoming().diff(existing()).affectedKeys().hasAny(['checkOut', 'workingHours', 'overtime', 'status', 'remarks'])
+      );
+      allow delete: if isSignedIn();
+    }
+
+    // MATCH BLOCK: Evaluations
+    match /evaluations/{evaluationId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(evaluationId) && isValidPerformanceEvaluation(incoming());
+      allow update: if isSignedIn() && isValidId(evaluationId) && isValidPerformanceEvaluation(incoming());
+      allow delete: if isSignedIn();
+    }
+
+    // MATCH BLOCK: Audit Logs
+    match /auditLogs/{logId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming());
+      allow update, delete: if false; // Audit logs are write-once and immutable
+    }
+  }
+}

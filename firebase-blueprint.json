@@ -1,0 +1,130 @@
+{
+  "entities": {
+    "Worker": {
+      "title": "Worker",
+      "description": "Represents an OVID site worker registered in the roster.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Employee ID (e.g., OVID-W-101)" },
+        "name": { "type": "string" },
+        "photo": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "nationalId": { "type": "string" },
+        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
+        "dateOfBirth": { "type": "string" },
+        "address": { "type": "string" },
+        "emergencyContact": { "type": "string" },
+        "company": { "type": "string" },
+        "department": { "type": "string" },
+        "trade": { "type": "string" },
+        "position": { "type": "string" },
+        "employmentType": { "type": "string" },
+        "joinedDate": { "type": "string" },
+        "assignedProject": { "type": "string" },
+        "building": { "type": "string" },
+        "floor": { "type": "number" },
+        "zone": { "type": "string" },
+        "teamLeader": { "type": "string" },
+        "gangChief": { "type": "string" },
+        "supervisor": { "type": "string" },
+        "qrCode": { "type": "string" },
+        "faceRecognitionData": { "type": "string" },
+        "fingerprint": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "teamId": { "type": "string" }
+      },
+      "required": ["id", "name", "company", "department", "trade", "status", "teamId"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Represents a single daily check-in/out session for a worker, including overtime calculations.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Attendance Record ID (e.g., ATT-1001)" },
+        "workerId": { "type": "string" },
+        "workerName": { "type": "string" },
+        "department": { "type": "string" },
+        "trade": { "type": "string" },
+        "company": { "type": "string" },
+        "building": { "type": "string" },
+        "floor": { "type": "number" },
+        "zone": { "type": "string" },
+        "date": { "type": "string" },
+        "checkIn": { "type": "string" },
+        "checkOut": { "type": "string" },
+        "method": { "type": "string" },
+        "workingHours": { "type": "number" },
+        "overtime": { "type": "number" },
+        "status": { "type": "string", "enum": ["Present", "Absent", "Late", "Leave", "Holiday"] },
+        "gpsCoordinates": {
+          "type": "object",
+          "properties": {
+            "lat": { "type": "number" },
+            "lng": { "type": "number" }
+          }
+        },
+        "deviceId": { "type": "string" },
+        "verifiedBy": { "type": "string" },
+        "breakTime": { "type": "number" },
+        "netWorkingHours": { "type": "number" },
+        "remarks": { "type": "string" }
+      },
+      "required": ["id", "workerId", "workerName", "date", "status"]
+    },
+    "PerformanceEvaluation": {
+      "title": "PerformanceEvaluation",
+      "description": "Represents a daily performance grading scorecard submitted for a worker.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "workerName": { "type": "string" },
+        "date": { "type": "string" },
+        "discipline": { "type": "number" },
+        "quality": { "type": "number" },
+        "productivity": { "type": "number" },
+        "safetyCompliance": { "type": "number" },
+        "teamwork": { "type": "number" },
+        "attendance": { "type": "number" },
+        "totalScore": { "type": "number" },
+        "level": { "type": "string", "enum": ["Excellent", "Very Good", "Good", "Average", "Poor"] },
+        "comment": { "type": "string" },
+        "evaluatedBy": { "type": "string" }
+      },
+      "required": ["id", "workerId", "workerName", "date", "totalScore", "level", "evaluatedBy"]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "System-wide tracking logs for operations performed inside the workspace.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "role": { "type": "string" },
+        "action": { "type": "string" },
+        "details": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "userId", "userName", "role", "action", "details"]
+    }
+  },
+  "firestore": {
+    "/workers/{workerId}": {
+      "schema": "Worker",
+      "description": "Master registered employee records."
+    },
+    "/attendance/{attendanceId}": {
+      "schema": "AttendanceRecord",
+      "description": "Secured site attendance checking logs and overtime balances."
+    },
+    "/evaluations/{evaluationId}": {
+      "schema": "PerformanceEvaluation",
+      "description": "Grades recorded during foreman & site supervisor evaluation shifts."
+    },
+    "/auditLogs/{logId}": {
+      "schema": "AuditLog",
+      "description": "Continuous compliance security audit trails."
+    }
+  }
+}

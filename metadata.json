@@ -1,0 +1,6 @@
+{
+  "name": "OVID Real Estate - Aluminum Formwork Management System",
+  "description": "Comprehensive attendance, productivity, drawing-based CAD planning, safety, quality, and AI analytics platform for OVID Real Estate aluminum formwork systems.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
