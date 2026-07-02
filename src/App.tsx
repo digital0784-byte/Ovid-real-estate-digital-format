@@ -36,6 +36,7 @@ import { AIPredictions } from "./components/AIPredictions";
 import { AdminPanel } from "./components/AdminPanel";
 import { AuditLogView } from "./components/AuditLogView";
 import { AiPhotoInspection } from "./components/AiPhotoInspection";
+import { BiometricAttendanceBoard } from "./components/BiometricAttendanceBoard";
 
 // Lucide Icons
 import { 
@@ -51,7 +52,8 @@ import {
   Languages,
   UserCheck,
   ShieldCheck,
-  Camera
+  Camera,
+  Fingerprint
 } from "lucide-react";
 
 export default function App() {
@@ -77,6 +79,7 @@ export default function App() {
     en: {
       "Dashboard": "Dashboard",
       "Attendance": "Attendance",
+      "Biometric Board": "Biometric Board",
       "Planning": "Planning & Scheduler",
       "Daily Logs": "Daily Logs",
       "Evaluation": "Performance Evaluation",
@@ -130,6 +133,7 @@ export default function App() {
     am: {
       "Dashboard": "ዋና ሰሌዳ (Dashboard)",
       "Attendance": "የመገኘት ቁጥጥር (Attendance)",
+      "Biometric Board": "ባዮሜትሪክ ሰሌዳ",
       "Planning": "ማቀጃ እና የጊዜ ሰሌዳ (Scheduler)",
       "Daily Logs": "የእለት ስራዎች ምዝገባ (Daily Logs)",
       "Evaluation": "የሰራተኞች ግምገማ (Performance)",
