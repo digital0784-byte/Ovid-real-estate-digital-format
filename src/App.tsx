@@ -37,6 +37,8 @@ import { AdminPanel } from "./components/AdminPanel";
 import { AuditLogView } from "./components/AuditLogView";
 import { AiPhotoInspection } from "./components/AiPhotoInspection";
 import { BiometricAttendanceBoard } from "./components/BiometricAttendanceBoard";
+import { FingerprintAttendanceBoard } from "./components/FingerprintAttendanceBoard";
+import { BiometricEnrollmentKiosk } from "./components/BiometricEnrollmentKiosk";
 
 // Lucide Icons
 import { 
@@ -53,7 +55,8 @@ import {
   UserCheck,
   ShieldCheck,
   Camera,
-  Fingerprint
+  Fingerprint,
+  ScanLine
 } from "lucide-react";
 
 export default function App() {
@@ -80,6 +83,8 @@ export default function App() {
       "Dashboard": "Dashboard",
       "Attendance": "Attendance",
       "Biometric Board": "Biometric Board",
+      "Fingerprint Board": "Fingerprint Board",
+      "Biometric Kiosk": "Biometric Kiosk & Enroll",
       "Planning": "Planning & Scheduler",
       "Daily Logs": "Daily Logs",
       "Evaluation": "Performance Evaluation",
@@ -134,6 +139,8 @@ export default function App() {
       "Dashboard": "ዋና ሰሌዳ (Dashboard)",
       "Attendance": "የመገኘት ቁጥጥር (Attendance)",
       "Biometric Board": "ባዮሜትሪክ ሰሌዳ",
+      "Fingerprint Board": "የጣት አሻራ ሰሌዳ",
+      "Biometric Kiosk": "ባዮሜትሪክ ኪዮስክ እና ምዝገባ",
       "Planning": "ማቀጃ እና የጊዜ ሰሌዳ (Scheduler)",
       "Daily Logs": "የእለት ስራዎች ምዝገባ (Daily Logs)",
       "Evaluation": "የሰራተኞች ግምገማ (Performance)",
@@ -187,11 +194,11 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.HEAD_OFFICE]: ["dashboard", "attendance", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "attendance", "performance", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "planning", "progress", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "progress", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.SUPERVISOR]: ["dashboard", "attendance", "progress", "performance", "safetyQuality", "auditLog", "aiInspection"],
+    [UserRole.HEAD_OFFICE]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection"],
+    [UserRole.SUPERVISOR]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection"],
     [UserRole.WORKER]: ["dashboard", "attendance", "progress"]
   };
 
@@ -385,6 +392,45 @@ export default function App() {
               </button>
             )}
 
+            {/* Biometric Attendance Board Tab */}
+            {tabPermissions[currentUserRole]?.includes("biometricBoard") && (
+              <button
+                onClick={() => setActiveTab("biometricBoard")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "biometricBoard" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Fingerprint size={15} className="text-red-400" />
+                <span>{t("Biometric Board")}</span>
+              </button>
+            )}
+
+            {/* Fingerprint Attendance Board Tab */}
+            {tabPermissions[currentUserRole]?.includes("fingerprintBoard") && (
+              <button
+                onClick={() => setActiveTab("fingerprintBoard")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "fingerprintBoard" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Fingerprint size={15} className="text-red-500 animate-pulse" />
+                <span>{t("Fingerprint Board")}</span>
+              </button>
+            )}
+
+            {/* Biometric Kiosk Tab */}
+            {tabPermissions[currentUserRole]?.includes("biometricKiosk") && (
+              <button
+                onClick={() => setActiveTab("biometricKiosk")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "biometricKiosk" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <ScanLine size={15} className="text-red-500" />
+                <span>{t("Biometric Kiosk")}</span>
+              </button>
+            )}
+
             {/* Planning & Gantt Scheduler */}
             {tabPermissions[currentUserRole]?.includes("planning") && (
               <button
@@ -523,6 +569,42 @@ export default function App() {
             onDeleteWorker={handleDeleteWorker}
             evaluations={evaluations}
             onAddEvaluation={handleAddEvaluation}
+          />
+        )}
+
+        {activeTab === "biometricBoard" && (
+          <BiometricAttendanceBoard 
+            workers={workers} 
+            attendance={attendance} 
+            onAddAttendance={handleAddAttendance} 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "fingerprintBoard" && (
+          <FingerprintAttendanceBoard 
+            workers={workers} 
+            attendance={attendance} 
+            onAddAttendance={handleAddAttendance} 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "biometricKiosk" && (
+          <BiometricEnrollmentKiosk 
+            workers={workers} 
+            attendance={attendance} 
+            onAddAttendance={handleAddAttendance} 
+            onEnrollWorker={(newWorker) => {
+              setWorkers((prev) => [newWorker, ...prev]);
+            }}
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
 

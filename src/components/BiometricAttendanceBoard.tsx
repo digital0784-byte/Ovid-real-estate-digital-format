@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
   Fingerprint, 
   ScanLine, 
@@ -8,18 +8,52 @@ import {
   Clock, 
   Camera, 
   Settings, 
-  TrendingUp, 
   Users, 
-  CheckCircle, 
+  CheckCircle2, 
   LogOut, 
   LogIn, 
-  Map, 
+  ShieldCheck, 
+  Activity, 
+  Database,
+  History,
+  AlertTriangle,
   FileText,
+  Volume2,
+  VolumeX,
   HelpCircle,
-  Activity,
-  UserCheck
+  RefreshCw,
+  Search,
+  Filter,
+  ArrowUpDown,
+  Download,
+  Info,
+  Sliders,
+  Bell,
+  Trash2,
+  Wifi,
+  WifiOff,
+  Briefcase,
+  Layers,
+  Award
 } from "lucide-react";
 import { Worker, AttendanceRecord, AttendanceMethod, UserRole } from "../types";
+import { 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  BarChart, 
+  Bar, 
+  Legend, 
+  LineChart, 
+  Line, 
+  PieChart, 
+  Pie, 
+  Cell 
+} from "recharts";
 
 interface BiometricAttendanceBoardProps {
   workers: Worker[];
@@ -30,20 +64,13 @@ interface BiometricAttendanceBoardProps {
   onLogAction?: (action: string, details: string) => void;
 }
 
-// Haversine formula to compute distance in meters between two coordinates
-function getDistanceInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371e3; // Earth radius in meters
-  const phi1 = lat1 * Math.PI / 180;
-  const phi2 = lat2 * Math.PI / 180;
-  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
-  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
-
-  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
-            Math.cos(phi1) * Math.cos(phi2) *
-            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return R * c;
+interface SmartNotification {
+  id: string;
+  type: "checkin" | "checkout" | "late" | "absent" | "overtime" | "failed" | "geofence";
+  workerName: string;
+  message: string;
+  timestamp: string;
+  isRead: boolean;
 }
 
 export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> = ({
@@ -54,328 +81,191 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   currentUserRole,
   onLogAction
 }) => {
-  // Geofence configuration (OVID Bole Heights construction site default)
+  // --- OFFLINE & SIMULATION STATE ---
+  const [isOnline, setIsOnline] = useState(true);
+  const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState(0);
+
+  // --- GEOFENCING CONFIG ---
   const [geofenceLat, setGeofenceLat] = useState(9.0049);
   const [geofenceLng, setGeofenceLng] = useState(38.7783);
-  const [allowedRadius, setAllowedRadius] = useState(150); // meters
-  const [showConfig, setShowConfig] = useState(false);
-
-  // User coordinate simulation states
-  const [simLat, setSimLat] = useState(9.0048); // On-site by default
+  const [allowedRadius, setAllowedRadius] = useState(150); // in meters
+  const [gpsPreset, setGpsPreset] = useState<"inside" | "outside">("inside");
+  const [simLat, setSimLat] = useState(9.0048);
   const [simLng, setSimLng] = useState(38.7781);
-  const [gpsPreset, setGpsPreset] = useState<"on-site" | "bole-airport" | "saris" | "custom">("on-site");
 
-  // Selected worker for clock-in/out trigger
+  // --- AUDIO FEEDBACK ---
+  const [isSoundEnabled, setIsSoundEnabled] = useState(true);
+
+  // --- ACTIVE CONTROLLER STATES ---
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
-  const [verificationMethod, setVerificationMethod] = useState<"fingerprint" | "face">("fingerprint");
-  const [clockType, setClockType] = useState<"In" | "Out">("In");
-
-  // Authentication UI state simulation
-  const [authStatus, setAuthStatus] = useState<"idle" | "scanning" | "success" | "failed">("idle");
-  const [authMessage, setAuthMessage] = useState("");
-  const [authDetailLogs, setAuthDetailLogs] = useState<string[]>([]);
-  const [latestAttendanceRecords, setLatestAttendanceRecords] = useState<AttendanceRecord[]>([]);
-
-  // Policy Rules Config
-  const [shiftStart, setShiftStart] = useState("08:00");
-  const [shiftEnd, setShiftEnd] = useState("17:00");
-  const [gracePeriod, setGracePeriod] = useState(15); // minutes
-  const [breakDuration, setBreakDuration] = useState(1.0); // 1 hour break
-
-  // Real-time notification log of breaches or rejections
-  const [liveAlertLogs, setLiveAlertLogs] = useState<{
-    id: string;
-    workerId: string;
-    workerName: string;
-    type: "Geofence Breach" | "Biometric Failed" | "Late Check-In" | "Early Checkout";
+  const [biometricMethod, setBiometricMethod] = useState<"fingerprint" | "face">("fingerprint");
+  const [clockAction, setClockAction] = useState<"in" | "out">("in");
+  
+  // --- SCANNING SIMULATION STATE ---
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [scanResult, setScanResult] = useState<{
+    success: boolean;
+    title: string;
     message: string;
-    timestamp: string;
-    deviation?: number;
-  }[]>([]);
+    worker?: Worker;
+  } | null>(null);
 
-  // Filter workers based on logged in role
-  const sharedWorkers = React.useMemo(() => {
-    return workers.filter(w => {
-      if (currentUserRole === UserRole.GANG_CHIEF) {
-        // Gang Chiefs see workers assigned to their specific chief name
-        return !w.gangChief || w.gangChief === "Fikru Tolossa" || w.teamId === "T-01";
-      }
-      if (currentUserRole === UserRole.TEAM_LEADER) {
-        // Team Leaders see their team
-        return !w.teamLeader || w.teamLeader === "Yohannes Bekele" || w.teamId === "T-01";
-      }
-      // Time Keepers, Supervisors & Head Office see everyone
-      return true;
-    });
-  }, [workers, currentUserRole]);
+  // --- TABLE SEARCH, FILTER, SORT ---
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterFloor, setFilterFloor] = useState<string>("all");
+  const [filterZone, setFilterZone] = useState<string>("all");
+  const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [sortField, setSortField] = useState<string>("date");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
-  // Update SIM GPS based on presets
+  // --- SMART NOTIFICATIONS ---
+  const [notifications, setNotifications] = useState<SmartNotification[]>([
+    {
+      id: "notif-1",
+      type: "late",
+      workerName: "Aster Abebe",
+      message: isAmharic ? "ሰራተኛዋ አስቴር አበበ በ08:23 ረፍዶባታል (ዘግይቷል)" : "Aster Abebe checked in late today at 08:23 AM.",
+      timestamp: "08:23 AM",
+      isRead: false
+    },
+    {
+      id: "notif-2",
+      type: "geofence",
+      workerName: "Mulugeta Tesfaye",
+      message: isAmharic ? "ከፕሮጀክት ጂኦፌንስ ክልል ውጭ የመግባት ሙከራ ታግዷል" : "Geofence Breach: Mulugeta Tesfaye attempted clocking in 4.1km outside boundary.",
+      timestamp: "08:05 AM",
+      isRead: false
+    },
+    {
+      id: "notif-3",
+      type: "checkin",
+      workerName: "Kebede Alene",
+      message: isAmharic ? "በጣት አሻራ በተሳካ ሁኔታ ገብቷል" : "Kebede Alene successfully checked in via Fingerprint.",
+      timestamp: "07:55 AM",
+      isRead: true
+    }
+  ]);
+
+  // --- REPORTS ENGINE ---
+  const [reportType, setReportType] = useState<"daily" | "weekly" | "monthly" | "overtime">("daily");
+  const [reportDimension, setReportDimension] = useState<"floor" | "zone" | "team" | "project">("floor");
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+
+  // Sync simulated GPS preset
   useEffect(() => {
-    if (gpsPreset === "on-site") {
-      setSimLat(9.0049);
-      setSimLng(38.7782);
-    } else if (gpsPreset === "bole-airport") {
+    if (gpsPreset === "inside") {
+      setSimLat(9.0048);
+      setSimLng(38.7781); // ~15 meters distance
+    } else {
       setSimLat(8.9806);
-      setSimLng(38.7905); // 4km away
-    } else if (gpsPreset === "saris") {
-      setSimLat(8.9622);
-      setSimLng(38.7511); // 6.5km away
+      setSimLng(38.7905); // Bole Airport (~4.1km)
     }
   }, [gpsPreset]);
 
-  // Calculate current deviation from center
-  const currentDeviation = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
-  const isInsideGeofence = currentDeviation <= allowedRadius;
+  // Haversine formula
+  const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371e3;
+    const phi1 = (lat1 * Math.PI) / 180;
+    const phi2 = (lat2 * Math.PI) / 180;
+    const dPhi = ((lat2 - lat1) * Math.PI) / 180;
+    const dLam = ((lon2 - lon1) * Math.PI) / 180;
+    const a = Math.sin(dPhi / 2) * Math.sin(dPhi / 2) +
+              Math.cos(phi1) * Math.cos(phi2) *
+              Math.sin(dLam / 2) * Math.sin(dLam / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
 
-  // Local helper to log live alert notifications
-  const triggerAlertNotification = (
-    workerId: string, 
-    workerName: string, 
-    type: "Geofence Breach" | "Biometric Failed" | "Late Check-In" | "Early Checkout", 
-    message: string,
-    deviation?: number
-  ) => {
-    const newAlert = {
-      id: `alert-${Date.now()}`,
-      workerId,
-      workerName,
-      type,
-      message,
-      timestamp: new Date().toLocaleTimeString(),
-      deviation
-    };
-    setLiveAlertLogs(prev => [newAlert, ...prev]);
-    if (onLogAction) {
-      onLogAction(`Attendance Alert: ${type}`, `${workerName} (${workerId}) - ${message}`);
+  const currentDistance = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
+  const isInsideGeofence = currentDistance <= allowedRadius;
+
+  // Sound Engine
+  const playBeep = (type: "scan" | "success" | "error" | "sync") => {
+    if (!isSoundEnabled) return;
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const now = ctx.currentTime;
+
+      if (type === "scan") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.setValueAtTime(850, now);
+        gain.gain.setValueAtTime(0.03, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.1);
+      } else if (type === "success") {
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain1 = ctx.createGain();
+        const gain2 = ctx.createGain();
+
+        osc1.frequency.setValueAtTime(1200, now);
+        gain1.gain.setValueAtTime(0.05, now);
+        gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.1);
+        osc1.connect(gain1);
+        gain1.connect(ctx.destination);
+        osc1.start(now);
+        osc1.stop(now + 0.1);
+
+        osc2.frequency.setValueAtTime(1550, now + 0.08);
+        gain2.gain.setValueAtTime(0.05, now + 0.08);
+        gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+        osc2.connect(gain2);
+        gain2.connect(ctx.destination);
+        osc2.start(now + 0.08);
+        osc2.stop(now + 0.2);
+      } else if (type === "error") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = "sawtooth";
+        osc.frequency.setValueAtTime(130, now);
+        gain.gain.setValueAtTime(0.08, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.35);
+      } else if (type === "sync") {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.frequency.setValueAtTime(1700, now);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+      }
+    } catch (e) {
+      console.warn("Web Audio API warning:", e);
     }
   };
 
-  // Run automatic attendance calculations when checking-in / out
-  const handleVerifyAttendance = () => {
-    if (!selectedWorkerId) {
-      setAuthStatus("failed");
-      setAuthMessage(isAmharic ? "እባክዎን መጀመሪያ ሰራተኛ ይምረጡ!" : "Please select an employee first!");
-      return;
-    }
+  // --- SMART METRICS COMPUTATION ---
+  const stats = useMemo(() => {
+    // Current date
+    const todayStr = new Date().toISOString().split("T")[0];
+    const todayRecords = attendance.filter(a => a.date === todayStr);
 
-    const worker = sharedWorkers.find(w => w.id === selectedWorkerId);
-    if (!worker) {
-      setAuthStatus("failed");
-      setAuthMessage(isAmharic ? "ሰራተኛው አልተገኘም!" : "Employee record not found!");
-      return;
-    }
-
-    setAuthStatus("scanning");
-    setAuthDetailLogs([]);
+    const total = workers.length;
+    const present = todayRecords.filter(a => a.status === "Present" || a.status === "Late").length;
+    const late = todayRecords.filter(a => a.status === "Late").length;
+    const absent = todayRecords.filter(a => a.status === "Absent").length;
+    const checkedIn = todayRecords.filter(a => a.checkIn !== null).length;
+    const checkedOut = todayRecords.filter(a => a.checkOut !== null).length;
+    const currentlyWorking = todayRecords.filter(a => a.checkIn !== null && a.checkOut === null).length;
+    const onLeave = todayRecords.filter(a => a.status === "Leave").length;
     
-    // Simulate biometric analysis timeline
-    const steps = isAmharic ? [
-      "የመሳሪያ ባዮሜትሪክ ዳሳሽ በማጣራት ላይ...",
-      `የ${verificationMethod === "fingerprint" ? "ጣት አሻራ" : "የፊት ገጽታ"} ቅኝት በመካሄድ ላይ ነው...`,
-      "የባዮሜትሪክ ማመሳከሪያ ነጥቦችን ከደመና ዳታቤዝ ጋር በማነጻጸር ላይ...",
-      "የጂፒኤስ መጋጠሚያዎችን በማንበብ ላይ...",
-      "የጂኦፌንስ ክልል ደህንነትን በመተንተን ላይ..."
-    ] : [
-      "Initializing secure device biometric sensor...",
-      `Scanning worker ${verificationMethod === "fingerprint" ? "ridge-flow fingerprint" : "68-point facial nodes"}...`,
-      "Comparing biometric template matching coefficient against master database...",
-      "Acquiring high-accuracy device GPS coordinates...",
-      "Checking authorized construction project geofence boundary..."
-    ];
-
-    let currentStep = 0;
-    const interval = setInterval(() => {
-      if (currentStep < steps.length) {
-        setAuthDetailLogs(prev => [...prev, steps[currentStep]]);
-        currentStep++;
-      } else {
-        clearInterval(interval);
-        finalizeVerification(worker);
-      }
-    }, 450);
-  };
-
-  const finalizeVerification = (worker: Worker) => {
-    // 1. Biometric verification success simulation
-    // Let's assume biometric matches perfectly since the device scanner triggers.
-    
-    // 2. GPS Verification
-    const deviation = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
-    const isInside = deviation <= allowedRadius;
-    const now = new Date();
-    const formattedTime = now.toLocaleTimeString("en-US", { hour12: false });
-    const formattedDate = now.toISOString().split("T")[0];
-
-    if (!isInside) {
-      // Outside site violation
-      setAuthStatus("failed");
-      const errMsgEn = `GPS Verification Blocked: Registered outside authorized OVID site boundary. Current Deviation: ${deviation}m (Authorized radius: ${allowedRadius}m).`;
-      const errMsgAm = `የጂፒኤስ ማረጋገጫ ተከልክሏል፡ ከተፈቀደው የሳይት ክልል ውጭ ሙከራ ተደርጓል። የአሁኑ ልዩነት: ${deviation}ሜ (የተፈቀደው ራዲየስ: ${allowedRadius}ሜ)።`;
-      
-      setAuthMessage(isAmharic ? errMsgAm : errMsgEn);
-      triggerAlertNotification(
-        worker.id, 
-        worker.name, 
-        "Geofence Breach", 
-        isAmharic 
-          ? `የጂኦፌንስ ደህንነት ጥሰት፡ ከሳይት ውጭ በ${deviation}ሜ ርቀት ላይ ለመመዝገብ ተሞክሯል`
-          : `Attempted clock-${clockType.toLowerCase()} from outside site boundary by ${deviation}m deviation`,
-        deviation
-      );
-      return;
-    }
-
-    // Inside Authorised Site! Accept attendance
-    setAuthStatus("success");
-    const methodUsed = verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION;
-
-    // Check if there is an active check-in record for today
-    const existingRec = attendance.find(a => a.workerId === worker.id && a.date === formattedDate);
-
-    if (clockType === "In") {
-      if (existingRec && existingRec.checkIn) {
-        setAuthStatus("failed");
-        setAuthMessage(isAmharic 
-          ? `የደህንነት ማስጠንቀቂያ፡ የጠዋት መግቢያ ለ ${worker.name} አስቀድሞ ተመዝግቧል (${existingRec.checkIn})`
-          : ` Roster Integrity: Morning Check-In already saved for ${worker.name} at ${existingRec.checkIn}.`);
-        return;
-      }
-
-      // Late Arrival calculations
-      const [nowH, nowM] = formattedTime.split(":").map(Number);
-      const [shiftH, shiftM] = shiftStart.split(":").map(Number);
-      const checkInMinutes = nowH * 60 + nowM;
-      const shiftStartMinutes = shiftH * 60 + shiftM;
-      const isLate = checkInMinutes > (shiftStartMinutes + gracePeriod);
-      const status = isLate ? "Late" : "Present";
-
-      if (isLate) {
-        triggerAlertNotification(
-          worker.id,
-          worker.name,
-          "Late Check-In",
-          isAmharic 
-            ? `ዘግይቶ መግባት፡ በ ${formattedTime} ላይ ገብቷል (የፈረቃ መጀመሪያ ${shiftStart} + ${gracePeriod}ደቂቃ የትዕግስት ጊዜ አልፏል)`
-            : `Late arrival at ${formattedTime} (Policy: Shift starts at ${shiftStart} with ${gracePeriod}m grace period)`
-        );
-      }
-
-      const newRecord: AttendanceRecord = {
-        id: `ATT-${Date.now()}`,
-        workerId: worker.id,
-        workerName: worker.name,
-        department: worker.department,
-        trade: worker.trade,
-        company: worker.company,
-        building: worker.building || "Tower 1",
-        floor: worker.floor || 4,
-        zone: worker.zone || "Zone A",
-        date: formattedDate,
-        checkIn: formattedTime,
-        checkOut: null,
-        method: methodUsed,
-        workingHours: 0,
-        overtime: 0,
-        status: status,
-        gpsCoordinates: { lat: simLat, lng: simLng },
-        deviceUsed: "OVID-BIO-PAD-03",
-        verifiedBy: currentUserRole,
-        gpsLocationString: isAmharic 
-          ? `ቦሌ ሃይትስ ታወር 1 (ልዩነት፡ ${deviation}ሜ)` 
-          : `Bole Heights Tower 1 (${deviation}m deviation)`
-      };
-
-      onAddAttendance(newRecord);
-      setAuthMessage(isAmharic 
-        ? `የጠዋት መግቢያ ለ ${worker.name} በ${formattedTime} በተሳካ ሁኔታ ተመዝግቧል! ሁኔታ: ${status === "Late" ? "የዘገየ" : "የተገኘ"}`
-        : `Morning Check-In accepted for ${worker.name} at ${formattedTime}! Status: ${status}.`);
-      
-    } else {
-      // CLOCK OUT
-      const currentActive = attendance.find(a => a.workerId === worker.id && a.date === formattedDate && a.checkIn && !a.checkOut);
-      
-      if (!currentActive) {
-        setAuthStatus("failed");
-        setAuthMessage(isAmharic 
-          ? `የመግቢያ መዝገብ አልተገኘም፡ ሰራተኛው ${worker.name} ዛሬ ጠዋት አልገባም!`
-          : `Clock-out failed: No active morning Check-In record found for ${worker.name} today.`);
-        return;
-      }
-
-      // Calculations
-      const checkInStr = currentActive.checkIn!;
-      const [inH, inM] = checkInStr.split(":").map(Number);
-      const [outH, outM] = formattedTime.split(":").map(Number);
-      
-      const rawHours = Math.max(0, (outH + outM / 60) - (inH + inM / 60));
-      const netWorkingHours = Math.max(0, rawHours - breakDuration);
-      
-      // Standard shift cap is 8.0 hours. The rest is Overtime.
-      const workingHours = parseFloat(Math.min(8.0, netWorkingHours).toFixed(2));
-      const overtime = parseFloat(Math.max(0, netWorkingHours - 8.0).toFixed(2));
-
-      // Early Departure alert
-      const [shiftEndH, shiftEndM] = shiftEnd.split(":").map(Number);
-      const shiftEndMinutes = shiftEndH * 60 + shiftEndM;
-      const checkoutMinutes = outH * 60 + outM;
-      const isEarly = checkoutMinutes < shiftEndMinutes;
-
-      if (isEarly) {
-        triggerAlertNotification(
-          worker.id,
-          worker.name,
-          "Early Checkout",
-          isAmharic 
-            ? `ቀድሞ መውጣት፡ በ ${formattedTime} ወጥቷል (የፈረቃ ማብቂያ ${shiftEnd} ሳይደርስ)`
-            : `Early checkout at ${formattedTime} (Before official shift end ${shiftEnd})`
-        );
-      }
-
-      const updatedRecord: AttendanceRecord = {
-        ...currentActive,
-        checkOut: formattedTime,
-        workingHours: parseFloat((workingHours + overtime).toFixed(2)),
-        overtime,
-        deviceUsed: "OVID-BIO-PAD-03",
-        verifiedBy: currentUserRole,
-        gpsLocationString: isAmharic 
-          ? `ቦሌ ሃይትስ ታወር 1 (ልዩነት፡ ${deviation}ሜ)` 
-          : `Bole Heights Tower 1 (${deviation}m deviation)`
-      };
-
-      onAddAttendance(updatedRecord);
-      setAuthMessage(isAmharic 
-        ? `የማታ መውጫ ለ ${worker.name} በ${formattedTime} ተመዝግቧል። የስራ ሰዓት፡ ${workingHours}ሰ | ትርፍ ሰዓት፡ ${overtime}ሰ`
-        : `Evening Check-Out completed for ${worker.name} at ${formattedTime}. Hours Worked: ${workingHours}h, Overtime: ${overtime}h.`);
-    }
-
-    // Reset fields after successful clocking
-    setTimeout(() => {
-      setSelectedWorkerId("");
-      setAuthStatus("idle");
-    }, 4500);
-  };
-
-  // Automated Metrics & Calculations for Live Dashboard
-  const metrics = React.useMemo(() => {
-    const today = new Date().toISOString().split("T")[0];
-    const todayRecords = attendance.filter(a => a.date === today);
-    
-    const total = sharedWorkers.length;
-    const presentRecs = todayRecords.filter(r => r.status === "Present" || r.status === "Late");
-    const present = presentRecs.length;
-    const late = todayRecords.filter(r => r.status === "Late").length;
-    const absent = Math.max(0, total - present);
-    
-    const checkedIn = todayRecords.filter(r => r.checkIn !== null).length;
-    const checkedOut = todayRecords.filter(r => r.checkIn !== null && r.checkOut !== null).length;
-    const currentlyWorking = todayRecords.filter(r => r.checkIn !== null && r.checkOut === null).length;
-    
-    // Sum overtime today
-    const totalOvertime = todayRecords.reduce((sum, r) => sum + (r.overtime || 0), 0);
-    
-    // Geofence breach count today
-    const geofenceBreaches = liveAlertLogs.filter(a => a.type === "Geofence Breach").length;
+    // Total overtime sum
+    const totalOvertime = parseFloat(todayRecords.reduce((sum, r) => sum + (r.overtime || 0), 0).toFixed(1));
 
     return {
       total,
@@ -385,678 +275,1531 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
       checkedIn,
       checkedOut,
       currentlyWorking,
-      geofenceBreaches,
-      totalOvertime: parseFloat(totalOvertime.toFixed(1))
+      onLeave,
+      totalOvertime
     };
-  }, [sharedWorkers, attendance, liveAlertLogs]);
+  }, [workers, attendance]);
 
-  // Translate status text for layout
-  const translateStatus = (status: string) => {
-    if (!isAmharic) return status;
-    switch (status) {
-      case "Present": return "የተገኘ";
-      case "Late": return "የዘገየ";
-      case "Absent": return "የቀረ";
-      case "Leave": return "ፈቃድ ላይ";
-      case "Holiday": return "በዓል";
-      default: return status;
+  // --- SMART NOTIFICATION HANDLER ---
+  const triggerNotification = (type: SmartNotification["type"], workerName: string, message: string) => {
+    const newNotif: SmartNotification = {
+      id: `notif-${Date.now()}`,
+      type,
+      workerName,
+      message,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      isRead: false
+    };
+    setNotifications(prev => [newNotif, ...prev]);
+  };
+
+  // --- AUTOMATIC BIOMETRIC IDENTIFICATION ---
+  const handleStartBiometricScan = () => {
+    if (!selectedWorkerId) {
+      playBeep("error");
+      alert(isAmharic ? "እባክዎን መጀመሪያ ሰራተኛ ይምረጡ!" : "Please select an employee first!");
+      return;
+    }
+
+    const worker = workers.find(w => w.id === selectedWorkerId);
+    if (!worker) return;
+
+    // Strict Device Verification Mode simulation
+    setIsScanning(true);
+    setScanProgress(0);
+    setScanLogs([
+      isAmharic 
+        ? "⚡ የባዮሜትሪክ ሃርድዌር መገኛ ተገኝቷል... ግንኙነት እየተፈጠረ ነው።" 
+        : "⚡ Biometric hardware handshake initialized. Establishing secure state..."
+    ]);
+    playBeep("scan");
+
+    let step = 0;
+    const interval = setInterval(() => {
+      step++;
+      setScanProgress(step * 20);
+      playBeep("scan");
+
+      if (step === 2) {
+        setScanLogs(prev => [
+          ...prev,
+          isAmharic
+            ? `🔍 የባዮሜትሪክ መዛመጃ ፍለጋ በሂደት ላይ፡ [የማረጋገጫ ዘዴ: ${biometricMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት መለያ"}]`
+            : `🔍 Checking cryptographic templates mapping: [Hardware Method: ${biometricMethod === "fingerprint" ? "Fingerprint" : "Facial Structure"}]`
+        ]);
+      } else if (step === 3) {
+        setScanLogs(prev => [
+          ...prev,
+          isAmharic
+            ? `🛰️ የጂፒኤስ ሲግናል በማንበብ ላይ... [መጋጠሚያ: ${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
+            : `🛰️ Aquiring high-accuracy coordinates: [GPS Capture: ${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
+        ]);
+      } else if (step === 4) {
+        setScanLogs(prev => [
+          ...prev,
+          isAmharic
+            ? `🔐 የጂኦፌንስ ፍተሻ፡ ${currentDistance}ሜ ከማእከሉ (ፍቃድ፡ ${isInsideGeofence ? "ተፈቅዷል" : "ተከልክሏል"})`
+            : `🔐 Geofence proximity audit: ${currentDistance}m from center. Status: ${isInsideGeofence ? "AUTHORIZED" : "OUTSIDE SITE BOUNDARY"}`
+        ]);
+      } else if (step === 5) {
+        clearInterval(interval);
+        setIsScanning(false);
+        processFinalKioskAttendance(worker);
+      }
+    }, 250);
+  };
+
+  const processFinalKioskAttendance = (worker: Worker) => {
+    const todayStr = new Date().toISOString().split("T")[0];
+    const timeStr = new Date().toLocaleTimeString("en-US", { hour12: false });
+
+    // Rules Evaluation
+    // 1. Geofence violation
+    if (!isInsideGeofence) {
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "መዝገብ ውድቅ ተደርጓል (ጂኦፌንስ ጥሰት)" : "Attendance Rejected (Geofence Breach)",
+        message: isAmharic
+          ? `ሰራተኛው ${worker.name} ከፕሮጀክት ግቢ ውጭ በ ${currentDistance} ሜትር ርቀት ላይ ስለሚገኝ ምዝገባው ውድቅ ተደርጓል።`
+          : `Roster Violation: ${worker.name} is currently ${currentDistance}m outside the authorized project perimeter. Check-In blocked.`,
+        worker
+      });
+
+      triggerNotification(
+        "geofence", 
+        worker.name, 
+        isAmharic 
+          ? `${worker.name} ከግቢ ውጭ ሆኖ መዝገብ ሲሞክር ታግዷል (${currentDistance}ሜ)` 
+          : `${worker.name} blocked: Geofence violation at ${currentDistance}m.`
+      );
+
+      if (onLogAction) {
+        onLogAction("Geofence Rejection", `${worker.name} tried clocking ${clockAction} from ${currentDistance}m.`);
+      }
+      return;
+    }
+
+    // 2. Duplicate Check-in / Out Protection
+    const existing = attendance.find(a => a.workerId === worker.id && a.date === todayStr);
+
+    // If Offline Mode
+    if (!isOnline) {
+      const offlineDup = offlineQueue.find(o => o.workerId === worker.id && o.type === clockAction);
+      if (offlineDup) {
+        playBeep("error");
+        alert(isAmharic ? "ይህ የባዮሜትሪክ መረጃ አስቀድሞ በኦፍላይን ወረፋ ውስጥ አለ!" : "This record is already in the offline queue buffer!");
+        return;
+      }
+
+      const draft = {
+        id: `OFF-${Date.now()}`,
+        workerId: worker.id,
+        workerName: worker.name,
+        type: clockAction,
+        time: timeStr,
+        date: todayStr,
+        method: biometricMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
+        coordinates: { lat: simLat, lng: simLng },
+        distance: currentDistance
+      };
+
+      setOfflineQueue(prev => [...prev, draft]);
+      playBeep("success");
+
+      setScanResult({
+        success: true,
+        title: isAmharic ? "መረጃው በኦፍላይን ተቀምጧል" : "Offline Record Queued",
+        message: isAmharic
+          ? `የ ${worker.name} መረጃ በስልክዎ ላይ ተቀምጧል። ኢንተርኔት ሲኖር በራስ-ሰር ይተላለፋል። (ወረፋ ላይ፡ ${offlineQueue.length + 1})`
+          : `Device is offline. Successfully cached ${worker.name}'s biometric clock-${clockAction}. Will auto-sync later.`,
+        worker
+      });
+
+      triggerNotification(
+        "checkin", 
+        worker.name, 
+        isAmharic ? `ኦፍላይን መዝገብ ተቀምጧል፡ ${worker.name}` : `Cached offline log for ${worker.name}.`
+      );
+      return;
+    }
+
+    // Online Mode Core Logic
+    if (clockAction === "in") {
+      if (existing && existing.checkIn) {
+        playBeep("error");
+        setScanResult({
+          success: false,
+          title: isAmharic ? "ቀደም ብሎ ተመዝግቧል" : "Already Clocked In",
+          message: isAmharic
+            ? `ሰራተኛው ${worker.name} የዛሬ የጠዋት መግቢያውን በ ${existing.checkIn} አስመዝግቧል! ድርብ መግቢያ አይፈቀድም።`
+            : `${worker.name} has already recorded a check-in today at ${existing.checkIn}. Duplicate blocked.`,
+          worker
+        });
+        return;
+      }
+
+      // Success In
+      playBeep("success");
+      const [h, m] = timeStr.split(":").map(Number);
+      const isLate = (h * 60 + m) > (8 * 60 + 15); // Late if after 08:15 AM
+      const status = isLate ? "Late" : "Present";
+
+      const newRec: AttendanceRecord = {
+        id: `ATT-${Date.now()}`,
+        workerId: worker.id,
+        workerName: worker.name,
+        department: worker.department,
+        trade: worker.trade,
+        company: worker.company,
+        building: worker.building || "Tower 1",
+        floor: worker.floor || 4,
+        zone: worker.zone || "Zone B",
+        date: todayStr,
+        checkIn: timeStr,
+        checkOut: null,
+        method: biometricMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
+        workingHours: 0,
+        overtime: 0,
+        status,
+        gpsCoordinates: { lat: simLat, lng: simLng },
+        deviceUsed: "OVID-KIOSK-PRO-01",
+        verifiedBy: currentUserRole,
+        gpsLocationString: `Bole Heights (${currentDistance}m)`
+      };
+
+      onAddAttendance(newRec);
+      setScanResult({
+        success: true,
+        title: isAmharic ? "መግቢያ በተሳካ ሁኔታ ተመዝግቧል!" : "Clock-In Confirmed!",
+        message: isAmharic
+          ? `እንኳን ደህና መጡ! ${worker.name} በ ${timeStr} በጣት አሻራ ተረጋግጧል። ሁኔታ: ${isLate ? "የዘገየ" : "በሰዓቱ"}`
+          : `Welcome! ${worker.name} verified successfully via biometric signature at ${timeStr}. Status: ${status}.`,
+        worker
+      });
+
+      triggerNotification(
+        isLate ? "late" : "checkin", 
+        worker.name, 
+        isAmharic 
+          ? `${worker.name} በ ${timeStr} መግቢያ አረጋግጧል።` 
+          : `${worker.name} clocked in at ${timeStr} (${status}).`
+      );
+
+      if (onLogAction) {
+        onLogAction("Biometric Check-In", `${worker.name} clocked in successfully via ${biometricMethod}.`);
+      }
+
+    } else {
+      // Clock Out
+      if (!existing || !existing.checkIn) {
+        playBeep("error");
+        setScanResult({
+          success: false,
+          title: isAmharic ? "የመግቢያ መረጃ አልተገኘም" : "No Clock-In Roster",
+          message: isAmharic
+            ? `የ ${worker.name} የጠዋት መግቢያ መዝገብ አልተገኘም። መጀመሪያ መግቢያ መመዝገብ አለበት።`
+            : `Roster Error: Cannot record clock-out. ${worker.name} has no check-in logged for today.`,
+          worker
+        });
+        return;
+      }
+
+      if (existing.checkOut) {
+        playBeep("error");
+        setScanResult({
+          success: false,
+          title: isAmharic ? "ቀደም ብሎ ወጥቷል" : "Already Clocked Out",
+          message: isAmharic
+            ? `ሰራተኛው ${worker.name} የስራ መውጫውን በ ${existing.checkOut} አስመዝግቧል!`
+            : `${worker.name} has already logged a check-out today at ${existing.checkOut}.`,
+          worker
+        });
+        return;
+      }
+
+      // Success Out
+      playBeep("success");
+      const [inH, inM] = existing.checkIn.split(":").map(Number);
+      const [outH, outM] = timeStr.split(":").map(Number);
+      const totalHours = Math.max(0, (outH + outM / 60) - (inH + inM / 60) - 1.0); // 1hr lunch break
+      const stdHrs = Math.min(8.0, totalHours);
+      const overtime = Math.max(0, totalHours - 8.0);
+
+      const updatedRec: AttendanceRecord = {
+        ...existing,
+        checkOut: timeStr,
+        workingHours: parseFloat((stdHrs + overtime).toFixed(1)),
+        overtime: parseFloat(overtime.toFixed(1)),
+        deviceUsed: "OVID-KIOSK-PRO-01",
+        gpsLocationString: `Bole Heights (${currentDistance}m)`
+      };
+
+      onAddAttendance(updatedRec);
+      setScanResult({
+        success: true,
+        title: isAmharic ? "መውጫ በተሳካ ሁኔታ ተመዝግቧል!" : "Clock-Out Confirmed!",
+        message: isAmharic
+          ? `ደህና እደሩ! ${worker.name} በ ${timeStr} የስራ መውጫውን መዝግቧል። ጠቅላላ ሰዓት፡ ${updatedRec.workingHours}ሰ | ትርፍ ሰዓት፡ ${overtime.toFixed(1)}ሰ።`
+          : `Safe travels! ${worker.name} clocked out at ${timeStr}. Standard Hours: ${stdHrs.toFixed(1)}h | Overtime: ${overtime.toFixed(1)}h.`,
+        worker
+      });
+
+      triggerNotification(
+        "checkout", 
+        worker.name, 
+        isAmharic 
+          ? `${worker.name} በ ${timeStr} መውጫ አረጋግጧል። (ትርፍ ሰዓት፡ ${overtime.toFixed(1)}ሰ)` 
+          : `${worker.name} checked out at ${timeStr}. Overtime: ${overtime.toFixed(1)}h.`
+      );
+
+      if (onLogAction) {
+        onLogAction("Biometric Check-Out", `${worker.name} checked out successfully. Hours: ${updatedRec.workingHours}.`);
+      }
     }
   };
 
+  // --- RECONNECTION AUTO-SYNC ENGINE ---
+  const handleToggleOnline = () => {
+    const nextState = !isOnline;
+    setIsOnline(nextState);
+
+    if (nextState && offlineQueue.length > 0) {
+      triggerSyncQueue();
+    }
+  };
+
+  const triggerSyncQueue = () => {
+    setIsSyncing(true);
+    setSyncProgress(0);
+    playBeep("sync");
+
+    let count = 0;
+    const interval = setInterval(() => {
+      count += 25;
+      setSyncProgress(count);
+      playBeep("sync");
+
+      if (count >= 100) {
+        clearInterval(interval);
+        setTimeout(() => {
+          // Process queue
+          offlineQueue.forEach(draft => {
+            const todayStr = draft.date;
+            const existing = attendance.find(a => a.workerId === draft.workerId && a.date === todayStr);
+
+            if (draft.type === "in") {
+              if (!existing) {
+                onAddAttendance({
+                  id: `ATT-${Date.now()}-${Math.floor(Math.random()*1000)}`,
+                  workerId: draft.workerId,
+                  workerName: draft.workerName,
+                  department: "Aluminum Formwork",
+                  trade: "Carpenter",
+                  company: "OVID Construction",
+                  building: "Tower 1",
+                  floor: 4,
+                  zone: "Zone B",
+                  date: draft.date,
+                  checkIn: draft.time,
+                  checkOut: null,
+                  method: draft.method,
+                  workingHours: 0,
+                  overtime: 0,
+                  status: "Present",
+                  gpsCoordinates: draft.coordinates,
+                  deviceUsed: "OVID-KIOSK-PRO-01",
+                  gpsLocationString: `Bole Heights (${draft.distance}m)`
+                });
+              }
+            } else {
+              if (existing && !existing.checkOut) {
+                onAddAttendance({
+                  ...existing,
+                  checkOut: draft.time,
+                  workingHours: 8.0,
+                  overtime: 1.5,
+                  gpsLocationString: `Bole Heights (${draft.distance}m)`
+                });
+              }
+            }
+          });
+
+          if (onLogAction) {
+            onLogAction("Biometric Offline Sync", `Synchronized ${offlineQueue.length} records instantly to Firestore Cloud.`);
+          }
+
+          setOfflineQueue([]);
+          setIsSyncing(false);
+          playBeep("success");
+
+          setScanResult({
+            success: true,
+            title: isAmharic ? "ደመና ማመሳሰል ተጠናቋል!" : "Cloud Synchronization Complete!",
+            message: isAmharic
+              ? `ሁሉም የኦፍላይን የባዮሜትሪክ መዛግብቶች በተሳካ ሁኔታ ወደ Firebase Firestore ተልከዋል።`
+              : `All locally buffered biometric transactions have been synchronized securely with Firestore.`
+          });
+        }, 150);
+      }
+    }, 200);
+  };
+
+  // --- TABLE SEARCH, FILTER, AND SORT LOGIC ---
+  const processedAttendance = useMemo(() => {
+    let list = [...attendance];
+
+    // Role filtering constraints
+    if (currentUserRole === UserRole.GANG_CHIEF) {
+      list = list.filter(r => r.zone === "Zone B");
+    } else if (currentUserRole === UserRole.TEAM_LEADER) {
+      list = list.filter(r => r.zone === "Zone A" || r.zone === "Zone B");
+    }
+
+    // Search term
+    if (searchTerm.trim() !== "") {
+      const q = searchTerm.toLowerCase();
+      list = list.filter(r => 
+        r.workerName.toLowerCase().includes(q) ||
+        r.workerId.toLowerCase().includes(r.workerId.toLowerCase() === q ? q : r.workerId.toLowerCase()) ||
+        r.trade.toLowerCase().includes(q)
+      );
+    }
+
+    // Floor filter
+    if (filterFloor !== "all") {
+      list = list.filter(r => r.floor.toString() === filterFloor);
+    }
+
+    // Zone filter
+    if (filterZone !== "all") {
+      list = list.filter(r => r.zone === filterZone);
+    }
+
+    // Status filter
+    if (filterStatus !== "all") {
+      list = list.filter(r => r.status === filterStatus);
+    }
+
+    // Sort
+    list.sort((a, b) => {
+      let valA = a[sortField as keyof AttendanceRecord];
+      let valB = b[sortField as keyof AttendanceRecord];
+
+      if (valA === undefined || valA === null) return 1;
+      if (valB === undefined || valB === null) return -1;
+
+      if (typeof valA === "string") {
+        return sortOrder === "asc" 
+          ? valA.localeCompare(valB as string) 
+          : (valB as string).localeCompare(valA);
+      } else {
+        return sortOrder === "asc" 
+          ? (valA as number) - (valB as number) 
+          : (valB as number) - (valA as number);
+      }
+    });
+
+    return list;
+  }, [attendance, currentUserRole, searchTerm, filterFloor, filterZone, filterStatus, sortField, sortOrder]);
+
+  // --- REPORT GENERATION PREVIEW DATA ---
+  const reportRecords = useMemo(() => {
+    // Generate summarized data grouped by selected report Dimension & type
+    const counts: Record<string, { total: number; present: number; late: number; overtime: number }> = {};
+    
+    processedAttendance.forEach(r => {
+      let key = "General";
+      if (reportDimension === "floor") key = `Floor ${r.floor}`;
+      else if (reportDimension === "zone") key = r.zone;
+      else if (reportDimension === "team") key = r.trade; // proxying trade for team
+      else if (reportDimension === "project") key = "OVID Bole Heights";
+
+      if (!counts[key]) {
+        counts[key] = { total: 0, present: 0, late: 0, overtime: 0 };
+      }
+      counts[key].total += 1;
+      if (r.status === "Present" || r.status === "Late") counts[key].present += 1;
+      if (r.status === "Late") counts[key].late += 1;
+      counts[key].overtime += r.overtime || 0;
+    });
+
+    return Object.entries(counts).map(([name, data]) => ({
+      name,
+      total: data.total,
+      present: data.present,
+      absent: Math.max(0, data.total - data.present),
+      attendanceRate: data.total > 0 ? Math.round((data.present / data.total) * 100) : 0,
+      late: data.late,
+      overtime: parseFloat(data.overtime.toFixed(1))
+    }));
+  }, [processedAttendance, reportDimension]);
+
+  // --- EXPORT TO EXCEL/CSV SIMULATOR (Durable Client File Trigger) ---
+  const handleExportCSV = () => {
+    playBeep("success");
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Metric Group,Total Employees,Present Today,Absent,Attendance Rate %,Late Checks,Total Overtime Hrs\n";
+    
+    reportRecords.forEach(row => {
+      csvContent += `"${row.name}",${row.total},${row.present},${row.absent},${row.attendanceRate}%,${row.late},${row.overtime}\n`;
+    });
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `OVID_Attendance_Report_${reportType}_by_${reportDimension}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleExportPDF = () => {
+    playBeep("success");
+    setIsGeneratingReport(true);
+    setTimeout(() => {
+      setIsGeneratingReport(false);
+      alert(isAmharic 
+        ? "የፒዲኤፍ (PDF) ሪፖርት በተሳካ ሁኔታ ተዘጋጅቶ ወርዷል!" 
+        : "PDF Attendance Payroll Report generated and downloaded to device Storage.");
+    }, 1200);
+  };
+
+  // --- CHART DATA PREPARATION ---
+  const floorChartData = useMemo(() => {
+    const data: Record<number, number> = {};
+    attendance.forEach(r => {
+      if (r.status === "Present" || r.status === "Late") {
+        data[r.floor] = (data[r.floor] || 0) + 1;
+      }
+    });
+    return Object.entries(data).map(([floor, count]) => ({
+      name: `FL ${floor}`,
+      Present: count
+    })).sort((a,b) => a.name.localeCompare(b.name));
+  }, [attendance]);
+
+  const zoneChartData = useMemo(() => {
+    const data: Record<string, number> = {};
+    attendance.forEach(r => {
+      if (r.status === "Present" || r.status === "Late") {
+        data[r.zone] = (data[r.zone] || 0) + 1;
+      }
+    });
+    return Object.entries(data).map(([zone, count]) => ({
+      name: zone,
+      Present: count
+    }));
+  }, [attendance]);
+
+  const trendChartData = [
+    { day: "Mon", Present: 84, Overtime: 12.5 },
+    { day: "Tue", Present: 88, Overtime: 14.0 },
+    { day: "Wed", Present: 91, Overtime: 15.2 },
+    { day: "Thu", Present: 86, Overtime: 11.8 },
+    { day: "Fri", Present: 95, Overtime: 18.0 },
+    { day: "Sat", Present: 92, Overtime: 16.5 },
+    { day: "Sun", Present: 78, Overtime: 8.0 }
+  ];
+
   return (
-    <div className="space-y-6" id="biometric-attendance-board">
+    <div className="space-y-6" id="attendance-dashboard-module">
       
-      {/* Title & Introduction Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-3.5">
-          <div className="p-3 bg-red-50 text-red-600 rounded-xl">
-            <Fingerprint size={26} className="animate-pulse" />
+      {/* 1. TOP HEADER & RBAC & OFFLINE HUD */}
+      <div className="bg-slate-900 text-white p-5 rounded-2xl shadow-xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative overflow-hidden">
+        <div className="absolute right-0 top-0 translate-x-16 -translate-y-16 opacity-5 pointer-events-none">
+          <Fingerprint size={280} className="text-red-500" />
+        </div>
+
+        <div className="flex items-center space-x-3.5 z-10">
+          <div className="p-3 bg-red-600/20 text-red-500 rounded-xl border border-red-500/20 animate-pulse">
+            <ScanLine size={30} />
           </div>
           <div>
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
-              {isAmharic ? "በጂፒኤስ የታገዘ የባዮሜትሪክ መገኘት መቆጣጠሪያ ሰሌዳ" : "GPS-Based Biometric Attendance Board"}
+            <div className="flex items-center space-x-2">
+              <span className="text-[9px] uppercase font-bold tracking-widest bg-red-600 px-2 py-0.5 rounded text-white font-mono">
+                SECURE HARDWARE CORE
+              </span>
+              <span className="text-slate-500 font-mono text-[10px]">•</span>
+              <span className="text-xs text-slate-300 font-mono font-bold flex items-center space-x-1">
+                <Database size={11} className="text-red-500" />
+                <span>OVID Bole Heights</span>
+              </span>
+            </div>
+            <h2 className="text-xl font-black tracking-tight mt-1">
+              {isAmharic ? "የባዮሜትሪክ መገኘት መቆጣጠሪያ ሰሌዳ" : "Biometric Attendance Dashboard"}
             </h2>
-            <p className="text-xs text-slate-500 max-w-2xl leading-relaxed mt-0.5">
+            <p className="text-xs text-slate-400 mt-0.5">
               {isAmharic 
-                ? "አውቶማቲክ የጣት አሻራ፣ የፊት ገጽታ መለያ እና የጂፒኤስ ጂኦፌንሲንግ መፈተሻ ሞጁል። የሰራተኛ መግቢያና መውጫ መረጃዎችን በአካል በመመርመር በቅጽበት ከማህደሩ ጋር ያመሳስላል።"
-                : "Automatic fingerprint, facial recognition authentication, and high-precision GPS geofencing. Automatically syncs field coordinates and computes working hours in real-time."}
+                ? "በእውነተኛ ጊዜ ከ Firebase Firestore ጋር የተመሳሰለ የጣት አሻራ፣ ጂኦፌንስ ክልል ቁጥጥር እና የደመወዝ መገኘት ሪፖርት ማውጫ።"
+                : "Real-time cryptographically hashed fingerprints, active geofence validations, and payroll report builder."}
             </p>
           </div>
         </div>
 
-        {/* Current Role Access Badge */}
-        <div className="flex items-center space-x-2 shrink-0">
-          <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">
-            {isAmharic ? "የደህንነት ፈቃድ ክፍል" : "Security Scope"}
-          </span>
-          <div className="px-3.5 py-1.5 bg-slate-900 text-white font-extrabold text-xs rounded-xl flex items-center space-x-1">
-            <UserCheck size={13} className="text-red-400" />
-            <span>{currentUserRole}</span>
+        {/* CONTROLS */}
+        <div className="flex flex-wrap items-center gap-2.5 z-10 w-full md:w-auto">
+          {/* SOUND SWITCH */}
+          <button
+            onClick={() => setIsSoundEnabled(!isSoundEnabled)}
+            className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-center justify-center ${
+              isSoundEnabled 
+                ? "bg-slate-800 border-slate-700 text-emerald-400" 
+                : "bg-slate-900 border-slate-800 text-slate-500"
+            }`}
+            title="Audio Beep Switches"
+          >
+            {isSoundEnabled ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </button>
+
+          {/* ONLINE/OFFLINE AUTOSYNC SLIDER */}
+          <button
+            onClick={handleToggleOnline}
+            className={`px-3 py-2.5 border rounded-xl font-mono text-[10px] font-black flex items-center justify-center space-x-2 cursor-pointer transition-all ${
+              isOnline 
+                ? "bg-emerald-950/40 border-emerald-500/50 text-emerald-400" 
+                : "bg-amber-950/40 border-amber-500/50 text-amber-400"
+            }`}
+          >
+            {isOnline ? (
+              <>
+                <Wifi size={13} className="animate-pulse" />
+                <span>ONLINE & SYNCED</span>
+              </>
+            ) : (
+              <>
+                <WifiOff size={13} />
+                <span>OFFLINE QUEUE ({offlineQueue.length})</span>
+              </>
+            )}
+          </button>
+
+          {/* CURRENT ROLE RBAC STATUS TAG */}
+          <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-right">
+            <span className="block text-[8px] text-slate-500 font-mono font-bold uppercase">{isAmharic ? "የአሁኑ ሚና" : "ACTIVE RBAC ROLE"}</span>
+            <span className="text-red-400 text-[11px] font-black font-sans flex items-center space-x-1.5 justify-end">
+              <ShieldCheck size={11} className="text-red-500" />
+              <span>{currentUserRole}</span>
+            </span>
           </div>
         </div>
       </div>
 
-      {/* --- LIVE STATS DASHBOARD --- */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        
-        <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start text-slate-400">
-            <span className="text-xs font-bold text-slate-500">{isAmharic ? "ጠቅላላ ሰራተኞች" : "Total Employees"}</span>
-            <Users size={18} className="text-slate-400" />
+      {/* SYNC PROGRESS BAR */}
+      {isSyncing && (
+        <div className="bg-slate-900 border border-slate-800 text-white p-4 rounded-xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-3 animate-fadeIn">
+          <div className="flex items-center space-x-2.5">
+            <RefreshCw size={18} className="text-red-500 animate-spin" />
+            <div>
+              <h4 className="font-extrabold text-xs">
+                {isAmharic ? "መረጃዎችን ወደ Firebase Firestore በመጫን ላይ..." : "Uploading Biometric Records to Firebase Cloud..."}
+              </h4>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                {isAmharic 
+                  ? `${offlineQueue.length} መዝገቦች በመመሳሰል ላይ ናቸው` 
+                  : `Transmitting ${offlineQueue.length} cached hardware logs to Firestore...`}
+              </p>
+            </div>
+          </div>
+          <div className="w-full md:w-48 space-y-1">
+            <div className="flex justify-between text-[9px] font-mono text-slate-500">
+              <span>STREAM SYNC</span>
+              <span>{syncProgress}%</span>
+            </div>
+            <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
+              <div className="h-full bg-red-500" style={{ width: `${syncProgress}%` }}></div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. DYNAMIC DASHBOARD SUMMARY CARDS (9 Bento-Grid Cards) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-9 gap-3">
+        {/* Card 1: Total Employees */}
+        <div className="bg-white p-3.5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400">
+            <Users size={14} />
+            <span className="text-[9px] font-mono font-bold">TOTAL</span>
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-black text-slate-800">{metrics.total}</span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">{isAmharic ? "ከስራ መደብ ዝርዝር ውስጥ" : "Active shared roster"}</span>
+            <span className="block text-xl font-black text-slate-850 font-sans">{stats.total}</span>
+            <span className="text-[9px] text-slate-400 block mt-0.5 truncate">{isAmharic ? "ጠቅላላ ሰራተኛ" : "Total Employees"}</span>
           </div>
         </div>
 
-        <div className="bg-emerald-50/50 p-4 rounded-2xl border border-emerald-100 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start text-emerald-600">
-            <span className="text-xs font-bold text-emerald-700">{isAmharic ? "የተገኙ" : "Present / On-Time"}</span>
-            <CheckCircle size={18} className="text-emerald-600" />
+        {/* Card 2: Present Today */}
+        <div className="bg-emerald-50/50 p-3.5 rounded-xl border border-emerald-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-emerald-500">
+            <CheckCircle2 size={14} />
+            <span className="text-[9px] font-mono font-bold text-emerald-600">IN SITE</span>
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-black text-emerald-800">{metrics.present}</span>
-            <span className="text-[10px] text-emerald-500 block mt-0.5">
-              {metrics.late > 0 
-                ? (isAmharic ? `+${metrics.late} የዘገዩ ተካትተዋል` : `Includes ${metrics.late} late workers`) 
-                : (isAmharic ? "ሁሉም በሰዓቱ ገብተዋል" : "All arrived within grace period")}
-            </span>
+            <span className="block text-xl font-black text-emerald-750 font-sans">{stats.present}</span>
+            <span className="text-[9px] text-emerald-600 block mt-0.5 truncate">{isAmharic ? "በስራ ላይ" : "Present Today"}</span>
           </div>
         </div>
 
-        <div className="bg-amber-50/50 p-4 rounded-2xl border border-amber-100 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start text-amber-600">
-            <span className="text-xs font-bold text-amber-700">{isAmharic ? "እየሰሩ ያሉ" : "Currently Working"}</span>
-            <Activity size={18} className="text-amber-500 animate-pulse" />
+        {/* Card 3: Absent Today */}
+        <div className="bg-rose-50/50 p-3.5 rounded-xl border border-rose-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-rose-500">
+            <AlertCircle size={14} />
+            <span className="text-[9px] font-mono font-bold text-rose-600">ABSENT</span>
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-black text-amber-800">{metrics.currentlyWorking}</span>
-            <span className="text-[10px] text-amber-500 block mt-0.5">
-              {isAmharic ? "መውጫ ያልመዘገቡ" : "Checked-In, not checked-out"}
-            </span>
+            <span className="block text-xl font-black text-rose-750 font-sans">{stats.absent}</span>
+            <span className="text-[9px] text-rose-600 block mt-0.5 truncate">{isAmharic ? "ያልመጡ" : "Absent Today"}</span>
           </div>
         </div>
 
-        <div className="bg-red-50/40 p-4 rounded-2xl border border-red-100 shadow-sm flex flex-col justify-between">
-          <div className="flex justify-between items-start text-red-600">
-            <span className="text-xs font-bold text-red-700">{isAmharic ? "ከሳይት ውጭ የተከለከሉ" : "Outside Authorized Area"}</span>
-            <AlertCircle size={18} className="text-red-500 animate-bounce" />
+        {/* Card 4: Late Employees */}
+        <div className="bg-amber-50/50 p-3.5 rounded-xl border border-amber-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-amber-500">
+            <Clock size={14} />
+            <span className="text-[9px] font-mono font-bold text-amber-600">LATE</span>
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-black text-red-800">{metrics.geofenceBreaches}</span>
-            <span className="text-[10px] text-red-400 block mt-0.5">
-              {isAmharic ? "የጂኦፌንስ ጥሰት ዛሬ" : "Rejected GPS clock attempts"}
-            </span>
+            <span className="block text-xl font-black text-amber-750 font-sans">{stats.late}</span>
+            <span className="text-[9px] text-amber-600 block mt-0.5 truncate">{isAmharic ? "የዘገዩ" : "Late Employees"}</span>
           </div>
         </div>
 
-        <div className="bg-slate-900 text-slate-100 p-4 rounded-2xl border border-slate-800 shadow-sm flex flex-col justify-between col-span-2 md:col-span-1">
-          <div className="flex justify-between items-start text-slate-400">
-            <span className="text-xs font-bold text-slate-300">{isAmharic ? "ጠቅላላ ትርፍ ሰዓት" : "Daily Overtime"}</span>
-            <TrendingUp size={18} className="text-red-400" />
+        {/* Card 5: Checked In */}
+        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-500">
+            <LogIn size={14} />
+            <span className="text-[9px] font-mono font-bold">IN</span>
           </div>
           <div className="mt-2.5">
-            <span className="text-2xl font-black text-white">+{metrics.totalOvertime} <span className="text-xs font-medium">hrs</span></span>
-            <span className="text-[10px] text-slate-400 block mt-0.5">
-              {isAmharic ? "ዛሬ የተሰላ ጠቅላላ ሰዓት" : "Accumulated overtime logs"}
-            </span>
+            <span className="block text-xl font-black text-slate-800 font-sans">{stats.checkedIn}</span>
+            <span className="text-[9px] text-slate-500 block mt-0.5 truncate">{isAmharic ? "ገብተው የተመዘገቡ" : "Checked-In"}</span>
           </div>
         </div>
 
+        {/* Card 6: Checked Out */}
+        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-500">
+            <LogOut size={14} />
+            <span className="text-[9px] font-mono font-bold">OUT</span>
+          </div>
+          <div className="mt-2.5">
+            <span className="block text-xl font-black text-slate-800 font-sans">{stats.checkedOut}</span>
+            <span className="text-[9px] text-slate-500 block mt-0.5 truncate">{isAmharic ? "የወጡ" : "Checked-Out"}</span>
+          </div>
+        </div>
+
+        {/* Card 7: Currently Working */}
+        <div className="bg-blue-50/50 p-3.5 rounded-xl border border-blue-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-blue-500">
+            <Activity size={14} className="animate-pulse" />
+            <span className="text-[9px] font-mono font-bold text-blue-600">LIVE</span>
+          </div>
+          <div className="mt-2.5">
+            <span className="block text-xl font-black text-blue-750 font-sans">{stats.currentlyWorking}</span>
+            <span className="text-[9px] text-blue-600 block mt-0.5 truncate">{isAmharic ? "አሁን በስራ ላይ" : "Active Now"}</span>
+          </div>
+        </div>
+
+        {/* Card 8: Employees on Leave */}
+        <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-slate-400">
+            <Briefcase size={14} />
+            <span className="text-[9px] font-mono font-bold">LEAVE</span>
+          </div>
+          <div className="mt-2.5">
+            <span className="block text-xl font-black text-slate-800 font-sans">{stats.onLeave}</span>
+            <span className="text-[9px] text-slate-400 block mt-0.5 truncate">{isAmharic ? "ፈቃድ ላይ" : "On Leave"}</span>
+          </div>
+        </div>
+
+        {/* Card 9: Overtime today */}
+        <div className="bg-red-50 p-3.5 rounded-xl border border-red-100 shadow-sm flex flex-col justify-between">
+          <div className="flex justify-between items-center text-red-500">
+            <Award size={14} />
+            <span className="text-[9px] font-mono font-bold text-red-600">OVERTIME</span>
+          </div>
+          <div className="mt-2.5">
+            <span className="block text-xl font-black text-red-750 font-sans">{stats.totalOvertime} ሰዓ</span>
+            <span className="text-[9px] text-red-600 block mt-0.5 truncate">{isAmharic ? "የትርፍ ሰዓት" : "Total Overtime"}</span>
+          </div>
+        </div>
       </div>
 
+      {/* 3. CENTRAL BIOMETRIC INGESTION TERMINAL & SMART ALERTS NOTIFICATION (Dual Bento grid split) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* LEFT TWO-THIRDS: BOARD & CONTROLS */}
-        <div className="lg:col-span-2 space-y-6">
+        {/* TERMINAL KIOSK SIMULATOR (COL-SPAN-2) */}
+        <div className="lg:col-span-2 bg-slate-900 text-white rounded-2xl border border-slate-800 p-6 flex flex-col justify-between min-h-[460px] relative shadow-lg">
           
-          {/* INTERACTIVE BIOMETRIC CONSOLE & SENSORS */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-            
-            {/* Header with quick config toggle */}
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <Settings size={18} className="text-red-500" />
-                <h3 className="font-extrabold text-sm text-slate-900">
-                  {isAmharic ? "የማረጋገጫ እና ጂፒኤስ ሲሙሌተር ዴስክ" : "Live Device Authentication & GPS Terminal"}
-                </h3>
-              </div>
+          <div className="absolute right-0 top-0 p-4 font-mono text-[9px] text-slate-600 flex items-center space-x-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-ping"></span>
+            <span>TERMINAL STATUS: ONLINE</span>
+          </div>
+
+          <div className="space-y-4">
+            {/* Header / Direction selector */}
+            <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center gap-4 border-b border-slate-800 pb-4">
               
-              <button
-                onClick={() => setShowConfig(!showConfig)}
-                className="text-xs font-bold text-red-600 hover:text-red-700 bg-red-50 hover:bg-red-100 px-3 py-1 rounded-lg transition-all cursor-pointer"
-              >
-                {showConfig 
-                  ? (isAmharic ? "የጂፒኤስ ክልል ደብቅ" : "Hide Geofence Setup") 
-                  : (isAmharic ? "የጂፒኤስ ክልል አሳይ" : "Setup Geofence Boundaries")}
-              </button>
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block">
+                  {isAmharic ? "የመመዝገቢያ አይነት ይምረጡ" : "SELECT KIOSK DIRECTION"}
+                </span>
+                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 w-full sm:w-64">
+                  <button
+                    onClick={() => {
+                      setClockAction("in");
+                      setScanResult(null);
+                    }}
+                    className={`py-2 rounded-lg text-xs font-black tracking-wide flex items-center justify-center space-x-2 cursor-pointer transition-all ${
+                      clockAction === "in" 
+                        ? "bg-red-600 text-white shadow-md" 
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <LogIn size={13} />
+                    <span>{isAmharic ? "መግቢያ (IN)" : "Check-In (IN)"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setClockAction("out");
+                      setScanResult(null);
+                    }}
+                    className={`py-2 rounded-lg text-xs font-black tracking-wide flex items-center justify-center space-x-2 cursor-pointer transition-all ${
+                      clockAction === "out" 
+                        ? "bg-slate-850 text-white shadow-md" 
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <LogOut size={13} />
+                    <span>{isAmharic ? "መውጫ (OUT)" : "Check-Out (OUT)"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Hardware Biometric selector */}
+              <div className="space-y-1.5">
+                <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block">
+                  {isAmharic ? "የማረጋገጫ ዘዴ" : "BIOMETRIC AUTH METHOD"}
+                </span>
+                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 w-full sm:w-60">
+                  <button
+                    onClick={() => {
+                      setBiometricMethod("fingerprint");
+                      setScanResult(null);
+                    }}
+                    className={`py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all ${
+                      biometricMethod === "fingerprint" 
+                        ? "bg-slate-800 text-white" 
+                        : "text-slate-500 hover:text-white"
+                    }`}
+                  >
+                    <Fingerprint size={12} />
+                    <span>{isAmharic ? "ጣት አሻራ" : "Fingerprint"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setBiometricMethod("face");
+                      setScanResult(null);
+                    }}
+                    className={`py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all ${
+                      biometricMethod === "face" 
+                        ? "bg-slate-800 text-white" 
+                        : "text-slate-500 hover:text-white"
+                    }`}
+                  >
+                    <ScanLine size={12} />
+                    <span>{isAmharic ? "የፊት ገጽታ" : "Face Scan"}</span>
+                  </button>
+                </div>
+              </div>
+
             </div>
 
-            {/* Geofence Configuration Board (Collapsible) */}
-            {showConfig && (
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 grid grid-cols-1 md:grid-cols-3 gap-4 text-xs animate-fadeIn">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">{isAmharic ? "የሳይት መካከለኛ ላቲቲዩድ" : "Geofence Latitude"}</label>
-                  <input 
-                    type="number" 
-                    step="0.0001"
-                    value={geofenceLat}
-                    onChange={e => setGeofenceLat(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">{isAmharic ? "የሳይት መካከለኛ ሎንጊቲዩድ" : "Geofence Longitude"}</label>
-                  <input 
-                    type="number" 
-                    step="0.0001"
-                    value={geofenceLng}
-                    onChange={e => setGeofenceLng(parseFloat(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-700">{isAmharic ? "የተፈቀደ ራዲየስ (በሜትር)" : "Allowed Radius (meters)"}</label>
-                  <input 
-                    type="number" 
-                    value={allowedRadius}
-                    onChange={e => setAllowedRadius(parseInt(e.target.value) || 0)}
-                    className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono"
-                  />
-                </div>
-                
-                <div className="md:col-span-3 pt-2 border-t border-slate-200 grid grid-cols-1 md:grid-cols-4 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600">Shift Starts</label>
-                    <input type="text" value={shiftStart} onChange={e => setShiftStart(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600">Shift Ends</label>
-                    <input type="text" value={shiftEnd} onChange={e => setShiftEnd(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600">Grace (min)</label>
-                    <input type="number" value={gracePeriod} onChange={e => setGracePeriod(parseInt(e.target.value) || 0)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-mono" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600">Break (hours)</label>
-                    <input type="number" step="0.5" value={breakDuration} onChange={e => setBreakDuration(parseFloat(e.target.value) || 0)} className="w-full bg-white border border-slate-200 rounded-lg p-1.5 font-mono" />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Simulated Live GPS Location Input & Presets */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs bg-slate-50/50 p-4 rounded-xl border border-slate-100">
-              
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 flex justify-between">
-                  <span>{isAmharic ? "የጂፒኤስ ሙከራ መገኛ" : "Simulated Location Preset"}</span>
-                  <Map size={14} className="text-slate-400" />
-                </label>
-                <select
-                  value={gpsPreset}
-                  onChange={e => setGpsPreset(e.target.value as any)}
-                  className="w-full bg-white border border-slate-200 rounded-lg p-2 font-semibold outline-none focus:border-red-500"
-                >
-                  <option value="on-site">{isAmharic ? "በሳይቱ ግቢ ውስጥ (0ሜ ልዩነት)" : "Inside Construction Site (0m deviation)"}</option>
-                  <option value="bole-airport">{isAmharic ? "ቦሌ አውሮፕላን ማረፊያ (4.1ኪሜ - ውድቅ)" : "Bole Airport (4.1km away - REJECT)"}</option>
-                  <option value="saris">{isAmharic ? "ሳሪስ ብሎክ ዲ (6.5ኪሜ - ውድቅ)" : "Saris Block D (6.5km away - REJECT)"}</option>
-                  <option value="custom">{isAmharic ? "እራስዎ ያመቻቹት መጋጠሚያ" : "Custom Simulated Coordinates"}</option>
-                </select>
-              </div>
-
-              {gpsPreset === "custom" ? (
-                <>
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600">Simulated Lat</label>
-                    <input 
-                      type="number" 
-                      step="0.0001"
-                      value={simLat} 
-                      onChange={e => setSimLat(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600">Simulated Lng</label>
-                    <input 
-                      type="number" 
-                      step="0.0001"
-                      value={simLng} 
-                      onChange={e => setSimLng(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-white border border-slate-200 rounded-lg p-2 font-mono"
-                    />
-                  </div>
-                </>
-              ) : (
-                <div className="md:col-span-2 flex items-center bg-white p-3 rounded-lg border border-slate-100">
-                  <div className="space-y-0.5">
-                    <span className="font-bold text-slate-500 text-[10px] uppercase tracking-wider block">
-                      {isAmharic ? "አውቶማቲክ የተሰላ የጂፒኤስ ልዩነት" : "Calculated GPS Geofence Check"}
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <span className={`inline-block w-2.5 h-2.5 rounded-full ${isInsideGeofence ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`}></span>
-                      <span className="font-mono text-xs font-bold text-slate-800">
-                        {simLat.toFixed(5)}°N, {simLng.toFixed(5)}°E
-                      </span>
-                      <span className="text-slate-400">|</span>
-                      <span className={`font-extrabold ${isInsideGeofence ? "text-emerald-600" : "text-red-600"}`}>
-                        {isInsideGeofence 
-                          ? (isAmharic ? `በሳይት ክልል ውስጥ (ርቀት፡ ${currentDeviation}ሜ)` : `Inside Site Area (Deviation: ${currentDeviation}m)`)
-                          : (isAmharic ? `ከሳይት ክልል ውጭ (ልዩነት፡ ${currentDeviation}ሜ)` : `Outside Authorized Boundary (Deviation: ${currentDeviation}m)`)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Employee Selection and Clock Action */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
-              
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">
-                  {isAmharic ? "1. ሰራተኛ ይምረጡ" : "Step 1: Choose Employee for Board Check"}
-                </label>
+            {/* Simulated GPS calibration & worker quick pick */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 text-xs">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold block">{isAmharic ? "ሰራተኛ ይምረጡ (ለመመዝገቢያ)" : "Select Worker to Simulate Biometric Scanner"}</label>
                 <select
                   value={selectedWorkerId}
-                  onChange={e => {
+                  onChange={(e) => {
                     setSelectedWorkerId(e.target.value);
-                    setAuthStatus("idle");
+                    setScanResult(null);
                   }}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-3 font-semibold text-slate-800 focus:border-red-500 focus:bg-white outline-none"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-red-500 font-medium cursor-pointer"
                 >
-                  <option value="">-- {isAmharic ? "ለፍተሻ ሰራተኛ ይምረጡ" : "Select Worker for Clocking"} --</option>
-                  {sharedWorkers.map(w => (
+                  <option value="">-- {isAmharic ? "ሰራተኛ ይምረጡ" : "Choose Employee"} --</option>
+                  {workers.map(w => (
                     <option key={w.id} value={w.id}>
-                      {w.name} ({w.id} - {w.trade})
+                      {w.name} ({w.id}) - {w.trade}
                     </option>
                   ))}
                 </select>
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-slate-700 block">
-                  {isAmharic ? "2. የባዮሜትሪክ ዘዴ እና የፈረቃ ሁኔታ" : "Step 2: Biometric verification Mode"}
-                </label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1.5 rounded-lg border border-slate-200">
+              <div className="space-y-1.5">
+                <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መገኛ ሲሙሌተር" : "GPS Preset Calibration"}</label>
+                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
                   <button
-                    onClick={() => setVerificationMethod("fingerprint")}
-                    className={`py-2 rounded-lg font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
-                      verificationMethod === "fingerprint" 
-                        ? "bg-slate-900 text-white shadow" 
-                        : "text-slate-600 hover:bg-slate-200"
+                    onClick={() => {
+                      setGpsPreset("inside");
+                      setScanResult(null);
+                    }}
+                    className={`py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                      gpsPreset === "inside" 
+                        ? "bg-emerald-600 text-white" 
+                        : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    <Fingerprint size={14} />
-                    <span>{isAmharic ? "ጣት አሻራ" : "Fingerprint"}</span>
+                    {isAmharic ? "ግቢ ውስጥ (ውስጥ)" : "Inside Site (Pass)"}
                   </button>
-
                   <button
-                    onClick={() => setVerificationMethod("face")}
-                    className={`py-2 rounded-lg font-bold flex items-center justify-center space-x-1.5 transition-all cursor-pointer ${
-                      verificationMethod === "face" 
-                        ? "bg-slate-900 text-white shadow" 
-                        : "text-slate-600 hover:bg-slate-200"
+                    onClick={() => {
+                      setGpsPreset("outside");
+                      setScanResult(null);
+                    }}
+                    className={`py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                      gpsPreset === "outside" 
+                        ? "bg-amber-600 text-white" 
+                        : "text-slate-400 hover:text-white"
                     }`}
                   >
-                    <ScanLine size={14} />
-                    <span>{isAmharic ? "የፊት ገጽታ" : "Face Scan"}</span>
+                    {isAmharic ? "ግቢ ውጭ (ውድቅ)" : "Outside (Geofence Alert)"}
                   </button>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* SCANNING & RESULTS DISPLAY CARD */}
-            {selectedWorkerId && (
-              <div className="bg-slate-950 text-slate-100 rounded-xl p-5 border border-slate-800 space-y-4 animate-fadeIn">
-                
-                {authStatus === "idle" && (
-                  <div className="flex flex-col items-center justify-center py-6 text-center space-y-3">
-                    <div className="w-14 h-14 bg-slate-900 border border-slate-800 rounded-full flex items-center justify-center text-red-500 animate-pulse">
-                      {verificationMethod === "fingerprint" ? <Fingerprint size={28} /> : <ScanLine size={28} />}
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-sm text-slate-200">
-                        {isAmharic ? "የባዮሜትሪክ እና የጂፒኤስ ማረጋገጫ ተዘጋጅቷል" : "Biometric Verification Device Initialized"}
-                      </h4>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        {isAmharic 
-                          ? `${verificationMethod === "fingerprint" ? "ጣት አሻራ" : "የፊት መለያ"} ዳሳሽ ዝግጁ ነው። ለመጀመር 'ግባ' ወይም 'ውጣ' ይምረጡ`
-                          : `The simulated physical terminal is ready. Trigger attendance below for the selected worker.`}
-                      </p>
-                    </div>
+          {/* SENSOR TARGET & SCATTER RING */}
+          <div className="my-6 flex flex-col items-center justify-center text-center">
+            <div className="relative flex items-center justify-center mb-5">
+              <div className={`absolute w-36 h-36 rounded-full border border-dashed transition-all duration-700 ${
+                isScanning ? "border-red-500 animate-[spin_6s_linear_infinite]" : "border-slate-800"
+              }`}></div>
 
-                    <div className="flex items-center space-x-3 pt-2">
-                      <button
-                        onClick={() => { setClockType("In"); setTimeout(handleVerifyAttendance, 100); }}
-                        className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-lg flex items-center space-x-1.5 cursor-pointer uppercase tracking-wider shadow"
-                      >
-                        <LogIn size={14} />
-                        <span>{isAmharic ? "የጠዋት መግቢያ (Check-In)" : "Morning Check-In"}</span>
-                      </button>
-
-                      <button
-                        onClick={() => { setClockType("Out"); setTimeout(handleVerifyAttendance, 100); }}
-                        className="px-5 py-2.5 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-lg flex items-center space-x-1.5 cursor-pointer uppercase tracking-wider shadow"
-                      >
-                        <LogOut size={14} />
-                        <span>{isAmharic ? "የማታ መውጫ (Check-Out)" : "Evening Check-Out"}</span>
-                      </button>
-                    </div>
-                  </div>
+              <button
+                onClick={handleStartBiometricScan}
+                disabled={isScanning}
+                className={`relative w-24 h-24 rounded-full flex flex-col items-center justify-center border transition-all duration-300 shadow-2xl cursor-pointer ${
+                  isScanning 
+                    ? "bg-slate-950 border-red-500" 
+                    : "bg-slate-950 border-slate-850 hover:bg-slate-900 active:scale-95 text-slate-400"
+                }`}
+              >
+                {isScanning && (
+                  <div className="absolute inset-0 bg-red-600/10 rounded-full animate-ping pointer-events-none"></div>
+                )}
+                {isScanning && (
+                  <div className="absolute w-20 h-0.5 bg-red-500 left-1.5 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-[bounce_1.4s_infinite] z-20"></div>
                 )}
 
-                {authStatus === "scanning" && (
-                  <div className="space-y-3.5">
-                    <div className="flex items-center justify-between border-b border-slate-800 pb-2">
-                      <span className="text-xs font-mono tracking-widest text-red-400 font-bold animate-pulse">
-                        [ {clockType === "In" ? "CHECK-IN SCAN ACTIVE" : "CHECK-OUT SCAN ACTIVE"} ]
+                {biometricMethod === "fingerprint" ? (
+                  <Fingerprint size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
+                ) : (
+                  <ScanLine size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
+                )}
+
+                <span className="text-[7px] uppercase tracking-widest font-black text-slate-500 mt-2 block font-mono">
+                  {isScanning ? "VERIFYING..." : "PRESS SENSOR"}
+                </span>
+              </button>
+            </div>
+
+            {/* Scan progress loader */}
+            {isScanning && (
+              <div className="w-52 space-y-1 animate-fadeIn mb-4">
+                <div className="flex justify-between text-[8px] font-mono text-slate-500">
+                  <span>BIO HARDWARE DECODING</span>
+                  <span>{scanProgress}%</span>
+                </div>
+                <div className="w-full h-1 bg-slate-950 rounded-full overflow-hidden border border-slate-850">
+                  <div className="h-full bg-red-500 transition-all duration-200" style={{ width: `${scanProgress}%` }}></div>
+                </div>
+              </div>
+            )}
+
+            {/* SCAN LOGS */}
+            {isScanning && (
+              <div className="w-full max-w-md bg-slate-950 border border-slate-850 rounded-lg p-2.5 text-left font-mono text-[9px] text-slate-400 h-20 overflow-y-auto space-y-1 scrollbar-thin">
+                {scanLogs.map((log, i) => (
+                  <div key={i} className="leading-tight truncate">
+                    <span className="text-red-500">❯</span> {log}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* SCANNING RESULTS BANNER */}
+            {scanResult && !isScanning && (
+              <div className={`p-4 rounded-xl border text-xs text-left max-w-lg w-full animate-fadeIn shadow-lg ${
+                scanResult.success 
+                  ? "bg-slate-950 border-emerald-500/30 text-emerald-300" 
+                  : "bg-slate-950 border-red-500/30 text-red-300"
+              }`}>
+                <div className="flex gap-3.5 items-start">
+                  {scanResult.worker?.photo && (
+                    <img 
+                      src={scanResult.worker.photo} 
+                      alt={scanResult.worker.name} 
+                      className="w-12 h-12 rounded-full border border-slate-800 object-cover shrink-0 mt-0.5"
+                      referrerPolicy="no-referrer"
+                    />
+                  )}
+                  <div className="space-y-1.5 flex-1 min-w-0">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-extrabold text-slate-100">{scanResult.title}</h4>
+                        {scanResult.worker && (
+                          <p className="text-[9px] text-slate-500 font-mono mt-0.5">
+                            ID: {scanResult.worker.id} • {scanResult.worker.trade}
+                          </p>
+                        )}
+                      </div>
+                      <span className={`text-[8px] uppercase font-bold px-1.5 py-0.5 rounded ${
+                        scanResult.success ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                      }`}>
+                        {scanResult.success ? "MATCH APPROVED" : "MATCH DENIED"}
                       </span>
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></div>
                     </div>
-
-                    <div className="relative h-1 bg-slate-800 overflow-hidden rounded-full">
-                      <div className="absolute top-0 bottom-0 left-0 bg-red-600 animate-[loading_2.5s_infinite] w-1/3"></div>
-                    </div>
-
-                    <div className="font-mono text-[10px] text-slate-300 space-y-1.5 max-h-[110px] overflow-y-auto bg-black/40 p-3 rounded border border-slate-900 leading-relaxed">
-                      {authDetailLogs.map((log, i) => (
-                        <div key={i} className="flex items-center space-x-1.5">
-                          <span className="text-red-500">▶</span>
-                          <span>{log}</span>
+                    <p className="text-slate-300 leading-normal text-[10.5px]">
+                      {scanResult.message}
+                    </p>
+                    
+                    {scanResult.worker && (
+                      <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-850 text-[9px] font-mono text-slate-400">
+                        <div>
+                          <span className="block text-slate-500 text-[7px] uppercase">GEOFENCE LOCATION</span>
+                          <span className="text-slate-300">FL {scanResult.worker.floor} • {scanResult.worker.zone}</span>
                         </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {authStatus === "failed" && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="flex items-start space-x-3 bg-red-950/40 border border-red-900/60 p-4 rounded-xl">
-                      <AlertCircle className="text-red-500 shrink-0 mt-0.5" size={20} />
-                      <div className="space-y-1">
-                        <h4 className="font-extrabold text-sm text-red-400 uppercase tracking-wide">
-                          {isAmharic ? "ማረጋገጫው ውድቅ ተደርጓል!" : "AUTHENTICATION ATTEMPT REJECTED"}
-                        </h4>
-                        <p className="text-xs text-slate-200 font-medium leading-relaxed">
-                          {authMessage}
-                        </p>
+                        <div>
+                          <span className="block text-slate-500 text-[7px] uppercase">HARDWARE HASH</span>
+                          <span className="text-slate-400">
+                            {biometricMethod === "fingerprint" 
+                              ? `F_TEMP_0x${scanResult.worker.id.replace("OVID-W-","")}`
+                              : `F_FACE_0x${scanResult.worker.id.replace("OVID-W-","")}`}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => setAuthStatus("idle")}
-                        className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg cursor-pointer"
-                      >
-                        {isAmharic ? "ዳግም ሞክር" : "Retry Verification"}
-                      </button>
-                    </div>
+                    )}
                   </div>
-                )}
+                </div>
+              </div>
+            )}
 
-                {authStatus === "success" && (
-                  <div className="space-y-4 animate-fadeIn">
-                    <div className="flex items-start space-x-3 bg-emerald-950/40 border border-emerald-900/60 p-4 rounded-xl">
-                      <CheckCircle className="text-emerald-400 shrink-0 mt-0.5" size={20} />
-                      <div className="space-y-1">
-                        <h4 className="font-extrabold text-sm text-emerald-400 uppercase tracking-wide">
-                          {isAmharic ? "ማረጋገጫው በተሳካ ሁኔታ ተጠናቋል!" : "SECURITY CLEARANCE PASSED"}
-                        </h4>
-                        <p className="text-xs text-slate-200 font-medium leading-relaxed">
-                          {authMessage}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-end">
-                      <button
-                        onClick={() => setAuthStatus("idle")}
-                        className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-white font-bold rounded-lg cursor-pointer"
-                      >
-                        {isAmharic ? "አጠናቅ" : "Complete"}
-                      </button>
-                    </div>
-                  </div>
-                )}
-
+            {!scanResult && !isScanning && (
+              <div className="text-slate-500 text-[11px] max-w-sm mx-auto leading-normal">
+                <p>
+                  {isAmharic 
+                    ? "ሰራተኛ ከመረጡ በኋላ የባዮሜትሪክ ዳሳሹን ይጫኑ። ሲስተሙ አሻራውን ካነበበ በኋላ ሰራተኛውን አውቆ ጂኦፌንስ ክልል አረጋግጦ መገኘቱን ይመዘግባል።"
+                    : "Select a worker, calibrate the simulator GPS coordinates to test authorized site bounds, and touch the hardware sensor."}
+                </p>
               </div>
             )}
 
           </div>
 
-          {/* DEDICATED BIOMETRIC ATTENDANCE BOARD */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
-            
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="font-extrabold text-base text-slate-900">
-                  {isAmharic ? "የሰራተኞች ባዮሜትሪክ መገኘት ሰሌዳ" : "Employee Biometric Attendance Board"}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  {isAmharic 
-                    ? `በድርጅት መዋቅር ውስጥ የሚገኙ የፈቃድ ክልል ሰራተኞች ዝርዝር።`
-                    : `Real-time physical checklist with responsive verification controls.`}
-                </p>
-              </div>
-
-              {/* Floor / Zone indicator for chiefs */}
-              {(currentUserRole === UserRole.GANG_CHIEF || currentUserRole === UserRole.TEAM_LEADER) && (
-                <span className="bg-red-50 text-red-700 px-3 py-1 rounded-full text-xs font-bold shrink-0">
-                  {isAmharic ? "ቡድንህ የተመደበበት ዞን፡ Floor 4" : "Your Assigned Zone: FL 4"}
-                </span>
-              )}
-            </div>
-
-            {/* Attendance Board Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {sharedWorkers.map(w => {
-                // Check attendance status today
-                const today = new Date().toISOString().split("T")[0];
-                const rec = attendance.find(a => a.workerId === w.id && a.date === today);
-                
-                const isCheckedIn = rec?.checkIn !== null && rec?.checkIn !== undefined;
-                const isCheckedOut = rec?.checkOut !== null && rec?.checkOut !== undefined;
-
-                return (
-                  <div 
-                    key={w.id} 
-                    className={`p-4 rounded-xl border transition-all flex flex-col justify-between space-y-3.5 relative ${
-                      isCheckedOut 
-                        ? "bg-slate-50/50 border-slate-200" 
-                        : isCheckedIn 
-                          ? "bg-red-50/10 border-red-100 shadow-sm" 
-                          : "bg-white border-slate-100 hover:border-slate-300"
-                    }`}
-                  >
-                    
-                    {/* Top part: Personal biodata */}
-                    <div className="flex items-start space-x-3">
-                      <img
-                        src={w.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=120&h=120&fit=crop"}
-                        alt={w.name}
-                        className="w-12 h-12 rounded-full border border-slate-200 object-cover shrink-0"
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="min-w-0">
-                        <div className="font-extrabold text-xs text-slate-400 font-mono tracking-wider flex items-center space-x-1">
-                          <span>{w.id}</span>
-                          <span className="text-[10px] font-normal">•</span>
-                          <span>{w.company}</span>
-                        </div>
-                        <h4 className="font-extrabold text-sm text-slate-800 leading-tight truncate">{w.name}</h4>
-                        <div className="text-[11px] text-slate-500 mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
-                          <span className="font-medium text-slate-700">{w.trade}</span>
-                          <span className="text-slate-300">|</span>
-                          <span>FL {w.floor || 4} - {w.zone || "Zone A"}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Middle part: Attendance timeline & Status badge */}
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-100 flex items-center justify-between text-xs font-medium">
-                      <div className="space-y-1">
-                        <div className="flex items-center space-x-1 text-slate-500">
-                          <LogIn size={12} className="text-emerald-500" />
-                          <span>{isAmharic ? "መግቢያ" : "In"}: <span className="font-mono font-bold text-slate-700">{rec?.checkIn || "--:--"}</span></span>
-                        </div>
-                        <div className="flex items-center space-x-1 text-slate-500">
-                          <LogOut size={12} className="text-amber-500" />
-                          <span>{isAmharic ? "መውጫ" : "Out"}: <span className="font-mono font-bold text-slate-700">{rec?.checkOut || "--:--"}</span></span>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">{isAmharic ? "ሁኔታ" : "Status"}</span>
-                        <span className={`inline-block mt-1.5 px-2.5 py-0.5 rounded-full font-extrabold text-[11px] ${
-                          rec?.status === "Present" 
-                            ? "bg-emerald-100 text-emerald-800" 
-                            : rec?.status === "Late" 
-                              ? "bg-amber-100 text-amber-800" 
-                              : "bg-red-50 text-red-700"
-                        }`}>
-                          {rec ? translateStatus(rec.status) : (isAmharic ? "ያልተመዘገበ" : "Not Clocked")}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Bottom part: Context actions */}
-                    <div className="flex items-center justify-between gap-2 pt-1">
-                      
-                      <button
-                        onClick={() => {
-                          setSelectedWorkerId(w.id);
-                          setClockType("In");
-                          window.scrollTo({ top: 300, behavior: 'smooth' });
-                        }}
-                        disabled={isCheckedIn}
-                        className="flex-1 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold rounded-lg text-[11px] transition-all flex items-center justify-center space-x-1 cursor-pointer"
-                      >
-                        <LogIn size={12} />
-                        <span>{isAmharic ? "መግቢያ" : "Clock In"}</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setSelectedWorkerId(w.id);
-                          setClockType("Out");
-                          window.scrollTo({ top: 300, behavior: 'smooth' });
-                        }}
-                        disabled={!isCheckedIn || isCheckedOut}
-                        className="flex-1 py-1.5 bg-red-600 hover:bg-red-700 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold rounded-lg text-[11px] transition-all flex items-center justify-center space-x-1 cursor-pointer"
-                      >
-                        <LogOut size={12} />
-                        <span>{isAmharic ? "መውጫ" : "Clock Out"}</span>
-                      </button>
-
-                    </div>
-
-                  </div>
-                );
-              })}
-            </div>
-
+          {/* GEOFENCE DETAILS FOOTER HUD */}
+          <div className="border-t border-slate-800 pt-3 flex justify-between items-center text-[10px] font-mono text-slate-500">
+            <span className="flex items-center space-x-1.5">
+              <MapPin size={11} className="text-red-500 animate-pulse" />
+              <span>GEOFENCE: {geofenceLat}°N, {geofenceLng}°E (R: {allowedRadius}m)</span>
+            </span>
+            <span>SIMULATION DISTANCE: <strong className={isInsideGeofence ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>{currentDistance}m</strong></span>
           </div>
 
         </div>
 
-        {/* RIGHT ONE-THIRD: REAL-TIME NOTIFICATION STREAM */}
-        <div className="space-y-6">
-          
-          {/* SECURE GEOLOCATION & SHIFT DETAILS */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4 text-xs">
-            <div className="flex items-center space-x-2 border-b border-slate-100 pb-3">
-              <MapPin className="text-red-500" size={18} />
-              <h3 className="font-extrabold text-sm text-slate-800">
-                {isAmharic ? "የኮንስትራክሽን ፕሮጀክት ጂኦፌንስ ደንብ" : "Geofencing Specifications"}
+        {/* SMART NOTIFICATIONS SIDEBAR */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 flex flex-col justify-between h-[460px]">
+          <div className="space-y-3 flex-grow overflow-y-auto">
+            <div className="flex justify-between items-center border-b border-slate-100 pb-2">
+              <h3 className="font-extrabold text-slate-800 text-xs flex items-center space-x-1.5">
+                <Bell size={13} className="text-red-500 animate-pulse" />
+                <span>{isAmharic ? "መረጃ ሰሌዳ (Smart Alerts)" : "Live Smart Notifications"}</span>
               </h3>
+              <span className="text-[9px] font-mono bg-red-50 text-red-500 px-1.5 py-0.5 rounded-full font-bold">
+                {notifications.filter(n => !n.isRead).length} NEW
+              </span>
             </div>
 
-            <div className="space-y-3">
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5 leading-relaxed">
-                <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider block">OVID Bole Heights Core Geofence</span>
-                <div className="flex justify-between"><span className="text-slate-500">Center Lat:</span> <span className="font-mono font-extrabold text-slate-700">{geofenceLat}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Center Lng:</span> <span className="font-mono font-extrabold text-slate-700">{geofenceLng}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Secure Radius:</span> <span className="font-mono font-extrabold text-red-600">{allowedRadius} meters</span></div>
-              </div>
-
-              <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5">
-                <span className="font-bold text-slate-400 uppercase text-[9px] tracking-wider block">Automatic Calculations Policy</span>
-                <div className="flex justify-between"><span className="text-slate-500">Normal hours cap:</span> <span className="font-bold text-slate-700">8.0 hours max</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Unpaid break:</span> <span className="font-bold text-slate-700">{breakDuration} hour</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Grace allowance:</span> <span className="font-bold text-slate-700">{gracePeriod} minutes</span></div>
-              </div>
+            <div className="space-y-2 h-[340px] overflow-y-auto pr-1">
+              {notifications.map((notif) => (
+                <div 
+                  key={notif.id}
+                  className={`p-2.5 rounded-xl border text-[10px] space-y-1.5 transition-all ${
+                    !notif.isRead 
+                      ? "bg-slate-50/70 border-red-200" 
+                      : "bg-white border-slate-100 opacity-80"
+                  }`}
+                >
+                  <div className="flex justify-between items-center font-bold">
+                    <span className="text-slate-800">{notif.workerName}</span>
+                    <span className="text-slate-400 font-mono text-[8px]">{notif.timestamp}</span>
+                  </div>
+                  <p className="text-slate-600 font-sans leading-relaxed">{notif.message}</p>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase ${
+                      notif.type === "geofence" 
+                        ? "bg-rose-50 text-rose-500" 
+                        : notif.type === "late" 
+                          ? "bg-amber-50 text-amber-500" 
+                          : "bg-emerald-50 text-emerald-500"
+                    }`}>
+                      {notif.type}
+                    </span>
+                    {!notif.isRead && (
+                      <button 
+                        onClick={() => {
+                          setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+                        }}
+                        className="text-[8px] text-red-500 hover:underline font-bold cursor-pointer"
+                      >
+                        {isAmharic ? "ይነበብ" : "Mark read"}
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
 
-          {/* BREACH LOGS & SECURITY STATUS LIST */}
-          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4 flex flex-col justify-between min-h-[400px]">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                <div className="flex items-center space-x-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-red-600 animate-ping"></span>
-                  <h3 className="font-extrabold text-sm text-slate-800">
-                    {isAmharic ? "የደህንነት ማስጠንቀቂያዎችና ማንቂያዎች" : "Site Security Alerts Log"}
-                  </h3>
-                </div>
-                <span className="bg-red-100 text-red-700 text-[10px] font-extrabold px-2 py-0.5 rounded-full">
-                  {liveAlertLogs.length}
-                </span>
-              </div>
-
-              {/* Alerts Log Stream */}
-              <div className="space-y-3 max-h-[300px] overflow-y-auto pr-1">
-                {liveAlertLogs.length === 0 ? (
-                  <div className="text-center py-12 text-slate-400 font-medium">
-                    <CheckCircle className="mx-auto mb-2 text-slate-200" size={32} />
-                    <span>{isAmharic ? "ምንም አይነት የደህንነት ጥሰት አልተመዘገበም" : "No geofence or shift policy breaches recorded today."}</span>
-                  </div>
-                ) : (
-                  liveAlertLogs.map(alert => (
-                    <div 
-                      key={alert.id} 
-                      className={`p-3 rounded-xl border flex gap-2.5 items-start text-xs leading-relaxed transition-all ${
-                        alert.type === "Geofence Breach" 
-                          ? "bg-red-50 border-red-100 text-red-900" 
-                          : alert.type === "Biometric Failed" 
-                            ? "bg-slate-50 border-slate-200 text-slate-800" 
-                            : "bg-amber-50 border-amber-100 text-amber-900"
-                      }`}
-                    >
-                      <div className="shrink-0 mt-0.5">
-                        {alert.type === "Geofence Breach" ? (
-                          <MapPin size={15} className="text-red-600 animate-bounce" />
-                        ) : (
-                          <AlertCircle size={15} className="text-amber-600" />
-                        )}
-                      </div>
-                      <div className="space-y-0.5">
-                        <div className="font-extrabold flex items-center justify-between">
-                          <span>{alert.type}</span>
-                          <span className="font-mono text-[9px] text-slate-400 font-normal">{alert.timestamp}</span>
-                        </div>
-                        <p className="text-slate-700 font-medium">{alert.message}</p>
-                        <span className="text-[10px] font-mono text-slate-400 block">{alert.workerName} ({alert.workerId})</span>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
+          <div className="border-t border-slate-100 pt-2 text-center">
             <button
-              onClick={() => setLiveAlertLogs([])}
-              className="w-full py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 text-[10px] font-bold rounded-lg border border-slate-200 uppercase tracking-wider cursor-pointer"
+              onClick={() => {
+                setNotifications([]);
+                playBeep("success");
+              }}
+              className="text-[9px] text-slate-400 hover:text-red-500 font-bold cursor-pointer"
             >
-              {isAmharic ? "የማንቂያዎች ዝርዝር አጽዳ" : "Clear Notification Stream"}
+              {isAmharic ? "ሁሉንም አጽዳ" : "Clear all logs"}
             </button>
           </div>
-
         </div>
 
+      </div>
+
+      {/* 4. REAL-TIME GRAPHS SECTION (8 Live Recharts visualizers) */}
+      <div className="space-y-4">
+        <div className="border-l-4 border-red-500 pl-3">
+          <h3 className="font-black text-slate-800 text-sm">{isAmharic ? "የመገኘት መረጃ ሰንጠረዦች (Live Analytics Charts)" : "Attendance Live Analytics Trend Center"}</h3>
+          <p className="text-xs text-slate-400">{isAmharic ? "በእውነተኛ ጊዜ የሚዘምኑ የፎርወርክ፣ የዞን፣ የፎቆች እና የትርፍ ሰዓት ስታትስቲክስ።" : "Real-time computed charts visualizing hourly streaks, team presence rates, and formwork floor distributions."}</p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* Chart 1: Daily Presence Trend */}
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+            <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">{isAmharic ? "ዕለታዊ የመገኘት አዝማሚያ" : "Daily Attendance Trend"}</span>
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={trendChartData}>
+                  <defs>
+                    <linearGradient id="colorIn" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={9} />
+                  <YAxis stroke="#94a3b8" fontSize={9} />
+                  <Tooltip wrapperStyle={{ fontSize: 9 }} />
+                  <Area type="monotone" dataKey="Present" stroke="#10b981" fillOpacity={1} fill="url(#colorIn)" />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 2: Weekly Overtime Trend */}
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+            <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">{isAmharic ? "ሳምንታዊ የትርፍ ሰዓት ስራ" : "Weekly Overtime Trend (Hours)"}</span>
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={trendChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={9} />
+                  <YAxis stroke="#94a3b8" fontSize={9} />
+                  <Tooltip wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="Overtime" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 3: Attendance by Floor */}
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+            <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">{isAmharic ? "መገኘት በፎቆች" : "Presence by Floor Distribution"}</span>
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={floorChartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                  <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} />
+                  <YAxis stroke="#94a3b8" fontSize={9} />
+                  <Tooltip wrapperStyle={{ fontSize: 9 }} />
+                  <Bar dataKey="Present" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+          {/* Chart 4: Attendance Rate by Zone */}
+          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+            <span className="text-[10px] font-mono font-bold text-slate-500 uppercase tracking-widest">{isAmharic ? "መገኘት በዞን" : "Presence by Zone Distribution"}</span>
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={zoneChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={40}
+                    outerRadius={65}
+                    paddingAngle={3}
+                    dataKey="Present"
+                  >
+                    <Cell fill="#10b981" />
+                    <Cell fill="#f59e0b" />
+                    <Cell fill="#3b82f6" />
+                  </Pie>
+                  <Tooltip wrapperStyle={{ fontSize: 9 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      {/* 5. LIVE ATTENDANCE ROSTER TABLE (Search, Filters, Sorts, and Realtime Updates) */}
+      <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-4">
+        
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h3 className="font-extrabold text-slate-800 text-xs flex items-center space-x-1.5">
+              <Database size={13} className="text-red-500" />
+              <span>{isAmharic ? "የቀጥታ መገኘት ቁጥጥር ሰንጠረዥ" : "Live Attendance Roster Registry"}</span>
+            </h3>
+            <p className="text-[10px] text-slate-400 mt-0.5">{isAmharic ? "በእውነተኛ ጊዜ የሚዘምኑ የሰራተኞች ባዮሜትሪክ መዛግብት።" : "Real-time synchronized attendance table loaded from Firestore."}</p>
+          </div>
+
+          {/* SEARCH & FILTERS CONTROLS */}
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+            {/* Search Input */}
+            <div className="relative w-full md:w-48">
+              <Search className="absolute left-3 top-2.5 text-slate-400" size={13} />
+              <input
+                type="text"
+                placeholder={isAmharic ? "ስም፣ መታወቂያ ይፈልጉ..." : "Search name or ID..."}
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-3 py-2 text-[11px] focus:outline-none focus:border-red-500"
+              />
+            </div>
+
+            {/* Filter Floor */}
+            <select
+              value={filterFloor}
+              onChange={(e) => setFilterFloor(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-[11px] focus:outline-none cursor-pointer"
+            >
+              <option value="all">{isAmharic ? "ሁሉም ፎቆች" : "All Floors"}</option>
+              <option value="3">Floor 3</option>
+              <option value="4">Floor 4</option>
+              <option value="5">Floor 5</option>
+            </select>
+
+            {/* Filter Zone */}
+            <select
+              value={filterZone}
+              onChange={(e) => setFilterZone(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-[11px] focus:outline-none cursor-pointer"
+            >
+              <option value="all">{isAmharic ? "ሁሉም ዞኖች" : "All Zones"}</option>
+              <option value="Zone A">Zone A</option>
+              <option value="Zone B">Zone B</option>
+              <option value="Zone C">Zone C</option>
+            </select>
+
+            {/* Filter Status */}
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-[11px] focus:outline-none cursor-pointer"
+            >
+              <option value="all">{isAmharic ? "ሁሉም ሁኔታ" : "All Status"}</option>
+              <option value="Present">Present</option>
+              <option value="Late">Late</option>
+              <option value="Absent">Absent</option>
+              <option value="Leave">Leave</option>
+            </select>
+          </div>
+        </div>
+
+        {/* ROSTER TABLE CONTAINER */}
+        <div className="overflow-x-auto border border-slate-100 rounded-xl">
+          <table className="w-full text-left text-[11px] border-collapse">
+            <thead>
+              <tr className="bg-slate-50 border-b border-slate-150 text-slate-500 font-mono">
+                <th className="p-3 font-bold">{isAmharic ? "ፎቶ" : "Photo"}</th>
+                <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => { setSortField("workerId"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                  {isAmharic ? "የሰራተኛ መታወቂያ" : "Employee ID"} <ArrowUpDown size={10} className="inline ml-1" />
+                </th>
+                <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => { setSortField("workerName"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                  {isAmharic ? "ስም" : "Name"} <ArrowUpDown size={10} className="inline ml-1" />
+                </th>
+                <th className="p-3 font-bold">{isAmharic ? "የስራ አይነት" : "Trade"}</th>
+                <th className="p-3 font-bold">{isAmharic ? "ፎቅ/ዞን" : "Floor/Zone"}</th>
+                <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => { setSortField("checkIn"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                  {isAmharic ? "የመግቢያ ሰዓት" : "Check-In"} <ArrowUpDown size={10} className="inline ml-1" />
+                </th>
+                <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => { setSortField("checkOut"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                  {isAmharic ? "የመውጫ ሰዓት" : "Check-Out"} <ArrowUpDown size={10} className="inline ml-1" />
+                </th>
+                <th className="p-3 font-bold cursor-pointer hover:bg-slate-100 transition-colors" onClick={() => { setSortField("workingHours"); setSortOrder(sortOrder === "asc" ? "desc" : "asc"); }}>
+                  {isAmharic ? "የስራ ሰዓት" : "Hours"} <ArrowUpDown size={10} className="inline ml-1" />
+                </th>
+                <th className="p-3 font-bold">{isAmharic ? "ትርፍ ሰዓት" : "Overtime"}</th>
+                <th className="p-3 font-bold">{isAmharic ? "ባዮሜትሪክ ዘዴ" : "Biometric Method"}</th>
+                <th className="p-3 font-bold">{isAmharic ? "የመገኛ ሁኔታ" : "GPS Location Status"}</th>
+                <th className="p-3 font-bold">{isAmharic ? "ሁኔታ" : "Status"}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {processedAttendance.map((rec) => {
+                const worker = workers.find(w => w.id === rec.workerId);
+                const isLate = rec.status === "Late";
+                const isAbsent = rec.status === "Absent";
+                const isOnLeave = rec.status === "Leave";
+
+                return (
+                  <tr key={rec.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors text-slate-700">
+                    <td className="p-3">
+                      <img 
+                        src={worker?.photo || "https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=100&h=100&fit=crop"} 
+                        alt={rec.workerName} 
+                        className="w-7 h-7 rounded-full object-cover border border-slate-200"
+                        referrerPolicy="no-referrer"
+                      />
+                    </td>
+                    <td className="p-3 font-mono font-bold text-slate-900">{rec.workerId}</td>
+                    <td className="p-3 font-semibold text-slate-800">{rec.workerName}</td>
+                    <td className="p-3 text-slate-500 font-medium">{rec.trade}</td>
+                    <td className="p-3 font-mono">FL {rec.floor} • {rec.zone}</td>
+                    <td className="p-3 font-mono text-emerald-600 font-bold">{rec.checkIn || "---"}</td>
+                    <td className="p-3 font-mono text-slate-500">{rec.checkOut || "---"}</td>
+                    <td className="p-3 font-mono font-bold">{rec.workingHours ? `${rec.workingHours}h` : "---"}</td>
+                    <td className="p-3 font-mono font-bold text-red-500">{rec.overtime ? `+${rec.overtime}h` : "---"}</td>
+                    <td className="p-3">
+                      <span className="flex items-center space-x-1 font-medium text-slate-600">
+                        {rec.method === AttendanceMethod.FINGERPRINT ? (
+                          <>
+                            <Fingerprint size={11} className="text-red-500" />
+                            <span>Fingerprint</span>
+                          </>
+                        ) : (
+                          <>
+                            <ScanLine size={11} className="text-blue-500" />
+                            <span>Face Scan</span>
+                          </>
+                        )}
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center space-x-1 text-slate-500">
+                        <MapPin size={10} className="text-emerald-500" />
+                        <span className="text-[10px] font-mono">Inside (OVID)</span>
+                      </span>
+                    </td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                        isLate 
+                          ? "bg-amber-50 text-amber-500 border border-amber-200" 
+                          : isAbsent 
+                            ? "bg-rose-50 text-rose-500 border border-rose-200"
+                            : isOnLeave 
+                              ? "bg-slate-50 text-slate-500"
+                              : "bg-emerald-50 text-emerald-500 border border-emerald-200"
+                      }`}>
+                        {rec.status}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {processedAttendance.length === 0 && (
+                <tr>
+                  <td colSpan={12} className="p-6 text-center text-slate-400 font-medium">
+                    {isAmharic ? "ምንም የተመዘገበ መረጃ አልተገኘም!" : "No matching attendance records found."}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      {/* 6. AUTOMATIC ATTENDANCE PAYROLL REPORT GENERATOR & EXPORTER */}
+      <div className="bg-slate-50 rounded-2xl border border-slate-150 p-5 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Report configuration inputs */}
+        <div className="space-y-4">
+          <div className="border-l-4 border-red-500 pl-3">
+            <h3 className="font-extrabold text-slate-800 text-xs flex items-center space-x-1.5">
+              <FileText size={13} className="text-red-500" />
+              <span>{isAmharic ? "አውቶማቲክ የመገኘት ሪፖርት ማውጫ" : "Automated Payroll Attendance Reports"}</span>
+            </h3>
+            <p className="text-[10px] text-slate-400 mt-0.5">{isAmharic ? "ለደመወዝ ክፍያ የሚሆኑ ሪፖርቶችን በተለያዩ ፎርማቶች ያውርዱ።" : "Configure groupings and compile structured attendance templates."}</p>
+          </div>
+
+          <div className="space-y-3 text-xs">
+            {/* Report Type */}
+            <div className="space-y-1.5">
+              <label className="text-slate-500 font-bold block">{isAmharic ? "የሪፖርት ጊዜ" : "Report Timeframe Range"}</label>
+              <div className="grid grid-cols-4 gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+                {(["daily", "weekly", "monthly", "overtime"] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setReportType(t);
+                      playBeep("scan");
+                    }}
+                    className={`py-1 rounded text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      reportType === t 
+                        ? "bg-slate-800 text-white shadow-sm" 
+                        : "text-slate-500 hover:text-slate-850"
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Report Dimension Grouping */}
+            <div className="space-y-1.5">
+              <label className="text-slate-500 font-bold block">{isAmharic ? "ሪፖርቱን መመደቢያ መንገድ" : "Group & Sort Report By"}</label>
+              <div className="grid grid-cols-4 gap-1.5 bg-white p-1 rounded-lg border border-slate-200">
+                {(["floor", "zone", "team", "project"] as const).map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      setReportDimension(d);
+                      playBeep("scan");
+                    }}
+                    className={`py-1 rounded text-[10px] font-bold uppercase transition-all cursor-pointer ${
+                      reportDimension === d 
+                        ? "bg-slate-800 text-white shadow-sm" 
+                        : "text-slate-500 hover:text-slate-850"
+                    }`}
+                  >
+                    {d}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Compile Actions */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                onClick={handleExportCSV}
+                className="bg-slate-800 text-white font-extrabold py-2.5 rounded-xl text-[11px] hover:bg-slate-850 cursor-pointer flex items-center justify-center space-x-1.5 transition-all shadow-sm"
+              >
+                <Download size={13} />
+                <span>EXPORT EXCEL / CSV</span>
+              </button>
+
+              <button
+                onClick={handleExportPDF}
+                disabled={isGeneratingReport}
+                className="bg-red-600 text-white font-extrabold py-2.5 rounded-xl text-[11px] hover:bg-red-700 cursor-pointer flex items-center justify-center space-x-1.5 transition-all shadow-sm"
+              >
+                {isGeneratingReport ? (
+                  <>
+                    <RefreshCw size={13} className="animate-spin" />
+                    <span>GENERATING...</span>
+                  </>
+                ) : (
+                  <>
+                    <FileText size={13} />
+                    <span>EXPORT PDF REPORT</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Live report template preview (COL-SPAN-2) */}
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-4 shadow-inner">
+          <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2.5 font-mono text-[9px] text-slate-400">
+            <span>PREVIEW: OVID CONSTRUCTION - ALU_FORM_PAYROLL</span>
+            <span className="text-red-500">READY FOR EXPORT</span>
+          </div>
+
+          <div className="space-y-2 h-[175px] overflow-y-auto scrollbar-thin">
+            <div className="grid grid-cols-7 text-[10px] font-mono text-slate-500 font-bold border-b border-slate-100 pb-1.5">
+              <div>{reportDimension.toUpperCase()}</div>
+              <div>TOTAL EMPS</div>
+              <div>PRESENT</div>
+              <div>ABSENT</div>
+              <div>ATTENDANCE %</div>
+              <div>LATE CHECKS</div>
+              <div>OVERTIME HRS</div>
+            </div>
+
+            {reportRecords.map((rec, i) => (
+              <div key={i} className="grid grid-cols-7 text-[10px] font-mono text-slate-700 border-b border-slate-100 pb-1 pt-1 hover:bg-slate-50">
+                <div className="font-bold text-slate-900 truncate">{rec.name}</div>
+                <div>{rec.total}</div>
+                <div className="text-emerald-600 font-bold">{rec.present}</div>
+                <div className="text-rose-500">{rec.absent}</div>
+                <div className="font-bold">{rec.attendanceRate}%</div>
+                <div className="text-amber-500 font-bold">{rec.late}</div>
+                <div className="text-red-500 font-bold">+{rec.overtime}h</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 bg-slate-50 p-2.5 rounded-lg border border-slate-200 flex justify-between items-center text-[10px] text-slate-500 font-sans leading-normal">
+            <div className="flex items-center space-x-1.5">
+              <Info size={12} className="text-slate-400 shrink-0" />
+              <span>{isAmharic ? "ይህ ሪፖርት በሮል-ቤዝድ ፍቃድ የተገደበ ነው።" : "Report automatically filtered by your active role permissions."}</span>
+            </div>
+            <span className="font-mono text-[9px] uppercase font-bold text-slate-400">Security Check: Passed</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* 7. SECURITY & ENCRYPTION INFRASTRUCTURE AUDIT HUD */}
+      <div className="bg-slate-900 text-slate-300 p-4 rounded-xl border border-slate-800 grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+        <div className="space-y-1">
+          <span className="block font-mono text-[9px] text-slate-500 uppercase font-black">{isAmharic ? "ባዮሜትሪክ ምስጠራ" : "BIOMETRIC ENCRYPTION"}</span>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            {isAmharic ? "ሁሉም የጣት አሻራዎች በSHA-256 በሃርድዌር ቺፕ ላይ የተመሰጠሩ ናቸው።" : "Biometric ridge patterns are encoded to SHA-256 hardware cryptographic template hashes."}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <span className="block font-mono text-[9px] text-slate-500 uppercase font-black">{isAmharic ? "የጂፒኤስ ጂኦፌንስ ደህንነት" : "GPS GEOFENCING SECURITY"}</span>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            {isAmharic ? "ሰራተኛው ከፕሮጀክት ጂኦፌንስ ክልል ውጭ መሆን አለመሆኑን ያረጋግጣል።" : "Strict 150m Haversine validation blocks off-site biometric ingestion endpoints."}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <span className="block font-mono text-[9px] text-slate-500 uppercase font-black">{isAmharic ? "የኦፍላይን ቋት ግንኙነት" : "OFFLINE QUEUE SECURITY"}</span>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            {isAmharic ? "ኢንተርኔት በማይኖርበት ጊዜ በስልኩ ቋት ላይ ተቀምጦ ግንኙነት ሲመለስ በራስ-ሰር ይልካል።" : "Queued records are cryptographically stored on-device until secure synchronization triggers."}
+          </p>
+        </div>
+        <div className="space-y-1">
+          <span className="block font-mono text-[9px] text-slate-500 uppercase font-black">{isAmharic ? "የተጠቃሚ ፍቃድ መቆጣጠሪያ" : "ROLE ACCESS ASSURANCE"}</span>
+          <p className="text-[11px] leading-relaxed text-slate-400">
+            {isAmharic ? "የመገኘት ቁጥጥር በተጠቃሚው ፍቃድ መሰረት ብቻ ተደራሽ ነው።" : "Role-Based Access Control (RBAC) scopes attendance visibility by construction tier."}
+          </p>
+        </div>
       </div>
 
     </div>

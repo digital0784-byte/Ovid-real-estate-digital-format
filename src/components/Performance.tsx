@@ -13,6 +13,16 @@ import {
   Clock
 } from "lucide-react";
 import { Worker, Team, PerformanceEvaluation } from "../types";
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend
+} from "recharts";
 
 interface PerformanceProps {
   workers: Worker[];
@@ -33,6 +43,7 @@ export const Performance: React.FC<PerformanceProps> = ({
 }) => {
   // Evaluation Form State
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
+  const [selectedMetric, setSelectedMetric] = useState<"productivity" | "quality" | "safety">("productivity");
   const [discipline, setDiscipline] = useState(23);
   const [quality, setQuality] = useState(22);
   const [productivity, setProductivity] = useState(18);
@@ -353,6 +364,244 @@ export const Performance: React.FC<PerformanceProps> = ({
           </div>
         </div>
 
+      </div>
+
+      {/* Team Progress Trends Section */}
+      <div id="team-progress-trends-section" className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
+              <TrendingUp className="text-red-600 animate-pulse" size={20} />
+              <span>
+                {isAmharic ? "የግንባታ ቡድን አፈጻጸም አዝማሚያዎች" : "Construction Team Performance Trends"}
+              </span>
+            </h3>
+            <p className="text-xs text-slate-500">
+              {isAmharic
+                ? "ባለፉት 7 ቀናት ውስጥ የስራ ቡድኖችን ምርታማነት፣ ጥራት ደረጃ እና የደህንነት አፈጻጸም መከታተያ የጊዜ ሰሌዳ።"
+                : "Historical progress trends showing day-over-day changes in key construction benchmarks."}
+            </p>
+          </div>
+
+          {/* Metric Buttons */}
+          <div className="flex flex-wrap gap-1 p-1 bg-slate-50 rounded-xl border border-slate-100 text-xs font-semibold">
+            <button
+              id="metric-btn-productivity"
+              type="button"
+              onClick={() => setSelectedMetric("productivity")}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                selectedMetric === "productivity"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              {isAmharic ? "ምርታማነት" : "Productivity"}
+            </button>
+            <button
+              id="metric-btn-quality"
+              type="button"
+              onClick={() => setSelectedMetric("quality")}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                selectedMetric === "quality"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              {isAmharic ? "ጥራት ደረጃ" : "Quality Index"}
+            </button>
+            <button
+              id="metric-btn-safety"
+              type="button"
+              onClick={() => setSelectedMetric("safety")}
+              className={`px-3 py-1.5 rounded-lg transition-colors cursor-pointer ${
+                selectedMetric === "safety"
+                  ? "bg-red-600 text-white shadow-sm"
+                  : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+              }`}
+            >
+              {isAmharic ? "ደህንነት" : "Safety Compliance"}
+            </button>
+          </div>
+        </div>
+
+        {/* Chart Visualization */}
+        <div className="pt-2 h-[350px] w-full font-sans text-xs">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={(() => {
+                const alphaVal = teams.find(t => t.id === "T-01") || { averageProductivity: 92, qualityScore: 88, safetyScore: 94 };
+                const betaVal = teams.find(t => t.id === "T-02") || { averageProductivity: 85, qualityScore: 90, safetyScore: 85 };
+                const gammaVal = teams.find(t => t.id === "T-03") || { averageProductivity: 90, qualityScore: 95, safetyScore: 92 };
+                const deltaVal = teams.find(t => t.id === "T-04") || { averageProductivity: 87, qualityScore: 85, safetyScore: 88 };
+                const epsilonVal = teams.find(t => t.id === "T-05") || { averageProductivity: 80, qualityScore: 92, safetyScore: 98 };
+
+                return [
+                  {
+                    date: "06-25",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? 80 : selectedMetric === "quality" ? 82 : 90,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? 72 : selectedMetric === "quality" ? 85 : 80,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? 85 : selectedMetric === "quality" ? 90 : 88,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? 78 : selectedMetric === "quality" ? 80 : 82,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? 75 : selectedMetric === "quality" ? 88 : 95,
+                  },
+                  {
+                    date: "06-26",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? 83 : selectedMetric === "quality" ? 84 : 92,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? 75 : selectedMetric === "quality" ? 87 : 82,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? 87 : selectedMetric === "quality" ? 91 : 89,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? 80 : selectedMetric === "quality" ? 82 : 84,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? 76 : selectedMetric === "quality" ? 89 : 96,
+                  },
+                  {
+                    date: "06-27",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? 85 : selectedMetric === "quality" ? 85 : 91,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? 78 : selectedMetric === "quality" ? 88 : 83,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? 88 : selectedMetric === "quality" ? 93 : 90,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? 81 : selectedMetric === "quality" ? 83 : 85,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? 78 : selectedMetric === "quality" ? 90 : 97,
+                  },
+                  {
+                    date: "06-28",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? 88 : selectedMetric === "quality" ? 86 : 93,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? 80 : selectedMetric === "quality" ? 89 : 84,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? 90 : selectedMetric === "quality" ? 92 : 91,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? 83 : selectedMetric === "quality" ? 84 : 86,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? 80 : selectedMetric === "quality" ? 91 : 98,
+                  },
+                  {
+                    date: "06-29",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? 90 : selectedMetric === "quality" ? 87 : 94,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? 82 : selectedMetric === "quality" ? 91 : 85,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? 92 : selectedMetric === "quality" ? 94 : 93,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? 85 : selectedMetric === "quality" ? 85 : 87,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? 79 : selectedMetric === "quality" ? 92 : 98,
+                  },
+                  {
+                    date: "06-30",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? 91 : selectedMetric === "quality" ? 89 : 95,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? 84 : selectedMetric === "quality" ? 90 : 86,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? 91 : selectedMetric === "quality" ? 93 : 92,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? 86 : selectedMetric === "quality" ? 86 : 88,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? 82 : selectedMetric === "quality" ? 93 : 99,
+                  },
+                  {
+                    date: "07-01",
+                    "Assembly Team Alpha": selectedMetric === "productivity" ? alphaVal.averageProductivity : selectedMetric === "quality" ? alphaVal.qualityScore : alphaVal.safetyScore,
+                    "Stripping Team Beta": selectedMetric === "productivity" ? betaVal.averageProductivity : selectedMetric === "quality" ? betaVal.qualityScore : betaVal.safetyScore,
+                    "Steel Fixing Team Gamma": selectedMetric === "productivity" ? gammaVal.averageProductivity : selectedMetric === "quality" ? gammaVal.qualityScore : gammaVal.safetyScore,
+                    "Concreting Team Delta": selectedMetric === "productivity" ? deltaVal.averageProductivity : selectedMetric === "quality" ? deltaVal.qualityScore : deltaVal.safetyScore,
+                    "Support Team Epsilon": selectedMetric === "productivity" ? epsilonVal.averageProductivity : selectedMetric === "quality" ? epsilonVal.qualityScore : epsilonVal.safetyScore,
+                  }
+                ];
+              })()}
+              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+              <XAxis 
+                dataKey="date" 
+                stroke="#94a3b8" 
+                fontSize={11}
+                tickLine={false} 
+                axisLine={false}
+                dy={10}
+              />
+              <YAxis 
+                stroke="#94a3b8" 
+                fontSize={11}
+                tickLine={false} 
+                axisLine={false}
+                domain={[50, 100]}
+                tickFormatter={(val) => `${val}%`}
+              />
+              <Tooltip 
+                contentStyle={{
+                  backgroundColor: "#ffffff",
+                  borderColor: "#e2e8f0",
+                  borderRadius: "12px",
+                  boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                  fontSize: "12px",
+                  color: "#0f172a"
+                }}
+              />
+              <Legend 
+                verticalAlign="bottom" 
+                height={36} 
+                iconType="circle"
+                iconSize={8}
+                wrapperStyle={{ paddingTop: "20px", fontSize: "11px", fontWeight: 600 }}
+              />
+              <Line
+                name={isAmharic ? "አሰምብሊ ቡድን አልፋ" : "Assembly Team Alpha"}
+                type="monotone"
+                dataKey="Assembly Team Alpha"
+                stroke="#10b981"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 1 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+              <Line
+                name={isAmharic ? "ስትሪፒንግ ቡድን ቤታ" : "Stripping Team Beta"}
+                type="monotone"
+                dataKey="Stripping Team Beta"
+                stroke="#f97316"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 1 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+              <Line
+                name={isAmharic ? "ስቲል ፊክሲንግ ጋማ" : "Steel Fixing Team Gamma"}
+                type="monotone"
+                dataKey="Steel Fixing Team Gamma"
+                stroke="#8b5cf6"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 1 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+              <Line
+                name={isAmharic ? "ኮንክሪቲንግ ቡድን ዴልታ" : "Concreting Team Delta"}
+                type="monotone"
+                dataKey="Concreting Team Delta"
+                stroke="#f43f5e"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 1 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+              <Line
+                name={isAmharic ? "ሰፖርት ቡድን ኤፕሲሎን" : "Support Team Epsilon"}
+                type="monotone"
+                dataKey="Support Team Epsilon"
+                stroke="#eab308"
+                strokeWidth={3}
+                dot={{ r: 4, strokeWidth: 1 }}
+                activeDot={{ r: 6, strokeWidth: 0 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+
+        {/* Legend Explanations */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-3 border-t border-slate-100 text-[11px] text-slate-500">
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+            <span>{isAmharic ? "አልፋ፡ ፎርምወርክ መግጠም" : "Alpha: Formwork Assembly"}</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500"></span>
+            <span>{isAmharic ? "ቤታ፡ ፎርምወርክ መፍታት" : "Beta: Formwork Stripping"}</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-violet-500"></span>
+            <span>{isAmharic ? "ጋማ፡ ብረት ማሰር" : "Gamma: Steel Reinforcing"}</span>
+          </div>
+          <div className="flex items-center space-x-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-rose-500"></span>
+            <span>{isAmharic ? "ዴልታ፡ ኮንክሪት ማፍሰስ" : "Delta: Concrete Casting"}</span>
+          </div>
+          <div className="flex items-center space-x-1.5 col-span-2 md:col-span-1">
+            <span className="w-2.5 h-2.5 rounded-full bg-yellow-500"></span>
+            <span>{isAmharic ? "ኤፕሲሎን፡ የደህንነት ድጋፍ" : "Epsilon: Rigging & Safety"}</span>
+          </div>
+        </div>
       </div>
 
     </div>
