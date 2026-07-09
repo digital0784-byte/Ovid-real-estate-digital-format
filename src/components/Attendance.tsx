@@ -32,6 +32,8 @@ import {
   Database
 } from "lucide-react";
 import { Worker, AttendanceRecord, AttendanceMethod, UserRole, PerformanceEvaluation } from "../types";
+import { BreakExceptionsHub } from "./BreakExceptionsHub";
+import { PayrollHub } from "./PayrollHub";
 
 interface AttendanceProps {
   workers: Worker[];
@@ -59,7 +61,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
   onAddEvaluation
 }) => {
   // Navigation tabs inside Employee Management Hub
-  const [activeSubTab, setActiveSubTab] = useState<"directory" | "register" | "attendance_table" | "performance_table" | "clock_in" | "overtime_reports" | "biometric_enrollment">("directory");
+  const [activeSubTab, setActiveSubTab] = useState<"directory" | "register" | "attendance_table" | "performance_table" | "clock_in" | "overtime_reports" | "biometric_enrollment" | "break_exceptions" | "smart_payroll">("directory");
 
   // New States for Biometric Enrollment & Offline Sync
   const [selectedEnrollWorkerId, setSelectedEnrollWorkerId] = useState("");
@@ -918,6 +920,26 @@ export const Attendance: React.FC<AttendanceProps> = ({
           >
             <FileSpreadsheet size={14} />
             <span>{isAmharic ? "የትርፍ ሰዓት ሪፖርቶች" : "Overtime Reports Desk"}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab("break_exceptions")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-2 shrink-0 cursor-pointer ${
+              activeSubTab === "break_exceptions" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <ShieldCheck size={14} className="text-emerald-500" />
+            <span>{isAmharic ? "ስማርት መገኘት እና የልዩነት ሪፖርት ቁጥጥር" : "Smart Attendance & Exceptions"}</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab("smart_payroll")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-2 shrink-0 cursor-pointer ${
+              activeSubTab === "smart_payroll" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <Database size={14} className="text-red-500 animate-pulse" />
+            <span>{isAmharic ? "ስማርት የደመወዝ፣ ትርፍ ሰዓትና ቅጣት ቁጥጥር" : "Smart Payroll & Overtime"}</span>
           </button>
         </div>
       </div>
@@ -3272,6 +3294,25 @@ export const Attendance: React.FC<AttendanceProps> = ({
           </div>
 
         </div>
+      )}
+
+      {activeSubTab === "break_exceptions" && (
+        <BreakExceptionsHub
+          workers={workers}
+          attendance={attendance}
+          onAddAttendance={onAddAttendance}
+          isAmharic={isAmharic}
+          currentUserRole={currentUserRole}
+        />
+      )}
+
+      {activeSubTab === "smart_payroll" && (
+        <PayrollHub
+          workers={workers}
+          attendance={attendance}
+          isAmharic={isAmharic}
+          currentUserRole={currentUserRole}
+        />
       )}
 
     </div>

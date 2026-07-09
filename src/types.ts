@@ -1,9 +1,13 @@
 export enum UserRole {
   HEAD_OFFICE = "Head Office",
-  TIME_KEEPER = "Time Keeper",
+  PROJECT_MANAGER = "Project Manager",
+  SECTION_HEAD = "Section Head",
+  SUPERVISOR = "Supervisor",
+  SITE_ENGINEER = "Site Engineer",
+  SURVEYOR = "Surveyor",
   TEAM_LEADER = "Team Leader",
   GANG_CHIEF = "Gang Chief",
-  SUPERVISOR = "Supervisor",
+  TIME_KEEPER = "Time Keeper",
   WORKER = "Worker"
 }
 

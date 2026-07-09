@@ -113,10 +113,14 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                   // Role-specific badge styling
                   const roleColors: Record<UserRole, string> = {
                     [UserRole.HEAD_OFFICE]: "bg-red-50 text-red-700 border-red-200",
-                    [UserRole.TIME_KEEPER]: "bg-amber-50 text-amber-700 border-amber-200",
-                    [UserRole.TEAM_LEADER]: "bg-blue-50 text-blue-700 border-blue-200",
+                    [UserRole.PROJECT_MANAGER]: "bg-rose-50 text-rose-700 border-rose-200",
+                    [UserRole.SECTION_HEAD]: "bg-indigo-50 text-indigo-700 border-indigo-200",
                     [UserRole.SUPERVISOR]: "bg-teal-50 text-teal-700 border-teal-200",
+                    [UserRole.SITE_ENGINEER]: "bg-cyan-50 text-cyan-700 border-cyan-200",
+                    [UserRole.SURVEYOR]: "bg-sky-50 text-sky-700 border-sky-200",
+                    [UserRole.TEAM_LEADER]: "bg-blue-50 text-blue-700 border-blue-200",
                     [UserRole.GANG_CHIEF]: "bg-purple-50 text-purple-700 border-purple-200",
+                    [UserRole.TIME_KEEPER]: "bg-amber-50 text-amber-700 border-amber-200",
                     [UserRole.WORKER]: "bg-emerald-50 text-emerald-700 border-emerald-200"
                   };
 

@@ -39,6 +39,14 @@ import { AiPhotoInspection } from "./components/AiPhotoInspection";
 import { BiometricAttendanceBoard } from "./components/BiometricAttendanceBoard";
 import { FingerprintAttendanceBoard } from "./components/FingerprintAttendanceBoard";
 import { BiometricEnrollmentKiosk } from "./components/BiometricEnrollmentKiosk";
+import { HeadOfficeSyncModule } from "./components/HeadOfficeSyncModule";
+import { SiteLayout } from "./components/SiteLayout";
+import { CadDrawingModule } from "./components/CadDrawingModule";
+import { ProjectDocumentManager } from "./components/ProjectDocumentManager";
+import { SiteRegistrationAndActivity } from "./components/SiteRegistrationAndActivity";
+import { SurveyingInstrumentModule } from "./components/SurveyingInstrumentModule";
+import { LoginScreen } from "./components/LoginScreen";
+import { SecuritySettingsHub } from "./components/SecuritySettingsHub";
 
 // Lucide Icons
 import { 
@@ -54,9 +62,13 @@ import {
   Languages,
   UserCheck,
   ShieldCheck,
+  Shield,
   Camera,
   Fingerprint,
-  ScanLine
+  ScanLine,
+  Compass,
+  Database,
+  FileText
 } from "lucide-react";
 
 export default function App() {
@@ -76,11 +88,21 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [projectDocsSubTab, setProjectDocsSubTab] = useState<"newModule" | "vault">("newModule");
+
+  // Security and Authentication session states
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(10);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  const [loginMetadata, setLoginMetadata] = useState<{ loginTime: string; device: string; ip: string; gps: string } | null>(null);
 
   // Multi-Language Translation Map
   const translations: Record<string, Record<string, string>> = {
     en: {
       "Dashboard": "Dashboard",
+      "CAD Drawings & Photos": "CAD & Daily Site Photos",
+      "Site Layout": "Site Layout Plan",
+      "Real-Time Cloud Sync": "Real-Time Cloud Sync",
       "Attendance": "Attendance",
       "Biometric Board": "Biometric Board",
       "Fingerprint Board": "Fingerprint Board",
@@ -134,9 +156,16 @@ export default function App() {
       "Add Quality Snag": "Log Alignment Defect / Snag",
       "Defect Type": "Defect Category",
       "Active Snags & Repair Status": "Outstanding Defects Registry",
+      "Projects & Docs": "Projects & Site Documents",
+      "Surveying & Concrete": "Surveying & Concrete",
     },
     am: {
       "Dashboard": "ዋና ሰሌዳ (Dashboard)",
+      "Projects & Docs": "ፕሮጀክት ምዝገባ እና ሰነድ (Projects)",
+      "Surveying & Concrete": "የሰርቬይንግ እና ኮንክሪት ዝግጁነት",
+      "CAD Drawings & Photos": "የCAD ስዕሎች እና የዕለት ፎቶዎች (CAD & Photos)",
+      "Site Layout": "የሳይት ፕላን (Site Layout)",
+      "Real-Time Cloud Sync": "የደመና ማመሳሰያ (Cloud Sync)",
       "Attendance": "የመገኘት ቁጥጥር (Attendance)",
       "Biometric Board": "ባዮሜትሪክ ሰሌዳ",
       "Fingerprint Board": "የጣት አሻራ ሰሌዳ",
@@ -194,12 +223,16 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.HEAD_OFFICE]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.SUPERVISOR]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection"],
-    [UserRole.WORKER]: ["dashboard", "attendance", "progress"]
+    [UserRole.HEAD_OFFICE]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SUPERVISOR]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SURVEYOR]: ["dashboard", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.WORKER]: ["dashboard", "attendance", "progress", "siteLayout", "surveying", "securitySettings"]
   };
 
   const t = (key: string): string => {
@@ -215,6 +248,39 @@ export default function App() {
     }
   }, [currentUserRole, activeTab]);
 
+  // Inactivity timeout handler
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleUserActivity = () => {
+      setLastActivity(Date.now());
+    };
+
+    // Listen to user activity events
+    window.addEventListener("mousemove", handleUserActivity);
+    window.addEventListener("keydown", handleUserActivity);
+    window.addEventListener("click", handleUserActivity);
+    window.addEventListener("scroll", handleUserActivity);
+
+    const checkInterval = setInterval(() => {
+      const idleTimeMs = Date.now() - lastActivity;
+      const limitMs = sessionTimeoutMinutes * 60 * 1000;
+      if (idleTimeMs >= limitMs) {
+        setIsAuthenticated(false);
+        logAction("Session Auto-Logout due to Inactivity", `System terminated inactive token session after ${sessionTimeoutMinutes} minutes.`);
+        alert(isAmharic ? "ከእርምጃ ነጻ በመሆንዎ ስርዓቱ በደህንነት ምክንያት በራስ-ሰር ዘግቶታል።" : "Session closed automatically due to inactivity timeout.");
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => {
+      window.removeEventListener("mousemove", handleUserActivity);
+      window.removeEventListener("keydown", handleUserActivity);
+      window.removeEventListener("click", handleUserActivity);
+      window.removeEventListener("scroll", handleUserActivity);
+      clearInterval(checkInterval);
+    };
+  }, [isAuthenticated, lastActivity, sessionTimeoutMinutes]);
+
   // Audit log generator helper
   const logAction = (action: string, details: string, customizedRole?: UserRole) => {
     const activeRole = customizedRole || currentUserRole;
@@ -222,10 +288,20 @@ export default function App() {
       id: `AUD-${Date.now().toString().slice(-4)}`,
       timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
       userId: activeRole === UserRole.HEAD_OFFICE ? "HO-01" :
+              activeRole === UserRole.PROJECT_MANAGER ? "PM-01" :
+              activeRole === UserRole.SECTION_HEAD ? "SH-01" :
+              activeRole === UserRole.SUPERVISOR ? "SV-01" :
+              activeRole === UserRole.SITE_ENGINEER ? "SE-01" :
+              activeRole === UserRole.SURVEYOR ? "SR-01" :
               activeRole === UserRole.TIME_KEEPER ? "TK-01" :
               activeRole === UserRole.TEAM_LEADER ? "TL-01" :
               activeRole === UserRole.GANG_CHIEF ? "GC-01" : "W-101",
-      userName: activeRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph (Head Office)" :
+      userName: activeRole === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem (Head Office Admin)" :
+                activeRole === UserRole.PROJECT_MANAGER ? "Eng. Dawit (Project Manager)" :
+                activeRole === UserRole.SECTION_HEAD ? "Alemayehu Kebede (Section Head)" :
+                activeRole === UserRole.SUPERVISOR ? "Kassa Hunegn (Supervisor)" :
+                activeRole === UserRole.SITE_ENGINEER ? "Sintayehu Alula (Site Engineer)" :
+                activeRole === UserRole.SURVEYOR ? "Tadesse Chala (Surveyor)" :
                 activeRole === UserRole.TIME_KEEPER ? "Abebe Girma (Time Keeper)" :
                 activeRole === UserRole.TEAM_LEADER ? "Yohannes Bekele (Team Leader)" :
                 activeRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" : "Bekele Tesfaye (Worker)",
@@ -305,6 +381,22 @@ export default function App() {
     logAction("Construction Team Created", `Registered team "${team.name}" in department ${team.department}`);
   };
 
+  if (!isAuthenticated) {
+    return (
+      <LoginScreen
+        isAmharic={isAmharic}
+        onLanguageToggle={() => setIsAmharic(!isAmharic)}
+        auditLogsCount={auditLogs.length}
+        onLoginSuccess={(role, method, loginLog) => {
+          setCurrentUserRole(role);
+          setIsAuthenticated(true);
+          setLoginMetadata(loginLog);
+          logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${role} | Metadata: ${JSON.stringify(loginLog)}`, role);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased">
       
@@ -338,11 +430,15 @@ export default function App() {
                   }}
                   className="bg-transparent border-none text-xs font-bold font-sans text-slate-700 focus:outline-none focus:ring-0 cursor-pointer pr-1"
                 >
-                  <option value={UserRole.HEAD_OFFICE}>{isAmharic ? "ዋና መስሪያ ቤት (Eng. Yoseph)" : "Head Office - Eng. Yoseph"}</option>
-                  <option value={UserRole.TIME_KEEPER}>{isAmharic ? "የመገኘት ተቆጣጣሪ (Abebe Girma)" : "Time Keeper - Abebe Girma"}</option>
+                  <option value={UserRole.HEAD_OFFICE}>{isAmharic ? "ዋና መስሪያ ቤት (Nuriye Ahmed Adem)" : "Head Office - Nuriye Ahmed Adem"}</option>
+                  <option value={UserRole.PROJECT_MANAGER}>{isAmharic ? "ፕሮጀክት ስራ አስኪያጅ (Eng. Dawit)" : "Project Manager - Eng. Dawit"}</option>
+                  <option value={UserRole.SECTION_HEAD}>{isAmharic ? "የክፍል ኃላፊ (Alemayehu Kebede)" : "Section Head - Alemayehu Kebede"}</option>
+                  <option value={UserRole.SUPERVISOR}>{isAmharic ? "ሱፐርቫይዘር (Kassa Hunegn)" : "Supervisor - Kassa Hunegn"}</option>
+                  <option value={UserRole.SITE_ENGINEER}>{isAmharic ? "ሳይት መሃንዲስ (Sintayehu Alula)" : "Site Engineer - Sintayehu Alula"}</option>
+                  <option value={UserRole.SURVEYOR}>{isAmharic ? "ሰርቬየር (Tadesse Chala)" : "Surveyor - Tadesse Chala"}</option>
                   <option value={UserRole.TEAM_LEADER}>{isAmharic ? "የስራ ቡድን መሪ (Yohannes Bekele)" : "Team Leader - Yohannes Bekele"}</option>
                   <option value={UserRole.GANG_CHIEF}>{isAmharic ? "ጋንግ ቺፍ / ፎርማን (Fikru Tolossa)" : "Gang Chief - Fikru Tolossa"}</option>
-                  <option value={UserRole.SUPERVISOR}>{isAmharic ? "ሱፐርቫይዘር (Kassa Hunegn)" : "Supervisor - Kassa Hunegn"}</option>
+                  <option value={UserRole.TIME_KEEPER}>{isAmharic ? "የመገኘት ተቆጣጣሪ (Abebe Girma)" : "Time Keeper - Abebe Girma"}</option>
                   <option value={UserRole.WORKER}>{isAmharic ? "ሳይት ሰራተኛ (Bekele Tesfaye)" : "Worker - Bekele Tesfaye"}</option>
                 </select>
               </div>
@@ -356,6 +452,19 @@ export default function App() {
             >
               <Languages size={18} />
               <span className="text-xs font-bold font-mono">{isAmharic ? "EN" : "አማ"}</span>
+            </button>
+
+            {/* Manual Logout Button */}
+            <button
+              onClick={() => {
+                setIsAuthenticated(false);
+                logAction("User Logged Out", "Operator requested secure closure of acting token.");
+              }}
+              className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-black transition-all flex items-center space-x-1 cursor-pointer"
+              title="End Secure Token"
+            >
+              <Lock size={12} />
+              <span>{isAmharic ? "ውጣ" : "Logout"}</span>
             </button>
           </div>
         </div>
@@ -376,6 +485,58 @@ export default function App() {
               >
                 <Activity size={15} />
                 <span>{t("Dashboard")}</span>
+              </button>
+            )}
+
+            {/* Projects & Documents Tab */}
+            {tabPermissions[currentUserRole]?.includes("projectDocs") && (
+              <button
+                onClick={() => setActiveTab("projectDocs")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "projectDocs" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Building2 size={15} className="text-red-500 animate-pulse" />
+                <span>{t("Projects & Docs")}</span>
+              </button>
+            )}
+
+            {/* Site Layout Tab */}
+            {tabPermissions[currentUserRole]?.includes("siteLayout") && (
+              <button
+                onClick={() => setActiveTab("siteLayout")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "siteLayout" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Compass size={15} className="text-red-500" />
+                <span>{t("Site Layout")}</span>
+              </button>
+            )}
+
+            {/* CAD Drawings & Photos Tab */}
+            {tabPermissions[currentUserRole]?.includes("cadDrawing") && (
+              <button
+                onClick={() => setActiveTab("cadDrawing")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "cadDrawing" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <FileText size={15} className="text-red-500" />
+                <span>{t("CAD Drawings & Photos")}</span>
+              </button>
+            )}
+
+            {/* Surveying & Concrete Tab */}
+            {tabPermissions[currentUserRole]?.includes("surveying") && (
+              <button
+                onClick={() => setActiveTab("surveying")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "surveying" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Compass size={15} className="text-red-500 animate-pulse" />
+                <span>{t("Surveying & Concrete")}</span>
               </button>
             )}
 
@@ -415,6 +576,19 @@ export default function App() {
               >
                 <Fingerprint size={15} className="text-red-500 animate-pulse" />
                 <span>{t("Fingerprint Board")}</span>
+              </button>
+            )}
+
+            {/* Real-Time Cloud Sync Tab */}
+            {tabPermissions[currentUserRole]?.includes("headOfficeSync") && (
+              <button
+                onClick={() => setActiveTab("headOfficeSync")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "headOfficeSync" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Database size={15} className="text-red-500 animate-pulse" />
+                <span>{t("Real-Time Cloud Sync")}</span>
               </button>
             )}
 
@@ -535,6 +709,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Security & Settings Tab */}
+            {tabPermissions[currentUserRole]?.includes("securitySettings") && (
+              <button
+                onClick={() => setActiveTab("securitySettings")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-red-500 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "securitySettings" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Shield size={15} />
+                <span>{isAmharic ? "ደህንነት እና ምርጫዎች (Security)" : "Security & Settings"}</span>
+              </button>
+            )}
+
           </div>
         </div>
       </div>
@@ -554,6 +741,91 @@ export default function App() {
             currentUserRole={currentUserRole}
             evaluations={evaluations}
             onAddAttendance={handleAddAttendance}
+          />
+        )}
+
+        {activeTab === "projectDocs" && (
+          <div className="space-y-6">
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200/80 shadow-xs flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Building2 size={16} className="text-red-500 animate-pulse" />
+                <span className="text-xs font-black uppercase tracking-wider text-slate-800">
+                  {isAmharic ? "ፕሮጀክት ምዝገባ እና ሰነዶች መጋዘን" : "Projects & Document Hub"}
+                </span>
+              </div>
+              
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => setProjectDocsSubTab("newModule")}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    projectDocsSubTab === "newModule"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {isAmharic ? "አዲስ ሳይት ምዝገባና የዕለት ተግባር" : "Site Registration & Daily Activity"}
+                </button>
+                <button
+                  onClick={() => setProjectDocsSubTab("vault")}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                    projectDocsSubTab === "vault"
+                      ? "bg-slate-900 text-white shadow-xs"
+                      : "text-slate-600 hover:bg-slate-50"
+                  }`}
+                >
+                  {isAmharic ? "ባህላዊ የሰነዶች ማከማቻ (Vault)" : "Traditional Document Vault"}
+                </button>
+              </div>
+            </div>
+
+            {projectDocsSubTab === "newModule" ? (
+              <SiteRegistrationAndActivity
+                workers={workers}
+                teams={teams}
+                attendance={attendance}
+                isAmharic={isAmharic}
+                currentUserRole={currentUserRole}
+                onLogAction={(action, details) => logAction(action, details)}
+              />
+            ) : (
+              <ProjectDocumentManager
+                workers={workers}
+                teams={teams}
+                attendance={attendance}
+                isAmharic={isAmharic}
+                currentUserRole={currentUserRole}
+                onLogAction={(action, details) => logAction(action, details)}
+              />
+            )}
+          </div>
+        )}
+
+        {activeTab === "siteLayout" && (
+          <SiteLayout
+            workers={workers}
+            teams={teams}
+            attendance={attendance}
+            zones={zones}
+            isAmharic={isAmharic}
+          />
+        )}
+
+        {activeTab === "cadDrawing" && (
+          <CadDrawingModule
+            workers={workers}
+            teams={teams}
+            attendance={attendance}
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "surveying" && (
+          <SurveyingInstrumentModule
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
 
@@ -588,6 +860,18 @@ export default function App() {
             workers={workers} 
             attendance={attendance} 
             onAddAttendance={handleAddAttendance} 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "headOfficeSync" && (
+          <HeadOfficeSyncModule
+            workers={workers}
+            teams={teams}
+            attendance={attendance}
+            onAddAttendance={handleAddAttendance}
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}
@@ -697,13 +981,30 @@ export default function App() {
             t={t}
           />
         )}
+
+        {activeTab === "securitySettings" && tabPermissions[currentUserRole]?.includes("securitySettings") && (
+          <SecuritySettingsHub 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+            auditLogs={auditLogs}
+            sessionTimeoutMinutes={sessionTimeoutMinutes}
+            onChangeSessionTimeout={(mins) => setSessionTimeoutMinutes(mins)}
+          />
+        )}
       </main>
 
       {/* FOOTER SECTION */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 no-print">
-        <div className="max-w-7xl mx-auto px-4">
+        <div className="max-w-7xl mx-auto px-4 space-y-1">
           <p>© {new Date().getFullYear()} OVID Real Estate. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
-          <p className="mt-1 font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>
+          <p className="font-semibold text-slate-500">
+            {isAmharic 
+              ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
+              : "Admin App developed by: Nuriye Ahmed Adem"} 
+            {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862 / 0920843843 | mejennur669@gmail.com
+          </p>
+          <p className="font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>
         </div>
       </footer>
 
