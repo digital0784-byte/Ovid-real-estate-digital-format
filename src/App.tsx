@@ -47,6 +47,7 @@ import { SiteRegistrationAndActivity } from "./components/SiteRegistrationAndAct
 import { SurveyingInstrumentModule } from "./components/SurveyingInstrumentModule";
 import { LoginScreen } from "./components/LoginScreen";
 import { SecuritySettingsHub } from "./components/SecuritySettingsHub";
+import { EnterpriseErpHub } from "./components/EnterpriseErpHub";
 
 // Lucide Icons
 import { 
@@ -68,7 +69,8 @@ import {
   ScanLine,
   Compass,
   Database,
-  FileText
+  FileText,
+  Cpu
 } from "lucide-react";
 
 export default function App() {
@@ -158,6 +160,7 @@ export default function App() {
       "Active Snags & Repair Status": "Outstanding Defects Registry",
       "Projects & Docs": "Projects & Site Documents",
       "Surveying & Concrete": "Surveying & Concrete",
+      "Enterprise ERP Suite": "Enterprise ERP Suite",
     },
     am: {
       "Dashboard": "ዋና ሰሌዳ (Dashboard)",
@@ -175,6 +178,7 @@ export default function App() {
       "Evaluation": "የሰራተኞች ግምገማ (Performance)",
       "Safety & Quality": "ደህንነት እና ጥራት (Safety/Quality)",
       "AI Predictions": "አይአይ ትንበያ (AI Predictions)",
+      "Enterprise ERP Suite": "የድርጅት ERP ስብስብ (ERP Suite)",
       "Admin": "አስተዳደር ፓነል (Admin)",
       "Workers Present": "የመጡ ሰራተኞች",
       "Late": "የዘገዩ",
@@ -223,15 +227,15 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.HEAD_OFFICE]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SUPERVISOR]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SURVEYOR]: ["dashboard", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.HEAD_OFFICE]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "enterpriseErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SUPERVISOR]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "enterpriseErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SURVEYOR]: ["dashboard", "enterpriseErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "securitySettings"],
     [UserRole.WORKER]: ["dashboard", "attendance", "progress", "siteLayout", "surveying", "securitySettings"]
   };
 
@@ -488,6 +492,22 @@ export default function App() {
               </button>
             )}
 
+            {/* Enterprise ERP Suite Tab */}
+            {tabPermissions[currentUserRole]?.includes("enterpriseErp") && (
+              <button
+                onClick={() => setActiveTab("enterpriseErp")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "enterpriseErp" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Cpu size={15} className="text-red-500 animate-pulse" />
+                <span className="flex items-center gap-1">
+                  {t("Enterprise ERP Suite")}
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                </span>
+              </button>
+            )}
+
             {/* Projects & Documents Tab */}
             {tabPermissions[currentUserRole]?.includes("projectDocs") && (
               <button
@@ -741,6 +761,14 @@ export default function App() {
             currentUserRole={currentUserRole}
             evaluations={evaluations}
             onAddAttendance={handleAddAttendance}
+          />
+        )}
+
+        {activeTab === "enterpriseErp" && (
+          <EnterpriseErpHub 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
 
