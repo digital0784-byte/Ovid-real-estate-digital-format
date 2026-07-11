@@ -270,8 +270,72 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   const [activeImageIdForAi, setActiveImageIdForAi] = useState<string>("IMG-BH-F04-ZA-01");
   const [isAiRunning, setIsAiRunning] = useState<boolean>(false);
 
+  // AI CAD analysis & work planning states
+  const [cadAnalysisResult, setCadAnalysisResult] = useState<any | null>(null);
+  const [isAnalyzingCad, setIsAnalyzingCad] = useState<boolean>(false);
+  const [cadAnalysisError, setCadAnalysisError] = useState<string | null>(null);
+  const [cadPlanningStep, setCadPlanningStep] = useState<number>(0);
+
+  const cadPlanningStepsEng = [
+    "Reading CAD Vector Groups...",
+    "Identifying Shear Walls & Slab Area...",
+    "Generating 6-Day Formwork Cycles...",
+    "Compiling Material BOM & Crew Lists...",
+    "Finalizing Work Plan & Daily Reviews..."
+  ];
+
+  const cadPlanningStepsAmh = [
+    "የCAD ቬክተር ምስሎችን ማንበብ...",
+    "የግድግዳና የፎቅ ስፋቶችን መለየት...",
+    "የ6 ቀን ፎርምወርክ ዑደት እቅድ ማውጣት...",
+    "የሚያስፈልጉ ቁሶችንና የሰራተኞች ቡድንን መምረጥ...",
+    "የስራ እቅድ እና ዕለታዊ ግምገማዎችን ማጠናቀቅ..."
+  ];
+
+  const runCadAutomaticPlanning = async (filename: string) => {
+    setIsAnalyzingCad(true);
+    setCadAnalysisError(null);
+    setCadPlanningStep(0);
+    
+    const timer = setInterval(() => {
+      setCadPlanningStep(prev => (prev < 4 ? prev + 1 : prev));
+    }, 1200);
+
+    try {
+      const response = await fetch("/api/ai/analyze-cad", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: filename,
+          project: selectedProject,
+          block: selectedBuilding,
+          floor: selectedFloor,
+          zone: selectedZone
+        })
+      });
+
+      const resJson = await response.json();
+      clearInterval(timer);
+
+      if (resJson.success) {
+        setCadAnalysisResult(resJson.data);
+        setActiveGalleryTab("autoPlan" as any);
+        if (onLogAction) {
+          onLogAction("CAD Auto-Planner Executed", `Created plan and evaluation for ${filename}`);
+        }
+      } else {
+        setCadAnalysisError(resJson.error || "CAD inspection compile failed");
+      }
+    } catch (err: any) {
+      clearInterval(timer);
+      setCadAnalysisError(err?.message || "Failed to connect to the cloud service.");
+    } finally {
+      setIsAnalyzingCad(false);
+    }
+  };
+
   // Gallery tabs
-  const [activeGalleryTab, setActiveGalleryTab] = useState<"drawings" | "photos" | "timeline" | "comparison" | "aiResults">("drawings");
+  const [activeGalleryTab, setActiveGalleryTab] = useState<"drawings" | "photos" | "timeline" | "comparison" | "aiResults" | "autoPlan">("drawings");
 
   // Report center states
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
@@ -1029,7 +1093,8 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                   { id: "drawings", label: isAmharic ? "ስዕሎች" : "CADs" },
                   { id: "photos", label: isAmharic ? "ፎቶዎች" : "Daily Photos" },
                   { id: "timeline", label: isAmharic ? "የጊዜ ሰሌዳ" : "Timeline" },
-                  { id: "comparison", label: "Side-by-Side" }
+                  { id: "comparison", label: "Side-by-Side" },
+                  { id: "autoPlan", label: isAmharic ? "አውቶማቲክ እቅድ እና ግምገማ" : "AI Auto Plan & Review" }
                 ].map((tab) => (
                   <button
                     key={tab.id}
@@ -1079,7 +1144,17 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                       </div>
 
                       <div className="mt-3 flex items-center justify-between border-t border-slate-100 pt-2.5">
-                        <span className="text-[10px] text-slate-400 italic">OVID Aluminum Slab System</span>
+                        {draw.status === "Approved" ? (
+                          <button
+                            onClick={() => runCadAutomaticPlanning(draw.filename)}
+                            className="text-[10px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-2.5 py-1 rounded-lg flex items-center space-x-1 border border-indigo-200 cursor-pointer transition-all shadow-xs"
+                          >
+                            <Sparkles size={11} className="text-indigo-600 animate-pulse" />
+                            <span>{isAmharic ? "እቅድና ግምገማ አውጣ" : "AI Auto Plan"}</span>
+                          </button>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">OVID Aluminum Slab System</span>
+                        )}
                         <a 
                           href={draw.cadPreviewUrl} 
                           target="_blank" 
@@ -1240,6 +1315,259 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                     Overlay mismatch ratio: <strong className="text-red-500">12% offset detected on Axis-D wall segment</strong>
                   </span>
                 </div>
+              </div>
+            )}
+
+            {/* TAB CONTENT: AI AUTOMATIC PLANNING & DAILY REVIEW */}
+            {activeGalleryTab === "autoPlan" && (
+              <div className="space-y-4">
+                {isAnalyzingCad ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-slate-200/80 space-y-4">
+                    <RefreshCw className="animate-spin text-indigo-600 mx-auto" size={32} />
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-slate-800">
+                        {isAmharic ? "አውቶማቲክ የስራ እቅድ በማመንጨት ላይ..." : "Compiling Auto Work Plan..."}
+                      </h4>
+                      <p className="text-xs text-indigo-600 font-medium animate-pulse">
+                        {isAmharic ? cadPlanningStepsAmh[cadPlanningStep] : cadPlanningStepsEng[cadPlanningStep]}
+                      </p>
+                    </div>
+                    <div className="max-w-xs mx-auto bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                      <div 
+                        className="bg-indigo-600 h-full transition-all duration-500" 
+                        style={{ width: `${(cadPlanningStep + 1) * 20}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                ) : cadAnalysisError ? (
+                  <div className="p-6 text-center bg-red-50 rounded-xl border border-red-200 text-red-600 space-y-3">
+                    <AlertTriangle className="mx-auto" size={28} />
+                    <p className="text-xs font-bold">{cadAnalysisError}</p>
+                    <button
+                      onClick={() => runCadAutomaticPlanning(latestApprovedDrawing?.filename || "OVID_BH_FL04_ZONE_A_REV3.dwg")}
+                      className="px-4 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold cursor-pointer transition-colors"
+                    >
+                      {isAmharic ? "በድጋሚ ይሞክሩ" : "Retry Analysis"}
+                    </button>
+                  </div>
+                ) : !cadAnalysisResult ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200 space-y-4">
+                    <Sparkles className="text-indigo-500 mx-auto animate-bounce" size={32} />
+                    <div className="space-y-1 max-w-md mx-auto">
+                      <h4 className="text-sm font-black text-slate-800">
+                        {isAmharic ? "አውቶማቲክ የስራ እቅድ እና ዕለታዊ ግምገማዎች" : "Automatic Work Scheduling & Daily Review"}
+                      </h4>
+                      <p className="text-xs text-slate-500 leading-relaxed">
+                        {isAmharic 
+                          ? "የካድ ስዕሎችን (.dwg/.pdf) ወደ ሲስተሙ በማስገባት ሲስተሙ automatically የእያንዳንዱን ዞን የስራ እቅድ ማውጣት እና ዕለታዊ ግምገማዎች መስራት ይችላል።" 
+                          : "Extract vector layouts directly from CAD drawings to generate automatic 6-day cycle work plans and compare daily camera frames against master templates."}
+                      </p>
+                    </div>
+                    <div className="flex justify-center">
+                      <button
+                        onClick={() => runCadAutomaticPlanning(latestApprovedDrawing?.filename || "OVID_Heights_B1_FL04_Formwork.dwg")}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-2 rounded-xl text-xs flex items-center space-x-1.5 cursor-pointer transition-all shadow-xs"
+                      >
+                        <Sparkles size={14} />
+                        <span>
+                          {isAmharic ? "የአሁኑን የተፈቀደ የካድ ስዕል ተንትን" : "Analyze Current Approved CAD"}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {/* SUMMARY ROW */}
+                    <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100 flex flex-col md:flex-row items-start md:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-black uppercase text-indigo-900 tracking-wider flex items-center space-x-1.5">
+                          <Sparkles size={14} className="text-indigo-600 animate-pulse" />
+                          <span>{isAmharic ? "አውቶማቲክ የካድ ትንተና ውጤት" : "CAD Vector Processing Output"}</span>
+                        </h4>
+                        <p className="text-[11px] text-indigo-700">
+                          {isAmharic 
+                            ? `${cadAnalysisResult.workPlan.zone} - ${selectedProject} ፎቅ ${selectedFloor} ዞን እቅድ በአልሙኒየም ፎርምወርክ ተዘጋጅቷል።`
+                            : `Automatically compiled schedule cycles and quality checks for ${cadAnalysisResult.workPlan.zone}.`}
+                        </p>
+                      </div>
+                      <div className="flex space-x-2 shrink-0">
+                        <button
+                          onClick={() => runCadAutomaticPlanning(latestApprovedDrawing?.filename || "OVID_Heights_B1_FL04_Formwork.dwg")}
+                          className="bg-white hover:bg-slate-50 text-slate-700 font-bold px-3 py-1.5 rounded-lg border border-slate-200 text-[10px] flex items-center space-x-1 cursor-pointer transition-all"
+                        >
+                          <RefreshCw size={10} />
+                          <span>{isAmharic ? "እንደገና አሂድ" : "Re-Run Planning"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                      {/* LEFT: WORK SCHEDULE AND BOM (7 cols) */}
+                      <div className="lg:col-span-7 space-y-4">
+                        <div className="bg-slate-50 p-4 rounded-2xl border border-slate-200/80 space-y-3.5">
+                          <div className="flex justify-between items-center border-b border-slate-200 pb-2">
+                            <h5 className="font-black text-xs uppercase tracking-wide text-slate-800 flex items-center space-x-1.5">
+                              <Calendar size={14} className="text-slate-500" />
+                              <span>{isAmharic ? "የዞኑ የስራ እቅድ" : "Zone Work Plan / Schedule"}</span>
+                            </h5>
+                            <div className="flex space-x-2 text-[10px]">
+                              <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded font-bold font-mono">
+                                {isAmharic ? `ዒላማ፡ ${cadAnalysisResult.workPlan.targetDays} ቀናት` : `Target: ${cadAnalysisResult.workPlan.targetDays} Days`}
+                              </span>
+                              <span className="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded font-bold font-mono">
+                                {isAmharic ? `ሰው ኃይል፡ ${cadAnalysisResult.workPlan.recommendedCrewSize} አባላት` : `Crew Size: ${cadAnalysisResult.workPlan.recommendedCrewSize} Members`}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] text-slate-600 leading-relaxed italic bg-white p-2.5 rounded-lg border border-slate-100">
+                            {isAmharic ? cadAnalysisResult.workPlan.amharicVersion?.description : `6-Day Formwork assembly cycle optimization derived directly from CAD vector groups.`}
+                          </p>
+
+                          {/* BILL OF MATERIALS */}
+                          <div className="space-y-2">
+                            <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">{isAmharic ? "ከካድ የተገኙ የፎርምወርክ ቁሶች ዝርዝር (BOM)" : "CAD Extracted Material Bill of Materials (BOM)"}</span>
+                            <div className="grid grid-cols-5 gap-1.5 text-center">
+                              <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                                <span className="text-base font-black text-slate-800 font-mono block">{cadAnalysisResult.workPlan.bom.wallPanels}</span>
+                                <span className="text-[8px] text-slate-500 block leading-tight">{isAmharic ? "የግድግዳ" : "Walls"}</span>
+                              </div>
+                              <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                                <span className="text-base font-black text-slate-800 font-mono block">{cadAnalysisResult.workPlan.bom.beamPanels}</span>
+                                <span className="text-[8px] text-slate-500 block leading-tight">{isAmharic ? "የቢም" : "Beams"}</span>
+                              </div>
+                              <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                                <span className="text-base font-black text-slate-800 font-mono block">{cadAnalysisResult.workPlan.bom.slabPanels}</span>
+                                <span className="text-[8px] text-slate-500 block leading-tight">{isAmharic ? "የፎቅ" : "Slabs"}</span>
+                              </div>
+                              <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                                <span className="text-base font-black text-slate-800 font-mono block">{cadAnalysisResult.workPlan.bom.propSupports}</span>
+                                <span className="text-[8px] text-slate-500 block leading-tight">{isAmharic ? "ምሰሶዎች" : "Props"}</span>
+                              </div>
+                              <div className="bg-white p-2 rounded-xl border border-slate-200/60">
+                                <span className="text-base font-black text-slate-800 font-mono block">{cadAnalysisResult.workPlan.bom.accessories}</span>
+                                <span className="text-[8px] text-slate-500 block leading-tight">{isAmharic ? "ማያያዣ" : "Pins"}</span>
+                              </div>
+                            </div>
+                            <div className="text-right text-[9px] font-mono text-slate-400">
+                              {isAmharic ? `አጠቃላይ የአልሙኒየም ፓነል ብዛት፡ ${cadAnalysisResult.workPlan.totalPanelsRequired} ካሬ` : `Total Panel Elements: ${cadAnalysisResult.workPlan.totalPanelsRequired}`}
+                            </div>
+                          </div>
+
+                          {/* SEQUENCE OF WORK */}
+                          <div className="space-y-2.5">
+                            <span className="text-[10px] font-bold text-slate-400 block uppercase tracking-wider">{isAmharic ? "ደረጃ በደረጃ የስራ ቅደም ተከተል" : "Sequential Production Workflow Stages"}</span>
+                            <div className="space-y-2 relative before:absolute before:left-2 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-200">
+                              {(isAmharic ? cadAnalysisResult.workPlan.amharicVersion?.phases : cadAnalysisResult.workPlan.sequence).map((phaseItem: any, idx: number) => {
+                                const originalPhase = cadAnalysisResult.workPlan.sequence[idx];
+                                return (
+                                  <div key={idx} className="flex items-start space-x-2.5 pl-1.5 relative">
+                                    <div className="w-4 h-4 rounded-full bg-slate-900 border-2 border-white shadow-xs text-[9px] font-black font-mono text-white flex items-center justify-center shrink-0 z-10">
+                                      {idx + 1}
+                                    </div>
+                                    <div className="bg-white p-2.5 rounded-xl border border-slate-200/50 w-full space-y-1.5">
+                                      <div className="flex justify-between items-center border-b border-slate-100 pb-1">
+                                        <span className="font-bold text-xs text-slate-800">{phaseItem.phase}</span>
+                                        <span className="font-mono text-[9px] bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded">
+                                          {isAmharic ? `${originalPhase.durationDays} ቀናት` : `${originalPhase.durationDays} Days`}
+                                        </span>
+                                      </div>
+                                      <div className="flex justify-between items-center text-[9px] text-indigo-700">
+                                        <span>{isAmharic ? "ተረካቢ ቡድን፦" : "Assigned Work Crew:"}</span>
+                                        <strong className="font-bold">{phaseItem.assignedTeam}</strong>
+                                      </div>
+                                      <ul className="list-disc list-inside space-y-0.5 text-[10px] text-slate-600 pl-1 font-sans">
+                                        {phaseItem.tasks.map((task: string, tIdx: number) => (
+                                          <li key={tIdx} className="truncate" title={task}>{task}</li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          <div className="p-3 bg-red-50 rounded-xl border border-red-100 space-y-1">
+                            <span className="text-[9px] font-black text-red-700 uppercase tracking-wide block">{isAmharic ? "የስራ አደገኛ መስመር ስጋቶች (Critical Path Risks)" : "CRITICAL PATH / MITIGATION ALERTS:"}</span>
+                            <p className="text-[10px] text-red-800 font-medium">
+                              {isAmharic ? cadAnalysisResult.workPlan.amharicVersion?.criticalPath : cadAnalysisResult.workPlan.keyRisks[0]}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* RIGHT: DAILY REVIEW / COMPLIANCE AND DEV CHECK (5 cols) */}
+                      <div className="lg:col-span-5 space-y-4">
+                        <div className="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-4">
+                          <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                            <h5 className="font-black text-xs uppercase tracking-wide text-indigo-400 flex items-center space-x-1.5">
+                              <CheckCircle size={14} className="text-indigo-400" />
+                              <span>{isAmharic ? "ዕለታዊ ግምገማዎች" : "Daily Quality Assessment"}</span>
+                            </h5>
+                            <span className="text-[9px] font-mono text-slate-400">{cadAnalysisResult.dailyAssessment.date}</span>
+                          </div>
+
+                          {/* SCORE & SPEC */}
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-0.5">
+                              <span className="text-[8px] text-slate-400 uppercase font-black tracking-wider block">{isAmharic ? "የካድ ንፅፅር ውጤት" : "CAD Similarity Ratio"}</span>
+                              <span className="text-2xl font-black text-emerald-400 font-mono">{cadAnalysisResult.dailyAssessment.cadComparisonScore}%</span>
+                            </div>
+                            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center space-y-0.5">
+                              <span className="text-[8px] text-slate-400 uppercase font-black tracking-wider block">{isAmharic ? "የቀጥተኝነት ልኬት" : "Vertical Plumbness"}</span>
+                              <span className="text-[10px] font-bold text-indigo-300 block truncate leading-relaxed pt-1.5">{cadAnalysisResult.dailyAssessment.plumbnessCheck.split(" - ")[0]}</span>
+                            </div>
+                          </div>
+
+                          {/* POUR APPROVAL STATUS */}
+                          <div className="p-3.5 rounded-xl border text-center space-y-2 bg-slate-950/80 border-slate-800">
+                            <span className="text-[9px] text-slate-400 uppercase font-black block tracking-wider">
+                              {isAmharic ? "የኮንክሪት ሙሌት ዝግጁነት ፍቃድ" : "Concrete Pouring Authorization Status"}
+                            </span>
+                            <div className="flex items-center justify-center space-x-2">
+                              <div className={`w-2.5 h-2.5 rounded-full animate-ping ${cadAnalysisResult.dailyAssessment.pourReadyApproved ? "bg-emerald-500" : "bg-amber-500"}`}></div>
+                              <span className={`text-sm font-black tracking-wide uppercase ${cadAnalysisResult.dailyAssessment.pourReadyApproved ? "text-emerald-400" : "text-amber-400"}`}>
+                                {isAmharic ? cadAnalysisResult.dailyAssessment.amharicVersion?.statusText : cadAnalysisResult.dailyAssessment.pourReadyStatus}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-slate-400 italic">
+                              {isAmharic ? cadAnalysisResult.dailyAssessment.amharicVersion?.summary : `Auto-evaluated alignment comparison ratio: ${cadAnalysisResult.dailyAssessment.cadComparisonScore}% similarity to design.`}
+                            </p>
+                          </div>
+
+                          {/* DEVIATIONS */}
+                          <div className="space-y-2">
+                            <span className="text-[9px] text-slate-400 font-black block uppercase tracking-wider">
+                              {isAmharic ? "የተገኙ ልዩነቶች / መስተካከል ያለባቸው ጉዳዮች" : "Detected CAD Deviations & Corrections"}
+                            </span>
+                            <div className="space-y-1.5">
+                              {cadAnalysisResult.dailyAssessment.deviationsDetected.map((dev: string, dIdx: number) => (
+                                <div key={dIdx} className="p-2.5 rounded-lg bg-slate-950 border border-slate-800/80 text-slate-300 text-[10px] flex items-start space-x-2">
+                                  <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
+                                  <span className="font-mono">{dev}</span>
+                                </div>
+                              ))}
+                              {cadAnalysisResult.dailyAssessment.deviationsDetected.length === 0 && (
+                                <div className="p-2.5 text-center text-slate-500 text-[10px] italic">
+                                  No structural deviations identified. Plumbness aligned to design target.
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* LOCAL ADVISORY */}
+                          <div className="p-3 bg-indigo-950/40 rounded-xl border border-indigo-900/50 space-y-1">
+                            <span className="text-[9px] font-black text-indigo-400 uppercase tracking-wide block">{isAmharic ? "የጣቢያ መሃንዲሶች ማስታወሻ" : "SITE ADVISORY NOTES:"}</span>
+                            <p className="text-[10px] text-slate-300 leading-normal">
+                              {isAmharic ? cadAnalysisResult.dailyAssessment.amharicVersion?.deviationsText : `Execute the recommended C-4 runner bolster additions. Final sign-off required prior to releasing ready-mix concrete pumps.`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 

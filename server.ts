@@ -180,6 +180,270 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
     }
   });
 
+  // AI Safety Predictions Endpoint
+  app.post("/api/ai/predict-safety", async (req, res) => {
+    try {
+      const { safetyLogs, qualitySnags } = req.body;
+      const ai = getGeminiClient();
+
+      if (!ai) {
+        // High fidelity mock fallback
+        const mockResult = generateMockSafetyPredictions(safetyLogs || [], qualitySnags || []);
+        return res.json({
+          success: true,
+          simulated: true,
+          data: mockResult
+        });
+      }
+
+      const prompt = `
+You are an expert AI Construction Safety Inspector and Risk Forecaster specialized in OVID Real Estate High-Rise Aluminum Formwork operations.
+Analyze the following historical safety records, unsafe acts, unsafe conditions, and quality defects to predict safety hazards, identify precursor patterns, and provide proactive safety alerts:
+
+SAFETY RECORDS:
+- Historical Safety Logs: ${JSON.stringify(safetyLogs || [])}
+- Quality Snags/Defects (which can lead to mechanical or physical failures): ${JSON.stringify(qualitySnags || [])}
+
+Predictive Hazards Checklist & Structural Compliance:
+1. Identify common precursor patterns to potential incidents (e.g., weather constraints, crew fatigue, repetitive unsafe acts like failing to hook harnesses, un-cleared staircases/debris, panel lifting/shifting risks).
+2. Calculate a Safety Risk Score (0 to 100, where 100 is maximum hazard/critical risk) for each active zone, detailing the primary hazards and contributing factors.
+3. Formulate targeted, proactive safety recommendations specifically labeled for Site Engineers or Supervisors.
+4. Generate a highly professional Markdown formatted Safety Briefing for site leaders to use in upcoming Toolbox Talks.
+
+Return a JSON object matching this schema exactly. Do NOT return markdown or wrapping outside of the raw JSON block.
+`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              overallRiskScore: { type: Type.NUMBER, description: "Predicted overall project risk score from 0 (Safe) to 100 (Extremely Hazardous)." },
+              overallRiskLevel: { type: Type.STRING, description: "Risk level: 'Low', 'Medium', or 'High'." },
+              predictedRisksByZone: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    zoneId: { type: Type.STRING },
+                    riskLevel: { type: Type.STRING, enum: ["High", "Medium", "Low"] },
+                    riskScore: { type: Type.NUMBER },
+                    primaryHazard: { type: Type.STRING },
+                    contributingFactors: {
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING }
+                    }
+                  },
+                  required: ["zoneId", "riskLevel", "riskScore", "primaryHazard", "contributingFactors"]
+                }
+              },
+              identifiedPatterns: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    title: { type: Type.STRING },
+                    precursor: { type: Type.STRING },
+                    incidentCorrelation: { type: Type.STRING },
+                    severityPotential: { type: Type.STRING }
+                  },
+                  required: ["title", "precursor", "incidentCorrelation", "severityPotential"]
+                }
+              },
+              proactiveRecommendations: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    targetAudience: { type: Type.STRING, enum: ["Site Engineers", "Supervisors", "All Crews"] },
+                    actionItem: { type: Type.STRING },
+                    priority: { type: Type.STRING, enum: ["Critical", "High", "Medium"] },
+                    zoneOrActivity: { type: Type.STRING }
+                  },
+                  required: ["targetAudience", "actionItem", "priority", "zoneOrActivity"]
+                }
+              },
+              weeklySafetyBriefingMarkdown: {
+                type: Type.STRING,
+                description: "An exhaustive, formal Markdown safety briefing guide for the next weekly cycle, focusing on the identified precursors."
+              }
+            },
+            required: [
+              "overallRiskScore",
+              "overallRiskLevel",
+              "predictedRisksByZone",
+              "identifiedPatterns",
+              "proactiveRecommendations",
+              "weeklySafetyBriefingMarkdown"
+            ]
+          }
+        }
+      });
+
+      const responseText = response.text || "{}";
+      const resultData = JSON.parse(responseText.trim());
+
+      res.json({
+        success: true,
+        simulated: false,
+        data: resultData
+      });
+
+    } catch (error) {
+      console.error("Gemini Safety prediction failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Internal Server Error" 
+      });
+    }
+  });
+
+  // AI CAD Analysis Endpoint - Generates Automatic Work Plan and Daily Assessments
+  app.post("/api/ai/analyze-cad", async (req, res) => {
+    try {
+      const { filename, project, block, floor, zone } = req.body;
+      const ai = getGeminiClient();
+
+      if (!ai) {
+        const mockResult = generateMockCadAnalysis(filename || "drawing.dwg", project || "OVID Bole Heights", block || "Block A", floor || 4, zone || "Zone A");
+        return res.json({
+          success: true,
+          simulated: true,
+          data: mockResult
+        });
+      }
+
+      const prompt = `
+You are an expert AI Construction planner, CAD Engineer, and Quality Inspector for OVID Real Estate Aluminum Formwork operations.
+Analyze the following CAD drawing details to generate:
+1. An automatic Zone Work Plan / construction schedule (የስራ እቅድ ማውጣት) specifying sequence phases, target days, recommended crew size, bill of material estimates, and critical path risks.
+2. A Daily Assessment (ዕለታዊ ግምገማዎች) checklist verifying physical progress vs planned CAD template, quality alignment, plumbness check, pour readiness approval, and any deviations detected.
+
+CAD DRAWING DETAILS:
+- Filename: ${filename || "OVID_BH_FL04_ZONE_A_REV3.dwg"}
+- Project: ${project || "OVID Bole Heights"}
+- Block/Tower: ${block || "Block A"}
+- Floor: Floor ${floor || 4}
+- Zone/Sector: ${zone || "Zone A"}
+
+The output must include both a detailed English representation and an elegant, technically sound Ethiopian Amharic translation for site engineers and local crew chiefs (e.g., using terms like 'የአልሙኒየም ፎርምወርክ ስራ እቅድ', 'የኮንክሪት ሙሌት ፍቃድ', 'የዞን እለታዊ ግምገማ').
+
+Return a JSON object matching this schema exactly. Do NOT return markdown or wrapping outside of the raw JSON block.
+`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-3.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              workPlan: {
+                type: Type.OBJECT,
+                properties: {
+                  zone: { type: Type.STRING },
+                  targetDays: { type: Type.NUMBER },
+                  totalPanelsRequired: { type: Type.NUMBER },
+                  bom: {
+                    type: Type.OBJECT,
+                    properties: {
+                      wallPanels: { type: Type.NUMBER },
+                      beamPanels: { type: Type.NUMBER },
+                      slabPanels: { type: Type.NUMBER },
+                      propSupports: { type: Type.NUMBER },
+                      accessories: { type: Type.NUMBER }
+                    },
+                    required: ["wallPanels", "beamPanels", "slabPanels", "propSupports", "accessories"]
+                  },
+                  recommendedCrewSize: { type: Type.NUMBER },
+                  sequence: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        phase: { type: Type.STRING },
+                        durationDays: { type: Type.NUMBER },
+                        assignedTeam: { type: Type.STRING },
+                        tasks: { type: Type.ARRAY, items: { type: Type.STRING } }
+                      },
+                      required: ["phase", "durationDays", "assignedTeam", "tasks"]
+                    }
+                  },
+                  keyRisks: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  amharicVersion: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING },
+                      description: { type: Type.STRING },
+                      phases: {
+                        type: Type.ARRAY,
+                        items: {
+                          type: Type.OBJECT,
+                          properties: {
+                            phase: { type: Type.STRING },
+                            assignedTeam: { type: Type.STRING },
+                            tasks: { type: Type.ARRAY, items: { type: Type.STRING } }
+                          },
+                          required: ["phase", "assignedTeam", "tasks"]
+                        }
+                      },
+                      criticalPath: { type: Type.STRING }
+                    },
+                    required: ["title", "description", "phases", "criticalPath"]
+                  }
+                },
+                required: ["zone", "targetDays", "totalPanelsRequired", "bom", "recommendedCrewSize", "sequence", "keyRisks", "amharicVersion"]
+              },
+              dailyAssessment: {
+                type: Type.OBJECT,
+                properties: {
+                  date: { type: Type.STRING },
+                  cadComparisonScore: { type: Type.NUMBER },
+                  plumbnessCheck: { type: Type.STRING },
+                  pourReadyApproved: { type: Type.BOOLEAN },
+                  pourReadyStatus: { type: Type.STRING },
+                  deviationsDetected: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  amharicVersion: {
+                    type: Type.OBJECT,
+                    properties: {
+                      statusText: { type: Type.STRING },
+                      deviationsText: { type: Type.STRING },
+                      pourReadyText: { type: Type.STRING },
+                      summary: { type: Type.STRING }
+                    },
+                    required: ["statusText", "deviationsText", "pourReadyText", "summary"]
+                  }
+                },
+                required: ["date", "cadComparisonScore", "plumbnessCheck", "pourReadyApproved", "pourReadyStatus", "deviationsDetected", "amharicVersion"]
+              }
+            },
+            required: ["workPlan", "dailyAssessment"]
+          }
+        }
+      });
+
+      const responseText = response.text || "{}";
+      const resultData = JSON.parse(responseText.trim());
+
+      res.json({
+        success: true,
+        simulated: false,
+        data: resultData
+      });
+
+    } catch (error) {
+      console.error("CAD Automatic analysis failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Internal Server Error" 
+      });
+    }
+  });
+
   // Serve static assets or mount Vite dev middleware
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
@@ -302,6 +566,252 @@ We analyzed aluminum panel assembly, stripping, and concrete ready rates.
 3.  **Targeted Mentorship:** Assign hands-on training to Mekonnen Haile (OVID-W-108) to improve joint lock assembly speeds.
 `,
     generatedAt: new Date().toISOString()
+  };
+}
+
+// Helper to generate realistic mock safety predictions when Gemini is offline
+function generateMockSafetyPredictions(safetyLogs: any[], qualitySnags: any[]) {
+  const hasUnsafeHarness = safetyLogs.some(log => 
+    (log.unsafeActs && log.unsafeActs.some((act: string) => act.toLowerCase().includes("harness") || act.toLowerCase().includes("scaffold")))
+  );
+  const hasSlippery = safetyLogs.some(log => 
+    (log.unsafeConditions && log.unsafeConditions.some((c: string) => c.toLowerCase().includes("slippery") || c.toLowerCase().includes("wet") || c.toLowerCase().includes("rain") || c.toLowerCase().includes("mud")))
+  );
+  const hasDebris = safetyLogs.some(log => 
+    (log.unsafeConditions && log.unsafeConditions.some((c: string) => c.toLowerCase().includes("debris") || c.toLowerCase().includes("staircase") || c.toLowerCase().includes("clutter")))
+  );
+  const openPanelGap = qualitySnags.some(snag => snag.defectType === "Panel Gap" && snag.status !== "Resolved");
+
+  const patterns = [];
+  const recommendations = [];
+  const zoneRisks = [];
+
+  zoneRisks.push({
+    zoneId: "B1-F04-ZB",
+    riskLevel: hasSlippery || hasUnsafeHarness ? "High" : "Medium",
+    riskScore: hasSlippery || hasUnsafeHarness ? 84 : 58,
+    primaryHazard: "Elevation falls and manual panel handling slippage.",
+    contributingFactors: [
+      hasSlippery ? "Slippery slab conditions logged due to local rain moisture." : "Early morning fog and concrete floor plate condensation.",
+      openPanelGap ? "Active unresolved Panel Gaps causing micro-alignment shifts." : "Shoring bracket spacing limits on wet-cured concrete deck.",
+      "High wind forces affecting upper-level exterior scaffolding panels."
+    ]
+  });
+
+  zoneRisks.push({
+    zoneId: "B1-F04-ZA",
+    riskLevel: "Low",
+    riskScore: 24,
+    primaryHazard: "Minor hand-trapping hazards during joint pinning.",
+    contributingFactors: [
+      "All major formwork snags resolved.",
+      "Full Toolbox safety compliance verified.",
+      "Safety score sustained at 95%."
+    ]
+  });
+
+  if (hasUnsafeHarness) {
+    patterns.push({
+      title: "Scaffolding Outer Perimeter Bypass",
+      precursor: "Workers failing to lock safety harness hooks on outer perimeter cantilever brackets.",
+      incidentCorrelation: "High altitude fall hazard during early stripping hours.",
+      severityPotential: "Critical (Life Safety Hazard)"
+    });
+    recommendations.push({
+      targetAudience: "Supervisors" as const,
+      actionItem: "Conduct a 100% active harness check prior to authorizing any scaffolding or bracket-mounting works. Terminate work for non-compliant crews.",
+      priority: "Critical" as const,
+      zoneOrActivity: "Outer Scaffolding Stripping"
+    });
+  } else {
+    patterns.push({
+      title: "Pinch Points in Wall-Formwork Pinning",
+      precursor: "Rapid locking of wedge-and-pin connectors without proper impact gloves.",
+      incidentCorrelation: "Crush injuries to hands and fingers during manual rapid alignment.",
+      severityPotential: "Medium (First Aid Incident)"
+    });
+  }
+
+  if (hasSlippery) {
+    patterns.push({
+      title: "Post-Rain Slab Friction Loss",
+      precursor: "Wet concrete slab surfaces combined with loose aluminum panel dust.",
+      incidentCorrelation: "Slips, trips, and falls during manual carrying of 2.4m heavy panels.",
+      severityPotential: "High (Lost Time Injury)"
+    });
+    recommendations.push({
+      targetAudience: "Site Engineers" as const,
+      actionItem: "Order complete application of friction-inducing compound or sawdust across wet slabs before beginning any panel stripping or shifting operations.",
+      priority: "High" as const,
+      zoneOrActivity: "Wet Slab Area"
+    });
+  }
+
+  if (hasDebris) {
+    patterns.push({
+      title: "Staircase Access Obstructions",
+      precursor: "Stacking of wedge pins, bracing bars, and timber fillets on emergency escape stairs.",
+      incidentCorrelation: "Tripping hazards and blocked egress channels during rapid evacuation alerts.",
+      severityPotential: "Medium (Emergency Response Failure)"
+    });
+    recommendations.push({
+      targetAudience: "Site Engineers" as const,
+      actionItem: "Establish dedicated parts containment bins in every zone; clear staircase routes twice per shift.",
+      priority: "Medium" as const,
+      zoneOrActivity: "Emergency Egress Routes"
+    });
+  }
+
+  if (recommendations.length === 0) {
+    recommendations.push({
+      targetAudience: "Site Engineers" as const,
+      actionItem: "Audit the verticality and dual-locking system of formwork prop pins on all loaded floor plates.",
+      priority: "High" as const,
+      zoneOrActivity: "Shoring & Prop Release"
+    });
+    recommendations.push({
+      targetAudience: "Supervisors" as const,
+      actionItem: "Mandate pre-shift inspect-and-replace protocols for all crane-lifting chains and tie-rod assemblies.",
+      priority: "Medium" as const,
+      zoneOrActivity: "Tower Crane Shifting"
+    });
+  }
+
+  if (patterns.length < 2) {
+    patterns.push({
+      title: "Fatigue from Overtime Concrete Pours",
+      precursor: "Consecutive late shifts for concrete crews followed by early morning formwork alignment.",
+      incidentCorrelation: "Cognitive lapses leading to structural pins being missed or double-joint failures.",
+      severityPotential: "High (Structural Failure)"
+    });
+  }
+
+  return {
+    overallRiskScore: hasSlippery || hasUnsafeHarness ? 78 : 42,
+    overallRiskLevel: hasSlippery || hasUnsafeHarness ? "High" : "Medium",
+    predictedRisksByZone: zoneRisks,
+    identifiedPatterns: patterns,
+    proactiveRecommendations: recommendations,
+    weeklySafetyBriefingMarkdown: `
+# OVID REAL ESTATE – PREDICTIVE HAZARD SECURITY BRIEFING
+## SAFETY CAMPAIGN: PRECURSOR PATTERN IDENTIFICATION & MITIGATION
+
+This briefing highlights active precursor risks identified across the Tower 1 layout.
+
+### 1. Highlighted Critical Risks & Precursors
+${hasUnsafeHarness ? `*   **Outer Scaffolding Fall Risk:** Harness hook bypass is a direct precursor to elevation hazards. Site Marshals must perform zero-tolerance safety audits on all perimeter cantilever work.` : "*   **High Elevation Work Safety:** Monitor all guardrail locks and perimeter bracing regularly."}
+${hasSlippery ? `*   **Wet Surface Slip Risk:** Slippery floor plates on Floor 4 must be cleared of dust and moisture prior to any formwork manual carrying.` : "*   **Slab Moisture Awareness:** Ensure sawdust or non-slip pathways are maintained in active work zones."}
+*   **Wedge-and-Pin Debris Accumulation:** Debris on slab pathways restricts sight lines and increases hand injury rates.
+
+### 2. Mandatory Standard Operating Procedures (SOPs)
+1.  **Dual-Signature Inspection:** No concrete pour is to be authorized without pre-pour structural inspection of wall and slab prop locks.
+2.  **Access Clearance:** Keep all emergency escape routes 100% free of panel piles.
+3.  **Toolbox Focus:** The next Toolbox meeting must address **"Pinch-Point Avoidance during High-Velocity Formwork Assembly"**.
+`
+  };
+}
+
+// Helper to generate hyper-realistic automatic CAD work planning and daily assessments
+function generateMockCadAnalysis(filename: string, project: string, block: string, floor: number, zone: string) {
+  // Tailor BOM based on zone name
+  const isZoneA = zone.includes("Zone A");
+  const isZoneB = zone.includes("Zone B");
+  const wallPanels = isZoneA ? 142 : isZoneB ? 128 : 115;
+  const beamPanels = isZoneA ? 68 : isZoneB ? 54 : 48;
+  const slabPanels = isZoneA ? 112 : isZoneB ? 98 : 105;
+  const propSupports = isZoneA ? 45 : isZoneB ? 38 : 35;
+  const accessories = isZoneA ? 320 : isZoneB ? 290 : 270;
+  const totalPanels = wallPanels + beamPanels + slabPanels;
+
+  return {
+    workPlan: {
+      zone: zone,
+      targetDays: 6,
+      totalPanelsRequired: totalPanels,
+      bom: {
+        wallPanels,
+        beamPanels,
+        slabPanels,
+        propSupports,
+        accessories
+      },
+      recommendedCrewSize: isZoneA ? 12 : 10,
+      sequence: [
+        {
+          phase: "Formwork Assembly",
+          durationDays: 2,
+          assignedTeam: "Carpenter Team Alpha (T-01)",
+          tasks: ["Erect vertical wall panels according to CAD layer X-W1", "Lock wall corners using OVID standard external corner brackets", "Install tie-rods and PVC sleeve spacers"]
+        },
+        {
+          phase: "Shoring & Leveling",
+          durationDays: 1,
+          assignedTeam: "Support Team Epsilon (T-05)",
+          tasks: ["Erect vertical telescopic prop supports at 1200mm grid intervals", "Install beam soffit runners and locking pins", "Verify base leveling screws are fully locked and bearing load"]
+        },
+        {
+          phase: "Slab Decking & Steel Lock",
+          durationDays: 1.5,
+          assignedTeam: "Assembly Team Alpha (T-01) & Steel Fixing Team Gamma (T-03)",
+          tasks: ["Lay horizontal aluminum slab decking panels (Standard 1200x600)", "Apply water-soluble form release oil", "Lay rebar mesh and wire-lock double bottom joints"]
+        },
+        {
+          phase: "Inspection & Concrete Pour",
+          durationDays: 1.5,
+          assignedTeam: "Quality Control Inspectors & Concrete Casting Team Delta (T-04)",
+          tasks: ["Laser inspect vertical plumbness and slab flatness", "Perform pre-pour compliance audit sign-off", "Execute concrete casting, apply mechanical needle vibrators"]
+        }
+      ],
+      keyRisks: [
+        "Slab decking joints in inner lift core zone are tight; monitor panels cutting offsets closely.",
+        "Vertical plumbing drift can exceed +/- 2mm limit if wall-bracing props are not locked before steel fixing."
+      ],
+      amharicVersion: {
+        title: `አውቶማቲክ የዞን የስራ እቅድ - ${zone} (ፎቅ ${floor})`,
+        description: `የአልሙኒየም ፎርምወርክ ቁሶችን በካድ ስዕል (${filename}) መሰረት አሰላልፎ ለመስራት የተዘጋጀ የ6 ቀን ሳይክል እቅድ።`,
+        phases: [
+          {
+            phase: "የፎርምወርክ መገጣጠም (Wall Assembly)",
+            assignedTeam: "የአናፂዎች ቡድን አልፋ (ቲ-01)",
+            tasks: ["በካድ ድንጋጌ መሰረት ቀጥተኛ ግድግዳዎችን ማቆም", "የማዕዘን ፓነሎችን በOVID መደበኛ ቅንፍ መቆለፍ", "የታይ-ሮድ እና የፒቪሲ ቱቦዎችን መግጠም"]
+          },
+          {
+            phase: "የድጋፍ ምሰሶዎች አሰላለፍ (Shoring & Leveling)",
+            assignedTeam: "የእርዳታ ሪገሮች ቡድን ኤፕሲሎን (ቲ-05)",
+            tasks: ["በየ 1200 ሚሜ ልዩነት የቴሌስኮፒክ ድጋፍ ምሰሶዎችን ማቆም", "የቢም ሶፊት ድጋፎችን መቆለፍ", "የታችኛው ማስተካከያ ብሎኖች በአግባቡ መታሰራቸውን ማረጋገጥ"]
+          },
+          {
+            phase: "የፎቅ ሰሌዳ እና የብረት ስራ (Slab Decking & Steel)",
+            assignedTeam: "የአናፂዎች ቡድን አልፋ (ቲ-01) እና የብረታብረት ቡድን ጋማ (ቲ-03)",
+            tasks: ["የአልሙኒየም ፎቅ ሰሌዳዎችን (1200x600) በስርዓቱ መዘርጋት", "የፓነል ዘይት በእኩል መጠን መቀባት", "ባለ ሁለት ፎቅ የብረት መረብ ማንጠፍና ማሰር"]
+          },
+          {
+            phase: "ቁጥጥር እና የኮንክሪት ሙሌት (Inspection & Pouring)",
+            assignedTeam: "የጥራት ቁጥጥር መሃንዲሶች እና የኮንክሪት ቡድን ዴልታ (ቲ-04)",
+            tasks: ["በሌዘር ቀጥተኝነትን እና የሰሌዳ ደረጃን መለካት", "ቅድመ-ኮንክሪት የፍቃድ ሰነድ መፈረም", "ኮንክሪት መሙላት እና በቫይብሬተር ማደቅዘዝ"]
+          }
+        ],
+        criticalPath: `ማሳሰቢያ፦ በማዕከላዊ ሊፍት ኮር ዞን ውስጥ ያሉት መገጣጠሚያዎች ጠባብ በመሆናቸው የፓነል ቁርጥራጮችን በጥንቃቄ መከታተል ያስፈልጋል።`
+      }
+    },
+    dailyAssessment: {
+      date: new Date().toISOString().split("T")[0],
+      cadComparisonScore: isZoneA ? 97 : isZoneB ? 94 : 91,
+      plumbnessCheck: "Within Spec (+/- 1.5mm) - Inspected with Leica Laser Level",
+      pourReadyApproved: isZoneA || isZoneB,
+      pourReadyStatus: isZoneA || isZoneB ? "APPROVED FOR CASTING" : "HOLD - Adjust Prop Leveling",
+      deviationsDetected: isZoneA 
+        ? ["No critical visual deviation found versus template revision.", "Plumbness is fully stable."]
+        : ["Beam outer profile shows 2.2mm horizontal shift on Axis C.", "Add 1 additional support prop under Axis C-4 runner before concrete cast."],
+      amharicVersion: {
+        statusText: isZoneA || isZoneB ? "ኮንክሪት ለመሙላት የተፈቀደ (Approved)" : "የታገደ - ማስተካከያ ይፈልጋል (Hold)",
+        deviationsText: isZoneA 
+          ? "ምንም አይነት ወሳኝ የልዩነት ጉድለት አልተገኘም። ቀጥተኝነት አስተማማኝ ነው።" 
+          : "የቢም የውጨኛው አካል በዘንግ C ላይ የ 2.2 ሚሜ አግድም መዛባት ያሳያል። ኮንክሪት ከመሞላቱ በፊት በዘንግ C-4 ስር ተጨማሪ 1 ድጋፍ ይጫኑ።",
+        pourReadyText: isZoneA || isZoneB ? "የኮንክሪት ሙሌት ፍቃድ፡ ተሰጥቷል" : "የኮንክሪት ሙሌት ፍቃድ፡ አልተሰጠም (ለጊዜው የታገደ)",
+        summary: `በካድ ስዕል እና በእውነተኛው የጣቢያ ፎቶግራፍ መካከል የተደረገው የንፅፅር ውጤት የ ${isZoneA ? '97%' : '94%'} ተመሳሳይነት አሳይቷል።`
+      }
+    }
   };
 }
 

@@ -397,7 +397,9 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
 
   const playSound = (type: "success" | "error") => {
     try {
-      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const audioCtx = new AudioCtx();
       const osc = audioCtx.createOscillator();
       const gain = audioCtx.createGain();
       osc.connect(gain);

@@ -64,6 +64,7 @@ import {
   UserCheck,
   ShieldCheck,
   Shield,
+  Lock,
   Camera,
   Fingerprint,
   ScanLine,
