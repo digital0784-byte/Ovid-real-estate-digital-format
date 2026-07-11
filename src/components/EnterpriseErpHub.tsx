@@ -46,7 +46,12 @@ import {
   BarChart3,
   Network,
   DatabaseBackup,
-  Sliders
+  Sliders,
+  Smartphone,
+  Tablet,
+  Mic,
+  Star,
+  ThumbsUp
 } from "lucide-react";
 import { UserRole } from "../types";
 import {
@@ -79,6 +84,199 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   onLogAction
 }) => {
   const [activeSubTab, setActiveSubTab] = useState<string>("executive");
+
+  // --- FLUTTER & AI ENGINE SIMULATION STATE ---
+  const [selectedMobileApp, setSelectedMobileApp] = useState<string>("Head Office App");
+  const [selectedDbCollection, setSelectedDbCollection] = useState<string>("companies");
+  const [voiceQuery, setVoiceQuery] = useState<string>("");
+  const [voiceResponse, setVoiceResponse] = useState<string>("");
+  const [isVoiceActive, setIsVoiceActive] = useState<boolean>(false);
+  const [droneFlightSimulating, setDroneFlightSimulating] = useState<boolean>(false);
+  const [droneFlightStep, setDroneFlightStep] = useState<string>("Idle");
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<string>("");
+  const [surveyX, setSurveyX] = useState<string>("1542.45");
+  const [surveyY, setSurveyY] = useState<string>("8412.33");
+  const [surveyZ, setSurveyZ] = useState<string>("241.15");
+  const [deviationStatus, setDeviationStatus] = useState<string>("Awaiting calculation");
+  const [registeredNewEmployeeName, setRegisteredNewEmployeeName] = useState<string>("");
+  const [registeredNewEmployeeRole, setRegisteredNewEmployeeRole] = useState<string>("Site Engineer");
+  const [biometricEnrollmentStatus, setBiometricEnrollmentStatus] = useState<string>("Not Started");
+  const [simulatedNotifications, setSimulatedNotifications] = useState<any[]>([
+    { id: 1, title: "Late Attendance Alert", msg: "Team Beta - 3 workers missing at check-in", type: "SMS", time: "Just Now", read: false },
+    { id: 2, title: "CAD Approval Notification", msg: "Block B1 Floor 5 Slab design authorized by HO", type: "Push", time: "5m ago", read: false },
+    { id: 3, title: "Material Shortage Warning", msg: "Locking wedge pin inventory below threshold", type: "Email", time: "15m ago", read: false }
+  ]);
+  const [cadFileUploaded, setCadFileUploaded] = useState<boolean>(false);
+  const [aiCadWorkforceOutput, setAiCadWorkforceOutput] = useState<any>(null);
+  const [payrollApprovalStatus, setPayrollApprovalStatus] = useState<string>("Pending Review");
+  const [concreteReadinessChecked, setConcreteReadinessChecked] = useState<any>({
+    survey: true,
+    quality: true,
+    panels: false,
+    alignment: false,
+    safety: true,
+    materials: true,
+    equipment: true,
+    engineer: false
+  });
+
+  // --- USER FEEDBACK & CX SYSTEM STATE ---
+  const [feedbacks, setFeedbacks] = useState<any[]>([
+    {
+      id: "FB-001",
+      userName: "Eng. Yohannes Berhanu",
+      userRole: "Surveyor",
+      project: "Bole Heights Bloc B1",
+      site: "Bole Heights",
+      category: "Technical",
+      type: "System",
+      subject: "Leica TS16 Bluetooth latency on Floor 4",
+      description: "We are experiencing a 3-second lag when pushing coordinate buffers directly from the Leica TS16 total station to the cloud database. This slows down the deviation verification loop. We need the offline local buffer sync optimization.",
+      priority: "High",
+      status: "In Review",
+      ratings: { easeOfUse: 4, speed: 2, reliability: 3, design: 5, features: 4, management: 4, communication: 3, support: 3, workEnvironment: 4 },
+      anonymous: false,
+      assignedDepartment: "IT & Digital Infrastructure",
+      comments: [
+        { author: "Zewdu A. (System Admin)", role: "IT Lead", text: "We are reviewing the network socket queue for the Bole Heights container server. We will deploy the local cache patch tomorrow.", date: "2026-07-10 14:32" }
+      ],
+      createdAt: "2026-07-10 09:15",
+      attachment: "leica_sync_log.txt",
+      hasAudio: false,
+      sentiment: "Negative",
+      sentimentScore: 0.35,
+      aiAnalysis: {
+        detectedProblems: "Bluetooth connection queue timeout, server replication delay.",
+        priorityRecommendation: "High",
+        suggestedAction: "Implement background sync queue in Flutter client package."
+      }
+    },
+    {
+      id: "FB-002",
+      userName: "Anonymous site worker",
+      userRole: "Site Worker",
+      project: "Bole Heights Bloc B2",
+      site: "Bole Heights",
+      category: "Safety",
+      type: "Construction",
+      subject: "Unsafe scaffolding anchor points in Zone C",
+      description: "The scaffolding anchor points near the lift shaft on Level 3 feel loose. We reported it to the supervisor but need immediate safety check before concrete pouring starts.",
+      priority: "Critical",
+      status: "Action Taken",
+      ratings: { easeOfUse: 5, speed: 5, reliability: 5, design: 4, features: 4, management: 2, communication: 2, support: 4, workEnvironment: 1 },
+      anonymous: true,
+      assignedDepartment: "HSE Safety Department",
+      comments: [
+        { author: "Fikru T. (HSE Lead)", role: "Safety Inspector", text: "Scaffolding inspected and re-anchored. Anchors certified tight. Work resumed safely.", date: "2026-07-11 08:20" }
+      ],
+      createdAt: "2026-07-11 07:12",
+      attachment: "scaffolding_view.jpg",
+      hasAudio: false,
+      sentiment: "Negative",
+      sentimentScore: 0.12,
+      aiAnalysis: {
+        detectedProblems: "Life-threatening hazard, loose scaffold anchors near elevator shaft.",
+        priorityRecommendation: "Critical",
+        suggestedAction: "Dispatch immediate HSE emergency team and freeze pouring permit."
+      }
+    },
+    {
+      id: "FB-003",
+      userName: "Kassa Haile",
+      userRole: "Supervisor",
+      project: "Bole Heights Bloc B1",
+      site: "Bole Heights",
+      category: "Materials",
+      type: "Construction",
+      subject: "Delay in wedge pin supply in Zone B",
+      description: "Formwork panels are ready, but we are running low on locking pins and wedges. Please expedite warehouse delivery to prevent delay in Floor 4 slab completion.",
+      priority: "Medium",
+      status: "Assigned",
+      ratings: { easeOfUse: 4, speed: 3, reliability: 4, design: 4, features: 4, management: 3, communication: 4, support: 3, workEnvironment: 3 },
+      anonymous: false,
+      assignedDepartment: "Procurement & Materials Supply",
+      comments: [],
+      createdAt: "2026-07-11 08:45",
+      attachment: "pins_inventory.jpg",
+      hasAudio: true,
+      audioDuration: "0:24",
+      sentiment: "Neutral",
+      sentimentScore: 0.50,
+      aiAnalysis: {
+        detectedProblems: "Locking pins inventory below critical safety threshold.",
+        priorityRecommendation: "Medium",
+        suggestedAction: "Trigger auto-release of bundle id BUN-PN-44 from Central Warehouse."
+      }
+    },
+    {
+      id: "FB-004",
+      userName: "Chala B.",
+      userRole: "Site Engineer",
+      project: "Bole Heights Bloc B1",
+      site: "Bole Heights",
+      category: "Management",
+      type: "Organization",
+      subject: "Excellent coordination on Floor 4 pre-pour cycle",
+      description: "The coordination between surveyor Leica coordinate alignment, supervisor daily checklists, and drone photo verification has been exceptionally smooth today. The ERP dashboard made it very easy to verify everything.",
+      priority: "Low",
+      status: "Open",
+      ratings: { easeOfUse: 5, speed: 5, reliability: 5, design: 5, features: 5, management: 5, communication: 5, support: 5, workEnvironment: 5 },
+      anonymous: false,
+      assignedDepartment: "Project Management Office",
+      comments: [],
+      createdAt: "2026-07-11 09:30",
+      attachment: "",
+      hasAudio: false,
+      sentiment: "Positive",
+      sentimentScore: 0.95,
+      aiAnalysis: {
+        detectedProblems: "None. Positive workplace synergy.",
+        priorityRecommendation: "Low",
+        suggestedAction: "Log as positive precedent and share team appreciation."
+      }
+    }
+  ]);
+
+  const [feedbackName, setFeedbackName] = useState<string>("");
+  const [feedbackCategory, setFeedbackCategory] = useState<string>("Technical");
+  const [feedbackType, setFeedbackType] = useState<string>("System");
+  const [feedbackSubject, setFeedbackSubject] = useState<string>("");
+  const [feedbackDescription, setFeedbackDescription] = useState<string>("");
+  const [feedbackPriority, setFeedbackPriority] = useState<string>("Medium");
+  const [feedbackAnonymous, setFeedbackAnonymous] = useState<boolean>(false);
+  const [feedbackSearch, setFeedbackSearch] = useState<string>("");
+  const [feedbackCategoryFilter, setFeedbackCategoryFilter] = useState<string>("All");
+  const [feedbackPriorityFilter, setFeedbackPriorityFilter] = useState<string>("All");
+  const [selectedFeedbackForDetails, setSelectedFeedbackForDetails] = useState<any>(null);
+
+  // Ratings
+  const [easeOfUseRating, setEaseOfUseRating] = useState<number>(3);
+  const [speedRating, setSpeedRating] = useState<number>(3);
+  const [reliabilityRating, setReliabilityRating] = useState<number>(3);
+  const [designRating, setDesignRating] = useState<number>(3);
+  const [featuresRating, setFeaturesRating] = useState<number>(3);
+  
+  const [managementRating, setManagementRating] = useState<number>(3);
+  const [communicationRating, setCommunicationRating] = useState<number>(3);
+  const [supportRating, setSupportRating] = useState<number>(3);
+  const [workEnvironmentRating, setWorkEnvironmentRating] = useState<number>(3);
+
+  // Audio simulation state
+  const [isRecordingAudio, setIsRecordingAudio] = useState<boolean>(false);
+  const [recordedAudioDuration, setRecordedAudioDuration] = useState<number>(0);
+  const [audioSimulationAttached, setAudioSimulationAttached] = useState<boolean>(false);
+  const [recordingIntervalId, setRecordingIntervalId] = useState<any>(null);
+
+  // Photo simulation state
+  const [photoSimulationAttached, setPhotoSimulationAttached] = useState<boolean>(false);
+  const [photoPreviewName, setPhotoPreviewName] = useState<string>("");
+
+  // Ticket interaction state
+  const [adminCommentText, setAdminCommentText] = useState<string>("");
+  const [adminAssignedDept, setAdminAssignedDept] = useState<string>("");
+
+  // AI Analytics View
+  const [showAiInsightsTab, setShowAiInsightsTab] = useState<boolean>(false);
 
   // --- 1. MATERIAL STATE ---
   const [materials, setMaterials] = useState([
@@ -682,6 +880,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <span>{isAmharic ? "ውይይት ማዕከል" : "Communication"}</span>
           </button>
           <button
+            onClick={() => setActiveSubTab("feedback")}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === "feedback" ? "bg-red-600 text-white shadow-md animate-none" : "text-slate-400 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Star size={14} />
+            <span>{isAmharic ? "ግብረመልስና ሲኤክስ" : "Feedback & CX"}</span>
+          </button>
+          <button
             onClick={() => setActiveSubTab("client")}
             className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
               activeSubTab === "client" ? "bg-red-600 text-white shadow-md" : "text-slate-400 hover:text-white hover:bg-slate-800"
@@ -836,6 +1043,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           >
             <Sliders size={14} />
             <span>{isAmharic ? "ኢንተርፕራይዝ አድሚን" : "Administration"}</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab("flutterApps")}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === "flutterApps" ? "bg-red-600 text-white shadow-md animate-none" : "text-slate-400 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <Smartphone size={14} />
+            <span>{isAmharic ? "ሞባይል አፖችና አይአይ" : "Flutter Apps & AI Engine"}</span>
           </button>
         </div>
       )}
@@ -3419,6 +3635,2060 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* --- 14. FLUTTER MOBILE APP ECOSYSTEM & AI INTEGRATION CORE --- */}
+      {activeSubTab === "flutterApps" && (
+        <div className="space-y-6">
+          {/* Header Dashboard Metrics */}
+          <div className="bg-slate-900 text-white p-6 rounded-2xl border border-red-500/20 shadow-xl space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-red-600 text-[10px] font-black tracking-widest uppercase">
+                    {isAmharic ? "ሞባይል ሲስተም ቁጥጥር" : "Multi-Device Ecosystem"}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] text-green-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
+                    {isAmharic ? "ሁሉም 11 አፖች ተገናኝተዋል" : "11/11 Mobile Clients Online"}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black font-sans tracking-tight">
+                  {isAmharic ? "OVID የሞባይል አፖችና አይአይ ማዕከላዊ ሲስተም" : "OVID Mobile Apps & AI Construction Command Center"}
+                </h3>
+                <p className="text-xs text-slate-300 max-w-3xl">
+                  {isAmharic
+                    ? "ከደመና ፋየርቤዝ ጋር የተገናኙ 11 የሞባይል አፕሊኬሽኖች፣ የሰርቬይንግ መሳሪያዎች፣ ድሮን እና አይአይ ሲስተሞች ቅጽበታዊ መቆጣጠሪያ ፓነል።"
+                    : "Simulate and verify live cross-device synchronizations across all 11 client roles, cloud Firestore database pipelines, AI formwork image recognition, and surveyor Total Station integrations."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Sync Latency</span>
+                  <span className="text-xs font-black text-emerald-400">12ms (Real-time)</span>
+                </div>
+                <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Active Workers</span>
+                  <span className="text-xs font-black text-red-400">2,450 Registered</span>
+                </div>
+                <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Cloud Encryption</span>
+                  <span className="text-xs font-black text-blue-400">AES-256 / SSL</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Double Column Grid: Emulator Left, AI command center Right */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            
+            {/* Left Column - Smartphone Device Emulator (5 Cols) */}
+            <div className="xl:col-span-5 bg-slate-900 p-5 rounded-2xl border border-slate-800 shadow-lg flex flex-col gap-4">
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-300 uppercase tracking-wider block">
+                  {isAmharic ? "ለመሞከር የሞባይል አፕ ይምረጡ" : "Select Flutter App Client"}
+                </label>
+                <div className="relative">
+                  <select
+                    value={selectedMobileApp}
+                    onChange={(e) => {
+                      setSelectedMobileApp(e.target.value);
+                      onLogAction("Mobile App Client Switched", `Switched emulator screen to ${e.target.value}`);
+                    }}
+                    className="w-full bg-slate-950 text-white font-bold text-xs p-3 rounded-xl border border-slate-700 focus:border-red-500 outline-none cursor-pointer"
+                  >
+                    <option value="Head Office App">📱 1. Head Office App (Super Admin)</option>
+                    <option value="Section Head App">📱 2. Section Head App</option>
+                    <option value="Project Manager App">📱 3. Project Manager App</option>
+                    <option value="Site Engineer App">📱 4. Site Engineer App</option>
+                    <option value="Surveyor App">📱 5. Surveyor App (Total Station Link)</option>
+                    <option value="Supervisor App">📱 6. Supervisor App</option>
+                    <option value="Team Leader App">📱 7. Team Leader App</option>
+                    <option value="Gang Chief App">📱 8. Gang Chief App</option>
+                    <option value="Time Keeper App">📱 9. Time Keeper App (Enrollment)</option>
+                    <option value="Employee App">📱 10. Employee Self-Service App</option>
+                    <option value="Drone Operator App">📱 11. Drone Flight App</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Physical Smartphone Shell Mockup */}
+              <div className="border-[8px] border-slate-950 rounded-[2.5rem] shadow-2xl bg-slate-950 text-white font-sans relative aspect-[9/18] w-full max-w-[320px] mx-auto overflow-hidden flex flex-col justify-between">
+                
+                {/* Device Speaker Bar & Camera Hole */}
+                <div className="absolute top-2 left-1/2 -translate-x-1/2 w-28 h-4 bg-slate-950 rounded-full z-20 flex items-center justify-center gap-1.5 px-3">
+                  <div className="w-10 h-1 bg-slate-800 rounded-full"></div>
+                  <div className="w-1.5 h-1.5 bg-slate-900 rounded-full"></div>
+                </div>
+
+                {/* Simulated App Header */}
+                <div className="bg-red-700 text-white p-4 pt-8 text-center border-b border-red-800 z-10 flex flex-col gap-0.5">
+                  <div className="flex justify-between items-center text-[8px] font-mono opacity-80 mb-1">
+                    <span>9:41 AM</span>
+                    <span className="font-sans font-bold">OVID ERP Mobile</span>
+                    <span>🔋 100%</span>
+                  </div>
+                  <h4 className="text-xs font-black uppercase tracking-wider">{selectedMobileApp}</h4>
+                  <span className="text-[9px] text-red-100 font-mono tracking-widest">
+                    FIRESTORE REALTIME SYNC
+                  </span>
+                </div>
+
+                {/* Smartphone Dynamic Screen Body (Scrollable) */}
+                <div className="flex-1 bg-slate-950 overflow-y-auto p-4 space-y-3 scrollbar-none text-xs text-left">
+                  
+                  {/* --- SCREEN 1: HEAD OFFICE APP --- */}
+                  {selectedMobileApp === "Head Office App" && (
+                    <div className="space-y-3">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-[10px] space-y-1">
+                        <p className="text-slate-400 uppercase font-black tracking-widest">Live National Dashboard</p>
+                        <p className="text-white text-xs font-black">All 5 OVID Sites online</p>
+                        <div className="w-full bg-slate-950 rounded-full h-1 mt-1">
+                          <div className="bg-red-500 h-1 rounded-full w-[76%]"></div>
+                        </div>
+                        <p className="text-[8px] text-slate-500 mt-1">Weighted progress: 76.5%</p>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-[10px] font-black text-red-400 uppercase">Executive Controls</p>
+                        <button
+                          onClick={() => {
+                            triggerBroadcastAlert(true);
+                            onLogAction("Admin Alert Broadcasted", "Triggered live mobile safety drill alert.");
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[10px] uppercase transition-all shadow-md cursor-pointer"
+                        >
+                          Dispatch National Alert
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSystemSettings(prev => ({ ...prev, rbacEnforcement: "Level 4 Rigid Token Lockout" }));
+                            alert("Security Lockout: Demanded immediate 2FA validation across all 11 app client tokens.");
+                            onLogAction("Admin Enforced Token Reset", "Updated global security policies across mobile sessions.");
+                          }}
+                          className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-1.5 rounded text-[10px] uppercase transition-all border border-slate-700 cursor-pointer"
+                        >
+                          Lock System / Force MFA
+                        </button>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1 font-mono text-[9px] text-slate-300">
+                        <p className="text-slate-400 uppercase font-bold">Cloud Backup Auto-Schedule</p>
+                        <p>Destination: <span className="text-emerald-400">AWS Frankfurt</span></p>
+                        <p>Frequency: <span className="text-white">Daily 03:00 AM</span></p>
+                        <p>Recovery Objective: <span className="text-white">&lt; 15 mins</span></p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 2: SECTION HEAD APP --- */}
+                  {selectedMobileApp === "Section Head App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Assigned Sections</p>
+                        <div className="bg-slate-950 p-2 rounded border border-slate-800">
+                          <p className="text-white font-bold">Bole Heights Bloc B1 & B2</p>
+                          <p className="text-[8px] text-slate-500">Supervisors: Fikru T., Kassa H.</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Awaiting Approvals</p>
+                        <div className="flex items-center justify-between bg-slate-950 p-2 rounded">
+                          <div>
+                            <p className="text-white font-bold">Team Alpha Overtime</p>
+                            <p className="text-[8px] text-slate-500">2.5 Hrs (15 Workers)</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              alert("Overtime approved for Team Alpha!");
+                              onLogAction("Overtime Approved", "Approved 2.5 hours overtime request on Section Head App.");
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold px-2 py-1 rounded cursor-pointer"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                        <div className="flex items-center justify-between bg-slate-950 p-2 rounded">
+                          <div>
+                            <p className="text-white font-bold">M20 Steel Tie-Rods</p>
+                            <p className="text-[8px] text-slate-500">Qty: 1,500 Pcs</p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              alert("Material requisition authorized!");
+                              onLogAction("Material Requisition Signed", "Section Head approved 1,500 pcs steel tie-rods.");
+                            }}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold px-2 py-1 rounded cursor-pointer"
+                          >
+                            Approve
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 3: PROJECT MANAGER APP --- */}
+                  {selectedMobileApp === "Project Manager App" && (
+                    <div className="space-y-3">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5 text-[10px]">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">CAD Drawing Overlay</p>
+                        <div className="border border-slate-700 rounded p-1.5 bg-slate-950 text-center font-mono">
+                          <p className="text-red-400 font-bold">FormworkLayout_Floor4_B1.dwg</p>
+                          <p className="text-[8px] text-slate-500 mt-1">Comparison status: 76.5% Synced</p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2 text-[10px]">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Cycle Planner</p>
+                        <button
+                          onClick={() => {
+                            setAiCadWorkforceOutput({
+                              requiredWorkforce: 60,
+                              estimatedDurationDays: 4.5,
+                              zoneAssignments: "Zone A: 20 Workers, Zone B: 25 Workers, Zone C: 15 Workers"
+                            });
+                            alert("AI Planner: Analyzed layout. Calculated 60 workers required for Floor 5 assembly cycle.");
+                            onLogAction("AI Workforce Program Generated", "Generated cycle plan for Floor 5 via PM App CAD engine.");
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] font-bold py-1.5 rounded uppercase cursor-pointer"
+                        >
+                          Generate AI Work Program
+                        </button>
+                        {aiCadWorkforceOutput && (
+                          <div className="p-2 bg-slate-950 rounded border border-slate-800 font-mono text-[9px] space-y-1">
+                            <p className="text-slate-400">Target Workforce: <span className="text-white">{aiCadWorkforceOutput.requiredWorkforce} Men</span></p>
+                            <p className="text-slate-400">Cycle Duration: <span className="text-white">{aiCadWorkforceOutput.estimatedDurationDays} Days</span></p>
+                            <p className="text-slate-400">{aiCadWorkforceOutput.zoneAssignments}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 4: SITE ENGINEER APP --- */}
+                  {selectedMobileApp === "Site Engineer App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Technical Checks</p>
+                        <div className="flex justify-between text-[9px] border-b border-slate-800 pb-1">
+                          <span>Vertical Slope Deviation:</span>
+                          <span className="text-emerald-400 font-bold">&lt; 1.2mm (Passed)</span>
+                        </div>
+                        <div className="flex justify-between text-[9px] border-b border-slate-800 pb-1">
+                          <span>Horizontal Level tolerance:</span>
+                          <span className="text-emerald-400 font-bold">1.5mm (Passed)</span>
+                        </div>
+                        <div className="flex justify-between text-[9px]">
+                          <span>Pre-Pour Concrete checklist:</span>
+                          <span className="text-red-400 font-bold">Awaiting PM Sign-off</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Concrete Pour Readiness</p>
+                        <button
+                          onClick={() => {
+                            setConcreteReadinessChecked(prev => ({ ...prev, panels: true, alignment: true, engineer: true }));
+                            alert("Pre-pour inspection approved! Panel alignment and formwork oiling verified.");
+                            onLogAction("Technical Pour Signed-off", "Approved pre-pour check for Block B1 Level 4 Area C.");
+                          }}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
+                        >
+                          Sign-off Technical Pour
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 5: SURVEYOR APP --- */}
+                  {selectedMobileApp === "Surveyor App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Total Station Bluetooth Link</p>
+                        <div className="flex items-center gap-1.5 bg-slate-950 p-2 rounded">
+                          <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
+                          <span className="font-mono text-[9px] text-emerald-400">Leica TS16 Connected</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Survey Coordinates (X, Y, Z)</p>
+                        <div className="grid grid-cols-3 gap-1.5">
+                          <input
+                            type="text"
+                            value={surveyX}
+                            onChange={(e) => setSurveyX(e.target.value)}
+                            placeholder="X Coordinate"
+                            className="bg-slate-950 text-white font-mono text-[9px] p-1 rounded border border-slate-800 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={surveyY}
+                            onChange={(e) => setSurveyY(e.target.value)}
+                            placeholder="Y Coordinate"
+                            className="bg-slate-950 text-white font-mono text-[9px] p-1 rounded border border-slate-800 outline-none"
+                          />
+                          <input
+                            type="text"
+                            value={surveyZ}
+                            onChange={(e) => setSurveyZ(e.target.value)}
+                            placeholder="Z Elevation"
+                            className="bg-slate-950 text-white font-mono text-[9px] p-1 rounded border border-slate-800 outline-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            setDeviationStatus("Deviation Calculated: X: -0.8mm, Y: +1.1mm (Passed Tolerance)");
+                            onLogAction("Survey Coordinates Submitted", `Coordinates: X:${surveyX}, Y:${surveyY}, Z:${surveyZ}. Passed calibration.`);
+                            alert(`Coordinates published to Firestore! Deviation check passed: sloped variance within Leica TS16 threshold.`);
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
+                        >
+                          Push Survey coordinates
+                        </button>
+                        {deviationStatus && (
+                          <p className="text-[9px] font-mono text-emerald-400 bg-slate-950 p-1.5 rounded border border-slate-800 text-center">
+                            {deviationStatus}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 6: SUPERVISOR APP --- */}
+                  {selectedMobileApp === "Supervisor App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Daily Site Activity Photos</p>
+                        <div className="border border-dashed border-slate-700 p-3 rounded bg-slate-950 text-center cursor-pointer hover:bg-slate-900">
+                          <span className="block text-slate-500 font-mono text-[8px] mb-1">Upload Daily photo</span>
+                          <span className="bg-red-700/50 text-[8px] px-1.5 py-0.5 rounded font-black uppercase">Simulate Camera</span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setAiAnalysisResult("AI PHOTO RESULT: Computer vision scanned rebar counts. Confirmed 42 rebars installed vs 42 design. Slurry seal 100% tight.");
+                            alert("AI Image verification complete! Rebars matched CAD layout.");
+                            onLogAction("Supervisor Site Photo Uploaded", "Simulated upload of Level 4 Zone C. Triggered computer vision check.");
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1 rounded text-[9px] uppercase cursor-pointer"
+                        >
+                          Run AI progress verification
+                        </button>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Assigned Workers</p>
+                        <div className="flex justify-between items-center bg-slate-950 p-1.5 rounded">
+                          <span>Chala B. (Welder)</span>
+                          <span className="text-emerald-400 font-mono">Present</span>
+                        </div>
+                        <div className="flex justify-between items-center bg-slate-950 p-1.5 rounded">
+                          <span>Chala Chuko (Formwork)</span>
+                          <span className="text-emerald-400 font-mono">Present</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 7: TEAM LEADER APP --- */}
+                  {selectedMobileApp === "Team Leader App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1 text-slate-300">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Today's Cycle Program</p>
+                        <p className="text-white font-bold">Level 4 Area C assemblies</p>
+                        <p>Target panels: <span className="text-white font-black">120 panels</span></p>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Simulate Work Progress</p>
+                        <button
+                          onClick={() => {
+                            alert("Progress updated! Level 4 Zone C panel assemblies logged: 120/120 panels completed.");
+                            onLogAction("Team Leader Progress Submitted", "Logged 120 panels assembled on Level 4 Zone C.");
+                          }}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
+                        >
+                          Submit 100% Assembly Done
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 8: GANG CHIEF APP --- */}
+                  {selectedMobileApp === "Gang Chief App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Fingerprint Sign Board</p>
+                        <p className="text-[9px] text-slate-400 leading-tight">Gangs crew check-in via localized biometric interface.</p>
+                        <button
+                          onClick={() => {
+                            alert("Biometric check-in logged! Worker Chala Chuko registered at 07:32 AM on site.");
+                            onLogAction("Gang Chief Biometric Logged", "Simulated biometric check-in for Chala Chuko.");
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
+                        >
+                          Scan Crew Member Fingerprint
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 9: TIME KEEPER APP --- */}
+                  {selectedMobileApp === "Time Keeper App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Biometric Enrollment</p>
+                        <div className="space-y-1.5">
+                          <input
+                            type="text"
+                            value={registeredNewEmployeeName}
+                            onChange={(e) => setRegisteredNewEmployeeName(e.target.value)}
+                            placeholder="Full Name (eg. Eng. Yohannes)"
+                            className="w-full bg-slate-950 text-white p-1.5 rounded border border-slate-800 outline-none font-sans"
+                          />
+                          <select
+                            value={registeredNewEmployeeRole}
+                            onChange={(e) => setRegisteredNewEmployeeRole(e.target.value)}
+                            className="w-full bg-slate-950 text-white p-1.5 rounded border border-slate-800 outline-none"
+                          >
+                            <option value="Site Engineer">Site Engineer</option>
+                            <option value="Surveyor">Surveyor</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Team Leader">Team Leader</option>
+                            <option value="Gang Chief">Gang Chief</option>
+                            <option value="Site Worker">Site Worker</option>
+                          </select>
+                        </div>
+                        
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              if (!registeredNewEmployeeName) {
+                                alert("Please enter the employee's name first.");
+                                return;
+                              }
+                              setBiometricEnrollmentStatus("Face Scanned (Biometric Hash Saved)");
+                              alert("Face capture registered in biometrics profile!");
+                            }}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-1 rounded text-[8px] uppercase cursor-pointer"
+                          >
+                            Scan Face
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (!registeredNewEmployeeName) {
+                                alert("Please enter the employee's name first.");
+                                return;
+                              }
+                              setBiometricEnrollmentStatus("Fingerprint Registered & Encrypted");
+                              alert("Fingerprint template captured and saved!");
+                            }}
+                            className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-1 rounded text-[8px] uppercase cursor-pointer"
+                          >
+                            Scan Fingerprint
+                          </button>
+                        </div>
+
+                        <button
+                          onClick={() => {
+                            if (!registeredNewEmployeeName || biometricEnrollmentStatus === "Not Started") {
+                              alert("Please fill name and capture both face and fingerprint.");
+                              return;
+                            }
+                            onLogAction("New Employee Enrolled", `Enrolled ${registeredNewEmployeeName} as ${registeredNewEmployeeRole} with Biometrics.`);
+                            alert(`Successfully synchronized new employee profile to cloud database! Role: ${registeredNewEmployeeRole}, Status: Sync Active.`);
+                            setRegisteredNewEmployeeName("");
+                            setBiometricEnrollmentStatus("Not Started");
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer mt-1"
+                        >
+                          Sync Profile to Cloud Firestore
+                        </button>
+                        <p className="text-[8px] font-mono text-center text-slate-500">
+                          Biometric State: <span className="text-red-400 font-bold">{biometricEnrollmentStatus}</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 10: EMPLOYEE APP --- */}
+                  {selectedMobileApp === "Employee App" && (
+                    <div className="space-y-3 text-[10px] text-slate-300">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">My Self-Service Portal</p>
+                        <p>Employee: <span className="text-white font-bold">Chala B. (Welder)</span></p>
+                        <p>Registered Site: <span className="text-white">Bole Heights B1</span></p>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Payslip (July 2026)</p>
+                        <div className="flex justify-between font-mono text-[9px] border-b border-slate-800 py-1">
+                          <span>Basic Salary:</span>
+                          <span className="text-white">ETB 24,000</span>
+                        </div>
+                        <div className="flex justify-between font-mono text-[9px] border-b border-slate-800 py-1">
+                          <span>Overtime (14 Hrs):</span>
+                          <span className="text-white">ETB 4,200</span>
+                        </div>
+                        <div className="flex justify-between font-mono text-[9px] pt-1">
+                          <span className="font-bold">Total Payout:</span>
+                          <span className="text-emerald-400 font-black">ETB 28,200</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* --- SCREEN 11: DRONE OPERATOR APP --- */}
+                  {selectedMobileApp === "Drone Operator App" && (
+                    <div className="space-y-3 text-[10px]">
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">DJI RTK Mission Control</p>
+                        <div className="flex justify-between text-[9px]">
+                          <span>Signal Link:</span>
+                          <span className="text-emerald-400 font-bold">GPS RTK Fix (100%)</span>
+                        </div>
+                        <div className="flex justify-between text-[9px]">
+                          <span>Battery Health:</span>
+                          <span>92% Charged</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
+                        <p className="text-slate-400 uppercase font-black text-[9px]">Simulation Actions</p>
+                        <button
+                          onClick={() => {
+                            setDroneFlightSimulating(true);
+                            setDroneFlightStep("Mapping");
+                            setTimeout(() => setDroneFlightStep("Image Processing"), 1500);
+                            setTimeout(() => {
+                              setDroneFlightStep("Done");
+                              setDroneFlightSimulating(false);
+                              setAiAnalysisResult("DRONE AI ANALYSIS: Orthomosaic mapping compiled. Found: 100% of Floor 4 formwork panels laid out, level accuracy within 1.4mm variance.");
+                              alert("Drone flight mapping synchronized successfully!");
+                              onLogAction("Drone Survey Flight Completed", "Simulated DJI Matrice 300 RTK flight scan across Block B1.");
+                            }, 3000);
+                          }}
+                          className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
+                        >
+                          {droneFlightSimulating ? "Flight active..." : "Simulate Auto-Pilot Scan"}
+                        </button>
+                        <p className="text-[8px] font-mono text-center text-slate-500">
+                          Flight Status: <span className="text-emerald-400 font-bold">{droneFlightStep}</span>
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                </div>
+
+                {/* Simulated Android Navigation Bar */}
+                <div className="bg-slate-950 p-3 flex justify-around items-center border-t border-slate-900 text-slate-600 text-xs">
+                  <span>◁</span>
+                  <span className="w-3 h-3 rounded-full bg-slate-800 block"></span>
+                  <span>▢</span>
+                </div>
+              </div>
+
+              {/* Offline mode & synchronization widget */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 font-mono text-[10px] text-slate-300">
+                <p className="text-red-400 uppercase font-bold text-[9px]">Offline Auto-Sync Policy</p>
+                <p>Offline Caching: <span className="text-emerald-400">Enabled</span></p>
+                <p>Conflict Resolution: <span className="text-white">LWW (Last Write Wins)</span></p>
+                <div className="flex items-center gap-1.5 mt-1 bg-slate-900 p-1.5 rounded">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-[9px] text-slate-400">Database Engine synced on cloud</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Column - AI Construction Command Center Core (7 Cols) */}
+            <div className="xl:col-span-7 space-y-6">
+              
+              {/* AI CAD/Drone Analytics Engine */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                  <Cpu size={14} className="text-red-600 animate-pulse" />
+                  <span>{isAmharic ? "አይአይ ኮንስትራክሽን ትንተና ኮር" : "AI Construction Analytics Core"}</span>
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Computer Vision Progress Check */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Computer Vision Formwork Check</p>
+                    <div className="h-28 flex items-center justify-center bg-slate-950 rounded-lg text-center p-2 relative overflow-hidden">
+                      {/* Grid effect inside scan */}
+                      <div className="absolute inset-0 bg-[linear-gradient(rgba(18,24,38,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(18,24,38,0.2)_1px,transparent_1px)] bg-[size:10px_10px] opacity-20"></div>
+                      <div className="absolute top-0 left-0 w-full h-0.5 bg-red-500 animate-scan"></div>
+                      <p className="text-xs font-mono text-emerald-400 font-bold z-10 leading-snug">
+                        {aiAnalysisResult || "Awaiting scan trigger from Mobile App emulator (Drone Flight / Supervisor Photo)..."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* CAD Intelligent Alignment Check */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-2 text-xs font-semibold">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Design deviation analytics</p>
+                    <div className="space-y-1.5 font-mono text-[10px] pt-1">
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="text-slate-400">Design Thickness:</span>
+                        <span className="text-slate-900 font-bold">120mm</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="text-slate-400">Measured Slope variance:</span>
+                        <span className="text-emerald-600 font-bold">-0.8mm</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span className="text-slate-400">Total Station Elevation:</span>
+                        <span className="text-slate-950 font-bold">241.15m</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Pour Readiness Status:</span>
+                        <span className="text-red-500 font-bold uppercase tracking-wider">Awaiting PM Sign-off</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Smart Concrete Readiness Checklist (Req 28) */}
+                <div className="bg-red-50/50 p-4 rounded-xl border border-red-500/10 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Smart Concrete Readiness Checklist (Req 28)</p>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                      concreteReadinessChecked.engineer && concreteReadinessChecked.panels && concreteReadinessChecked.alignment
+                        ? "bg-emerald-100 text-emerald-800 border border-emerald-300 animate-none"
+                        : "bg-amber-100 text-amber-800 border border-amber-300 animate-pulse"
+                    }`}>
+                      {concreteReadinessChecked.engineer && concreteReadinessChecked.panels && concreteReadinessChecked.alignment
+                        ? "🟢 READY FOR CONCRETE POUR"
+                        : "🔴 POUR BLOCKED: RESOLVE PENDING"}
+                    </span>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-[10px] font-bold">
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.survey}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, survey: e.target.checked })}
+                      />
+                      <span>Survey Approved</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.quality}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, quality: e.target.checked })}
+                      />
+                      <span>Quality Audited</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.panels}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, panels: e.target.checked })}
+                      />
+                      <span>Panels Approved</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.alignment}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, alignment: e.target.checked })}
+                      />
+                      <span>Alignment Ok</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.safety}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, safety: e.target.checked })}
+                      />
+                      <span>Safety Signed</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.materials}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, materials: e.target.checked })}
+                      />
+                      <span>Materials Ready</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.equipment}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, equipment: e.target.checked })}
+                      />
+                      <span>Equipment Ready</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
+                      <input
+                        type="checkbox"
+                        checked={concreteReadinessChecked.engineer}
+                        onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, engineer: e.target.checked })}
+                      />
+                      <span>Engineer Sign-off</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* AI Voice Assistant Simulation */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                  <Mic size={14} className="text-red-600" />
+                  <span>{isAmharic ? "አይአይ ድምፅ ረዳት ሲሙሌተር" : "AI Voice Assistant Simulator"}</span>
+                </h4>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  {isAmharic
+                    ? "ስለ ግንባታው ሂደት፣ ስለ ሰራተኞች እና ስለ ኮንክሪት ዝግጁነት በድምፅ ወይም በፅሁፍ ይጠይቁ።"
+                    : "Simulate speech assistant requests on mobile client devices to inspect real-time database state."}
+                </p>
+
+                <div className="flex flex-wrap gap-2 text-[10px] font-bold">
+                  <button
+                    onClick={() => setVoiceQuery("Today's attendance status")}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-1 px-2.5 rounded-full border cursor-pointer"
+                  >
+                    "Today's attendance status"
+                  </button>
+                  <button
+                    onClick={() => setVoiceQuery("Is the concrete pour approved for Floor 4?")}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-1 px-2.5 rounded-full border cursor-pointer"
+                  >
+                    "Concrete readiness status?"
+                  </button>
+                  <button
+                    onClick={() => setVoiceQuery("Are there any material shortages?")}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-1 px-2.5 rounded-full border cursor-pointer"
+                  >
+                    "Any material shortages?"
+                  </button>
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={voiceQuery}
+                    onChange={(e) => setVoiceQuery(e.target.value)}
+                    placeholder="Enter voice query or click quick buttons..."
+                    className="flex-1 bg-slate-50 text-slate-900 text-xs p-3 rounded-xl border border-slate-300 outline-none font-sans font-semibold"
+                  />
+                  <button
+                    onClick={() => {
+                      if (!voiceQuery.trim()) return;
+                      setIsVoiceActive(true);
+                      setVoiceResponse("Processing voice token query...");
+                      setTimeout(() => {
+                        setIsVoiceActive(false);
+                        if (voiceQuery.toLowerCase().includes("attendance")) {
+                          setVoiceResponse("AI VOICE RESPONSE: Today, 65 workers are present on the Bole Heights site. 2 arrived late. No missing key time keeper records.");
+                        } else if (voiceQuery.toLowerCase().includes("concrete") || voiceQuery.toLowerCase().includes("readiness")) {
+                          setVoiceResponse("AI VOICE RESPONSE: Concrete readiness for Block B1 Floor 4 is at 98%. Approved by Surveyor and Safety Marshal. Awaiting Site Engineer final checkbox.");
+                        } else if (voiceQuery.toLowerCase().includes("shortage") || voiceQuery.toLowerCase().includes("material")) {
+                          setVoiceResponse("AI VOICE RESPONSE: Alert. Locking wedge pins are at 16,900 pieces, close to the safety threshold of 15,000. Recommend approving the pending PR-301 procurement request.");
+                        } else {
+                          setVoiceResponse(`AI VOICE RESPONSE: Here is the customized summary for your query '${voiceQuery}'. All sites are syncing perfectly. Weighted progress: 76.5%.`);
+                        }
+                        onLogAction("Voice Assistant Consulted", `Query: ${voiceQuery}`);
+                      }, 1000);
+                    }}
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
+                  >
+                    <Mic size={13} className={isVoiceActive ? "animate-bounce" : ""} />
+                    <span>Ask Assistant</span>
+                  </button>
+                </div>
+
+                {voiceResponse && (
+                  <div className="p-3.5 bg-slate-950 text-white rounded-xl border border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                      <span className="text-[8px] font-mono font-bold text-slate-400">VOICE SYNTHESIS AUDIO WAVE</span>
+                      <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                    </div>
+                    {/* Simulated Voice Waveform */}
+                    <div className="h-6 flex items-center justify-center gap-1">
+                      <div className="w-1 h-3 bg-red-500 rounded-full animate-bounce-slow"></div>
+                      <div className="w-1 h-5 bg-red-400 rounded-full animate-bounce"></div>
+                      <div className="w-1 h-2 bg-red-500 rounded-full animate-bounce-slow"></div>
+                      <div className="w-1 h-4 bg-red-400 rounded-full animate-bounce"></div>
+                      <div className="w-1 h-6 bg-red-500 rounded-full animate-bounce-slow"></div>
+                      <div className="w-1 h-1 bg-red-300 rounded-full animate-ping"></div>
+                      <div className="w-1 h-4 bg-red-400 rounded-full animate-bounce"></div>
+                      <div className="w-1 h-2 bg-red-500 rounded-full animate-bounce-slow"></div>
+                      <div className="w-1 h-5 bg-red-400 rounded-full animate-bounce"></div>
+                      <div className="w-1 h-3 bg-red-500 rounded-full animate-bounce-slow"></div>
+                    </div>
+                    <p className="text-xs font-semibold text-slate-200 leading-relaxed font-sans italic text-center">
+                      "{voiceResponse}"
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Firestore Collection Schema Browser (Req 23) */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex justify-between items-center">
+                  <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                    <HardDrive size={14} className="text-red-600" />
+                    <span>{isAmharic ? "ክላውድ ፋየርቤዝ ስኬማ ብሮውዘር" : "Firestore 46 Collections Explorer (Req 23)"}</span>
+                  </h4>
+                  <span className="text-[10px] bg-slate-100 text-slate-500 px-2 py-0.5 rounded font-mono font-bold uppercase border">
+                    CLOUD BLUEPRINT
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-tight">
+                  {isAmharic
+                    ? "ለድርጅቱ የተነደፉት 46ቱንም የFirestore ስብስቦች (Collections) ዝርዝር እና መዋቅር እዚህ ይመርምሩ።"
+                    : "Select a Firestore collection below to inspect its exact fields, document-level keys, encryption, and sync metrics."}
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Select box for collections */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Collection Name</label>
+                    <select
+                      value={selectedDbCollection}
+                      onChange={(e) => setSelectedDbCollection(e.target.value)}
+                      className="w-full bg-slate-50 text-slate-900 font-bold text-xs p-2.5 rounded-xl border border-slate-300 outline-none cursor-pointer"
+                    >
+                      <optgroup label="Core Company & Structure">
+                        <option value="companies">companies</option>
+                        <option value="projects">projects</option>
+                        <option value="sites">sites</option>
+                        <option value="buildings">buildings</option>
+                        <option value="towers">towers</option>
+                        <option value="floors">floors</option>
+                        <option value="floorZones">floorZones</option>
+                      </optgroup>
+                      <optgroup label="Aluminium Panel Database">
+                        <option value="aluminumPanels">aluminumPanels</option>
+                        <option value="beamPanels">beamPanels</option>
+                        <option value="soffitPanels">soffitPanels</option>
+                        <option value="bundles">bundles</option>
+                      </optgroup>
+                      <optgroup label="Workforce & Biometrics">
+                        <option value="employees">employees</option>
+                        <option value="attendance">attendance</option>
+                        <option value="attendanceLogs">attendanceLogs</option>
+                        <option value="faceTemplates">faceTemplates</option>
+                        <option value="fingerprintTemplates">fingerprintTemplates</option>
+                        <option value="payroll">payroll</option>
+                        <option value="overtime">overtime</option>
+                        <option value="undertime">undertime</option>
+                        <option value="leaveRequests">leaveRequests</option>
+                        <option value="departments">departments</option>
+                      </optgroup>
+                      <optgroup label="CAD & Survey Data">
+                        <option value="surveyResults">surveyResults</option>
+                        <option value="surveyPoints">surveyPoints</option>
+                        <option value="cadDrawings">cadDrawings</option>
+                        <option value="shopDrawings">shopDrawings</option>
+                        <option value="droneFlights">droneFlights</option>
+                        <option value="droneImages">droneImages</option>
+                      </optgroup>
+                      <optgroup label="Site Progress Logs">
+                        <option value="dailyProgress">dailyProgress</option>
+                        <option value="dailyPhotos">dailyPhotos</option>
+                        <option value="dailyActivities">dailyActivities</option>
+                        <option value="tomorrowPlans">tomorrowPlans</option>
+                      </optgroup>
+                      <optgroup label="Quality, Safety & Concrete">
+                        <option value="qualityInspections">qualityInspections</option>
+                        <option value="safetyInspections">safetyInspections</option>
+                        <option value="concretePour">concretePour</option>
+                      </optgroup>
+                      <optgroup label="Materials & Warehousing">
+                        <option value="materialRequests">materialRequests</option>
+                        <option value="warehouse">warehouse</option>
+                        <option value="equipment">equipment</option>
+                        <option value="vehicles">vehicles</option>
+                        <option value="suppliers">suppliers</option>
+                        <option value="purchaseOrders">purchaseOrders</option>
+                        <option value="deliveries">deliveries</option>
+                      </optgroup>
+                      <optgroup label="System Telemetry & Support">
+                        <option value="notifications">notifications</option>
+                        <option value="aiPredictions">aiPredictions</option>
+                        <option value="aiReports">aiReports</option>
+                        <option value="approvals">approvals</option>
+                        <option value="auditLogs">auditLogs</option>
+                        <option value="supportTickets">supportTickets</option>
+                        <option value="settings">settings</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  {/* Schema details and live status */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 font-mono text-[10px] space-y-1">
+                    <p className="text-slate-400 font-bold">Metadata Telemetry</p>
+                    <p>Encryption: <span className="text-slate-900 font-bold">AES-256 On-disk</span></p>
+                    <p>Indexing: <span className="text-emerald-600 font-bold">Composite Index Enabled</span></p>
+                    <p>Rules: <span className="text-red-500 font-bold">Role-Based Restrictions Active</span></p>
+                  </div>
+                </div>
+
+                {/* Firestore Schema Fields list */}
+                <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-300">
+                  <p className="text-red-400 font-bold mb-1.5 uppercase">Schema Structure for collection: {selectedDbCollection}</p>
+                  
+                  {/* Dynamic Fields definition map */}
+                  {selectedDbCollection === "companies" && (
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>companyId: <span className="text-blue-400">string (Primary Key)</span></li>
+                      <li>companyName: <span className="text-blue-400">string (eg. OVID Real Estate)</span></li>
+                      <li>logo: <span className="text-blue-400">string (Firebase Storage URI)</span></li>
+                      <li>address: <span className="text-blue-400">string</span></li>
+                      <li>status: <span className="text-emerald-400">string ("Active")</span></li>
+                      <li>createdAt: <span className="text-blue-400">timestamp</span></li>
+                      <li>createdBy: <span className="text-blue-400">string (Head Office Admin ID)</span></li>
+                    </ul>
+                  )}
+                  {selectedDbCollection === "projects" && (
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>projectId: <span className="text-blue-400">string (Primary Key)</span></li>
+                      <li>companyId: <span className="text-blue-400">string (Foreign Key reference)</span></li>
+                      <li>projectName: <span className="text-blue-400">string (eg. Bole Heights Phase 1)</span></li>
+                      <li>location: <span className="text-blue-400">string (GPS coordinates / geofence)</span></li>
+                      <li>status: <span className="text-blue-400">string ("Active")</span></li>
+                      <li>startDate / endDate: <span className="text-blue-400">timestamp</span></li>
+                    </ul>
+                  )}
+                  {selectedDbCollection === "employees" && (
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>employeeId: <span className="text-blue-400">string (Primary Key)</span></li>
+                      <li>fullName: <span className="text-blue-400">string</span></li>
+                      <li>role: <span className="text-blue-400">string (Enum UserRole)</span></li>
+                      <li>fingerprintRegistered: <span className="text-emerald-400">boolean</span></li>
+                      <li>faceRegistered: <span className="text-emerald-400">boolean</span></li>
+                      <li>teamLeaderId: <span className="text-blue-400">string</span></li>
+                      <li>status: <span className="text-blue-400">string ("Active")</span></li>
+                    </ul>
+                  )}
+                  {selectedDbCollection === "attendance" && (
+                    <ul className="space-y-1 list-disc list-inside">
+                      <li>attendanceId: <span className="text-blue-400">string (Primary Key)</span></li>
+                      <li>employeeId: <span className="text-blue-400">string (Foreign Key)</span></li>
+                      <li>date: <span className="text-blue-400">string (YYYY-MM-DD)</span></li>
+                      <li>checkInTime / checkOutTime: <span className="text-blue-400">timestamp</span></li>
+                      <li>gpsVerified / biometricVerified: <span className="text-emerald-400">boolean</span></li>
+                      <li>overtimeHours / lateReason: <span className="text-blue-400">number / string</span></li>
+                    </ul>
+                  )}
+                  {/* General Schema fallback for other collections */}
+                  {!["companies", "projects", "employees", "attendance"].includes(selectedDbCollection) && (
+                    <div className="space-y-1">
+                      <p className="text-slate-400 italic">Continuous Enterprise Structure Schema keys loaded:</p>
+                      <ul className="space-y-1 list-disc list-inside text-slate-300">
+                        <li>createdBy: <span className="text-blue-400">string (User UID)</span></li>
+                        <li>updatedBy: <span className="text-blue-400">string (User UID)</span></li>
+                        <li>createdAt / updatedAt: <span className="text-blue-400">timestamp</span></li>
+                        <li>companyID / projectID / siteID: <span className="text-blue-400">string (Scope Isolation Keys)</span></li>
+                        <li>activeStatus: <span className="text-emerald-400">boolean (Lombard soft-delete status)</span></li>
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Mobile App signed package release hub (Req 8) */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5">
+                  <Smartphone size={14} className="text-red-600" />
+                  <span>{isAmharic ? "ሞባይል አፕሊኬሽን ምርት ግንባታ ማዕከል" : "Flutter Mobile App Signed Release Hub (Req 8)"}</span>
+                </h4>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
+                  {/* Android Platform builds */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>Android (Google Play)</span>
+                      <span className="text-emerald-600 font-bold">Signed Build</span>
+                    </p>
+                    <div className="space-y-1.5 font-mono text-[9px]">
+                      <div className="flex justify-between border-b pb-1">
+                        <span>AAB Package:</span>
+                        <span className="text-slate-900 font-bold">OVID_ERP_v2.4.aab</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span>APK Signed:</span>
+                        <span className="text-slate-900 font-bold">OVID_ERP_Production_Release.apk</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span>Keystore Alias:</span>
+                        <span className="text-slate-950 font-bold">ovid-release-key</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Splash Screen:</span>
+                        <span className="text-emerald-600 font-bold">Ready (G+12 Render Logo)</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* iOS Platform builds */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                      <span>iOS (Apple App Store)</span>
+                      <span className="text-emerald-600 font-bold">Signed Build</span>
+                    </p>
+                    <div className="space-y-1.5 font-mono text-[9px]">
+                      <div className="flex justify-between border-b pb-1">
+                        <span>IPA Package:</span>
+                        <span className="text-slate-900 font-bold">OVID_ERP_Release_signed.ipa</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span>Certificates:</span>
+                        <span className="text-slate-900 font-bold">Apple Distribution (July 2026)</span>
+                      </div>
+                      <div className="flex justify-between border-b pb-1">
+                        <span>App Store Review:</span>
+                        <span className="text-slate-950 font-bold">Pre-pour verified test account demo</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Store Screenshots:</span>
+                        <span className="text-emerald-600 font-bold">Uploaded (All 11 App Roles)</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
+      {/* --- 15. USER FEEDBACK, REVIEW & CUSTOMER EXPERIENCE CORE --- */}
+      {activeSubTab === "feedback" && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-slate-900 text-white p-6 rounded-2xl border border-red-500/20 shadow-xl space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-red-600 text-[10px] font-black tracking-widest uppercase">
+                    {isAmharic ? "ቀጣይነት ያለው ማሻሻያ" : "CONTINUOUS IMPROVEMENT"}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] text-green-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
+                    {isAmharic ? "ግብረመልስ ማዕከል ክፍት ነው" : "Feedback Hub Active & Secured"}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black font-sans tracking-tight">
+                  {isAmharic ? "OVID የግብረመልስና የደንበኛ ተሞክሮ (CX) ማዕከል" : "OVID Customer Experience & User Feedback System"}
+                </h3>
+                <p className="text-xs text-slate-300 max-w-3xl">
+                  {isAmharic
+                    ? "ሰራተኞች፣ መሀንዲሶች እና ባለድርሻ አካላት ስለ ኦቪድ ድርጅት፣ ግንባታ ሂደቶች እና ስለ ERP አፕሊኬሽኑ አስተያየት የሚሰጡበት፣ ደረጃ የሚሰጡበት እና ችግሮች የሚፈቱበት የላቀ ሲስተም።"
+                    : "A cross-organization pipeline for employees, engineers, and clients to log system issues, submit organizational reviews, upload photo/voice evidence, and trigger AI-powered sentiment & priority analysis."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Average Rating</span>
+                  <span className="text-xs font-black text-emerald-400">4.4 / 5.0 ⭐</span>
+                </div>
+                <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Open Tickets</span>
+                  <span className="text-xs font-black text-red-400">
+                    {feedbacks.filter(f => f.status !== "Closed").length} Active
+                  </span>
+                </div>
+                <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Sentiment Health</span>
+                  <span className="text-xs font-black text-blue-400">82% Positive</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Stats Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-3 bg-red-100 rounded-lg text-red-600">
+                <Star size={18} className="fill-current" />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{isAmharic ? "አጠቃላይ አስተያየቶች" : "Total Submissions"}</p>
+                <h4 className="text-lg font-black text-slate-900">{feedbacks.length}</h4>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-3 bg-amber-100 rounded-lg text-amber-600">
+                <AlertCircle size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{isAmharic ? "ወሳኝ የሆኑ ጉዳዮች" : "Critical & High Tickets"}</p>
+                <h4 className="text-lg font-black text-slate-900">
+                  {feedbacks.filter(f => f.priority === "Critical" || f.priority === "High").length}
+                </h4>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-3 bg-emerald-100 rounded-lg text-emerald-600">
+                <CheckCircle size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{isAmharic ? "የተፈቱ ችግሮች" : "Resolved & Closed"}</p>
+                <h4 className="text-lg font-black text-slate-900">
+                  {feedbacks.filter(f => f.status === "Action Taken" || f.status === "Closed").length}
+                </h4>
+              </div>
+            </div>
+            <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs flex items-center gap-3">
+              <div className="p-3 bg-blue-100 rounded-lg text-blue-600">
+                <Sparkles size={18} />
+              </div>
+              <div>
+                <p className="text-[10px] text-slate-400 uppercase font-black tracking-widest">{isAmharic ? "የአይአይ እርዳታ" : "AI Sentiment Index"}</p>
+                <h4 className="text-lg font-black text-slate-900">0.81 (Good)</h4>
+              </div>
+            </div>
+          </div>
+
+          {/* Double Column: Left is Submission Form, Right is Admin Feedbacks List */}
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            
+            {/* Left Panel: Submission Form (5 columns) */}
+            <div className="xl:col-span-5 space-y-6">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="border-b pb-3 flex justify-between items-center">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <Plus size={16} className="text-red-600" />
+                      <span>{isAmharic ? "አዲስ ግብረመልስ አስገባ" : "Submit New Feedback"}</span>
+                    </h3>
+                    <p className="text-[10px] text-slate-500">{isAmharic ? "አስተያየትዎን፣ ጥያቄዎን ወይም ቅሬታዎን እዚህ ይሙሉ" : "Voice your ideas, concerns, or technical issues"}</p>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-mono text-slate-600">
+                    OVID-CX-TICKET
+                  </span>
+                </div>
+
+                <div className="space-y-3.5">
+                  {/* Name Input & Anonymous toggle */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የአስተያየት ሰጪ ስም" : "Your Full Name"}</label>
+                      <input
+                        type="text"
+                        disabled={feedbackAnonymous}
+                        value={feedbackAnonymous ? (isAmharic ? "ስም-አልባ (ማንነቱ ያልታወቀ)" : "Anonymous Employee") : feedbackName}
+                        onChange={(e) => setFeedbackName(e.target.value)}
+                        placeholder={isAmharic ? "ሙሉ ስምዎን ያስገቡ" : "eg. Eng. Yoseph"}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 disabled:opacity-60"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "ማንነት አይታወቅ (Anonymous)" : "Anonymous Mode"}</label>
+                      <div className="flex items-center h-[38px]">
+                        <label className="flex items-center gap-2 cursor-pointer bg-slate-50 p-2 rounded-xl border border-slate-200 w-full justify-between">
+                          <span className="text-[10px] font-bold text-slate-600">{feedbackAnonymous ? (isAmharic ? "በርቷል" : "On") : (isAmharic ? "ጠፍቷል" : "Off")}</span>
+                          <input
+                            type="checkbox"
+                            checked={feedbackAnonymous}
+                            onChange={(e) => {
+                              setFeedbackAnonymous(e.target.checked);
+                              if (e.target.checked) {
+                                setFeedbackName("");
+                              }
+                            }}
+                            className="sr-only peer"
+                          />
+                          <div className="relative w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+
+                  {feedbackAnonymous && (
+                    <div className="p-2.5 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-[9px] text-amber-800 font-semibold leading-tight">
+                      <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                      <p>
+                        {isAmharic
+                          ? "ማስጠንቀቂያ፦ ስም-አልባ ሁነታ ሲበራ የእርስዎ ስም እና ሚና ለተራ ተጠቃሚዎች አይታይም። ነገር ግን፣ ለዋና አስተዳዳሪዎች (Head Office) ብቻ ሚስጥራዊ በሆነ መልኩ ይቀመጣል።"
+                          : "Privacy Shield: Anonymous submissions mask your profile from coworkers, but maintain high-level safety traceability for Head Office Admins."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Feedback Type and Category */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የግብረመልስ አይነት" : "Feedback Type"}</label>
+                      <select
+                        value={feedbackType}
+                        onChange={(e) => setFeedbackType(e.target.value)}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 cursor-pointer font-bold"
+                      >
+                        <option value="System">💻 {isAmharic ? "የሲስተም / አፕ ግብረመልስ" : "System / App Performance"}</option>
+                        <option value="Organization">🏢 {isAmharic ? "የድርጅት / የስራ አካባቢ" : "OVID Organization"}</option>
+                        <option value="Construction">🏗️ {isAmharic ? "የግንባታ ሳይት ስራ" : "Construction Site Operations"}</option>
+                      </select>
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "ምድብ (Category)" : "Category"}</label>
+                      <select
+                        value={feedbackCategory}
+                        onChange={(e) => setFeedbackCategory(e.target.value)}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 cursor-pointer font-bold"
+                      >
+                        <option value="Technical">{isAmharic ? "ቴክኒካል" : "Technical"}</option>
+                        <option value="Management">{isAmharic ? "አመራርና አስተዳደር" : "Management"}</option>
+                        <option value="Safety">{isAmharic ? "ደህንነትና ጤና" : "Safety"}</option>
+                        <option value="Quality">{isAmharic ? "የጥራት ደረጃ" : "Quality"}</option>
+                        <option value="Attendance">{isAmharic ? "የመገኘት ክትትል" : "Attendance"}</option>
+                        <option value="Payroll">{isAmharic ? "ደመወዝ / ክፍያ" : "Payroll"}</option>
+                        <option value="Materials">{isAmharic ? "ማቴሪያልና ግብዓት" : "Materials"}</option>
+                        <option value="Training">{isAmharic ? "ስልጠናና ብቃት" : "Training"}</option>
+                        <option value="Other">{isAmharic ? "ሌላ አስተያየት" : "Other"}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Subject and Priority */}
+                  <div className="grid grid-cols-12 gap-3">
+                    <div className="col-span-8 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የጉዳዩ ርዕስ" : "Subject"}</label>
+                      <input
+                        type="text"
+                        value={feedbackSubject}
+                        onChange={(e) => setFeedbackSubject(e.target.value)}
+                        placeholder={isAmharic ? "አጭር ርዕስ ያስገቡ" : "Brief headline of your feedback"}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500"
+                      />
+                    </div>
+                    <div className="col-span-4 space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "ቅድሚያ ደረጃ" : "Priority"}</label>
+                      <select
+                        value={feedbackPriority}
+                        onChange={(e) => setFeedbackPriority(e.target.value)}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 cursor-pointer font-bold"
+                      >
+                        <option value="Low">🟢 {isAmharic ? "ዝቅተኛ" : "Low"}</option>
+                        <option value="Medium">🟡 {isAmharic ? "መካከለኛ" : "Medium"}</option>
+                        <option value="High">🟠 {isAmharic ? "ከፍተኛ" : "High"}</option>
+                        <option value="Critical">🔴 {isAmharic ? "ወሳኝ" : "Critical"}</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Description text area */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "ዝርዝር መግለጫ" : "Detailed Description"}</label>
+                    <textarea
+                      value={feedbackDescription}
+                      onChange={(e) => setFeedbackDescription(e.target.value)}
+                      placeholder={isAmharic ? "ጉዳዩን በዝርዝር እዚህ ይግለጹ..." : "Please describe your observation, request, or issue clearly..."}
+                      rows={3}
+                      className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 resize-none"
+                    ></textarea>
+                  </div>
+
+                  {/* Interactive Star Ratings Form (1-5 Stars) */}
+                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-3">
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-wider">
+                      {isAmharic ? "⭐ ዝርዝር ደረጃ ስጥ (Star Ratings)" : "⭐ Detailed Rating System"}
+                    </p>
+                    
+                    {feedbackType === "System" ? (
+                      /* Render System App Ratings fields */
+                      <div className="grid grid-cols-2 gap-3 text-[10px]">
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "አጠቃቀም ቀላልነት" : "Ease of Use"} ({easeOfUseRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setEaseOfUseRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= easeOfUseRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "የሲስተም ፍጥነት" : "App Speed / Latency"} ({speedRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setSpeedRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= speedRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "አስተማማኝነት" : "System Reliability"} ({reliabilityRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setReliabilityRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= reliabilityRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "የበይነገጽ ውበት (UI Design)" : "Aesthetic UI Design"} ({designRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setDesignRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= designRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="col-span-2 space-y-1 border-t pt-2 mt-1">
+                          <span className="text-slate-500 block">{isAmharic ? "የአይአይና ሌሎች ባህሪያት" : "AI Features & Capabilities"} ({featuresRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setFeaturesRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= featuresRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* Render Organization & Work environment Ratings fields */
+                      <div className="grid grid-cols-2 gap-3 text-[10px]">
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "የአመራር ጥራት" : "Leadership & Mgmt"} ({managementRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setManagementRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= managementRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "ግንኙነትና መረጃ ፍሰት" : "Team Communication"} ({communicationRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setCommunicationRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= communicationRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "ድጋፍና እገዛ" : "HQ Support & Response"} ({supportRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setSupportRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= supportRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1">
+                          <span className="text-slate-500 block">{isAmharic ? "የስራ ቦታ ድባብ" : "Workplace Environment"} ({workEnvironmentRating})</span>
+                          <div className="flex gap-1">
+                            {[1, 2, 3, 4, 5].map(val => (
+                              <button
+                                key={val}
+                                onClick={() => setWorkEnvironmentRating(val)}
+                                className="text-amber-500 hover:scale-115 transition-all cursor-pointer"
+                              >
+                                <Star size={14} className={val <= workEnvironmentRating ? "fill-amber-400 text-amber-500" : "text-slate-300"} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Multimedia attachments: Image and simulated voice recorder */}
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Simulated Voice Message Recorder */}
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5 flex flex-col justify-between">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase">{isAmharic ? "🎙️ የድምፅ መልዕክት መቅጃ" : "🎙️ Voice Message Recorder"}</p>
+                      
+                      {isRecordingAudio ? (
+                        <div className="py-1 flex items-center justify-between gap-1.5">
+                          {/* Recording waves simulation */}
+                          <div className="flex items-center gap-0.5 h-6">
+                            <span className="w-1 h-3 bg-red-600 rounded-full animate-pulse"></span>
+                            <span className="w-1 h-5 bg-red-600 rounded-full animate-bounce"></span>
+                            <span className="w-1 h-4 bg-red-600 rounded-full animate-pulse"></span>
+                            <span className="w-1 h-2 bg-red-600 rounded-full"></span>
+                            <span className="w-1 h-5 bg-red-600 rounded-full animate-bounce" style={{ animationDelay: "150ms" }}></span>
+                            <span className="w-1 h-3 bg-red-600 rounded-full animate-pulse"></span>
+                          </div>
+                          <span className="font-mono text-[10px] text-red-600 font-bold">0:{recordedAudioDuration < 10 ? `0${recordedAudioDuration}` : recordedAudioDuration}s</span>
+                          <button
+                            onClick={() => {
+                              if (recordingIntervalId) {
+                                clearInterval(recordingIntervalId);
+                              }
+                              setIsRecordingAudio(false);
+                              setAudioSimulationAttached(true);
+                              alert("Voice message recorded and encrypted in cache buffer.");
+                            }}
+                            className="bg-red-700 text-white font-black text-[9px] px-2 py-1 rounded cursor-pointer hover:bg-red-800"
+                          >
+                            Stop
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2">
+                          <button
+                            onClick={() => {
+                              setIsRecordingAudio(true);
+                              setRecordedAudioDuration(0);
+                              const interval = setInterval(() => {
+                                setRecordedAudioDuration(prev => {
+                                  if (prev >= 59) {
+                                    clearInterval(interval);
+                                    setIsRecordingAudio(false);
+                                    setAudioSimulationAttached(true);
+                                    return 59;
+                                  }
+                                  return prev + 1;
+                                });
+                              }, 1000);
+                              setRecordingIntervalId(interval);
+                            }}
+                            className="bg-slate-800 hover:bg-slate-700 text-white text-[9px] font-bold px-2 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer"
+                          >
+                            <Mic size={11} />
+                            <span>{isAmharic ? "ቀዳ ጀምር" : "Record Voice"}</span>
+                          </button>
+                          {audioSimulationAttached && (
+                            <span className="text-[9px] text-green-600 font-black">✓ Voice_0:18.mp3</span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Camera Upload Attachment Simulation */}
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 space-y-1.5 flex flex-col justify-between">
+                      <p className="text-[9px] font-bold text-slate-500 uppercase">{isAmharic ? "📷 ፎቶ/ቪዲዮ ማስረጃ ማያያዣ" : "📷 Photo/Video Attachment"}</p>
+                      
+                      <div className="flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => {
+                            setPhotoSimulationAttached(true);
+                            setPhotoPreviewName("IMG_SITE_AUDIT_7621.jpg");
+                            alert("Simulated camera captures/uploads IMG_SITE_AUDIT_7621.jpg successfully.");
+                          }}
+                          className="bg-slate-800 hover:bg-slate-700 text-white text-[9px] font-bold px-2 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer w-full justify-center"
+                        >
+                          <Smartphone size={11} />
+                          <span>{isAmharic ? "ካሜራ ክፈት" : "Simulate Capture"}</span>
+                        </button>
+                      </div>
+                      {photoSimulationAttached && (
+                        <span className="text-[8px] text-green-600 font-mono truncate block max-w-full">
+                          ✓ {photoPreviewName}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Submission triggers */}
+                  <button
+                    onClick={() => {
+                      if (!feedbackSubject || !feedbackDescription) {
+                        alert(isAmharic ? "እባክዎ የጉዳዩን ርዕስ እና ዝርዝር መግለጫ ይሙሉ" : "Please fill out both the Subject and Detailed Description.");
+                        return;
+                      }
+
+                      // Dynamic NLP analysis based on subject/desc length and keywords
+                      const isNeg = feedbackDescription.toLowerCase().includes("slow") || 
+                                    feedbackDescription.toLowerCase().includes("danger") || 
+                                    feedbackDescription.toLowerCase().includes("unsafe") || 
+                                    feedbackDescription.toLowerCase().includes("delay") || 
+                                    feedbackDescription.toLowerCase().includes("problem") ||
+                                    feedbackDescription.toLowerCase().includes("ቅሬታ") ||
+                                    feedbackDescription.toLowerCase().includes("ችግር");
+                      const isPos = feedbackDescription.toLowerCase().includes("excellent") || 
+                                    feedbackDescription.toLowerCase().includes("good") || 
+                                    feedbackDescription.toLowerCase().includes("smooth") || 
+                                    feedbackDescription.toLowerCase().includes("ምርጥ") ||
+                                    feedbackDescription.toLowerCase().includes("ደስ ይላል");
+
+                      let sentiment = "Neutral";
+                      let score = 0.5;
+                      if (isNeg) { sentiment = "Negative"; score = 0.21; }
+                      if (isPos) { sentiment = "Positive"; score = 0.89; }
+
+                      const calculatedRatings = feedbackType === "System" 
+                        ? { easeOfUse: easeOfUseRating, speed: speedRating, reliability: reliabilityRating, design: designRating, features: featuresRating, management: 4, communication: 4, support: 4, workEnvironment: 4 }
+                        : { easeOfUse: 4, speed: 4, reliability: 4, design: 4, features: 4, management: managementRating, communication: communicationRating, support: supportRating, workEnvironment: workEnvironmentRating };
+
+                      const newTicket = {
+                        id: `FB-00${feedbacks.length + 1}`,
+                        userName: feedbackAnonymous ? (isAmharic ? "ስም-አልባ ሰራተኛ" : "Anonymous Employee") : (feedbackName || "OVID Staff Member"),
+                        userRole: currentUserRole,
+                        project: "Bole Heights Bloc B1",
+                        site: "Bole Heights",
+                        category: feedbackCategory,
+                        type: feedbackType,
+                        subject: feedbackSubject,
+                        description: feedbackDescription,
+                        priority: feedbackPriority,
+                        status: "Open",
+                        ratings: calculatedRatings,
+                        anonymous: feedbackAnonymous,
+                        assignedDepartment: "Pending HQ Assignment",
+                        comments: [],
+                        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                        attachment: photoSimulationAttached ? photoPreviewName : (audioSimulationAttached ? "voice_note.wav" : ""),
+                        hasAudio: audioSimulationAttached,
+                        audioDuration: audioSimulationAttached ? `0:${recordedAudioDuration}` : undefined,
+                        sentiment: sentiment,
+                        sentimentScore: score,
+                        aiAnalysis: {
+                          detectedProblems: `Keywords: ${feedbackCategory}, Priority level indicated as ${feedbackPriority}.`,
+                          priorityRecommendation: feedbackPriority,
+                          suggestedAction: `Initialize routing to designated department based on requested Category: ${feedbackCategory}.`
+                        }
+                      };
+
+                      setFeedbacks([newTicket, ...feedbacks]);
+                      onLogAction("Feedback Submitted Successfully", `Ticket ${newTicket.id} with Priority ${feedbackPriority} created.`);
+                      alert(isAmharic ? "ግብረመልስዎ በስኬት ተመዝግቧል! ወደ ዋናው ሰሌዳ ተልኳል።" : "Feedback ticket created successfully! Distributed to Head Office and routing pipelines.");
+                      
+                      // Reset Form states
+                      setFeedbackSubject("");
+                      setFeedbackDescription("");
+                      setFeedbackName("");
+                      setFeedbackAnonymous(false);
+                      setAudioSimulationAttached(false);
+                      setPhotoSimulationAttached(false);
+                    }}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md cursor-pointer text-center"
+                  >
+                    {isAmharic ? "ግብረመልስ ወደ ሲስተሙ ላክ" : "Submit & Distribute Ticket"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Active notifications triggered mockup */}
+              <div className="bg-slate-900 p-4 rounded-2xl border border-slate-800 text-white space-y-2.5">
+                <p className="text-[10px] font-black text-red-500 uppercase tracking-widest flex items-center justify-between">
+                  <span>{isAmharic ? "የግብረመልስ ማስጠንቀቂያ ማሳወቂያዎች" : "CX Ticket Notifications"}</span>
+                  <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+                </p>
+                <div className="space-y-2">
+                  <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-[10px] space-y-1">
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span className="font-bold">📨 Head Office SMS Alert</span>
+                      <span>Now</span>
+                    </div>
+                    <p className="text-white font-semibold">New Critical Safety Ticket created from Bole Heights B2 (Anonymous)</p>
+                  </div>
+                  <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-[10px] space-y-1">
+                    <div className="flex justify-between items-center text-slate-400">
+                      <span className="font-bold">🔔 System Push Notification</span>
+                      <span>15m ago</span>
+                    </div>
+                    <p className="text-white font-semibold">System Admin replied to Leica TS16 Bluetooth latency ticket FB-001</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Panel: Tickets View & AI Analytics (7 columns) */}
+            <div className="xl:col-span-7 space-y-6">
+              
+              {/* Toggle Admin Control View vs AI Insights */}
+              <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                <button
+                  onClick={() => setShowAiInsightsTab(false)}
+                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all cursor-pointer ${
+                    !showAiInsightsTab 
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  📂 {isAmharic ? "አጠቃላይ አስተያየቶችና አስተዳደር" : "Continuous Improvement Logs"}
+                </button>
+                <button
+                  onClick={() => setShowAiInsightsTab(true)}
+                  className={`flex-1 py-2 text-center text-xs font-bold rounded-lg transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                    showAiInsightsTab 
+                      ? "bg-white text-slate-900 shadow-sm" 
+                      : "text-slate-500 hover:text-slate-900"
+                  }`}
+                >
+                  <Cpu size={14} className="text-red-500 animate-pulse" />
+                  <span>🤖 {isAmharic ? "የአይአይ ትንተናና የዳሰሳ ጥናት" : "AI Sentiment & CX Analytics"}</span>
+                </button>
+              </div>
+
+              {!showAiInsightsTab ? (
+                /* MAIN LOGS TAB */
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                  
+                  {/* Search and filter bar */}
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="flex-1 relative">
+                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="text"
+                        value={feedbackSearch}
+                        onChange={(e) => setFeedbackSearch(e.target.value)}
+                        placeholder={isAmharic ? "በቁልፍ ቃል ፈልግ..." : "Search feedbacks by keyword..."}
+                        className="w-full bg-slate-50 text-slate-900 text-xs pl-9 pr-3 py-2 rounded-xl border border-slate-200 outline-none focus:border-red-500"
+                      />
+                    </div>
+                    
+                    <div className="flex gap-2">
+                      <select
+                        value={feedbackCategoryFilter}
+                        onChange={(e) => setFeedbackCategoryFilter(e.target.value)}
+                        className="bg-slate-50 text-slate-900 text-xs p-2 rounded-xl border border-slate-200 outline-none cursor-pointer font-bold"
+                      >
+                        <option value="All">{isAmharic ? "ሁሉም ምድብ" : "All Categories"}</option>
+                        <option value="Technical">Technical</option>
+                        <option value="Safety">Safety</option>
+                        <option value="Materials">Materials</option>
+                        <option value="Management">Management</option>
+                      </select>
+                      
+                      <select
+                        value={feedbackPriorityFilter}
+                        onChange={(e) => setFeedbackPriorityFilter(e.target.value)}
+                        className="bg-slate-50 text-slate-900 text-xs p-2 rounded-xl border border-slate-200 outline-none cursor-pointer font-bold"
+                      >
+                        <option value="All">{isAmharic ? "ሁሉም ቅድሚያ" : "All Priorities"}</option>
+                        <option value="Critical">🔴 Critical</option>
+                        <option value="High">🟠 High</option>
+                        <option value="Medium">🟡 Medium</option>
+                        <option value="Low">🟢 Low</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* List of Feedback Tickets */}
+                  <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-none pr-1">
+                    {feedbacks
+                      .filter(f => {
+                        const matchesSearch = f.subject.toLowerCase().includes(feedbackSearch.toLowerCase()) || f.description.toLowerCase().includes(feedbackSearch.toLowerCase());
+                        const matchesCategory = feedbackCategoryFilter === "All" || f.category === feedbackCategoryFilter;
+                        const matchesPriority = feedbackPriorityFilter === "All" || f.priority === feedbackPriorityFilter;
+                        return matchesSearch && matchesCategory && matchesPriority;
+                      })
+                      .map((ticket) => (
+                        <div
+                          key={ticket.id}
+                          onClick={() => {
+                            setSelectedFeedbackForDetails(ticket);
+                            setAdminAssignedDept(ticket.assignedDepartment);
+                          }}
+                          className={`p-4 rounded-xl border transition-all cursor-pointer text-left space-y-2.5 ${
+                            selectedFeedbackForDetails?.id === ticket.id
+                              ? "bg-red-50/40 border-red-200 shadow-sm"
+                              : "bg-slate-50/50 hover:bg-slate-50 border-slate-200"
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2">
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-mono text-[10px] text-red-600 font-bold">{ticket.id}</span>
+                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${
+                                  ticket.priority === "Critical" ? "bg-red-100 text-red-800" :
+                                  ticket.priority === "High" ? "bg-amber-100 text-amber-800" :
+                                  ticket.priority === "Medium" ? "bg-blue-100 text-blue-800" : "bg-slate-100 text-slate-800"
+                                }`}>
+                                  {ticket.priority}
+                                </span>
+                                <span className="px-2 py-0.5 rounded bg-slate-200 text-slate-700 text-[8px] font-bold">
+                                  {ticket.category}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono">{ticket.createdAt}</span>
+                              </div>
+                              <h4 className="text-xs font-black text-slate-900">{ticket.subject}</h4>
+                            </div>
+
+                            <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                              ticket.status === "Open" ? "bg-slate-100 text-slate-800 border" :
+                              ticket.status === "Assigned" ? "bg-blue-100 text-blue-800" :
+                              ticket.status === "In Review" ? "bg-amber-100 text-amber-800 animate-pulse" :
+                              ticket.status === "Action Taken" ? "bg-emerald-100 text-emerald-800" : "bg-emerald-200 text-emerald-900"
+                            }`}>
+                              {ticket.status}
+                            </span>
+                          </div>
+
+                          <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">{ticket.description}</p>
+
+                          <div className="flex justify-between items-center text-[10px] text-slate-500 border-t pt-2 border-slate-200/50">
+                            <div className="flex items-center gap-1.5 font-bold">
+                              <span className="w-4 h-4 bg-red-100 rounded-full flex items-center justify-center text-[8px] text-red-700 font-black">
+                                {ticket.userName[0].toUpperCase()}
+                              </span>
+                              <span>{ticket.userName} ({ticket.userRole})</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {ticket.hasAudio && <span className="text-red-500 font-black">🎙️ Audio Attached</span>}
+                              {ticket.attachment && <span className="text-slate-400 font-mono text-[9px]">📎 {ticket.attachment}</span>}
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${
+                                ticket.sentiment === "Positive" ? "bg-emerald-100 text-emerald-700" :
+                                ticket.sentiment === "Negative" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
+                              }`}>
+                                {ticket.sentiment} ({Math.round(ticket.sentimentScore * 100)}%)
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+
+                    {feedbacks.length === 0 && (
+                      <p className="text-slate-400 text-xs italic text-center py-6">No feedback records found matching filters.</p>
+                    )}
+                  </div>
+
+                  {/* Detailing view & Head Office response Workflow */}
+                  {selectedFeedbackForDetails && (
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-4 text-left">
+                      <div className="border-b pb-3 flex justify-between items-start gap-4">
+                        <div className="space-y-1">
+                          <p className="text-[10px] text-slate-400 uppercase font-bold">
+                            {isAmharic ? "ቲኬት አስተዳደር ማረጋገጫ" : "Detailed Ticket Information"} — <span className="font-mono">{selectedFeedbackForDetails.id}</span>
+                          </p>
+                          <h4 className="text-xs font-black text-slate-900">{selectedFeedbackForDetails.subject}</h4>
+                          <p className="text-[10px] text-slate-500">{isAmharic ? "ከ " : "By "}<span className="text-red-600 font-bold">{selectedFeedbackForDetails.userName}</span> ({selectedFeedbackForDetails.userRole}) | Project: {selectedFeedbackForDetails.project}</p>
+                        </div>
+                        <button
+                          onClick={() => setSelectedFeedbackForDetails(null)}
+                          className="text-xs text-slate-400 hover:text-slate-900 font-black cursor-pointer"
+                        >
+                          ✕ Close Detail
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div className="text-xs text-slate-700 leading-relaxed bg-white p-3 rounded-lg border border-slate-200/50">
+                          <p className="font-bold text-[9px] uppercase text-slate-400 mb-1">{isAmharic ? "ዋና ዝርዝር መግለጫ" : "Core Description"}</p>
+                          {selectedFeedbackForDetails.description}
+                        </div>
+
+                        {/* Ratings Breakdown Grid */}
+                        <div className="bg-white p-3 rounded-lg border border-slate-200/50 space-y-2">
+                          <p className="font-bold text-[9px] uppercase text-slate-400">{isAmharic ? "የደረጃ አሰጣጥ ውጤቶች (Ratings Detail)" : "User Sentiment Ratings Scoreboard"}</p>
+                          <div className="grid grid-cols-3 gap-2.5 text-[9px] font-bold text-slate-600">
+                            {selectedFeedbackForDetails.type === "System" ? (
+                              <>
+                                <div className="bg-slate-50 p-1.5 rounded text-center">
+                                  <span className="block text-slate-400 text-[8px] uppercase">Ease of use</span>
+                                  <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.easeOfUse} / 5</span>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded text-center">
+                                  <span className="block text-slate-400 text-[8px] uppercase">App speed</span>
+                                  <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.speed} / 5</span>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded text-center">
+                                  <span className="block text-slate-400 text-[8px] uppercase">Reliability</span>
+                                  <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.reliability} / 5</span>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <div className="bg-slate-50 p-1.5 rounded text-center">
+                                  <span className="block text-slate-400 text-[8px] uppercase">Management</span>
+                                  <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.management} / 5</span>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded text-center">
+                                  <span className="block text-slate-400 text-[8px] uppercase">Communication</span>
+                                  <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.communication} / 5</span>
+                                </div>
+                                <div className="bg-slate-50 p-1.5 rounded text-center">
+                                  <span className="block text-slate-400 text-[8px] uppercase">Support</span>
+                                  <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.support} / 5</span>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Action Taken and Replies Log */}
+                        <div className="space-y-2">
+                          <p className="font-bold text-[9px] uppercase text-slate-400">{isAmharic ? "የአስተዳዳሪ ምላሾችና የጉዳዩ ሂደት" : "Admin Actions & Response Feed"}</p>
+                          
+                          <div className="space-y-1.5">
+                            {selectedFeedbackForDetails.comments.map((c: any, index: number) => (
+                              <div key={index} className="p-2.5 bg-emerald-50 text-emerald-900 rounded-lg border border-emerald-100 text-[10px] space-y-1">
+                                <div className="flex justify-between font-bold">
+                                  <span>💬 {c.author} ({c.role})</span>
+                                  <span>{c.date}</span>
+                                </div>
+                                <p className="font-medium">{c.text}</p>
+                              </div>
+                            ))}
+                            {selectedFeedbackForDetails.comments.length === 0 && (
+                              <p className="text-[10px] text-slate-400 italic">{isAmharic ? "እስካሁን ምንም ምላሽ አልተሰጠም።" : "No official management responses logged yet."}</p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Head Office Action Controls panel */}
+                        <div className="p-3 bg-red-50/40 border border-red-500/10 rounded-xl space-y-3 pt-4">
+                          <div className="flex items-center gap-1.5 text-[10px] font-black text-red-700 uppercase tracking-wider">
+                            <Sliders size={14} />
+                            <span>{isAmharic ? "የዋና መስሪያ ቤት (HQ) የአስተዳደር መቆጣጠሪያ" : "Head Office Response Workflow"}</span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">Responsible Department</label>
+                              <select
+                                value={adminAssignedDept}
+                                onChange={(e) => setAdminAssignedDept(e.target.value)}
+                                className="w-full bg-white text-slate-900 text-[10px] p-2 rounded-lg border outline-none font-bold cursor-pointer"
+                              >
+                                <option value="IT & Digital Infrastructure">IT & Digital Infrastructure</option>
+                                <option value="HSE Safety Department">HSE Safety Department</option>
+                                <option value="Procurement & Materials Supply">Procurement & Materials Supply</option>
+                                <option value="Project Management Office">Project Management Office</option>
+                                <option value="Human Resources & Payroll">Human Resources & Payroll</option>
+                              </select>
+                            </div>
+                            <div className="space-y-1">
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">Update Ticket Status</label>
+                              <div className="flex gap-1.5">
+                                {["Open", "Assigned", "In Review", "Action Taken", "Closed"].map((st) => (
+                                  <button
+                                    key={st}
+                                    onClick={() => {
+                                      setFeedbacks(prev => prev.map(f => {
+                                        if (f.id === selectedFeedbackForDetails.id) {
+                                          const updated = { ...f, status: st, assignedDepartment: adminAssignedDept };
+                                          setSelectedFeedbackForDetails(updated);
+                                          return updated;
+                                        }
+                                        return f;
+                                      }));
+                                      onLogAction("Ticket Status Updated", `Updated ticket ${selectedFeedbackForDetails.id} status to ${st}`);
+                                    }}
+                                    className={`flex-1 text-[9px] font-black py-1.5 rounded transition-all cursor-pointer ${
+                                      selectedFeedbackForDetails.status === st
+                                        ? "bg-red-600 text-white shadow-xs"
+                                        : "bg-white text-slate-600 hover:bg-slate-100 border"
+                                    }`}
+                                  >
+                                    {st}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Write Comment / Response */}
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">Add Response / Resolution Message</label>
+                            <div className="flex gap-2">
+                              <input
+                                type="text"
+                                value={adminCommentText}
+                                onChange={(e) => setAdminCommentText(e.target.value)}
+                                placeholder="Type resolution or update description..."
+                                className="flex-1 bg-white text-slate-900 text-xs p-2 rounded-lg border outline-none"
+                              />
+                              <button
+                                onClick={() => {
+                                  if (!adminCommentText) return;
+                                  const comment = {
+                                    author: "Nuriye Ahmed Adem (HQ Lead)",
+                                    role: "Super Admin",
+                                    text: adminCommentText,
+                                    date: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                                  };
+                                  setFeedbacks(prev => prev.map(f => {
+                                    if (f.id === selectedFeedbackForDetails.id) {
+                                      const updated = {
+                                        ...f,
+                                        comments: [...f.comments, comment],
+                                        assignedDepartment: adminAssignedDept
+                                      };
+                                      setSelectedFeedbackForDetails(updated);
+                                      return updated;
+                                    }
+                                    return f;
+                                  }));
+                                  setAdminCommentText("");
+                                  onLogAction("Admin Ticket Comment Added", `Replied to ticket ${selectedFeedbackForDetails.id}.`);
+                                }}
+                                className="bg-red-600 hover:bg-red-700 text-white font-black px-3 rounded-lg text-xs cursor-pointer"
+                              >
+                                Send Reply
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                /* AI INSIGHTS & ANALYTICS TAB */
+                <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4 text-left">
+                  <div className="border-b pb-3 flex justify-between items-center">
+                    <div>
+                      <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                        <Cpu size={16} className="text-red-600 animate-pulse" />
+                        <span>{isAmharic ? "አይአይ አስተያየት ዳሰሳና ትንተና ማዕከል" : "AI Sentiment & Priorities Analyzer"}</span>
+                      </h3>
+                      <p className="text-[10px] text-slate-500">{isAmharic ? "በየቀኑ የሚገቡ ግብረመልሶችን በራስ-ሰር የሚተነትን የአይአይ ሞተር" : "Natural language processing & computer vision sentiment pipeline"}</p>
+                    </div>
+                    <span className="px-2.5 py-1 bg-red-100 text-red-800 text-[10px] font-black rounded-full uppercase">
+                      Gemini Cognitive Core Enabled
+                    </span>
+                  </div>
+
+                  {/* Sentiment scorecard bento grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <div className="bg-green-50 border border-green-200 p-3 rounded-xl space-y-1 text-center">
+                      <ThumbsUp size={16} className="text-green-600 mx-auto fill-current" />
+                      <span className="block text-[9px] text-green-700 font-bold uppercase">Positive Sentiment</span>
+                      <span className="text-lg font-black text-green-900">
+                        {Math.round((feedbacks.filter(f => f.sentiment === "Positive").length / feedbacks.length) * 100)}%
+                      </span>
+                    </div>
+                    <div className="bg-slate-100 border border-slate-200 p-3 rounded-xl space-y-1 text-center">
+                      <Sparkles size={16} className="text-slate-600 mx-auto" />
+                      <span className="block text-[9px] text-slate-500 font-bold uppercase">Neutral / Informative</span>
+                      <span className="text-lg font-black text-slate-800">
+                        {Math.round((feedbacks.filter(f => f.sentiment === "Neutral").length / feedbacks.length) * 100)}%
+                      </span>
+                    </div>
+                    <div className="bg-red-50 border border-red-200 p-3 rounded-xl space-y-1 text-center">
+                      <AlertTriangle size={16} className="text-red-600 mx-auto animate-pulse" />
+                      <span className="block text-[9px] text-red-700 font-bold uppercase">Negative Urgent Risk</span>
+                      <span className="text-lg font-black text-red-900">
+                        {Math.round((feedbacks.filter(f => f.sentiment === "Negative").length / feedbacks.length) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* AI Generated Improvement Recommendations checklist (Requirement 14) */}
+                  <div className="bg-slate-900 p-4 rounded-xl border border-red-500/10 space-y-3.5 text-white">
+                    <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                      <p className="text-[10px] font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <Sparkles size={14} />
+                        <span>AI System Improvement Recommendations (Req 11, 14)</span>
+                      </p>
+                      <span className="text-[8px] font-mono text-slate-400">Model: Gemini 3.5 Flash</span>
+                    </div>
+
+                    <div className="space-y-3 text-xs leading-relaxed text-slate-200">
+                      <div className="p-2.5 bg-slate-950/60 rounded border border-slate-800 space-y-1">
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-red-400 font-black">HIGH RISK DETECTED: HSE SAFETY</span>
+                          <span className="bg-red-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">Active Urgent</span>
+                        </div>
+                        <p className="font-semibold text-[11px] text-slate-100">Resolve Scaffolding Anchor points in Zone C immediately.</p>
+                        <p className="text-[9px] text-slate-400">AI Logic detected keyword 'loose Scaffold' with negative score (0.12). Recommended action: Immediate halt of the local slab area until HSE Inspector validates anchor tension.</p>
+                      </div>
+
+                      <div className="p-2.5 bg-slate-950/60 rounded border border-slate-800 space-y-1">
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-amber-400 font-black">TECHNICAL WORKFLOW OPTIMIZATION</span>
+                          <span className="bg-amber-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">Review Suggested</span>
+                        </div>
+                        <p className="font-semibold text-[11px] text-slate-100">Implement Local Caching buffer in Surveyor Leica total station sync module.</p>
+                        <p className="text-[9px] text-slate-400">AI extracted issue 'Bluetooth latency Floor 4' causing replication delays. Corrective action: Deploy SQLite storage buffer in Flutter app to allow localized coordinate comparison prior to background cloud push.</p>
+                      </div>
+
+                      <div className="p-2.5 bg-slate-950/60 rounded border border-slate-800 space-y-1">
+                        <div className="flex justify-between items-center text-[9px]">
+                          <span className="text-emerald-400 font-black">POSITIVE WORKPLACE SYNERGY DETECTED</span>
+                          <span className="bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">Trend Normal</span>
+                        </div>
+                        <p className="font-semibold text-[11px] text-slate-100">Maintain current coordination cycle on pre-pour checklists.</p>
+                        <p className="text-[9px] text-slate-400">Excellent synergy recorded between drone photogrammetry and site engineering checks. Share Bole Heights pre-pour layout protocol with G+12 Bole Airport site as regional standard.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI sentiment analysis table of recent issues */}
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cognitive Processing Pipeline (NLP Logs)</p>
+                    <div className="overflow-x-auto border rounded-xl">
+                      <table className="w-full text-[10px] text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 border-b text-slate-500 font-black uppercase">
+                            <th className="p-2.5">ID</th>
+                            <th className="p-2.5">Issue Topic</th>
+                            <th className="p-2.5">AI Sentiment</th>
+                            <th className="p-2.5">NLP Trigger Words</th>
+                            <th className="p-2.5">Auto Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y text-slate-700 font-medium">
+                          {feedbacks.map(f => (
+                            <tr key={f.id} className="hover:bg-slate-50">
+                              <td className="p-2.5 font-mono text-red-600 font-bold">{f.id}</td>
+                              <td className="p-2.5 truncate max-w-[150px]">{f.subject}</td>
+                              <td className="p-2.5">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-black ${
+                                  f.sentiment === "Positive" ? "bg-emerald-100 text-emerald-800" :
+                                  f.sentiment === "Negative" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"
+                                }`}>
+                                  {f.sentiment} ({Math.round(f.sentimentScore * 100)}%)
+                                </span>
+                              </td>
+                              <td className="p-2.5 font-mono text-slate-500 text-[9px]">
+                                {f.category}, {f.priority} priority
+                              </td>
+                              <td className="p-2.5 font-semibold text-slate-900">
+                                {f.aiAnalysis.priorityRecommendation} Dispatch
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              )}
+
+            </div>
+
           </div>
         </div>
       )}
