@@ -76,15 +76,32 @@ import {
 
 export default function App() {
   // Master State Arrays
-  const [workers, setWorkers] = useState<Worker[]>(initialWorkers);
+  const [workers, setWorkers] = useState<Worker[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("ovid_workers");
+      if (stored) {
+        try { return JSON.parse(stored); } catch (e) { console.error(e); }
+      }
+    }
+    return initialWorkers;
+  });
   const [teams, setTeams] = useState<Team[]>(initialTeams);
   const [zones, setZones] = useState<ProjectZone[]>(initialZones);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(initialAttendance);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("ovid_attendance");
+      if (stored) {
+        try { return JSON.parse(stored); } catch (e) { console.error(e); }
+      }
+    }
+    return initialAttendance;
+  });
   const [evaluations, setEvaluations] = useState<PerformanceEvaluation[]>(initialEvaluations);
   const [progressLogs, setProgressLogs] = useState<DailyProgressLog[]>(initialProgressLogs);
   const [safetyLogs, setSafetyLogs] = useState<SafetyLog[]>(initialSafetyLogs);
   const [qualitySnags, setQualitySnags] = useState<QualitySnag[]>(initialQualitySnags);
   const [qualityLogs, setQualityLogs] = useState<QualityLog[]>(initialQualityLogs);
+  const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
 
   // Shell UI parameters
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.HEAD_OFFICE);
@@ -244,6 +261,42 @@ export default function App() {
     const lang = isAmharic ? "am" : "en";
     return translations[lang][key] || key;
   };
+
+  // Synchronize master state arrays to localStorage for offline permanence on construction site
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ovid_attendance", JSON.stringify(attendance));
+    }
+  }, [attendance]);
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("ovid_workers", JSON.stringify(workers));
+    }
+  }, [workers]);
+
+  // Handle window online/offline events for unstable network indicator
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    
+    const handleOnline = () => {
+      setIsOnline(true);
+      logAction("Network Status: Online", "Device re-established stable cloud database replication link. Synced local queues.");
+    };
+    
+    const handleOffline = () => {
+      setIsOnline(false);
+      logAction("Network Status: Offline", "Device disconnected from the cloud. Enabled offline buffer queue.");
+    };
+
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
 
   // Enforce strict RBAC on role changes
   React.useEffect(() => {
@@ -447,6 +500,21 @@ export default function App() {
                   <option value={UserRole.WORKER}>{isAmharic ? "ሳይት ሰራተኛ (Bekele Tesfaye)" : "Worker - Bekele Tesfaye"}</option>
                 </select>
               </div>
+            </div>
+
+            {/* Connection Status Badge */}
+            <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
+              isOnline 
+                ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
+                : "bg-amber-50 text-amber-700 border-amber-200 animate-pulse"
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500 animate-ping"}`}></span>
+              <span>
+                {isOnline 
+                  ? (isAmharic ? "መስመር ላይ" : "Online") 
+                  : (isAmharic ? "ከመስመር ውጭ (የአካባቢ ማከማቻ)" : "Offline Mode (Local)")
+                }
+              </span>
             </div>
 
             {/* Language toggle widget */}

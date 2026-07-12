@@ -82,7 +82,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   onLogAction
 }) => {
   // --- OFFLINE & SIMULATION STATE ---
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
   const [offlineQueue, setOfflineQueue] = useState<any[]>([]);
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
@@ -165,6 +165,29 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
       setSimLng(38.7905); // Bole Airport (~4.1km)
     }
   }, [gpsPreset]);
+
+  // Listen to network changes for real-time offline fallback on-site
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (onLogAction) {
+        onLogAction("Connection status restored", "Biometric Terminal automatically detected stable internet signal.");
+      }
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      if (onLogAction) {
+        onLogAction("Connection status lost", "Biometric Terminal went offline. Switched to secure local queue buffer.");
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [onLogAction]);
 
   // Haversine formula
   const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {

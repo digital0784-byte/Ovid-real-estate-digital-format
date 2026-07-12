@@ -278,6 +278,102 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   // AI Analytics View
   const [showAiInsightsTab, setShowAiInsightsTab] = useState<boolean>(false);
 
+  // --- PEER PERFORMANCE APPRAISAL STATE ---
+  const [appraisals, setAppraisals] = useState<any[]>([
+    {
+      id: "APP-001",
+      evaluatorName: "Abebe Kebede",
+      evaluatorRole: "Project Manager",
+      targetName: "Chala Birru",
+      targetRole: "Section Head",
+      ratings: { workQuality: 5, speed: 4, teamWork: 5, safety: 5, attendance: 5 },
+      comments: "እጅግ በጣም ጎበዝ የክፍል ኃላፊ ነው። የቡድን ስራን በማስተባበር ረገድ ከፍተኛ አስተዋጽኦ አለው።",
+      averageScore: 4.8,
+      status: "Sent to Head Office",
+      createdAt: "2026-07-11 08:30",
+      project: "Bole Heights Bloc B1"
+    },
+    {
+      id: "APP-002",
+      evaluatorName: "Marta Hailu",
+      evaluatorRole: "Section Head",
+      targetName: "Yoseph Assefa",
+      targetRole: "Supervisor",
+      ratings: { workQuality: 4, speed: 4, teamWork: 4, safety: 5, attendance: 4 },
+      comments: "ስራዎችን በቅርበት ይከታተላል። ለደህንነት መመሪያዎች መከበር ጥብቅ ነው።",
+      averageScore: 4.2,
+      status: "Sent to Head Office",
+      createdAt: "2026-07-11 09:15",
+      project: "Bole Heights Bloc B1"
+    },
+    {
+      id: "APP-003",
+      evaluatorName: "Yoseph Assefa",
+      evaluatorRole: "Supervisor",
+      targetName: "Desta Tilahun",
+      targetRole: "Team Leader",
+      ratings: { workQuality: 4, speed: 5, teamWork: 4, safety: 4, attendance: 5 },
+      comments: "የተሰጡትን የግንባታ እቅዶች በወቅቱ ያጠናቅቃል። ቡድኑን በስነ-ስርዓት ይመራል።",
+      averageScore: 4.4,
+      status: "Sent to Head Office",
+      createdAt: "2026-07-11 10:20",
+      project: "Bole Heights Bloc B1"
+    },
+    {
+      id: "APP-004",
+      evaluatorName: "Desta Tilahun",
+      evaluatorRole: "Team Leader",
+      targetName: "Kebede Alula",
+      targetRole: "Gang Chief",
+      ratings: { workQuality: 5, speed: 5, teamWork: 3, safety: 4, attendance: 4 },
+      comments: "በአሉሚኒየም ፎርምወርክ መገጣጠም ላይ ከፍተኛ ልምድ አለው።",
+      averageScore: 4.2,
+      status: "Sent to Head Office",
+      createdAt: "2026-07-11 11:05",
+      project: "Bole Heights Bloc B1"
+    },
+    {
+      id: "APP-005",
+      evaluatorName: "Kebede Alula",
+      evaluatorRole: "Gang Chief",
+      targetName: "Tewodros Yohannes",
+      targetRole: "Assembler",
+      ratings: { workQuality: 4, speed: 4, teamWork: 5, safety: 5, attendance: 4 },
+      comments: "ፓነሎችን በመገጣጠም እና በማጽዳት ላይ በንቃት ይሳተፋል።",
+      averageScore: 4.4,
+      status: "Sent to Head Office",
+      createdAt: "2026-07-11 13:45",
+      project: "Bole Heights Bloc B1"
+    },
+    {
+      id: "APP-006",
+      evaluatorName: "Aster Tolosa",
+      evaluatorRole: "Time Keeper",
+      targetName: "Tewodros Yohannes",
+      targetRole: "Assembler",
+      ratings: { workQuality: 3, speed: 4, teamWork: 4, safety: 4, attendance: 5 },
+      comments: "በሰዓት መከበር ላይ ምንም ዓይነት ችግር የለበትም። ሁልጊዜ ቀድሞ ይገኛል።",
+      averageScore: 4.0,
+      status: "Sent to Head Office",
+      createdAt: "2026-07-11 14:10",
+      project: "Bole Heights Bloc B1"
+    }
+  ]);
+
+  const [appraisalEvName, setAppraisalEvName] = useState<string>("");
+  const [appraisalEvRole, setAppraisalEvRole] = useState<string>("Section Head");
+  const [appraisalTgtName, setAppraisalTgtName] = useState<string>("");
+  const [appraisalTgtRole, setAppraisalTgtRole] = useState<string>("Supervisor");
+  const [appraisalWorkQuality, setAppraisalWorkQuality] = useState<number>(4);
+  const [appraisalSpeed, setAppraisalSpeed] = useState<number>(4);
+  const [appraisalTeamWork, setAppraisalTeamWork] = useState<number>(4);
+  const [appraisalSafety, setAppraisalSafety] = useState<number>(4);
+  const [appraisalAttendance, setAppraisalAttendance] = useState<number>(4);
+  const [appraisalCommentsText, setAppraisalCommentsText] = useState<string>("");
+  const [appraisalProject, setAppraisalProject] = useState<string>("Bole Heights Bloc B1");
+  const [appraisalFilterRole, setAppraisalFilterRole] = useState<string>("All");
+  const [appraisalSearchText, setAppraisalSearchText] = useState<string>("");
+
   // --- 1. MATERIAL STATE ---
   const [materials, setMaterials] = useState([
     { id: "MAT-01", name: "Aluminum Formwork Panels", code: "ALP-1200", qty: 2450, minQty: 500, bundleId: "BUN-AL-01", cleaning: "Clean", repair: "Ready" },
@@ -727,6 +823,42 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     );
   }, [materials, matSearch]);
 
+  // Peer Performance helpers & useMemo
+  const peerRolesList = useMemo(() => [
+    "Section Head",
+    "Supervisor",
+    "Team Leader",
+    "Gang Chief",
+    "Time Keeper",
+    "Project Manager",
+    "Assembler"
+  ], []);
+
+  const roleStats = useMemo(() => {
+    return peerRolesList.map(role => {
+      const receivedReviews = appraisals.filter(a => a.targetRole === role);
+      const givenReviews = appraisals.filter(a => a.evaluatorRole === role);
+      const totalScore = receivedReviews.reduce((sum, item) => sum + item.averageScore, 0);
+      const average = receivedReviews.length > 0 ? parseFloat((totalScore / receivedReviews.length).toFixed(1)) : 0;
+      return {
+        role,
+        average,
+        countReceived: receivedReviews.length,
+        countGiven: givenReviews.length
+      };
+    });
+  }, [appraisals, peerRolesList]);
+
+  const filteredAppraisals = useMemo(() => {
+    return appraisals.filter(a => {
+      const matchesSearch = a.evaluatorName.toLowerCase().includes(appraisalSearchText.toLowerCase()) || 
+                            a.targetName.toLowerCase().includes(appraisalSearchText.toLowerCase()) ||
+                            a.comments.toLowerCase().includes(appraisalSearchText.toLowerCase());
+      const matchesRole = appraisalFilterRole === "All" || a.targetRole === appraisalFilterRole || a.evaluatorRole === appraisalFilterRole;
+      return matchesSearch && matchesRole;
+    });
+  }, [appraisals, appraisalSearchText, appraisalFilterRole]);
+
   // Executive summary stats computations
   const totalWls = materials.reduce((sum, item) => sum + item.qty, 0);
   const lowStockItems = materials.filter(m => m.qty <= m.minQty);
@@ -998,6 +1130,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           >
             <GraduationCap size={14} />
             <span>{isAmharic ? "ስልጠናና ብቃት" : "Training & Competency"}</span>
+          </button>
+          <button
+            onClick={() => setActiveSubTab("peerPerformance")}
+            className={`px-3 py-2 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeSubTab === "peerPerformance" ? "bg-red-600 text-white shadow-md animate-none" : "text-slate-400 hover:text-white hover:bg-slate-800"
+            }`}
+          >
+            <CheckSquare size={14} />
+            <span>{isAmharic ? "የርስበርስ ብቃት መገምገሚያ" : "Peer Appraisal"}</span>
           </button>
           <button
             onClick={() => setActiveSubTab("multiProject")}
@@ -5276,7 +5417,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       />
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       <select
                         value={feedbackCategoryFilter}
                         onChange={(e) => setFeedbackCategoryFilter(e.target.value)}
@@ -5300,6 +5441,58 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <option value="Medium">🟡 Medium</option>
                         <option value="Low">🟢 Low</option>
                       </select>
+
+                      <button
+                        onClick={() => {
+                          const filteredFeedbacks = feedbacks.filter(f => {
+                            const matchesSearch = f.subject.toLowerCase().includes(feedbackSearch.toLowerCase()) || f.description.toLowerCase().includes(feedbackSearch.toLowerCase());
+                            const matchesCategory = feedbackCategoryFilter === "All" || f.category === feedbackCategoryFilter;
+                            const matchesPriority = feedbackPriorityFilter === "All" || f.priority === feedbackPriorityFilter;
+                            return matchesSearch && matchesCategory && matchesPriority;
+                          });
+
+                          const headers = ["Ticket ID", "Subject", "Description", "Type", "Category", "Priority", "Status", "User Name", "User Role", "Project", "Site", "Assigned Department", "Created At", "Sentiment", "Sentiment Score"];
+                          const csvRows = [headers.join(",")];
+                          
+                          for (const f of filteredFeedbacks) {
+                            const values = [
+                              f.id,
+                              `"${f.subject.replace(/"/g, '""')}"`,
+                              `"${f.description.replace(/"/g, '""')}"`,
+                              f.type,
+                              f.category,
+                              f.priority,
+                              f.status,
+                              `"${f.userName.replace(/"/g, '""')}"`,
+                              `"${f.userRole.replace(/"/g, '""')}"`,
+                              `"${f.project.replace(/"/g, '""')}"`,
+                              `"${f.site.replace(/"/g, '""')}"`,
+                              `"${f.assignedDepartment.replace(/"/g, '""')}"`,
+                              f.createdAt,
+                              f.sentiment,
+                              f.sentimentScore
+                            ];
+                            csvRows.push(values.join(","));
+                          }
+                          
+                          const csvContent = "\uFEFF" + csvRows.join("\n");
+                          const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement("a");
+                          link.setAttribute("href", url);
+                          link.setAttribute("download", `OVID_ERP_Feedback_Report_${new Date().toISOString().substring(0,10)}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+
+                          onLogAction("Feedback Exported to CSV", `${filteredFeedbacks.length} tickets exported.`);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 cursor-pointer shadow-xs transition-all shrink-0"
+                        title={isAmharic ? "ግብረመልሶችን በCSV ፋይል አውርድ" : "Export current logs to CSV file"}
+                      >
+                        <Download size={13} />
+                        <span>{isAmharic ? "ሪፖርት አውርድ" : "Download Report"}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -5689,6 +5882,517 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {/* --- PEER PERFORMANCE APPRAISAL TAB --- */}
+      {activeSubTab === "peerPerformance" && (
+        <div className="space-y-6">
+          {/* Header Banner */}
+          <div className="bg-slate-900 text-white p-6 rounded-2xl border border-red-500/20 shadow-xl space-y-4">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="px-2.5 py-0.5 rounded-full bg-red-600 text-[10px] font-black tracking-widest uppercase">
+                    {isAmharic ? "የሰራተኞች ብቃት መገምገሚያ" : "TEAM COMPETENCY EVALUATION"}
+                  </span>
+                  <span className="flex items-center gap-1 text-[11px] text-green-400 font-bold">
+                    <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
+                    {isAmharic ? "አውቶማቲክ ማስተላለፊያ ዝግጁ ነው" : "Automatic HQ Pipeline Active"}
+                  </span>
+                </div>
+                <h3 className="text-xl font-black font-sans tracking-tight">
+                  {isAmharic ? "የሳይት ሰራተኞች የእርስ በርስ ብቃት ግምገማ (Peer-to-Peer Appraisals)" : "Site-Wide Peer-to-Peer Performance Appraisal Engine"}
+                </h3>
+                <p className="text-xs text-slate-300 max-w-4xl">
+                  {isAmharic
+                    ? "የክፍል ኃላፊዎች፣ ሱፐርቫይዘሮች፣ የቡድን መሪዎች፣ ጋንግ ቺፎች፣ ታይም ኪፐሮች፣ ፕሮጀክት ማናጀሮች እና አሰባሳቢዎች እርስ በርሳቸው በታማኝነትና በቅንነት የሚገመጋገሙበት ሲስተም ነው። ውጤቱ በራስ-ሰር ተሰልቶ ወደ ዋናው መሥሪያ ቤት ይተላለፋል።"
+                    : "A fully decentralized evaluation grid where Section Heads, Supervisors, Team Leaders, Gang Chiefs, Time Keepers, Project Managers, and Assemblers rate each other's operational velocity, work quality, safety protocol adherence, team synergy, and attendance metrics. Averages are recalculated in real-time and piped directly to Head Office."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Dynamic Role Averages Matrix Grid */}
+          <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <div className="flex justify-between items-center border-b pb-2">
+              <div>
+                <h4 className="text-xs font-black uppercase text-slate-800">
+                  {isAmharic ? "የካርታ ብቃት ማጠቃለያ (በየስራ መደቡ የተቀመጠ አማካይ ውጤት)" : "Site Performance Averages Matrix (Auto-Calculated)"}
+                </h4>
+                <p className="text-[10px] text-slate-500">{isAmharic ? "በእርስ በርስ ግምገማዎች ላይ ተመስርቶ በራስ-ሰር የሚሰላ አማካይ ብቃት" : "Real-time consolidated scorecards computed from cross-evaluations"}</p>
+              </div>
+              <span className="text-[9px] bg-slate-100 text-red-600 font-mono font-bold px-2 py-0.5 rounded border border-red-100">
+                {isAmharic ? "አውቶማቲክ አማካይ" : "AUTO AVG ACTIVE"}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+              {roleStats.map((stat) => {
+                const avg = stat.average;
+                let colorClass = "text-slate-400 bg-slate-50 border-slate-200";
+                let progressColor = "bg-slate-300";
+                
+                if (avg >= 4.5) {
+                  colorClass = "bg-emerald-50 border-emerald-100 text-emerald-800";
+                  progressColor = "bg-emerald-500";
+                } else if (avg >= 3.5) {
+                  colorClass = "bg-blue-50 border-blue-100 text-blue-800";
+                  progressColor = "bg-blue-500";
+                } else if (avg > 0) {
+                  colorClass = "bg-amber-50 border-amber-100 text-amber-800";
+                  progressColor = "bg-amber-500";
+                }
+
+                return (
+                  <div key={stat.role} className={`p-3.5 rounded-xl border flex flex-col justify-between ${colorClass} transition-all shadow-2xs`}>
+                    <div className="space-y-1">
+                      <p className="text-[9px] font-black uppercase tracking-wider truncate" title={stat.role}>
+                        {stat.role === "Section Head" ? (isAmharic ? "የክፍል ኃላፊ" : "Section Head") :
+                         stat.role === "Supervisor" ? (isAmharic ? "ሱፐርቫይዘር" : "Supervisor") :
+                         stat.role === "Team Leader" ? (isAmharic ? "የቡድን መሪ" : "Team Leader") :
+                         stat.role === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ" : "Gang Chief") :
+                         stat.role === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር" : "Time Keeper") :
+                         stat.role === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር" : "Project Manager") :
+                         (isAmharic ? "አሰባሳቢ" : "Assembler")}
+                      </p>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black">{avg > 0 ? `${avg}` : "N/A"}</span>
+                        {avg > 0 && <span className="text-[9px] font-semibold">/ 5.0 ⭐</span>}
+                      </div>
+                    </div>
+
+                    <div className="mt-2 space-y-1.5">
+                      <div className="w-full bg-slate-200/60 h-1.5 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full ${progressColor}`} style={{ width: `${avg > 0 ? (avg / 5) * 100 : 0}%` }}></div>
+                      </div>
+                      <div className="flex justify-between text-[8px] font-mono font-bold text-slate-500">
+                        <span>{stat.countReceived} {isAmharic ? "ግምገማዎች" : "Rated"}</span>
+                        <span>{stat.countGiven} {isAmharic ? "ገምግሟል" : "Given"}</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            {/* Column A: Evaluation Submission Form */}
+            <div className="xl:col-span-5 space-y-6">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="border-b pb-3">
+                  <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                    <Plus size={16} className="text-red-600" />
+                    <span>{isAmharic ? "አዲስ የእርስ በርስ ግምገማ መዝግብ" : "Create New Evaluation Form"}</span>
+                  </h3>
+                  <p className="text-[10px] text-slate-500">
+                    {isAmharic ? "የሳይት ስራ መደቦች እርስ በርስ የሚገመጋገሙበትን ውጤት እዚህ ይሙሉ" : "Rate site staff and automatically average the performance metrics"}
+                  </p>
+                </div>
+
+                <div className="space-y-4 text-xs">
+                  {/* Evaluator Fields */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
+                    <p className="text-[9px] font-black uppercase text-red-600 tracking-wider">
+                      {isAmharic ? "ክፍል ፩፡ የገምጋሚው መረጃ" : "Part 1: Evaluator Details"}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የገምጋሚው ሙሉ ስም" : "Evaluator Name"}</label>
+                        <input
+                          type="text"
+                          value={appraisalEvName}
+                          onChange={(e) => setAppraisalEvName(e.target.value)}
+                          placeholder={isAmharic ? "ሙሉ ስም" : "eg. Abebe Kebede"}
+                          className="w-full bg-white text-slate-900 text-xs p-2 rounded-lg border outline-none focus:border-red-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የገምጋሚው የሳይት ሚና" : "Evaluator Role"}</label>
+                        <select
+                          value={appraisalEvRole}
+                          onChange={(e) => setAppraisalEvRole(e.target.value)}
+                          className="w-full bg-white text-slate-900 text-xs p-2 rounded-lg border outline-none font-bold cursor-pointer"
+                        >
+                          {peerRolesList.map(r => (
+                            <option key={r} value={r}>
+                              {r === "Section Head" ? (isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head") :
+                               r === "Supervisor" ? (isAmharic ? "ሱፐርቫይዘር (Supervisor)" : "Supervisor") :
+                               r === "Team Leader" ? (isAmharic ? "የቡድን መሪ (Team Leader)" : "Team Leader") :
+                               r === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ (Gang Chief)" : "Gang Chief") :
+                               r === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር (Time Keeper)" : "Time Keeper") :
+                               r === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር (Project Manager)" : "Project Manager") :
+                               (isAmharic ? "አሰባሳቢ (Assembler)" : "Assembler")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Target Evaluated Employee Fields */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/60 space-y-3">
+                    <p className="text-[9px] font-black uppercase text-red-600 tracking-wider">
+                      {isAmharic ? "ክፍል ፪፡ የተገምጋሚው መረጃ" : "Part 2: Target Staff Details"}
+                    </p>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የተገምጋሚው ሙሉ ስም" : "Target Staff Name"}</label>
+                        <input
+                          type="text"
+                          value={appraisalTgtName}
+                          onChange={(e) => setAppraisalTgtName(e.target.value)}
+                          placeholder={isAmharic ? "ሙሉ ስም" : "eg. Chala Birru"}
+                          className="w-full bg-white text-slate-900 text-xs p-2 rounded-lg border outline-none focus:border-red-500"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የተገምጋሚው የሳይት ሚና" : "Target Staff Role"}</label>
+                        <select
+                          value={appraisalTgtRole}
+                          onChange={(e) => setAppraisalTgtRole(e.target.value)}
+                          className="w-full bg-white text-slate-900 text-xs p-2 rounded-lg border outline-none font-bold cursor-pointer"
+                        >
+                          {peerRolesList.map(r => (
+                            <option key={r} value={r}>
+                              {r === "Section Head" ? (isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head") :
+                               r === "Supervisor" ? (isAmharic ? "ሱፐርቫይዘር (Supervisor)" : "Supervisor") :
+                               r === "Team Leader" ? (isAmharic ? "የቡድን መሪ (Team Leader)" : "Team Leader") :
+                               r === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ (Gang Chief)" : "Gang Chief") :
+                               r === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር (Time Keeper)" : "Time Keeper") :
+                               r === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር (Project Manager)" : "Project Manager") :
+                               (isAmharic ? "አሰባሳቢ (Assembler)" : "Assembler")}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Part 3: Ratings and Sliders */}
+                  <div className="p-4 bg-red-50/20 rounded-xl border border-red-500/10 space-y-4">
+                    <div className="flex justify-between items-center border-b pb-1">
+                      <p className="text-[9px] font-black uppercase text-red-600 tracking-wider">
+                        {isAmharic ? "ክፍል ፫፡ የብቃት መመዘኛ ነጥቦች" : "Part 3: Performance KPI Ratings"}
+                      </p>
+                      <div className="bg-red-600 text-white px-2 py-0.5 rounded-full font-mono text-[10px] font-black">
+                        {isAmharic ? "አማካይ ውጤት" : "Live Avg"}: {((appraisalWorkQuality + appraisalSpeed + appraisalTeamWork + appraisalSafety + appraisalAttendance) / 5).toFixed(1)} ⭐
+                      </div>
+                    </div>
+
+                    {/* KPI 1: Work Quality */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-slate-700">{isAmharic ? "የስራ ጥራት" : "1. Work Quality"}</span>
+                        <span className="text-red-600 font-mono">{appraisalWorkQuality} / 5</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={appraisalWorkQuality}
+                        onChange={(e) => setAppraisalWorkQuality(parseInt(e.target.value))}
+                        className="w-full accent-red-600 cursor-pointer"
+                      />
+                    </div>
+
+                    {/* KPI 2: Speed */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-slate-700">{isAmharic ? "ፍጥነት እና በወቅቱ ማጠናቀቅ" : "2. Velocity & Timeliness"}</span>
+                        <span className="text-red-600 font-mono">{appraisalSpeed} / 5</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={appraisalSpeed}
+                        onChange={(e) => setAppraisalSpeed(parseInt(e.target.value))}
+                        className="w-full accent-red-600 cursor-pointer"
+                      />
+                    </div>
+
+                    {/* KPI 3: Collaboration */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-slate-700">{isAmharic ? "ትብብር እና የቡድን ስራ" : "3. Collaboration & Teamwork"}</span>
+                        <span className="text-red-600 font-mono">{appraisalTeamWork} / 5</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={appraisalTeamWork}
+                        onChange={(e) => setAppraisalTeamWork(parseInt(e.target.value))}
+                        className="w-full accent-red-600 cursor-pointer"
+                      />
+                    </div>
+
+                    {/* KPI 4: Safety */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-slate-700">{isAmharic ? "ደህንነትና ህጎችን ማክበር" : "4. Safety Protocol Adherence"}</span>
+                        <span className="text-red-600 font-mono">{appraisalSafety} / 5</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={appraisalSafety}
+                        onChange={(e) => setAppraisalSafety(parseInt(e.target.value))}
+                        className="w-full accent-red-600 cursor-pointer"
+                      />
+                    </div>
+
+                    {/* KPI 5: Attendance */}
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-[10px] font-bold">
+                        <span className="text-slate-700">{isAmharic ? "ስነ-ስርዓትና ሰዓት ማክበር" : "5. Attendance & Discipline"}</span>
+                        <span className="text-red-600 font-mono">{appraisalAttendance} / 5</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="5"
+                        step="1"
+                        value={appraisalAttendance}
+                        onChange={(e) => setAppraisalAttendance(parseInt(e.target.value))}
+                        className="w-full accent-red-600 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Project site & comments */}
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "የግንባታ ሳይት" : "Construction Project Site"}</label>
+                      <select
+                        value={appraisalProject}
+                        onChange={(e) => setAppraisalProject(e.target.value)}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none cursor-pointer"
+                      >
+                        <option value="Bole Heights Bloc B1">Bole Heights Bloc B1</option>
+                        <option value="Bole Heights Bloc B2">Bole Heights Bloc B2</option>
+                        <option value="Bole Airport G+12 Site">Bole Airport G+12 Site</option>
+                        <option value="Gotera Condominium Tower C">Gotera Condominium Tower C</option>
+                      </select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase">{isAmharic ? "አስተያየትና ማብራሪያ (Amharic / English)" : "Evaluative Comments & Recommendations"}</label>
+                      <textarea
+                        value={appraisalCommentsText}
+                        onChange={(e) => setAppraisalCommentsText(e.target.value)}
+                        rows={3}
+                        placeholder={isAmharic ? "የሰራተኛውን አጠቃላይ የስራ ብቃትና አስተያየት እዚህ ያስፍሩ..." : "Describe the reasons for your rating or operational behavior observations..."}
+                        className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Submit Button */}
+                  <button
+                    onClick={() => {
+                      if (!appraisalEvName.trim() || !appraisalTgtName.trim()) {
+                        alert(isAmharic ? "እባክዎ የገምጋሚውን እና የተገምጋሚውን ስም ያስገቡ!" : "Please fill in both Evaluator and Target names!");
+                        return;
+                      }
+                      if (appraisalEvRole === appraisalTgtRole && appraisalEvName.trim() === appraisalTgtName.trim()) {
+                        alert(isAmharic ? "እባክዎ ራስዎን መገምገም አይችሉም!" : "Self-evaluation is not permitted in this decentralized operational model!");
+                        return;
+                      }
+
+                      const average = parseFloat(((appraisalWorkQuality + appraisalSpeed + appraisalTeamWork + appraisalSafety + appraisalAttendance) / 5).toFixed(1));
+                      const newAppraisal = {
+                        id: `APP-${String(appraisals.length + 1).padStart(3, '0')}`,
+                        evaluatorName: appraisalEvName,
+                        evaluatorRole: appraisalEvRole,
+                        targetName: appraisalTgtName,
+                        targetRole: appraisalTgtRole,
+                        ratings: {
+                          workQuality: appraisalWorkQuality,
+                          speed: appraisalSpeed,
+                          teamWork: appraisalTeamWork,
+                          safety: appraisalSafety,
+                          attendance: appraisalAttendance
+                        },
+                        comments: appraisalCommentsText || (isAmharic ? "ጥሩ የስራ አፈፃፀም አሳይቷል።" : "Showed good operational performance on site."),
+                        averageScore: average,
+                        status: "Sent to Head Office",
+                        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 16),
+                        project: appraisalProject
+                      };
+
+                      setAppraisals([newAppraisal, ...appraisals]);
+                      setAppraisalEvName("");
+                      setAppraisalTgtName("");
+                      setAppraisalCommentsText("");
+                      
+                      onLogAction(
+                        "Peer Appraisal Submitted",
+                        `Evaluated ${appraisalTgtName} (${appraisalTgtRole}) with Average score of ${average}. Automatically sent to Head Office.`
+                      );
+                      
+                      alert(isAmharic ? "ብቃቱ ተገምግሞ በራስ-ሰር ወደ ዋናው መሥሪያ ቤት ተልኳል!" : "Appraisal compiled. Average computed and dynamically transmitted to HO!");
+                    }}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-black py-3 rounded-xl flex items-center justify-center gap-2 cursor-pointer shadow-md transition-all uppercase tracking-wider font-sans text-[11px]"
+                  >
+                    <Send size={14} />
+                    <span>{isAmharic ? "መዝግብ እና ወደ ዋና መሥሪያ ቤት ላክ" : "Submit & Send to Head Office"}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Column B: Live Ledger / Transmitted Appraisals Feed */}
+            <div className="xl:col-span-7 space-y-6">
+              <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                  <div>
+                    <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                      <FileText size={16} className="text-red-600" />
+                      <span>{isAmharic ? "ወደ ዋና መስሪያ ቤት የተላኩ የግምገማ ማህደሮች" : "Transmitted Site Appraisals Feed"}</span>
+                    </h3>
+                    <p className="text-[10px] text-slate-500">{isAmharic ? "በሳይት የሚሞሉ ግምገማዎች በቅጽበት ወደ ዋና መሥሪያ ቤት ይተላለፋሉ" : "Real-time stream of evaluated site appraisals archived at Head Office"}</p>
+                  </div>
+                  
+                  <span className="bg-slate-100 text-slate-800 font-mono text-[10px] font-bold px-2.5 py-1 rounded-lg border">
+                    {isAmharic ? "ጠቅላላ ግምገማዎች" : "Total Logged"}: <span className="text-red-600 font-black">{appraisals.length}</span>
+                  </span>
+                </div>
+
+                {/* Search and Filters bar */}
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <div className="flex-1 relative">
+                    <Search className="absolute left-3 top-2.5 text-slate-400" size={14} />
+                    <input
+                      type="text"
+                      value={appraisalSearchText}
+                      onChange={(e) => setAppraisalSearchText(e.target.value)}
+                      placeholder={isAmharic ? "በስም ወይም በአስተያየት ፈልግ..." : "Search by name or keywords..."}
+                      className="w-full bg-slate-50 text-slate-900 text-xs pl-8 pr-3 py-2 rounded-xl border outline-none focus:border-red-500 font-semibold"
+                    />
+                  </div>
+                  <select
+                    value={appraisalFilterRole}
+                    onChange={(e) => setAppraisalFilterRole(e.target.value)}
+                    className="bg-slate-50 text-slate-900 text-xs px-3 py-2 rounded-xl border outline-none font-bold cursor-pointer"
+                  >
+                    <option value="All">{isAmharic ? "ሁሉም የስራ መደቦች" : "All Roles Filter"}</option>
+                    {peerRolesList.map(r => (
+                      <option key={r} value={r}>
+                        {r === "Section Head" ? (isAmharic ? "የክፍል ኃላፊ" : "Section Head") :
+                         r === "Supervisor" ? (isAmharic ? "ሱፐርቫይዘር" : "Supervisor") :
+                         r === "Team Leader" ? (isAmharic ? "የቡድን መሪ" : "Team Leader") :
+                         r === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ" : "Gang Chief") :
+                         r === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር" : "Time Keeper") :
+                         r === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር" : "Project Manager") :
+                         (isAmharic ? "አሰባሳቢ" : "Assembler")}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* appraisals list stream */}
+                <div className="space-y-4 max-h-[620px] overflow-y-auto pr-1">
+                  {filteredAppraisals.map((item) => {
+                    return (
+                      <div key={item.id} className="p-4 bg-slate-50 rounded-xl border border-slate-200/80 hover:border-red-500/30 transition-all space-y-3.5 relative overflow-hidden">
+                        {/* Status watermark banner */}
+                        <div className="absolute top-0 right-0 bg-emerald-600 text-white font-mono text-[8px] font-black px-2.5 py-0.5 rounded-bl uppercase tracking-widest flex items-center gap-1 shadow-xs">
+                          <CheckCircle size={8} />
+                          <span>{isAmharic ? "ወደ ዋና መሥሪያ ቤት ደርሷል" : "Transmitted to HO"}</span>
+                        </div>
+
+                        {/* Top Header Row */}
+                        <div className="flex justify-between items-start pt-1">
+                          <div className="space-y-0.5">
+                            <span className="text-[9px] font-mono font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">{item.id}</span>
+                            <span className="text-[10px] text-slate-500 font-mono ml-2 font-semibold">{item.createdAt} | {item.project}</span>
+                          </div>
+                          
+                          <div className="flex items-center gap-1 bg-white border px-2 py-0.5 rounded-lg text-xs font-black text-slate-900">
+                            <span>{item.averageScore}</span>
+                            <span className="text-yellow-500">⭐</span>
+                          </div>
+                        </div>
+
+                        {/* Evaluator -> Target relationship indicator */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 p-2.5 bg-white rounded-lg border border-slate-100">
+                          <div>
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest block">{isAmharic ? "ገምጋሚ" : "Evaluator Staff"}</span>
+                            <p className="font-bold text-slate-900 text-xs">{item.evaluatorName}</p>
+                            <span className="text-[9px] bg-slate-100 text-slate-700 font-bold px-1.5 py-0.5 rounded-md inline-block mt-0.5">
+                              {item.evaluatorRole === "Section Head" ? (isAmharic ? "የክፍል ኃላፊ" : "Section Head") :
+                               item.evaluatorRole === "Supervisor" ? (isAmharic ? "ሱፐርቫይዘር" : "Supervisor") :
+                               item.evaluatorRole === "Team Leader" ? (isAmharic ? "የቡድን መሪ" : "Team Leader") :
+                               item.evaluatorRole === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ" : "Gang Chief") :
+                               item.evaluatorRole === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር" : "Time Keeper") :
+                               item.evaluatorRole === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር" : "Project Manager") :
+                               (isAmharic ? "አሰባሳቢ" : "Assembler")}
+                            </span>
+                          </div>
+                          <div className="border-t sm:border-t-0 sm:border-l sm:pl-3 border-slate-100 pt-2 sm:pt-0">
+                            <span className="text-[8px] font-bold text-red-400 uppercase tracking-widest block">{isAmharic ? "የተገመገመው ሠራተኛ" : "Target Staff"}</span>
+                            <p className="font-bold text-slate-900 text-xs">{item.targetName}</p>
+                            <span className="text-[9px] bg-red-50 text-red-700 font-bold px-1.5 py-0.5 rounded-md inline-block mt-0.5">
+                              {item.targetRole === "Section Head" ? (isAmharic ? "የክፍል ኃላፊ" : "Section Head") :
+                               item.targetRole === "Supervisor" ? (isAmharic ? "ሱፐርቫይዘር" : "Supervisor") :
+                               item.targetRole === "Team Leader" ? (isAmharic ? "የቡድን መሪ" : "Team Leader") :
+                               item.targetRole === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ" : "Gang Chief") :
+                               item.targetRole === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር" : "Time Keeper") :
+                               item.targetRole === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር" : "Project Manager") :
+                               (isAmharic ? "አሰባሳቢ" : "Assembler")}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Matrix Grid of individual KPIs */}
+                        <div className="grid grid-cols-5 gap-1.5 text-center text-[9px]">
+                          <div className="bg-white p-1 rounded border border-slate-200/60 font-semibold">
+                            <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ጥራት" : "Quality"}</span>
+                            <span className="text-slate-800 font-bold">{item.ratings.workQuality} ⭐</span>
+                          </div>
+                          <div className="bg-white p-1 rounded border border-slate-200/60 font-semibold">
+                            <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ፍጥነት" : "Speed"}</span>
+                            <span className="text-slate-800 font-bold">{item.ratings.speed} ⭐</span>
+                          </div>
+                          <div className="bg-white p-1 rounded border border-slate-200/60 font-semibold">
+                            <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ትብብር" : "Team"}</span>
+                            <span className="text-slate-800 font-bold">{item.ratings.teamWork} ⭐</span>
+                          </div>
+                          <div className="bg-white p-1 rounded border border-slate-200/60 font-semibold">
+                            <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ደህንነት" : "Safety"}</span>
+                            <span className="text-slate-800 font-bold">{item.ratings.safety} ⭐</span>
+                          </div>
+                          <div className="bg-white p-1 rounded border border-slate-200/60 font-semibold">
+                            <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ሰዓት" : "Time"}</span>
+                            <span className="text-slate-800 font-bold">{item.ratings.attendance} ⭐</span>
+                          </div>
+                        </div>
+
+                        {/* Comments section */}
+                        <div className="bg-white p-2.5 rounded-lg border border-slate-100 text-xs italic text-slate-700 leading-relaxed font-sans">
+                          "{item.comments}"
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {filteredAppraisals.length === 0 && (
+                    <div className="text-center py-8 text-slate-400 text-xs italic bg-slate-50 rounded-xl border border-dashed">
+                      {isAmharic ? "ምንም ዓይነት የብቃት ግምገማዎች አልተገኘም!" : "No evaluation appraisal entries matched your filters!"}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}

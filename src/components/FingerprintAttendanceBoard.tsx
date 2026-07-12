@@ -104,7 +104,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
 
   // Kiosk settings
   const [kioskMode, setKioskMode] = useState<"check-in" | "check-out">("check-in");
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
   const [showConfig, setShowConfig] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -161,6 +161,29 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
       setSimLng(38.7905); // Bole Airport - ~4.1km away
     }
   }, [gpsPreset]);
+
+  // Listen to network changes for real-time offline fallback on-site
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleOnline = () => {
+      setIsOnline(true);
+      if (onLogAction) {
+        onLogAction("Fingerprint terminal online", "Automatic detection registered stable cellular connection.");
+      }
+    };
+    const handleOffline = () => {
+      setIsOnline(false);
+      if (onLogAction) {
+        onLogAction("Fingerprint terminal offline", "Terminal entered offline mode due to connection loss.");
+      }
+    };
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, [onLogAction]);
 
   // Compute live distance
   const currentDistance = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
