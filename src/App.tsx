@@ -739,7 +739,7 @@ export default function App() {
               <Building2 size={22} />
             </div>
             <div>
-              <span className="text-xs uppercase tracking-widest font-black text-red-600">{isAmharic ? "ዲጂታል ኮንስትራክሽን" : "Digital Construction"}</span>
+              <span className="text-xs uppercase tracking-widest font-black text-red-600">{isAmharic ? "ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም" : "Digital Construction ERP command platform"}</span>
               <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
                 Aluminum Formwork Attendance & Productivity System
               </h1>
@@ -1392,7 +1392,7 @@ export default function App() {
       {/* FOOTER SECTION */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 no-print">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
-          <p>© {new Date().getFullYear()} Digital Construction. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
+          <p>© {new Date().getFullYear()} Digital Construction ERP command platform. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
           <p className="font-semibold text-slate-500">
             {isAmharic 
               ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 

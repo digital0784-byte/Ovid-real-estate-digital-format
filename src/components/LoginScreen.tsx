@@ -320,7 +320,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             <Shield size={20} className="animate-pulse" />
           </div>
           <div>
-            <h1 className="text-sm font-black tracking-widest text-white uppercase">{isAmharic ? "ዲጂታል ኮንስትራክሽን" : "Digital Construction"}</h1>
+            <h1 className="text-sm font-black tracking-widest text-white uppercase">{isAmharic ? "ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም" : "Digital Construction ERP command platform"}</h1>
             <p className="text-[10px] font-mono tracking-wider text-slate-400">SMART CONSTRUCTION ERP</p>
           </div>
         </div>
@@ -349,8 +349,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             
             <h2 className="text-xl font-bold tracking-tight text-white leading-tight">
               {isAmharic 
-                ? "ወደ ኦቪድ ስማርት ግንባታ መቆጣጠሪያ መግቢያ" 
-                : "Enter OVID ERP Command Platform"}
+                ? "ወደ ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም መግቢያ" 
+                : "Enter Digital Construction ERP command platform"}
             </h2>
             
             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
@@ -744,7 +744,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                   className="mt-1 accent-red-600 rounded cursor-pointer"
                 />
                 <span className="text-[10px] text-slate-400 leading-normal group-hover:text-slate-300 transition-colors">
-                  {isAmharic ? "የኦቪድ ሪል እስቴት" : "I accept the OVID Real Estate "}{" "}
+                  {isAmharic ? "የዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም" : "I accept the Digital Construction ERP command platform "}{" "}
                   <button
                     type="button"
                     onClick={() => setShowPrivacyModal(true)}
@@ -789,7 +789,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
       {/* FOOTER & TRUST INDICATION */}
       <div className="relative z-10 text-center py-6 border-t border-slate-900 text-slate-500 text-[11px] font-mono space-y-1">
-        <p>© {new Date().getFullYear()} Digital Construction Engineering Division. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Digital Construction ERP command platform Engineering Division. All rights reserved.</p>
         <p className="text-slate-400 font-bold">
           {isAmharic 
             ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
@@ -809,7 +809,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
               <div className="flex items-center space-x-2 text-red-500">
                 <ShieldCheck size={18} />
                 <h3 className="font-black uppercase text-xs tracking-wider text-white">
-                  {isAmharic ? "ኦቪድ ግላዊነት እና የግል መረጃ አጠቃቀም ፖሊሲ" : "OVID ERP Privacy & Compliance Policy"}
+                  {isAmharic ? "ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም የግላዊነት ፖሊሲ" : "Digital Construction ERP command platform Privacy & Compliance Policy"}
                 </h3>
               </div>
               <button
