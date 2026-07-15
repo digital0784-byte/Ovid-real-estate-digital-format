@@ -1202,6 +1202,7 @@ export default function App() {
             attendance={attendance}
             zones={zones}
             isAmharic={isAmharic}
+            progressLogs={progressLogs}
           />
         )}
 
