@@ -19,6 +19,12 @@ export interface AuditLog {
   role: UserRole;
   action: string;
   details: string;
+  gps?: {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+    status: "acquired" | "failed" | "locating";
+  };
 }
 
 export enum AttendanceMethod {
@@ -57,6 +63,7 @@ export interface Worker {
   fingerprint?: string;
   status: "Active" | "Inactive";
   teamId: string;
+  skills?: string; // e.g. "Formwork Assembly, Blueprint Reading"
 }
 
 export interface Team {
@@ -98,10 +105,11 @@ export interface PerformanceEvaluation {
   workerId: string;
   workerName: string;
   date: string; // YYYY-MM-DD
-  discipline: number; // Max 25
-  quality: number; // Max 25
+  discipline: number; // Max 20
+  quality: number; // Max 20
   productivity: number; // Max 20
   safetyCompliance: number; // Max 15
+  equipmentHandling: number; // Max 10 (የእቃ አያያዝ)
   teamwork: number; // Max 10
   attendance: number; // Max 5
   totalScore: number; // Sum of above, max 100
@@ -159,6 +167,20 @@ export interface ProjectZone {
   // Drawing Link
   drawingId?: string;
   drawingName?: string;
+  dailyPanelLogs?: DailyPanelLog[];
+}
+
+export interface DailyPanelLog {
+  id: string;
+  loggedBy: string; // e.g. "Fikru Tolossa (Gang Chief)"
+  role: string; // Gang Chief, Team Leader, Supervisor
+  date: string;
+  panelType: string;
+  length: number; // in meters
+  width: number; // in meters
+  quantity: number;
+  calculatedArea: number; // length * width * quantity
+  notes?: string;
 }
 
 export interface DrawingItem {

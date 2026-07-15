@@ -71,7 +71,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   const [lockoutTime, setLockoutTime] = useState(0);
   
   // Privacy Policy state
-  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const [privacyAccepted, setPrivacyAccepted] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
 
   // Status/Error Messaging
@@ -266,7 +266,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     setSelectedRole(role);
     setErrorMessage("");
     setSuccessMessage("");
-    setScanSuccess(false);
+    setScanSuccess(true);
+    setPrivacyAccepted(true);
     
     // Autofill matching role mock credentials
     if (role === UserRole.HEAD_OFFICE) {
@@ -319,7 +320,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             <Shield size={20} className="animate-pulse" />
           </div>
           <div>
-            <h1 className="text-sm font-black tracking-widest text-white uppercase">OVID Real Estate</h1>
+            <h1 className="text-sm font-black tracking-widest text-white uppercase">{isAmharic ? "ዲጂታል ኮንስትራክሽን" : "Digital Construction"}</h1>
             <p className="text-[10px] font-mono tracking-wider text-slate-400">SMART CONSTRUCTION ERP</p>
           </div>
         </div>
@@ -788,7 +789,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
       {/* FOOTER & TRUST INDICATION */}
       <div className="relative z-10 text-center py-6 border-t border-slate-900 text-slate-500 text-[11px] font-mono space-y-1">
-        <p>© {new Date().getFullYear()} OVID Real Estate Engineering Division. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Digital Construction Engineering Division. All rights reserved.</p>
         <p className="text-slate-400 font-bold">
           {isAmharic 
             ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 

@@ -118,6 +118,21 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
   const [gcPhotos, setGcPhotos] = useState<string[]>([]);
   const [mockPhotoName, setMockPhotoName] = useState("formwork_joint_verification.jpg");
 
+  // Daily Panel Dimension Log Inputs
+  const [pLogType, setPLogType] = useState("Wall Panel");
+  const [pLogLength, setPLogLength] = useState<number>(2.7);
+  const [pLogWidth, setPLogWidth] = useState<number>(0.6);
+  const [pLogQty, setPLogQty] = useState<number>(10);
+  const [pLogNotes, setPLogNotes] = useState("");
+  const [tempPanelLogs, setTempPanelLogs] = useState<{
+    panelType: string;
+    length: number;
+    width: number;
+    quantity: number;
+    calculatedArea: number;
+    notes: string;
+  }[]>([]);
+
   // Auto-schedule Generator Inputs
   const [startDateInput, setStartDateInput] = useState("2026-07-05");
   const [schedFloorsInput, setSchedFloorsInput] = useState(15);
@@ -185,7 +200,8 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
         approvedByTeamLeader,
         approvedDate,
         drawingId,
-        drawingName
+        drawingName,
+        dailyPanelLogs: z.dailyPanelLogs || []
       };
     });
   }, [zones]);
@@ -290,11 +306,31 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
     e.preventDefault();
     if (!selectedZone) return;
 
+    // Convert temp panel logs into formal logs
+    const newLogsFromTemp = tempPanelLogs.map((log, idx) => ({
+      id: `LOG-P-${Date.now()}-${idx}`,
+      loggedBy: selectedZone.assignedGangChiefName || "Fikru Tolossa",
+      role: "Gang Chief",
+      date: new Date().toISOString().split("T")[0],
+      panelType: log.panelType,
+      length: log.length,
+      width: log.width,
+      quantity: log.quantity,
+      calculatedArea: log.calculatedArea,
+      notes: log.notes
+    }));
+
+    const mergedLogs = [...(selectedZone.dailyPanelLogs || []), ...newLogsFromTemp];
+
+    // Compute total installed panels count based on manual input or sum of logs
+    const sumQty = tempPanelLogs.reduce((sum, item) => sum + item.quantity, 0);
+    const finalInstalledCount = gcInstalledUpdate > 0 ? gcInstalledUpdate : ((selectedZone.installedPanels || 0) + sumQty);
+
     const totalRequired = selectedZone.wallPanels + selectedZone.columnPanels + selectedZone.beamPanels + selectedZone.slabPanels + selectedZone.cornerPanels + selectedZone.externalPanels + selectedZone.internalPanels;
     
     // Calculate new completion percentage based on installed panels out of total required
     const calculatedPercentage = totalRequired > 0 
-      ? Math.round((gcInstalledUpdate / totalRequired) * 100) 
+      ? Math.round((finalInstalledCount / totalRequired) * 100) 
       : 0;
 
     let newStatus: "Not Started" | "In Progress" | "Completed" | "Delayed" = "In Progress";
@@ -308,7 +344,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
 
     const updatedZone: ProjectZone = {
       ...selectedZone,
-      installedPanels: gcInstalledUpdate,
+      installedPanels: finalInstalledCount,
       removedPanels: gcRemovedUpdate,
       manpowerUsed: gcManpowerUpdate,
       dailyReportNotes: gcDailyNotes,
@@ -321,16 +357,18 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
       beamStatus: calculatedPercentage,
       slabStatus: calculatedPercentage,
       stairStatus: calculatedPercentage,
-      liftCoreStatus: calculatedPercentage
+      liftCoreStatus: calculatedPercentage,
+      dailyPanelLogs: mergedLogs
     };
 
     onUpdateZone(updatedZone);
     alert(isAmharic 
-      ? "የእለት ግንባታ ሪፖርት በተሳካ ሁኔታ ቀርቧል! የኦዲት መዝገብ ላይ ተመዝግቧል።" 
-      : "Daily site progress report submitted successfully! Synced to system audit log."
+      ? `የእለት ግንባታ ሪፖርት በተሳካ ሁኔታ ቀርቧል! ${newLogsFromTemp.length} የፓነል ዝርዝሮች ተመዝግበዋል።` 
+      : `Daily site progress report submitted successfully! ${newLogsFromTemp.length} panel dimension log(s) recorded.`
     );
     setGcDailyNotes("");
     setGcPhotos([]);
+    setTempPanelLogs([]);
   };
 
   // Team Leader Approve Zone
@@ -399,12 +437,18 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
     let totalRequiredPanels = 0;
     let totalInstalledPanels = 0;
     let totalRemovedPanels = 0;
+    let totalDailyAreaInstalled = 0;
 
     extendedZones.forEach(z => {
       const req = z.wallPanels + z.columnPanels + z.beamPanels + z.slabPanels + z.cornerPanels + z.externalPanels + z.internalPanels;
       totalRequiredPanels += req;
       totalInstalledPanels += z.installedPanels;
       totalRemovedPanels += z.removedPanels;
+      if (z.dailyPanelLogs) {
+        z.dailyPanelLogs.forEach(log => {
+          totalDailyAreaInstalled += log.calculatedArea;
+        });
+      }
     });
 
     const remainingPanelsCount = Math.max(0, totalRequiredPanels - totalInstalledPanels);
@@ -418,7 +462,8 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
       totalRequiredPanels,
       totalInstalledPanels,
       totalRemovedPanels,
-      remainingPanels: remainingPanelsCount
+      remainingPanels: remainingPanelsCount,
+      totalDailyAreaInstalled
     };
   }, [extendedZones]);
 
@@ -642,6 +687,27 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                 <div className="flex justify-between items-center border-t border-slate-800/80 pt-2.5">
                   <span className="text-slate-400 font-sans">{isAmharic ? "የቀረው ፓነል ገጠማ:" : "Remaining to Install:"}</span>
                   <span className="font-extrabold text-rose-400 text-sm">{dashboardStats.remainingPanels}</span>
+                </div>
+                <div className="flex justify-between items-center border-t border-slate-800/80 pt-2.5">
+                  <span className="text-slate-400 font-sans">{isAmharic ? "ዛሬ የተገጠመ ጠቅላላ ስፋት:" : "Total Daily Installed Area:"}</span>
+                  <span className="font-extrabold text-emerald-400 text-sm">{dashboardStats.totalDailyAreaInstalled.toFixed(2)} m²</span>
+                </div>
+              </div>
+
+              <div className="mt-4 bg-slate-800/60 p-2.5 rounded-xl border border-slate-800/50 text-[10px] space-y-1.5 font-sans">
+                <div className="flex items-center justify-between font-semibold text-slate-300">
+                  <span>{isAmharic ? "ለሴክሽን ኃላፊ ሪፖርት:" : "Report to Section Head:"}</span>
+                  <span className="text-emerald-400 flex items-center space-x-1 font-bold">
+                    <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-ping"></span>
+                    <span>{isAmharic ? "በቀጥታ ተልኳል" : "Auto-Sent"}</span>
+                  </span>
+                </div>
+                <div className="flex items-center justify-between font-semibold text-slate-300">
+                  <span>{isAmharic ? "ለዋና ጽ/ቤት ሪፖርት:" : "Report to Head Office:"}</span>
+                  <span className="text-blue-400 flex items-center space-x-1 font-bold">
+                    <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-ping"></span>
+                    <span>{isAmharic ? "በቀጥታ ተልኳል" : "Auto-Sent"}</span>
+                  </span>
                 </div>
               </div>
             </div>
@@ -902,6 +968,92 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                       }`}>{smartPlanningForecasts?.delayRisk} RISK</strong>
                     </div>
                   </div>
+                </div>
+
+                {/* Daily Panel Dimensions Report (Automatically Calculated Area & Reported to Section Head + Head Office) */}
+                <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-4">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 pb-2 border-b border-slate-200">
+                    <div>
+                      <h4 className="font-extrabold text-slate-800 text-xs flex items-center space-x-1.5 uppercase">
+                        <FileCheck2 size={15} className="text-red-600" />
+                        <span>{isAmharic ? "የእለት ገጠማ ፓነል ስፋት ሪፖርት" : "Daily Installed Panel Dimensions Report"}</span>
+                      </h4>
+                      <p className="text-[10px] text-slate-500">
+                        {isAmharic 
+                          ? "በጋንግ ቺፍ እና በቡድን መሪ የገቡ ፓነሎች ስፋት አውቶማቲክ ስሌት።" 
+                          : "Auto-calculated area from daily dimensional logs."}
+                      </p>
+                    </div>
+
+                    {/* Section Head & Head Office auto-sharing status indicators */}
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center space-x-1 bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                        <span>{isAmharic ? "ለሴክሽን ኃላፊ: ተልኳል" : "Section Head: Sent"}</span>
+                      </span>
+                      <span className="inline-flex items-center space-x-1 bg-blue-50 text-blue-700 border border-blue-200 text-[9px] font-extrabold px-2 py-0.5 rounded-full">
+                        <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-ping"></span>
+                        <span>{isAmharic ? "ለዋና ጽ/ቤት: ተልኳል" : "Head Office: Sent"}</span>
+                      </span>
+                    </div>
+                  </div>
+
+                  {selectedZone.dailyPanelLogs && selectedZone.dailyPanelLogs.length > 0 ? (
+                    <div className="space-y-3">
+                      {/* Interactive summary panel */}
+                      <div className="grid grid-cols-2 gap-4 bg-white p-3 rounded-lg border border-slate-200/60 text-xs">
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">{isAmharic ? "የተገጠሙ ፓነሎች ጠቅላላ ብዛት" : "Total Logged Panels"}</span>
+                          <strong className="text-slate-800 font-mono text-sm">
+                            {selectedZone.dailyPanelLogs.reduce((sum, log) => sum + log.quantity, 0)} {isAmharic ? "ፍሬ" : "pcs"}
+                          </strong>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 block text-[9px] uppercase font-bold">{isAmharic ? "በሲስተሙ አውቶማቲክ የተሰላ ስፋት" : "Auto-Calculated Total Area"}</span>
+                          <strong className="text-emerald-600 font-mono text-sm font-extrabold">
+                            {selectedZone.dailyPanelLogs.reduce((sum, log) => sum + log.calculatedArea, 0).toFixed(2)} m²
+                          </strong>
+                        </div>
+                      </div>
+
+                      {/* Logs Table */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-200/60 bg-white">
+                        <table className="w-full text-left border-collapse text-[11px]">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[9px]">
+                              <th className="p-2">{isAmharic ? "ቀን" : "Date"}</th>
+                              <th className="p-2">{isAmharic ? "የፓነል አይነት" : "Panel Type"}</th>
+                              <th className="p-2">{isAmharic ? "ልኬት (m)" : "Dimensions (m)"}</th>
+                              <th className="p-2 text-center">{isAmharic ? "ብዛት" : "Qty"}</th>
+                              <th className="p-2 text-right">{isAmharic ? "ስፋት" : "Area"}</th>
+                              <th className="p-2">{isAmharic ? "አስገቢ / ማስታወሻ" : "Logged By / Note"}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100 font-medium">
+                            {selectedZone.dailyPanelLogs.map((log) => (
+                              <tr key={log.id} className="hover:bg-slate-50/50">
+                                <td className="p-2 text-slate-500 font-mono">{log.date}</td>
+                                <td className="p-2 text-slate-800 font-bold">{log.panelType}</td>
+                                <td className="p-2 text-slate-600 font-mono">{log.length}m × {log.width}m</td>
+                                <td className="p-2 text-center text-slate-800 font-bold font-mono">{log.quantity}</td>
+                                <td className="p-2 text-right text-emerald-600 font-extrabold font-mono">{log.calculatedArea.toFixed(2)} m²</td>
+                                <td className="p-2 text-slate-500 text-[10px]">
+                                  <span className="font-bold text-slate-700 block">{log.loggedBy} ({isAmharic ? "ጋንግ ቺፍ" : log.role})</span>
+                                  {log.notes && <span className="italic block text-slate-400 mt-0.5">{log.notes}</span>}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border border-slate-200/50 rounded-lg p-4 text-center text-slate-400 text-xs">
+                      {isAmharic 
+                        ? "ለዚህ ዞን እስካሁን ምንም የፓነል ገጠማ በስፋትና ብዛት አልተመዘገበም።" 
+                        : "No dimensional panel logs recorded for this zone yet. Use the Gang Chief workbench to log."}
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress details */}
@@ -1231,6 +1383,24 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                           <option key={d.id} value={d.id}>{d.name}</option>
                         ))}
                       </select>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const area = zoneAreaInput || 150;
+                          setWallQty(Math.round(area * 1.3));
+                          setColQty(Math.round(area * 0.5));
+                          setBeamQty(Math.round(area * 0.35));
+                          setSlabQty(Math.round(area * 1.15));
+                          setCornerQty(Math.round(area * 0.2));
+                          setExtQty(Math.round(area * 0.25));
+                          setIntQty(Math.round(area * 0.45));
+                          setAccQty(Math.round(area * 2.8));
+                        }}
+                        className="mt-1 text-[10px] text-red-600 font-extrabold hover:text-red-700 flex items-center space-x-1 uppercase cursor-pointer"
+                      >
+                        <Sparkles size={11} />
+                        <span>{isAmharic ? "ከ CAD ንድፍ ፓነል ቁጥሮችን አስላ" : "Calculate Panels from CAD"}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -1612,6 +1782,139 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                         className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 font-mono focus:bg-white outline-none"
                       />
                     </div>
+                  </div>
+
+                  {/* Daily Panel Dimension Input Block (Automatically Calculates Area) */}
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
+                    <div className="flex justify-between items-center pb-2 border-b border-slate-200/40">
+                      <h4 className="font-bold text-slate-800 text-xs flex items-center space-x-1.5">
+                        <Sliders size={14} className="text-red-600" />
+                        <span>{isAmharic ? "የእለት ፓነል ገጠማ በስፋትና ብዛት (Auto Area Calculator)" : "Daily Panel Dimensions & Auto Area Log"}</span>
+                      </h4>
+                      <span className="text-[10px] bg-red-100 text-red-800 font-extrabold px-2 py-0.5 rounded uppercase">
+                        {isAmharic ? "አውቶማቲክ ስሌት" : "Live Math"}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5">
+                      <div className="col-span-2 sm:col-span-1">
+                        <label className="block text-[10px] text-slate-500 font-bold mb-1">{isAmharic ? "የፓነል አይነት" : "Panel Type"}</label>
+                        <select 
+                          value={pLogType} 
+                          onChange={(e) => setPLogType(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-medium"
+                        >
+                          <option value="Wall Panel">{isAmharic ? "ግድግዳ ፓነል (Wall)" : "Wall Panel"}</option>
+                          <option value="Slab Deck">{isAmharic ? "ወለል ማገር (Slab Deck)" : "Slab Deck"}</option>
+                          <option value="Column Corner">{isAmharic ? "ምሰሶ ማዕዘን (Column)" : "Column Corner"}</option>
+                          <option value="Beam Panel">{isAmharic ? "ማገር ፓነል (Beam)" : "Beam Panel"}</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] text-slate-500 font-bold mb-1">{isAmharic ? "ርዝመት (ሜትር)" : "Length (m)"}</label>
+                        <input 
+                          type="number" step="0.01" min="0.1" max="10"
+                          value={pLogLength}
+                          onChange={(e) => setPLogLength(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] text-slate-500 font-bold mb-1">{isAmharic ? "ወርድ (ሜትር)" : "Width (m)"}</label>
+                        <input 
+                          type="number" step="0.01" min="0.1" max="5"
+                          value={pLogWidth}
+                          onChange={(e) => setPLogWidth(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] text-slate-500 font-bold mb-1">{isAmharic ? "ብዛት (ቁጥር)" : "Quantity (pcs)"}</label>
+                        <input 
+                          type="number" min="1" max="500"
+                          value={pLogQty}
+                          onChange={(e) => setPLogQty(Number(e.target.value))}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800 font-mono"
+                        />
+                      </div>
+
+                      <div className="col-span-2 sm:col-span-1 flex flex-col justify-end">
+                        <span className="text-[9px] text-slate-400 block text-right font-semibold mb-1">
+                          {isAmharic ? "የዛሬ ስፋት:" : "This Item Area:"}
+                        </span>
+                        <span className="font-mono font-extrabold text-slate-800 text-right">
+                          {(pLogLength * pLogWidth * pLogQty).toFixed(2)} m²
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 items-center">
+                      <div className="sm:col-span-3">
+                        <input 
+                          type="text"
+                          placeholder={isAmharic ? "ለይቶ ማወቂያ / ማስታወሻ (ምሳሌ፡ ምዕራብ ግድግዳ)" : "Location note (e.g. West Wall Section)"}
+                          value={pLogNotes}
+                          onChange={(e) => setPLogNotes(e.target.value)}
+                          className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-700 placeholder-slate-400"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const calculatedArea = Number((pLogLength * pLogWidth * pLogQty).toFixed(2));
+                          setTempPanelLogs(prev => [...prev, {
+                            panelType: pLogType,
+                            length: pLogLength,
+                            width: pLogWidth,
+                            quantity: pLogQty,
+                            calculatedArea,
+                            notes: pLogNotes
+                          }]);
+                          setPLogNotes("");
+                        }}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold p-1.5 rounded flex items-center justify-center space-x-1 cursor-pointer transition-colors"
+                      >
+                        <Plus size={14} />
+                        <span>{isAmharic ? "አክል (Add)" : "Add to Batch"}</span>
+                      </button>
+                    </div>
+
+                    {/* List of temporary panel logs added */}
+                    {tempPanelLogs.length > 0 && (
+                      <div className="bg-white border border-slate-200 rounded-lg p-2.5 space-y-2">
+                        <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 uppercase">
+                          <span>{isAmharic ? "ለማስገባት የተዘጋጁ የፓነል ዝርዝሮች:" : "Batched Panels for Submission:"}</span>
+                          <span className="text-emerald-600 font-mono">
+                            {isAmharic ? "ጠቅላላ ስፋት (Total Area):" : "Total Area:"} {tempPanelLogs.reduce((sum, item) => sum + item.calculatedArea, 0).toFixed(2)} m²
+                          </span>
+                        </div>
+                        <div className="max-h-36 overflow-y-auto divide-y divide-slate-100 text-[11px]">
+                          {tempPanelLogs.map((item, idx) => (
+                            <div key={idx} className="py-1.5 flex justify-between items-center">
+                              <div className="font-medium text-slate-700">
+                                <span className="text-slate-900 font-bold">{item.panelType}</span>
+                                <span className="mx-1 text-slate-400">({item.length}m × {item.width}m)</span>
+                                <span className="text-slate-500 font-semibold">× {item.quantity} {isAmharic ? "ፍሬ" : "pcs"}</span>
+                                {item.notes && <span className="text-[10px] text-slate-400 block italic">{item.notes}</span>}
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <span className="font-mono font-extrabold text-slate-800">{item.calculatedArea} m²</span>
+                                <button 
+                                  type="button" 
+                                  onClick={() => setTempPanelLogs(prev => prev.filter((_, i) => i !== idx))}
+                                  className="text-red-500 hover:text-red-700 font-bold cursor-pointer text-sm"
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {/* Photo logs upload simulation */}

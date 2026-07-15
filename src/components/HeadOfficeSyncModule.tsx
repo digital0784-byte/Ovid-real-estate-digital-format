@@ -937,6 +937,185 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                 </div>
               </div>
 
+              {/* NETWORK USAGE SUMMARY (OFFLINE BUFFER TELEMETRY) */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+                <div className="border-b border-slate-100 pb-3 flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Database className="text-red-500 animate-pulse" size={16} />
+                    <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
+                      {isAmharic ? "የመስመር ውጭ መረጃ አጠቃቀም" : "Network Usage Summary"}
+                    </h3>
+                  </div>
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded text-[9px] font-mono font-black uppercase ${
+                    localOfflineQueue.length > 0 
+                      ? "bg-amber-100 text-amber-800 animate-pulse" 
+                      : "bg-slate-100 text-slate-500"
+                  }`}>
+                    {localOfflineQueue.length > 0 
+                      ? (isAmharic ? "ማከማቻው ገባሪ ነው" : "Buffer Active") 
+                      : (isAmharic ? "ማከማቻ ባዶ ነው" : "Buffered Clean")}
+                  </span>
+                </div>
+
+                {/* Main size displays */}
+                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-100">
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                      {isAmharic ? "የተከማቸ ፋይል መጠን" : "Cached Buffer Size"}
+                    </span>
+                    <div className="flex items-baseline space-x-1">
+                      <span className="text-2xl font-black text-slate-900 font-mono">
+                        {(localOfflineQueue.length * 0.18).toFixed(2)}
+                      </span>
+                      <span className="text-xs font-bold text-slate-500 font-mono">MB</span>
+                    </div>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                      {isAmharic ? "ያልተላኩ መዝገቦች" : "Buffered Records"}
+                    </span>
+                    <div className="flex items-baseline justify-end space-x-1">
+                      <span className="text-2xl font-black text-slate-900 font-mono">
+                        {localOfflineQueue.length}
+                      </span>
+                      <span className="text-[10px] font-bold text-slate-500">
+                        {isAmharic ? "መዝገብ" : "tx"}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Progress bar depicting storage limits */}
+                <div className="space-y-1.5">
+                  <div className="flex justify-between text-[10px] font-bold text-slate-500">
+                    <span>{isAmharic ? "የአካባቢ ማከማቻ አጠቃቀም (ከ 16MB ገደብ)" : "Local Storage Limit (Max 16MB Allocation)"}</span>
+                    <span className="font-mono">
+                      {((localOfflineQueue.length * 0.18 / 16) * 100).toFixed(2)}%
+                    </span>
+                  </div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden border border-slate-200/50">
+                    <div 
+                      className={`h-full rounded-full transition-all duration-500 ${
+                        localOfflineQueue.length > 50 ? "bg-red-500" : localOfflineQueue.length > 20 ? "bg-amber-500" : "bg-red-600"
+                      }`} 
+                      style={{ width: `${Math.min(100, (localOfflineQueue.length * 0.18 / 16) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+
+                {/* Telemetry Payload Allocation Breakdown */}
+                <div className="space-y-2 text-[10px] text-slate-600 font-mono">
+                  <span className="font-bold text-slate-500 text-[11px] block tracking-wide uppercase">
+                    {isAmharic ? "የመረጃ ስርጭት ስብጥር" : "Encrypted Payload Allocation Breakdown"}
+                  </span>
+                  
+                  <div className="space-y-1.5 bg-slate-50/50 p-2.5 rounded-lg border border-slate-100">
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                        {isAmharic ? "የጣት አሻራ እና ባዮሜትሪክስ" : "Biometric Match Template"}
+                      </span>
+                      <span className="font-bold text-slate-800">
+                        {localOfflineQueue.length > 0 ? `${(localOfflineQueue.length * 0.14).toFixed(2)} MB` : "0.00 MB"} (78%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-indigo-500"></span>
+                        {isAmharic ? "የጂፒኤስ የቦታ መረጃ" : "GPS Geolocation Coordinates"}
+                      </span>
+                      <span className="font-bold text-slate-800">
+                        {localOfflineQueue.length > 0 ? `${(localOfflineQueue.length * 0.025).toFixed(2)} MB` : "0.00 MB"} (14%)
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="flex items-center gap-1.5 text-slate-500">
+                        <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                        {isAmharic ? "የሰራተኛ ዝርዝርና ሜታዳታ" : "Metadata & Access Logs"}
+                      </span>
+                      <span className="font-bold text-slate-800">
+                        {localOfflineQueue.length > 0 ? `${(localOfflineQueue.length * 0.015).toFixed(2)} MB` : "0.00 MB"} (8%)
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Estimated Uplink Bandwidth Requirements */}
+                {localOfflineQueue.length > 0 && (
+                  <div className="bg-amber-500/10 border border-amber-500/20 text-amber-800 rounded-xl p-3 text-[11px] leading-relaxed space-y-1">
+                    <span className="font-black block uppercase tracking-wider text-[10px] text-amber-900">
+                      {isAmharic ? "🛰️ የደመና ግንኙነት ዝግጁነት" : "🛰️ Offline Buffer Queue Status"}
+                    </span>
+                    <p>
+                      {isAmharic 
+                        ? `ሲስተሙ ሲገናኝ ${(localOfflineQueue.length * 0.18).toFixed(2)} MB ለማመሳሰል በ 3G ግንኙነት ${(localOfflineQueue.length * 0.4).toFixed(1)} ሰከንድ፣ በ VSAT ሳተላይት ግንኙነት ${(localOfflineQueue.length * 1.5).toFixed(1)} ሰከንድ ይፈጅበታል።`
+                        : `System detects offline buffer. Reconnecting will transfer ${(localOfflineQueue.length * 0.18).toFixed(2)} MB of telemetry data. Est. duration: ~${(localOfflineQueue.length * 0.4).toFixed(1)}s on HSDPA+ 3G and ~${(localOfflineQueue.length * 1.5).toFixed(1)}s over local VSAT satellite uplink.`
+                      }
+                    </p>
+                  </div>
+                )}
+
+                {/* Quick actions to simulate Offline Storage actions */}
+                <div className="grid grid-cols-2 gap-2 border-t border-slate-100 pt-3">
+                  <button
+                    onClick={() => {
+                      // Bulk inject simulated offline biometric records to demonstrate local caching capacity
+                      const todayDate = new Date().toISOString().split("T")[0];
+                      const newRecords: AttendanceRecord[] = Array.from({ length: 10 }).map((_, i) => {
+                        const randomWorker = workers[Math.floor(Math.random() * workers.length)];
+                        return {
+                          id: `OFF-BULK-${Date.now()}-${randomWorker.id}-${i}`,
+                          workerId: randomWorker.id,
+                          workerName: randomWorker.name,
+                          department: randomWorker.department,
+                          trade: randomWorker.trade,
+                          company: randomWorker.company,
+                          building: randomWorker.building || "Tower B",
+                          floor: randomWorker.floor || 2,
+                          zone: randomWorker.zone || "Zone A",
+                          date: todayDate,
+                          checkIn: "08:12:45",
+                          checkOut: null,
+                          method: AttendanceMethod.FINGERPRINT,
+                          workingHours: 0,
+                          overtime: 0,
+                          status: "Present",
+                          gpsCoordinates: { lat: 9.011743, lng: 38.794651 },
+                          deviceUsed: "OVID-BIO-PAD-03",
+                          verifiedBy: currentUserRole,
+                          gpsLocationString: isAmharic ? "ቦሌ ሃይትስ ግንባታ ቦታ" : "OVID Bole Heights Site"
+                        };
+                      });
+                      setLocalOfflineQueue(prev => [...prev, ...newRecords]);
+                      if (onLogAction) {
+                        onLogAction("Bulk Offline Buffer Loading", `Simulated bulk generation of 10 biometric attendance records offline. Added 1.80 MB to local client cache.`);
+                      }
+                    }}
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2 px-1 rounded-xl transition-all cursor-pointer text-center text-[10px]"
+                  >
+                    ➕ {isAmharic ? "10 ሪኮርድ ጨምር" : "Simulate +10 Tx"}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (localOfflineQueue.length === 0) return;
+                      setLocalOfflineQueue([]);
+                      if (onLogAction) {
+                        onLogAction("Local Buffer Cleared", "Manually purged offline queued records and reclaimed local storage cache.");
+                      }
+                    }}
+                    disabled={localOfflineQueue.length === 0}
+                    className={`font-bold py-2 px-1 rounded-xl transition-all cursor-pointer text-center text-[10px] ${
+                      localOfflineQueue.length === 0 
+                        ? "bg-slate-50 text-slate-300 cursor-not-allowed border border-slate-100" 
+                        : "bg-red-50 hover:bg-red-100 text-red-600 border border-red-200"
+                    }`}
+                  >
+                    🗑️ {isAmharic ? "ማከማቻ አጽዳ" : "Purge Cache"}
+                  </button>
+                </div>
+              </div>
+
               {/* DEMO SCAN TRIGGER MODULE */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
                 <div className="border-b border-slate-100 pb-3">

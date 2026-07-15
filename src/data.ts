@@ -16,16 +16,146 @@ import {
 
 // Seed Workers
 export const initialWorkers: Worker[] = [
-  { id: "OVID-W-101", name: "Bekele Tesfaye", department: "Formwork Assembly", trade: "Carpenter", company: "OVID Construction", teamId: "T-01", status: "Active", joinedDate: "2025-01-10" },
-  { id: "OVID-W-102", name: "Aster Gudeta", department: "Formwork Assembly", trade: "Carpenter", company: "OVID Construction", teamId: "T-01", status: "Active", joinedDate: "2025-01-15" },
-  { id: "OVID-W-103", name: "Chala Kebede", department: "Formwork Stripping", trade: "Stripper", company: "OVID Construction", teamId: "T-02", status: "Active", joinedDate: "2025-02-01" },
-  { id: "OVID-W-104", name: "Almaz Demissie", department: "Steel Fixing", trade: "Steel Fixer", company: "OVID Construction", teamId: "T-03", status: "Active", joinedDate: "2025-01-20" },
-  { id: "OVID-W-105", name: "Selamawit Alemu", department: "Formwork Assembly", trade: "Carpenter", company: "Subcontractor Alpha", teamId: "T-01", status: "Active", joinedDate: "2025-03-05" },
-  { id: "OVID-W-106", name: "Tariku Mengistu", department: "Concrete Casting", trade: "Concrete Worker", company: "OVID Construction", teamId: "T-04", status: "Active", joinedDate: "2025-01-12" },
-  { id: "OVID-W-107", name: "Yosef Assefa", department: "Formwork Stripping", trade: "Stripper", company: "Subcontractor Beta", teamId: "T-02", status: "Active", joinedDate: "2025-02-18" },
-  { id: "OVID-W-108", name: "Mekonnen Haile", department: "Concrete Casting", trade: "Concrete Worker", company: "OVID Construction", teamId: "T-04", status: "Active", joinedDate: "2025-02-22" },
-  { id: "OVID-W-109", name: "Hiwot Girma", department: "Steel Fixing", trade: "Steel Fixer", company: "Subcontractor Alpha", teamId: "T-03", status: "Active", joinedDate: "2025-03-01" },
-  { id: "OVID-W-110", name: "Fikru Tolossa", department: "Safety & Rigging", trade: "Rigger", company: "OVID Construction", teamId: "T-05", status: "Active", joinedDate: "2025-01-05" }
+  { 
+    id: "OVID-W-101", 
+    name: "Bekele Tesfaye", 
+    department: "Formwork Assembly", 
+    trade: "Carpenter", 
+    company: "OVID Construction", 
+    teamId: "T-01", 
+    status: "Active", 
+    joinedDate: "2025-01-10",
+    photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
+    phoneNumber: "+251 911-234567",
+    emergencyContact: "Tirunesh Tesfaye - Sister (+251 911-765432)",
+    skills: "Aluminium Formwork Systems, Blueprint Reading, Scaffolding Safety"
+  },
+  { 
+    id: "OVID-W-102", 
+    name: "Aster Gudeta", 
+    department: "Formwork Assembly", 
+    trade: "Carpenter", 
+    company: "OVID Construction", 
+    teamId: "T-01", 
+    status: "Active", 
+    joinedDate: "2025-01-15",
+    photo: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop",
+    phoneNumber: "+251 922-345678",
+    emergencyContact: "Gudeta Gemechu - Father (+251 922-876543)",
+    skills: "Precision Formwork Alignment, Level Measuring, Joint Gasketing"
+  },
+  { 
+    id: "OVID-W-103", 
+    name: "Chala Kebede", 
+    department: "Formwork Stripping", 
+    trade: "Stripper", 
+    company: "OVID Construction", 
+    teamId: "T-02", 
+    status: "Active", 
+    joinedDate: "2025-02-01",
+    photo: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop",
+    phoneNumber: "+251 933-456789",
+    emergencyContact: "Aster Kebede - Sister (+251 933-987654)",
+    skills: "Safe Formwork Stripping, Panel Maintenance, Prop Release Execution"
+  },
+  { 
+    id: "OVID-W-104", 
+    name: "Almaz Demissie", 
+    department: "Steel Fixing", 
+    trade: "Steel Fixer", 
+    company: "OVID Construction", 
+    teamId: "T-03", 
+    status: "Active", 
+    joinedDate: "2025-01-20",
+    photo: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop",
+    phoneNumber: "+251 944-567890",
+    emergencyContact: "Demissie Wolde - Father (+251 944-098765)",
+    skills: "Rebar Tying, Steel Reinforcement, Shear Wall Assembly, Bar Bending"
+  },
+  { 
+    id: "OVID-W-105", 
+    name: "Selamawit Alemu", 
+    department: "Formwork Assembly", 
+    trade: "Carpenter", 
+    company: "Subcontractor Alpha", 
+    teamId: "T-01", 
+    status: "Active", 
+    joinedDate: "2025-03-05",
+    photo: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop",
+    phoneNumber: "+251 955-678901",
+    emergencyContact: "Alemu Ayele - Husband (+251 955-109876)",
+    skills: "Slab Formwork Rigging, Heavy Lift Signaling, Quick-Release Setup"
+  },
+  { 
+    id: "OVID-W-106", 
+    name: "Tariku Mengistu", 
+    department: "Concrete Casting", 
+    trade: "Concrete Worker", 
+    company: "OVID Construction", 
+    teamId: "T-04", 
+    status: "Active", 
+    joinedDate: "2025-01-12",
+    photo: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop",
+    phoneNumber: "+251 966-789012",
+    emergencyContact: "Mengistu Hailu - Father (+251 966-210987)",
+    skills: "Concrete Pouring, Vibrator Compaction, Slab Finishing, Level Control"
+  },
+  { 
+    id: "OVID-W-107", 
+    name: "Yosef Assefa", 
+    department: "Formwork Stripping", 
+    trade: "Stripper", 
+    company: "Subcontractor Beta", 
+    teamId: "T-02", 
+    status: "Active", 
+    joinedDate: "2025-02-18",
+    photo: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop",
+    phoneNumber: "+251 977-890123",
+    emergencyContact: "Tigist Assefa - Wife (+251 977-321098)",
+    skills: "Formwork Stripping, Panel Degreasing, Crane Hook Hooking"
+  },
+  { 
+    id: "OVID-W-108", 
+    name: "Mekonnen Haile", 
+    department: "Concrete Casting", 
+    trade: "Concrete Worker", 
+    company: "OVID Construction", 
+    teamId: "T-04", 
+    status: "Active", 
+    joinedDate: "2025-02-22",
+    photo: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop",
+    phoneNumber: "+251 988-901234",
+    emergencyContact: "Haile Weldu - Brother (+251 988-432109)",
+    skills: "Slurry Grout Mixing, Surface Grinding, Concrete Pump Guiding"
+  },
+  { 
+    id: "OVID-W-109", 
+    name: "Hiwot Girma", 
+    department: "Steel Fixing", 
+    trade: "Steel Fixer", 
+    company: "Subcontractor Alpha", 
+    teamId: "T-03", 
+    status: "Active", 
+    joinedDate: "2025-03-01",
+    photo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop",
+    phoneNumber: "+251 999-012345",
+    emergencyContact: "Girma Tadesse - Father (+251 999-543210)",
+    skills: "Bending Machine Operation, Rebar Spacer Setup, Beam Cage Assembly"
+  },
+  { 
+    id: "OVID-W-110", 
+    name: "Fikru Tolossa", 
+    department: "Safety & Rigging", 
+    trade: "Rigger", 
+    company: "OVID Construction", 
+    teamId: "T-05", 
+    status: "Active", 
+    joinedDate: "2025-01-05",
+    photo: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?w=200&h=200&fit=crop",
+    phoneNumber: "+251 912-345678",
+    emergencyContact: "Wubit Tolossa - Sister (+251 912-876543)",
+    skills: "Toolbox Lead, PPE Verification, Rigging Safety, Crane Sling Hooks"
+  }
 ];
 
 // Seed Teams
@@ -52,19 +182,60 @@ export const initialAttendance: AttendanceRecord[] = [
 
 // Seed Performance Evaluations for yesterday
 export const initialEvaluations: PerformanceEvaluation[] = [
-  { id: "EVAL-001", workerId: "OVID-W-101", workerName: "Bekele Tesfaye", date: "2026-07-01", discipline: 24, quality: 23, productivity: 19, safetyCompliance: 15, teamwork: 10, attendance: 5, totalScore: 96, level: "Excellent", comment: "Excellent speed and precision in Zone A wall setup.", evaluatedBy: "Eng. Yoseph" },
-  { id: "EVAL-002", workerId: "OVID-W-102", workerName: "Aster Gudeta", date: "2026-07-01", discipline: 23, quality: 24, productivity: 18, safetyCompliance: 14, teamwork: 10, attendance: 5, totalScore: 94, level: "Very Good", comment: "Outstanding alignment precision on beams.", evaluatedBy: "Eng. Yoseph" },
-  { id: "EVAL-003", workerId: "OVID-W-103", workerName: "Chala Kebede", date: "2026-07-01", discipline: 18, quality: 20, productivity: 16, safetyCompliance: 12, teamwork: 8, attendance: 4, totalScore: 78, level: "Good", comment: "Good output but was late today. Need to improve punctuality.", evaluatedBy: "Eng. Yoseph" },
-  { id: "EVAL-004", workerId: "OVID-W-104", workerName: "Almaz Demissie", date: "2026-07-01", discipline: 25, quality: 23, productivity: 19, safetyCompliance: 15, teamwork: 9, attendance: 5, totalScore: 96, level: "Excellent", comment: "Highly reliable steel reinforcement fixes. Safe habits.", evaluatedBy: "Eng. Yoseph" },
-  { id: "EVAL-005", workerId: "OVID-W-105", workerName: "Selamawit Alemu", date: "2026-07-01", discipline: 22, quality: 21, productivity: 17, safetyCompliance: 13, teamwork: 9, attendance: 5, totalScore: 87, level: "Very Good", comment: "Cooperative subcontractor team player, solid work.", evaluatedBy: "Eng. Yoseph" },
-  { id: "EVAL-006", workerId: "OVID-W-106", workerName: "Tariku Mengistu", date: "2026-07-01", discipline: 21, quality: 20, productivity: 18, safetyCompliance: 14, teamwork: 9, attendance: 5, totalScore: 87, level: "Very Good", comment: "Good concrete compaction, no issues noted.", evaluatedBy: "Eng. Yoseph" },
-  { id: "EVAL-008", workerId: "OVID-W-108", workerName: "Mekonnen Haile", date: "2026-07-01", discipline: 15, quality: 16, productivity: 12, safetyCompliance: 11, teamwork: 7, attendance: 5, totalScore: 66, level: "Average", comment: "Slow panel cleaning and layout placement. Needs monitoring.", evaluatedBy: "Eng. Yoseph" }
+  { id: "EVAL-001", workerId: "OVID-W-101", workerName: "Bekele Tesfaye", date: "2026-07-01", discipline: 19, quality: 19, productivity: 19, safetyCompliance: 14, equipmentHandling: 10, teamwork: 10, attendance: 5, totalScore: 96, level: "Excellent", comment: "Excellent speed, precision, and tool care in Zone A wall setup.", evaluatedBy: "Eng. Yoseph" },
+  { id: "EVAL-002", workerId: "OVID-W-102", workerName: "Aster Gudeta", date: "2026-07-01", discipline: 18, quality: 19, productivity: 18, safetyCompliance: 14, equipmentHandling: 10, teamwork: 10, attendance: 5, totalScore: 94, level: "Very Good", comment: "Outstanding alignment precision and careful material handling on beams.", evaluatedBy: "Eng. Yoseph" },
+  { id: "EVAL-003", workerId: "OVID-W-103", workerName: "Chala Kebede", date: "2026-07-01", discipline: 14, quality: 15, productivity: 15, safetyCompliance: 11, equipmentHandling: 8, teamwork: 8, attendance: 4, totalScore: 75, level: "Good", comment: "Good output and decent tool storage but was late today.", evaluatedBy: "Eng. Yoseph" },
+  { id: "EVAL-004", workerId: "OVID-W-104", workerName: "Almaz Demissie", date: "2026-07-01", discipline: 20, quality: 19, productivity: 18, safetyCompliance: 14, equipmentHandling: 10, teamwork: 10, attendance: 5, totalScore: 96, level: "Excellent", comment: "Highly reliable steel reinforcement fixes. Clean equipment workspace and safe habits.", evaluatedBy: "Eng. Yoseph" },
+  { id: "EVAL-005", workerId: "OVID-W-105", workerName: "Selamawit Alemu", date: "2026-07-01", discipline: 17, quality: 17, productivity: 17, safetyCompliance: 12, equipmentHandling: 9, teamwork: 10, attendance: 5, totalScore: 87, level: "Very Good", comment: "Cooperative subcontractor team player, solid work, proper tool management.", evaluatedBy: "Eng. Yoseph" },
+  { id: "EVAL-006", workerId: "OVID-W-106", workerName: "Tariku Mengistu", date: "2026-07-01", discipline: 17, quality: 17, productivity: 17, safetyCompliance: 12, equipmentHandling: 9, teamwork: 10, attendance: 5, totalScore: 87, level: "Very Good", comment: "Good concrete compaction, no issues noted with mechanical poker handling.", evaluatedBy: "Eng. Yoseph" },
+  { id: "EVAL-008", workerId: "OVID-W-108", workerName: "Mekonnen Haile", date: "2026-07-01", discipline: 13, quality: 13, productivity: 12, safetyCompliance: 10, equipmentHandling: 6, teamwork: 7, attendance: 5, totalScore: 66, level: "Average", comment: "Slow panel cleaning and layout placement. Need to handle form panels with more care.", evaluatedBy: "Eng. Yoseph" }
 ];
 
 // Seed Project Zones (Aluminum Formwork Planning)
 export const initialZones: ProjectZone[] = [
-  { id: "B1-F04-ZA", building: "OVID Bole Heights", block: "Block A", tower: "Tower 1", floor: 4, zone: "Zone A", wallStatus: 100, columnStatus: 100, beamStatus: 90, slabStatus: 85, stairStatus: 100, liftCoreStatus: 100, startDate: "2026-06-25", targetDays: 6, completionPercentage: 95, status: "In Progress" },
-  { id: "B1-F04-ZB", building: "OVID Bole Heights", block: "Block A", tower: "Tower 1", floor: 4, zone: "Zone B", wallStatus: 70, columnStatus: 80, beamStatus: 40, slabStatus: 20, stairStatus: 0, liftCoreStatus: 60, startDate: "2026-06-28", targetDays: 6, completionPercentage: 55, status: "In Progress" },
+  { 
+    id: "B1-F04-ZA", 
+    building: "OVID Bole Heights", 
+    block: "Block A", 
+    tower: "Tower 1", 
+    floor: 4, 
+    zone: "Zone A", 
+    wallStatus: 100, 
+    columnStatus: 100, 
+    beamStatus: 90, 
+    slabStatus: 85, 
+    stairStatus: 100, 
+    liftCoreStatus: 100, 
+    startDate: "2026-06-25", 
+    targetDays: 6, 
+    completionPercentage: 95, 
+    status: "In Progress",
+    dailyPanelLogs: [
+      { id: "LOG-P-001", loggedBy: "Fikru Tolossa", role: "Gang Chief", date: "2026-07-12", panelType: "Wall Panel W1", length: 2.7, width: 0.6, quantity: 45, calculatedArea: 72.9, notes: "West wall alignment complete" },
+      { id: "LOG-P-002", loggedBy: "Tariku Mengistu", role: "Supervisor", date: "2026-07-12", panelType: "Slab Deck S2", length: 1.2, width: 0.9, quantity: 30, calculatedArea: 32.4, notes: "Section 1 slab deck panels placed" }
+    ]
+  },
+  { 
+    id: "B1-F04-ZB", 
+    building: "OVID Bole Heights", 
+    block: "Block A", 
+    tower: "Tower 1", 
+    floor: 4, 
+    zone: "Zone B", 
+    wallStatus: 70, 
+    columnStatus: 80, 
+    beamStatus: 40, 
+    slabStatus: 20, 
+    stairStatus: 0, 
+    liftCoreStatus: 60, 
+    startDate: "2026-06-28", 
+    targetDays: 6, 
+    completionPercentage: 55, 
+    status: "In Progress",
+    dailyPanelLogs: [
+      { id: "LOG-P-003", loggedBy: "Fikru Tolossa", role: "Gang Chief", date: "2026-07-13", panelType: "Wall Panel W2", length: 2.7, width: 0.45, quantity: 20, calculatedArea: 24.3, notes: "Inner partition columns aligned" }
+    ]
+  },
   { id: "B1-F04-ZC", building: "OVID Bole Heights", block: "Block A", tower: "Tower 1", floor: 4, zone: "Zone C", wallStatus: 0, columnStatus: 0, beamStatus: 0, slabStatus: 0, stairStatus: 0, liftCoreStatus: 0, startDate: "2026-07-05", targetDays: 5, completionPercentage: 0, status: "Not Started" },
   { id: "B1-F03-ZA", building: "OVID Bole Heights", block: "Block A", tower: "Tower 1", floor: 3, zone: "Zone A", wallStatus: 100, columnStatus: 100, beamStatus: 100, slabStatus: 100, stairStatus: 100, liftCoreStatus: 100, startDate: "2026-06-18", targetDays: 6, actualDays: 6, completionPercentage: 100, status: "Completed" },
   { id: "B1-F03-ZB", building: "OVID Bole Heights", block: "Block A", tower: "Tower 1", floor: 3, zone: "Zone B", wallStatus: 100, columnStatus: 100, beamStatus: 100, slabStatus: 100, stairStatus: 100, liftCoreStatus: 100, startDate: "2026-06-20", targetDays: 6, actualDays: 8, completionPercentage: 100, status: "Completed" },

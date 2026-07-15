@@ -101,11 +101,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   const [registeredNewEmployeeName, setRegisteredNewEmployeeName] = useState<string>("");
   const [registeredNewEmployeeRole, setRegisteredNewEmployeeRole] = useState<string>("Site Engineer");
   const [biometricEnrollmentStatus, setBiometricEnrollmentStatus] = useState<string>("Not Started");
-  const [simulatedNotifications, setSimulatedNotifications] = useState<any[]>([
-    { id: 1, title: "Late Attendance Alert", msg: "Team Beta - 3 workers missing at check-in", type: "SMS", time: "Just Now", read: false },
-    { id: 2, title: "CAD Approval Notification", msg: "Block B1 Floor 5 Slab design authorized by HO", type: "Push", time: "5m ago", read: false },
-    { id: 3, title: "Material Shortage Warning", msg: "Locking wedge pin inventory below threshold", type: "Email", time: "15m ago", read: false }
-  ]);
+
   const [cadFileUploaded, setCadFileUploaded] = useState<boolean>(false);
   const [aiCadWorkforceOutput, setAiCadWorkforceOutput] = useState<any>(null);
   const [payrollApprovalStatus, setPayrollApprovalStatus] = useState<string>("Pending Review");
@@ -394,6 +390,36 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   const [matSearch, setMatSearch] = useState("");
   const [newMatItem, setNewMatItem] = useState({ name: "", qty: 100, minQty: 50, type: "Receiving", notes: "" });
 
+  // --- CAD-Driven Material Planning ---
+  const [planFloor, setPlanFloor] = useState<string>("Floor 4");
+  const [planZone, setPlanZone] = useState<string>("Zone A");
+  const [planIsRunning, setPlanIsRunning] = useState<boolean>(false);
+  const [planningSubmitted, setPlanningSubmitted] = useState<boolean>(false);
+  const [planResults, setPlanResults] = useState<any>({
+    panels: 320,
+    beams: 145,
+    soffits: 98,
+    tieRods: 210,
+    wedges: 840,
+    props: 195,
+    accessories: 130
+  });
+
+  // --- Workforce Performance Analytics ---
+  const [perfReportPeriod, setPerfReportPeriod] = useState<string>("Daily");
+  const [perfLeaderboardFilter, setPerfLeaderboardFilter] = useState<string>("Team");
+  const [perfDigestActive, setPerfDigestActive] = useState<boolean>(false);
+  const [perfDigestContent, setPerfDigestContent] = useState<string>("");
+
+  // --- Admin Workflow simulation selectors ---
+  const [selectedWorkflowCat, setSelectedWorkflowCat] = useState<string>("All");
+  const [simTriggerId, setSimTriggerId] = useState<string>("WFK-13");
+  const [simTriggerDetails, setSimTriggerDetails] = useState<string>("Floor 4 Zone A Column Pour - 45 m³ C30 mix");
+
+  // --- Smart Scheduling selectors ---
+  const [selectedScheduleTab, setSelectedScheduleTab] = useState<string>("daily");
+  const [simDelayType, setSimDelayType] = useState<string>("Severe Storm / Torrential Rain");
+
   // --- 2. EQUIPMENT STATE ---
   const [equipment, setEquipment] = useState([
     { id: "EQ-01", name: "Tower Crane 01 (Potain)", status: "Active", fuel: "450L", usage: "8.5 Hrs", maintenance: "2026-07-20", inspector: "Alemayehu K.", operator: "Kassahun T.", breakdown: "None" },
@@ -681,9 +707,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // Req 26: Enterprise HO Administration
   const [approvalWorkflows, setApprovalWorkflows] = useState([
-    { id: "WFK-01", name: "Procurement > ETB 200,000 Signature Path", path: "Supervisor -> PM -> Lead Admin Nuriye Ahmed", status: "Enforced" },
-    { id: "WFK-02", name: "Structural Formwork Stripping Permit Verification", path: "Surveyor -> QC Engineer -> Consultant Sign-off", status: "Enforced" },
-    { id: "WFK-03", name: "Emergency Site Lockdown Notification Rule", path: "Safety Marshal -> Broadcast Alert to all local devices", status: "Enforced" }
+    { id: "WFK-01", name: "Employee Registration", path: "HR Specialist ➔ Site Manager ➔ HR Director", status: "Enforced", levels: 3, autoNotify: true, category: "HR" },
+    { id: "WFK-02", name: "Attendance Exceptions", path: "Timekeeper ➔ Site Supervisor ➔ Project Manager", status: "Enforced", levels: 3, autoNotify: true, category: "Attendance" },
+    { id: "WFK-03", name: "Leave Requests", path: "Team Leader ➔ Section Head ➔ HR Specialist", status: "Enforced", levels: 3, autoNotify: true, category: "HR" },
+    { id: "WFK-04", name: "Survey Approval", path: "Survey Engineer ➔ Chief Surveyor ➔ Consultant", status: "Enforced", levels: 3, autoNotify: true, category: "Engineering" },
+    { id: "WFK-05", name: "CAD Drawing Approval", path: "CAD Designer ➔ Planning Engineer ➔ Chief Engineer", status: "Enforced", levels: 3, autoNotify: true, category: "Engineering" },
+    { id: "WFK-06", name: "Daily Work Plan", path: "Team Leader ➔ Gang Chief ➔ Area Supervisor", status: "Enforced", levels: 3, autoNotify: true, category: "Operations" },
+    { id: "WFK-07", name: "Daily Activity Report", path: "Gang Chief ➔ Area Supervisor ➔ Project Manager", status: "Enforced", levels: 3, autoNotify: true, category: "Operations" },
+    { id: "WFK-08", name: "Material Request", path: "Site Supervisor ➔ Warehouse Manager ➔ Project Manager", status: "Enforced", levels: 3, autoNotify: true, category: "Logistics" },
+    { id: "WFK-09", name: "Material Transfer", path: "Warehouse 1 Custodian ➔ Warehouse 2 Custodian ➔ Logistics Head", status: "Enforced", levels: 3, autoNotify: true, category: "Logistics" },
+    { id: "WFK-10", name: "Equipment Request", path: "Site Supervisor ➔ Machinery Dispatcher ➔ Project Manager", status: "Enforced", levels: 3, autoNotify: true, category: "Logistics" },
+    { id: "WFK-11", name: "Purchase Request", path: "Project Manager ➔ Finance Controller ➔ GM", status: "Enforced", levels: 3, autoNotify: true, category: "Finance" },
+    { id: "WFK-12", name: "Purchase Order", path: "Procurement Officer ➔ Finance Director ➔ Managing Director", status: "Enforced", levels: 3, autoNotify: true, category: "Finance" },
+    { id: "WFK-13", name: "Concrete Pour Approval", path: "Site Engineer ➔ QC Engineer ➔ Resident Consultant", status: "Enforced", levels: 3, autoNotify: true, category: "Operations" },
+    { id: "WFK-14", name: "Formwork Installation Approval", path: "Erection Supervisor ➔ QC Engineer ➔ Resident Consultant", status: "Enforced", levels: 3, autoNotify: true, category: "Operations" },
+    { id: "WFK-15", name: "Formwork Removal Approval", path: "QC Engineer ➔ Safety Marshall ➔ Consultant Inspector", status: "Enforced", levels: 3, autoNotify: true, category: "Operations" },
+    { id: "WFK-16", name: "Payroll Approval", path: "Finance Specialist ➔ Project Manager ➔ Finance Director ➔ CEO", status: "Enforced", levels: 4, autoNotify: true, category: "Finance" },
+    { id: "WFK-17", name: "Safety Incident Approval", path: "Safety Marshal ➔ Safety Officer ➔ Project Manager", status: "Enforced", levels: 3, autoNotify: true, category: "Safety" },
+    { id: "WFK-18", name: "Quality Inspection Approval", path: "QC Inspector ➔ QC Engineer ➔ Lead Consultant", status: "Enforced", levels: 3, autoNotify: true, category: "Quality" }
   ]);
   const [systemSettings, setSystemSettings] = useState({
     sessionTimeout: "10 Minutes Idle",
@@ -691,6 +732,192 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     mfaAuthentication: "Required for Head Office Admin Roles",
     automaticDailyCloudBackup: "Enabled (Scheduled at 03:00 AM daily)"
   });
+
+  // --- PHASE 3 STATE EXPANSION ---
+  const [selectedCompany, setSelectedCompany] = useState<string>("OVID Construction PLC");
+  
+  // Simulated Workflow Engine Requests (for the 18 configurable processes)
+  const [simulatedWorkflowRequests, setSimulatedWorkflowRequests] = useState([
+    { id: "REQ-101", workflowId: "WFK-13", workflowName: "Concrete Pour Approval", initiator: "Eng. Yoseph", project: "Bole Heights Phase I", details: "Floor 4 Zone A Column Pour - 45 m³ C30 mix", levels: ["Supervisor Approved", "QC Approved", "Pending Consultant Sign-off"], currentLevel: 2, maxLevel: 3, status: "Pending" },
+    { id: "REQ-102", workflowId: "WFK-08", workflowName: "Material Request", initiator: "Supervisor Mulugeta", project: "Yeka Hills Premium Gated Estate", details: "Require 150 standard wall panels, 80 props", levels: ["Pending Warehouse Check", "Upcoming PM Sign-off"], currentLevel: 0, maxLevel: 3, status: "Pending" },
+    { id: "REQ-103", workflowId: "WFK-11", workflowName: "Purchase Request", initiator: "PM Chala", project: "Lemi National Cement Plant Expansion", details: "Procurement of 500 liters formwork release agent", levels: ["Approved by PM", "Approved by Finance", "Approved by GM"], currentLevel: 3, maxLevel: 3, status: "Approved" }
+  ]);
+
+  // Smart Scheduling States
+  const [schedulingData, setSchedulingData] = useState({
+    dailySchedule: [
+      { id: "SCH-D1", task: "Erect wall panels Block B1 Floor 4 Zone A", time: "08:00 AM - 12:00 PM", resources: "Assembly Team Alpha, 140 Panels, 120 Wedges", status: "On Track" },
+      { id: "SCH-D2", task: "Concrete Cube Strength Compression Test", time: "01:30 PM - 03:00 PM", resources: "QC Engineer Yoseph, Test Press Unit", status: "On Track" }
+    ],
+    weeklySchedule: [
+      { id: "SCH-W1", week: "Week 28", task: "Complete Floor 4 Zone B formwork strip & level 5 hoist", progress: 65, status: "Active" },
+      { id: "SCH-W2", week: "Week 28", task: "Pour concrete slab Floor 5 Zone A", progress: 0, status: "Scheduled" }
+    ],
+    monthlySchedule: [
+      { id: "SCH-M1", month: "July 2026", objective: "Complete structural concrete up to Floor 6 across all blocks", status: "On Track" },
+      { id: "SCH-M2", month: "August 2026", objective: "Initiate masonry partitions and external glazing prep", status: "Scheduled" }
+    ],
+    laborAllocation: [
+      { role: "Formwork Assemblers", allocated: 28, required: 25, status: "Surplus" },
+      { role: "QC Inspectors", allocated: 4, required: 4, status: "Optimal" },
+      { role: "Concrete Technicians", allocated: 12, required: 15, status: "Under-allocated" }
+    ],
+    equipmentAllocation: [
+      { name: "Tower Crane #1", assigned: "Bole Heights Block B1", utilization: "88%", status: "Active" },
+      { name: "Concrete Pump Truck", assigned: "Bole Heights Block B2", utilization: "45%", status: "Active" },
+      { name: "Mobile Boom Pump", assigned: "Yeka Hills", utilization: "95%", status: "Active" }
+    ],
+    materialAllocation: [
+      { item: "Standard Wall Panels", allocated: 450, tracking: "Batch AL-04-A", site: "Bole Heights" },
+      { item: "Props & Shoring Beams", allocated: 380, tracking: "Batch AL-04-Prop", site: "Bole Heights" }
+    ],
+    surveySchedule: [
+      { id: "SRV-1", task: "Flatness Survey Floor 4 Zone B Slab", time: "09:00 AM", assigned: "Yohannes B." },
+      { id: "SRV-2", task: "Plumb-line check column forms Floor 5 Zone A", time: "02:00 PM", assigned: "Alemayehu K." }
+    ],
+    inspectionSchedule: [
+      { id: "INSP-1", task: "Pre-pour formwork tightness & tie-rod tension", time: "11:00 AM", inspector: "Consultant Eng. Tariku" },
+      { id: "INSP-2", task: "Formwork strip evaluation (Floor 4 Column Cube)", time: "03:30 PM", inspector: "Alemayehu K." }
+    ],
+    concretePourSchedule: [
+      { id: "POUR-1", area: "Floor 4 Zone B Columns", quantity: "45 m³", truckEta: "10:30 AM", status: "Scheduled" },
+      { id: "POUR-2", area: "Floor 5 Zone A Slab", quantity: "110 m³", truckEta: "02:00 PM tomorrow", status: "Pending Stripping Permit" }
+    ],
+    lastDelayTrigger: "None",
+    reschedulingLog: [] as string[]
+  });
+
+  // Smart Material Planning States
+  const [materialEstimations, setMaterialEstimations] = useState([
+    { item: "Panels (Standard Wall/Col)", required: 1420, warehouseStock: 1550, unit: "Pcs", delta: 130, status: "Surplus", cost: "ETB 24,000", recommendation: "No immediate procurement needed. Surplus available." },
+    { item: "Beams (Shoring)", required: 480, warehouseStock: 420, unit: "Pcs", delta: -60, status: "Shortage", cost: "ETB 180,000", recommendation: "Procure 60 beams immediately or transfer from CMC Site." },
+    { item: "Soffits & Corners", required: 350, warehouseStock: 380, unit: "Pcs", delta: 30, status: "Surplus", cost: "ETB 15,000", recommendation: "Stock levels sufficient for Floor 4 & 5 cycle." },
+    { item: "Tie Rods", required: 1200, warehouseStock: 950, unit: "Pcs", delta: -250, status: "Shortage", cost: "ETB 50,000", recommendation: "Order 250 high-tensile tie rods from local OVID supplier." },
+    { item: "Wedges & Pins", required: 3500, warehouseStock: 4200, unit: "Pcs", delta: 700, status: "Surplus", cost: "ETB 7,000", recommendation: "Surplus of wedges. Store extra in secure bins." },
+    { item: "Props (Heavy Duty)", required: 950, warehouseStock: 820, unit: "Pcs", delta: -130, status: "Shortage", cost: "ETB 260,000", recommendation: "Urgent shortage of props. Request rental dispatch or transfer from Ayat warehouse." },
+    { item: "Soffit Accessories", required: 180, warehouseStock: 200, unit: "Pcs", delta: 20, status: "Surplus", cost: "ETB 12,000", recommendation: "Stock optimal. Monitor wear and tear." }
+  ]);
+
+  // AI Construction Progress Verification State
+  const [aiVerification, setAiVerification] = useState({
+    estimatedProgress: "78.4%",
+    lastScanTime: "Today, 11:30 AM",
+    cadMatchConfidence: "98.2%",
+    discrepancies: [
+      { id: "DISC-01", type: "Geometrical Deviation", details: "LIDAR Drone Scan detects Column C-12 plumb offset of +8.5mm against Structural CAD blueprint on Floor 4 Zone A.", severity: "Medium Risk", status: "Flagged for Review", assignedEngineer: "Eng. Yoseph" },
+      { id: "DISC-02", type: "Material Inconsistency", details: "Concrete compression strength registered 28 MPa at 7-days vs 30 MPa specified in engineering specifications on Slab S-04B.", severity: "High Risk", status: "Engineering Hold", assignedEngineer: "Alemayehu K." },
+      { id: "DISC-03", type: "Sequencing Deficit", details: "Photo inspection confirms formwork removal completed on Column C-11 4 hours ahead of standard cure permit timeline.", severity: "Low Risk", status: "Approved with warning", assignedEngineer: "Consultant Eng. Tariku" }
+    ]
+  });
+
+  // GIS & Map Dashboard States
+  const [gisOverlay, setGisOverlay] = useState({
+    showSites: true,
+    showAttendance: true,
+    showSurvey: true,
+    showEquipment: true,
+    showMaterial: true,
+    showDrones: true,
+    showIncidents: true
+  });
+  const [gisSelectedSite, setGisSelectedSite] = useState<string>("Bole Heights");
+
+  // Notifications State
+  const [simulatedNotifications, setSimulatedNotifications] = useState([
+    { id: "NOT-01", type: "Late Attendance", title: "Missing Timecard Scan", text: "Team Beta Assembler Chala D. did not log biometrics by 08:15 AM.", channels: ["Push", "SMS"], time: "08:15 AM" },
+    { id: "NOT-02", type: "Survey Completed", title: "As-Built Survey Uploaded", text: "Surveyor Yohannes B. completed and verified slab level flatness on Floor 4 Zone B.", channels: ["Email"], time: "09:30 AM" },
+    { id: "NOT-03", type: "Material Shortage", title: "Heavy Props Shortage Warning", text: "AI predicts shoring prop deficit of -130 units for Floor 5 Zone A cyclic assembly.", channels: ["Push", "Email"], time: "11:45 AM" },
+    { id: "NOT-04", type: "Equipment Breakdown", title: "Tower Crane #2 Down", text: "Motor overload fault reported on Tower Crane #2. Maintenance dispatched.", channels: ["Push", "SMS", "Email"], time: "01:15 PM" },
+    { id: "NOT-05", type: "Concrete Approval", title: "Slab Concrete Pour Sign-off", text: "Resident Consultant approved Concrete Pour request for Floor 4 Zone A.", channels: ["Email", "SMS"], time: "02:40 PM" }
+  ]);
+  const [showNotificationToast, setShowNotificationToast] = useState<string | null>(null);
+
+  // --- PHASE 3: SIMULATED WORKFLOW ENGINE OPERATIONS ---
+  const handleInitiateSimRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    const wf = approvalWorkflows.find(w => w.id === simTriggerId);
+    if (!wf) return;
+    
+    // Deconstruct stages
+    const stages = wf.path.split(" ➔ ");
+    const newReq = {
+      id: `REQ-${Math.floor(100 + Math.random() * 900)}`,
+      workflowId: wf.id,
+      workflowName: wf.name,
+      initiator: "Eng. Nuriye Ahmed",
+      project: "Bole Heights Block B1",
+      details: simTriggerDetails,
+      levels: stages,
+      currentLevel: 0,
+      maxLevel: wf.levels,
+      status: "Pending"
+    };
+
+    setSimulatedWorkflowRequests(prev => [newReq, ...prev]);
+    onLogAction("Initiated Workflow", `Submitted ${wf.name} approval pipeline for details: ${simTriggerDetails}`);
+    
+    // Smart Notification trigger
+    if (wf.autoNotify) {
+      const channelText = "Channels: Push Notification, SMS dispatched to " + stages[0];
+      const newNotif = {
+        id: `NOT-${Date.now().toString().slice(-4)}`,
+        type: "Workflow Initiated",
+        title: wf.name + " Initiated",
+        text: `Approval level 1 requested for: "${simTriggerDetails}". ${channelText}`,
+        channels: ["Push", "SMS", "Email"],
+        time: "Just Now"
+      };
+      setSimulatedNotifications(prev => [newNotif, ...prev]);
+      setShowNotificationToast(`Pipeline Fire: ${wf.name} Level 1 request sent to ${stages[0]}!`);
+      setTimeout(() => setShowNotificationToast(null), 4000);
+    }
+    setSimTriggerDetails("");
+  };
+
+  const handleAdvanceApproval = (reqId: string, approve: boolean) => {
+    setSimulatedWorkflowRequests(prev => prev.map(req => {
+      if (req.id !== reqId) return req;
+      if (!approve) {
+        onLogAction("Workflow Disapproved", `${req.workflowName} rejected by current level assignee.`);
+        const rejectNotif = {
+          id: `NOT-${Date.now().toString().slice(-4)}`,
+          type: "Workflow Rejected",
+          title: req.workflowName + " Rejected",
+          text: `Request ${req.id} was disapproved and returned to initiator by ${req.levels[req.currentLevel] || "Assignee"}.`,
+          channels: ["Push", "SMS"],
+          time: "Just Now"
+        };
+        setSimulatedNotifications(nPrev => [rejectNotif, ...nPrev]);
+        setShowNotificationToast(`Workflow ${req.id} Disapproved / Returned`);
+        setTimeout(() => setShowNotificationToast(null), 4000);
+        return { ...req, status: "Rejected" };
+      }
+
+      const nextLevel = req.currentLevel + 1;
+      const isCompleted = nextLevel >= req.maxLevel;
+      onLogAction("Workflow Approved Level", `Approved stage ${nextLevel} of ${req.maxLevel} for ${req.workflowName}`);
+      
+      const appNotif = {
+        id: `NOT-${Date.now().toString().slice(-4)}`,
+        type: isCompleted ? "Workflow Approved" : "Workflow Stage Approved",
+        title: isCompleted ? req.workflowName + " Completed" : req.workflowName + " Level Approved",
+        text: isCompleted 
+          ? `High-Integrity approval achieved for: "${req.details}". Signed off by all levels.` 
+          : `Stage ${nextLevel} approved for: "${req.details}". Pending next stage signoff by ${req.levels[nextLevel]}.`,
+        channels: ["Push", "SMS", "Email"],
+        time: "Just Now"
+      };
+      setSimulatedNotifications(nPrev => [appNotif, ...nPrev]);
+      setShowNotificationToast(isCompleted ? `Workflow ${req.id} FULLY APPROVED!` : `Workflow ${req.id} Stage ${nextLevel} Approved`);
+      setTimeout(() => setShowNotificationToast(null), 4000);
+
+      return {
+        ...req,
+        currentLevel: nextLevel,
+        status: isCompleted ? "Approved" : "Pending"
+      };
+    }));
+  };
 
   // --- Helper to handle sub-actions ---
   const handleAddMaterial = (e: React.FormEvent) => {
@@ -721,6 +948,77 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
     onLogAction(`Warehouse ${newMatItem.type}`, `Adjusted ${newMatItem.name} by ${delta} units. Notes: ${newMatItem.notes || "N/A"}`);
     setNewMatItem({ name: "", qty: 100, minQty: 50, type: "Receiving", notes: "" });
+  };
+
+  // --- PHASE 3: AI DISASTER AUTOPILOT RESCHEDULING ---
+  const handleAiReschedule = (e: React.FormEvent) => {
+    e.preventDefault();
+    onLogAction("AI Rescheduling Triggered", `Delay event: ${simDelayType} - Triggered auto-rescheduling autopilot.`);
+
+    // Set schedulingData changes
+    setSchedulingData(prev => {
+      let desc = "";
+      let newDaily = [...prev.dailySchedule];
+      let newWeekly = [...prev.weeklySchedule];
+      let newLabor = [...prev.laborAllocation];
+      let newEquipment = [...prev.equipmentAllocation];
+      let newConcrete = [...prev.concretePourSchedule];
+
+      if (simDelayType.includes("Storm") || simDelayType.includes("Rain")) {
+        desc = "Severe Storm. High wind speed & heavy rainfall prevent Crane operations and concrete pours. AI delayed pour schedules by 24 hours, rescheduled curing sensor checks, and re-allocated 15 assemblers to indoor pre-assembly yards.";
+        newDaily = [
+          { id: "SCH-D1", task: "Indoor pre-assembly of Corner Wedges & Brackets", time: "08:00 AM - 12:00 PM", resources: "Assembly Team Alpha, Pre-assembly Yard", status: "Re-allocated" },
+          { id: "SCH-D2", task: "Rainwater clearance & sump pump operation Floor 4", time: "01:30 PM - 04:30 PM", resources: "Operations team, 2x Submersible Pumps", status: "On Track" }
+        ];
+        newConcrete = prev.concretePourSchedule.map(p => p.id === "POUR-1" ? { ...p, status: "Delayed by Weather (24h)" } : p);
+        newLabor = prev.laborAllocation.map(l => l.role === "Concrete Technicians" ? { ...l, allocated: 4, status: "Standby" } : l);
+      } else if (simDelayType.includes("Crane") || simDelayType.includes("Breakdown")) {
+        desc = "Tower Crane #1 Motor Fault. AI automatically re-allocated Mobile Sany 50T Crane to support Floor 4 hoisting. Prioritized light hand-carried panel stripping and ground level logistics to sustain 4-day structural cycle.";
+        newDaily = [
+          { id: "SCH-D1", task: "Hand-carried stripping of internal soffits Block B1", time: "08:00 AM - 12:00 PM", resources: "Assembly Team Alpha, Hand Tools", status: "Optimized" },
+          { id: "SCH-D2", task: "Setup Mobile Crane (Sany 50T) at Block B1 West edge", time: "01:00 PM - 03:00 PM", resources: "Operator Chala B., Rigging Crew", status: "Assigned" }
+        ];
+        newEquipment = prev.equipmentAllocation.map(eq => eq.name === "Mobile Crane (Sany 50T)" ? { ...eq, assigned: "Bole Heights Block B1 (Hoisting Priority)", utilization: "98%" } : eq);
+      } else if (simDelayType.includes("Shortage") || simDelayType.includes("Wedge")) {
+        desc = "Aluminum Wedge Shortage. AI flagged deficit. Auto-submitted warehouse transfer of 4,000 wedges from CMC site, and rescheduled Floor 5 Zone A assembly from Thursday morning to Thursday afternoon to allow logistics ETA buffer.";
+        newWeekly = prev.weeklySchedule.map(w => w.id === "SCH-W2" ? { ...w, task: "Pour concrete Floor 5 (Delayed 4h for wedge delivery)", status: "Re-scheduled" } : w);
+        newDaily = [
+          { id: "SCH-D1", task: "Inventory count & sort existing locking wedges", time: "08:00 AM - 10:00 AM", resources: "Storekeeper, Yard crew", status: "On Track" },
+          { id: "SCH-D2", task: "Receive and inspect 4,000 wedges from CMC Site", time: "02:00 PM - 03:30 PM", resources: "Logistics Lead, Flatbed Truck", status: "Pending Sync" }
+        ];
+      } else {
+        desc = "Engineering Change Approved. AI auto-calculated alignment. Adjusted panel layouts for column C-12 plumb correction, scheduled alignment survey, and logged structural revision sign-off.";
+        newDaily = [
+          { id: "SCH-D1", task: "Plumb adjustment column C-12 formwork", time: "08:30 AM - 11:30 AM", resources: "Erection Supervisor + 4 assemblers", status: "Critical Path" },
+          { id: "SCH-D2", task: "Verify column alignment via Total Station", time: "01:00 PM - 02:30 PM", resources: "Yohannes B. (Surveyor)", status: "On Track" }
+        ];
+      }
+
+      const updatedLogs = [desc, ...prev.reschedulingLog];
+      
+      const newNotif = {
+        id: `NOT-${Date.now().toString().slice(-4)}`,
+        type: "AI Rescheduled Workflows",
+        title: "AI Autopilot Rescheduled Plan",
+        text: desc.substring(0, 120) + "...",
+        channels: ["Push", "Email"],
+        time: "Just Now"
+      };
+      setSimulatedNotifications(nPrev => [newNotif, ...nPrev]);
+      setShowNotificationToast("AI Autopilot: Plan Recalculated!");
+      setTimeout(() => setShowNotificationToast(null), 4000);
+
+      return {
+        ...prev,
+        dailySchedule: newDaily,
+        weeklySchedule: newWeekly,
+        laborAllocation: newLabor,
+        equipmentAllocation: newEquipment,
+        concretePourSchedule: newConcrete,
+        lastDelayTrigger: simDelayType,
+        reschedulingLog: updatedLogs
+      };
+    });
   };
 
   const handleAddProcurement = (e: React.FormEvent) => {
@@ -1346,6 +1644,200 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     })}
                   </tbody>
                 </table>
+              </div>
+
+              {/* --- PHASE 3: CAD-DRIVEN SMART MATERIAL PLANNING ENGINE --- */}
+              <div className="bg-slate-900 text-white p-5 rounded-2xl border border-red-500/20 space-y-4 shadow-md mt-4">
+                <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                  <div>
+                    <h4 className="text-xs font-black uppercase text-red-500 tracking-wider flex items-center gap-1.5 font-sans">
+                      <Cpu size={14} className="text-red-500" />
+                      <span>{isAmharic ? "በCAD ስእል የተመራ የማቴሪያል እቅድ" : "AI CAD-Driven Material Estimator & Planner"}</span>
+                    </h4>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      {isAmharic 
+                        ? "የሳይት ስእል (CAD) እና የተረጋገጠውን ስራ በማነጻጸር የሚቀሩ ማቴሪያሎችን በራስ-ሰር ያሰላል።" 
+                        : "Compare architectural CAD vectors against active progress coordinates to forecast cyclical formwork demands."}
+                    </p>
+                  </div>
+                  <span className="text-[9px] bg-red-950/80 text-red-400 font-bold px-2 py-0.5 rounded border border-red-800/40 font-mono">
+                    {isAmharic ? "ስማርት እቅድ" : "CAD INTELLIGENCE"}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs text-slate-300">
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold uppercase text-slate-400">{isAmharic ? "የታለመ ፎቅ" : "Target Floor CAD Model"}</label>
+                    <select
+                      value={planFloor}
+                      onChange={e => {
+                        setPlanFloor(e.target.value);
+                        setPlanningSubmitted(false);
+                      }}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-xs font-semibold text-white focus:outline-none"
+                    >
+                      <option value="Floor 4">Floor 4 Slab CAD (A-701)</option>
+                      <option value="Floor 5">Floor 5 Slab CAD (A-702)</option>
+                      <option value="Floor 6">Floor 6 Slab CAD (A-703)</option>
+                      <option value="Floor 7">Floor 7 Slab CAD (A-704)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[9px] font-bold uppercase text-slate-400">{isAmharic ? "የሳይት ቀጠና" : "Slab Pour Zone"}</label>
+                    <select
+                      value={planZone}
+                      onChange={e => {
+                        setPlanZone(e.target.value);
+                        setPlanningSubmitted(false);
+                      }}
+                      className="w-full bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-xs font-semibold text-white focus:outline-none"
+                    >
+                      <option value="Zone A">Zone A - Main Slab Area</option>
+                      <option value="Zone B">Zone B - Elevator Core</option>
+                      <option value="Zone C">Zone C - Balconies & Shear-Walls</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      setPlanIsRunning(true);
+                      setTimeout(() => {
+                        setPlanIsRunning(false);
+                        // Recalculate based on floor/zone
+                        let multiplier = 1.0;
+                        if (planFloor === "Floor 5") multiplier = 1.15;
+                        if (planFloor === "Floor 6") multiplier = 1.30;
+                        if (planFloor === "Floor 7") multiplier = 1.45;
+                        if (planZone === "Zone B") multiplier *= 0.85;
+                        if (planZone === "Zone C") multiplier *= 0.65;
+
+                        setPlanResults({
+                          panels: Math.round(320 * multiplier),
+                          beams: Math.round(145 * multiplier),
+                          soffits: Math.round(98 * multiplier),
+                          tieRods: Math.round(210 * multiplier),
+                          wedges: Math.round(840 * multiplier),
+                          props: Math.round(195 * multiplier),
+                          accessories: Math.round(130 * multiplier),
+                        });
+                        onLogAction("CAD Material Forecast", `Computed architectural formwork demand for ${planFloor} ${planZone} using vector parsing algorithms.`);
+                      }, 1000);
+                    }}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {planIsRunning ? (
+                      <span className="flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 bg-white rounded-full animate-ping"></span>
+                        {isAmharic ? "በማስላት ላይ..." : "Analyzing CAD Vectors..."}
+                      </span>
+                    ) : (
+                      <>
+                        <Cpu size={14} />
+                        <span>{isAmharic ? "የማቴሪያል ፍላጎት አስላ" : "Run AI CAD Estimation"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {/* Estimation Matrix Table */}
+                <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 font-sans">
+                  <div className="grid grid-cols-4 bg-slate-900 p-2.5 text-[9px] font-black uppercase text-slate-400 border-b border-slate-800 text-center">
+                    <div className="text-left">{isAmharic ? "የማቴሪያል አይነት" : "Component Type"}</div>
+                    <div>{isAmharic ? "CAD ፍላጎት" : "CAD Required"}</div>
+                    <div>{isAmharic ? "የመጋዘን ክምችት" : "Stock Available"}</div>
+                    <div>{isAmharic ? "የክፍተት ሁኔታ" : "Status / Gap"}</div>
+                  </div>
+
+                  <div className="divide-y divide-slate-800 text-xs">
+                    {[
+                      { key: "panels", name: "Formwork Aluminum Panels", code: "PNL-1200", stock: 450, color: "text-blue-400" },
+                      { key: "beams", name: "Mid-Beams 1200mm", code: "BEM-1200", stock: 180, color: "text-indigo-400" },
+                      { key: "soffits", name: "Soffit Lengths 900mm", code: "SOF-0900", stock: 85, color: "text-amber-400" },
+                      { key: "tieRods", name: "High-Tensile Tie Rods", code: "TIE-2000", stock: 680, color: "text-teal-400" },
+                      { key: "wedges", name: "Formwork Wedges", code: "WDG-0100", stock: 16900, color: "text-rose-400" },
+                      { key: "props", name: "Heavy Duty Shoring Props", code: "PRP-3500", stock: 140, color: "text-purple-400" },
+                      { key: "accessories", name: "Corner Brackets", code: "ACC-BRK", stock: 120, color: "text-emerald-400" },
+                    ].map(comp => {
+                      const req = planResults[comp.key] || 0;
+                      const stock = comp.stock;
+                      const diff = stock - req;
+                      const isDeficit = diff < 0;
+
+                      return (
+                        <div key={comp.key} className="grid grid-cols-4 p-2.5 items-center text-center font-mono text-[11px] border-b border-slate-800 last:border-b-0">
+                          <div className="text-left flex flex-col">
+                            <span className="font-bold text-slate-200 leading-tight">{comp.name}</span>
+                            <span className="text-[9px] text-slate-500 font-mono">{comp.code}</span>
+                          </div>
+                          <div className="text-slate-300 font-bold">{req} pcs</div>
+                          <div className="text-slate-400">{stock.toLocaleString()} pcs</div>
+                          <div>
+                            {isDeficit ? (
+                              <span className="text-red-400 font-bold bg-red-950/50 border border-red-900/30 px-1.5 py-0.5 rounded text-[10px]">
+                                {diff} pcs (Shortage)
+                              </span>
+                            ) : (
+                              <span className="text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-900/30 px-1.5 py-0.5 rounded text-[10px]">
+                                +{diff} pcs (Surplus)
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Procurement Recommendations */}
+                <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/50 space-y-2 text-xs">
+                  <h5 className="text-[10px] font-black uppercase text-red-400 tracking-wider flex items-center gap-1">
+                    <CheckSquare size={12} />
+                    <span>AI Procurement & Dispatch Advice</span>
+                  </h5>
+                  <div className="space-y-2 font-medium text-slate-300 leading-relaxed text-[11px]">
+                    {planResults.soffits > 85 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-red-400">⚠️</span>
+                        <span>
+                          <strong>Soffit Deficit</strong>: A shortage of {planResults.soffits - 85} Soffit Lengths detected. Please request a warehouse transfer from Block C or initiate an immediate Purchase Order.
+                        </span>
+                      </p>
+                    )}
+                    {planResults.props > 140 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-red-400">⚠️</span>
+                        <span>
+                          <strong>Prop Shortage</strong>: Shoring Props are deficient by {planResults.props - 140} units. System recommends dispatching from the central OVID warehouse immediately.
+                        </span>
+                      </p>
+                    )}
+                    {planResults.soffits <= 85 && planResults.props <= 140 && (
+                      <p className="flex items-start gap-1.5">
+                        <span className="text-green-400">✅</span>
+                        <span>All formwork components are in optimal stock surplus. Material dispatch and cycle setup can proceed safely.</span>
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="pt-2 flex gap-2">
+                    <button
+                      onClick={() => {
+                        setPlanningSubmitted(true);
+                        alert("AI-generated material requisition submitted to procurement division. Reference PO-REQ-2026-CAD-09");
+                        onLogAction("CAD Procurement Request", `Logged a deficit requisition request for ${planFloor} ${planZone} formwork assembly cycle.`);
+                      }}
+                      className={`w-full font-bold py-1.5 rounded text-[10px] uppercase tracking-wider transition-all cursor-pointer ${
+                        planningSubmitted 
+                          ? "bg-emerald-600 text-white" 
+                          : "bg-red-600 hover:bg-red-700 text-white"
+                      }`}
+                    >
+                      {planningSubmitted ? "✓ Requisitions Dispatched" : "🛒 Auto-Submit Requisitions to Procurement"}
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -3668,9 +4160,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3">{log.type}</td>
                         <td className="p-3 font-mono text-[10px] text-slate-600">{log.size}</td>
                         <td className="p-3 font-mono text-[10px] text-emerald-600 font-bold">{log.checksum}</td>
-                        <td className="p-3 text-slate-600">{log.destination}</td>
+                        <td className="p-3 font-mono text-[10px] text-slate-500 font-bold">{log.nodes}</td>
                         <td className="p-3">
-                          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+                          <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full text-[9px] font-bold">
                             {log.status}
                           </span>
                         </td>
@@ -3682,24 +4174,22 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             </div>
 
             {/* SLA Info */}
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4 text-xs font-semibold text-slate-700">
-              <h4 className="text-xs font-black uppercase text-slate-800">Autopilot SLA & Replication Telemetry</h4>
-              <div className="space-y-3 font-mono text-[11px]">
-                <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Target RTO/RPO SLA:</span>
-                  <span className="text-slate-900 font-bold">{drRecoveryPlan.slaTime}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Integrity Check:</span>
-                  <span className="text-green-600 font-bold">{drRecoveryPlan.lastVerification}</span>
-                </div>
-                <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Geodistributed Nodes:</span>
-                  <span className="text-slate-900 font-bold">{drRecoveryPlan.activeReplicas}</span>
-                </div>
-                <div className="flex justify-between pb-1.5">
-                  <span className="text-slate-400">Local Caching Policy:</span>
-                  <span className="text-emerald-600 font-bold text-right leading-tight w-1/2">{drRecoveryPlan.cloudSyncState}</span>
+            <div className="space-y-4">
+              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-slate-300 space-y-3">
+                <h4 className="text-xs font-black uppercase tracking-wider text-red-500">SLA Compliance Status</h4>
+                <div className="space-y-2 font-mono text-[10px]">
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span>RTO Compliance Limit:</span>
+                    <span className="text-white font-bold">&lt; 15 Minutes (12m actual)</span>
+                  </div>
+                  <div className="flex justify-between border-b border-slate-800 pb-1.5">
+                    <span>RPO Data Loss Max:</span>
+                    <span className="text-white font-bold">&lt; 1 Hour (Synced Live)</span>
+                  </div>
+                  <div className="flex justify-between pb-1.5">
+                    <span>Multi-Region Nodes:</span>
+                    <span className="text-emerald-500 font-bold">Active (3 Synchronized)</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -3709,56 +4199,219 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
       {/* --- REQ 26. ENTERPRISE HO ADMINISTRATION --- */}
       {activeSubTab === "adminSettings" && (
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+          <div className="bg-slate-900 text-white p-5 rounded-xl border border-red-500/30 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h3 className="text-sm font-black uppercase text-slate-800 flex items-center gap-2">
-                <Sliders size={16} className="text-red-600" />
-                <span>{isAmharic ? "ኢንተርፕራይዝ ሲስተም አስተዳደር" : "Lead Administrative Control Panel"}</span>
+              <span className="bg-red-600 text-white text-[9px] font-black uppercase px-2 py-0.5 rounded-full tracking-wider">
+                Enterprise Hub
+              </span>
+              <h3 className="text-lg font-black uppercase text-white mt-1 flex items-center gap-2">
+                <Sliders size={18} className="text-red-500" />
+                <span>{isAmharic ? "ኢንተርፕራይዝ ወርክፍሎውና ሲስተም አስተዳደር" : "Lead Configurable Workflow Engine"}</span>
               </h3>
-              <p className="text-xs text-slate-500">{isAmharic ? "የድርጅት ፖሊሲዎች፣ የስራ ፈቃድ መመሪያዎች እና ዋና አድሚን ቁጥጥር" : "Enforce strict workflows, customize idle timeouts, and monitor Lead Admin Nuriye Ahmed Adem privileges"}</p>
+              <p className="text-xs text-slate-300 mt-1">
+                {isAmharic 
+                  ? "ሁሉንም 18 የድርጅት ስራ ሂደቶች የፊርማና የውሳኔ መስመሮች እዚህ ያዋቅሩ፤ ይቆጣጠሩ።"
+                  : "Configure, enforce, and simulate multi-level approval hierarchies for all 18 standard business processes."}
+              </p>
+            </div>
+            <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 text-xs text-slate-300 font-semibold font-mono">
+              <span className="text-slate-400">Enforcement Level:</span> <strong className="text-red-400">Strict Level 4 RBAC</strong>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 text-xs font-semibold text-slate-700">
-            {/* Approval Workflows */}
-            <div className="lg:col-span-2 space-y-4">
-              <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "ገባሪ የፊርማና የውሳኔ መስመሮች" : "Strict Approval Workflows"}</h4>
-              <div className="space-y-3">
-                {approvalWorkflows.map(w => (
-                  <div key={w.id} className="bg-slate-50 p-4 rounded-xl border space-y-2">
-                    <div className="flex justify-between items-center border-b pb-1.5">
-                      <span className="text-xs font-black text-slate-900">{w.name}</span>
-                      <span className="px-2 py-0.5 rounded bg-red-600 text-white text-[8px] font-black uppercase tracking-wider">
-                        {w.status}
-                      </span>
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 text-xs text-slate-700">
+            {/* 18 Workflows Config Panel */}
+            <div className="xl:col-span-2 bg-white p-5 rounded-xl border border-slate-200/80 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-3">
+                <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5 font-sans">
+                  <CheckSquare size={14} className="text-red-600" />
+                  <span>{isAmharic ? "የ18ቱን ስራዎች የውሳኔ መስመር ማዋቀሪያ" : "Configurable Core Workflows (18 Processes)"}</span>
+                </h4>
+                <div className="flex flex-wrap gap-1">
+                  {["All", "Operations", "Finance", "Logistics", "HR", "Safety", "Quality"].map(cat => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedWorkflowCat(cat)}
+                      className={`px-2.5 py-1 rounded text-[10px] font-bold transition-all ${
+                        selectedWorkflowCat === cat 
+                          ? "bg-slate-900 text-white shadow-xs" 
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1">
+                {approvalWorkflows
+                  .filter(w => selectedWorkflowCat === "All" || w.category === selectedWorkflowCat)
+                  .map(w => (
+                    <div key={w.id} className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 flex flex-col justify-between hover:border-slate-300 transition-colors">
+                      <div className="space-y-1">
+                        <div className="flex justify-between items-start gap-2">
+                          <span className="text-xs font-black text-slate-900 leading-tight">{w.name}</span>
+                          <span className="text-[8px] bg-slate-200 font-bold px-1.5 py-0.5 rounded-sm uppercase tracking-wider text-slate-600 font-mono">
+                            {w.category}
+                          </span>
+                        </div>
+                        <p className="text-[10px] font-mono font-bold text-slate-500 leading-snug">
+                          Levels: <span className="text-slate-800 font-black">{w.path}</span>
+                        </p>
+                      </div>
+
+                      <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-150/80">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[9px] font-bold text-slate-400">Levels:</span>
+                          <span className="text-[10px] font-black text-red-600">{w.levels} Stages</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={w.autoNotify}
+                              onChange={() => {
+                                setApprovalWorkflows(prev => prev.map(item => item.id === w.id ? { ...item, autoNotify: !item.autoNotify } : item));
+                                onLogAction("Configure Workflow", `Toggled automatic notification for ${w.name}`);
+                              }}
+                              className="rounded border-slate-300 text-red-600 focus:ring-red-500"
+                            />
+                            <span className="text-[9px] font-bold text-slate-500 font-sans">AutoNotify</span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
-                    <p className="text-[11px] font-mono font-bold text-slate-600">Verification sequence path: <span className="text-slate-950">{w.path}</span></p>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
 
-            {/* System and Developer Info */}
+            {/* Live Pipeline Simulator */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200/80 space-y-4">
+              <div>
+                <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1">
+                  <Play size={14} className="text-red-600" />
+                  <span>Workflow Pipeline Simulator</span>
+                </h4>
+                <p className="text-[10px] text-slate-500 mt-0.5">Submit a real-time request to see the configured multi-level pipeline fire automatically.</p>
+              </div>
+
+              {/* Submission Form */}
+              <form onSubmit={handleInitiateSimRequest} className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-3">
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase font-sans">Process to Trigger</label>
+                  <select
+                    value={simTriggerId}
+                    onChange={e => setSimTriggerId(e.target.value)}
+                    className="w-full mt-1 border rounded p-1.5 bg-white font-black text-slate-800 text-[11px]"
+                  >
+                    {approvalWorkflows.map(w => (
+                      <option key={w.id} value={w.id}>{w.name} ({w.levels} Levels)</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase font-sans">Request Summary Details</label>
+                  <input
+                    type="text"
+                    value={simTriggerDetails}
+                    onChange={e => setSimTriggerDetails(e.target.value)}
+                    placeholder="e.g., Concrete Pour on slab zone C, 40m3"
+                    className="w-full mt-1 border rounded p-1.5 bg-white text-slate-800 text-[11px] font-semibold"
+                    required
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded uppercase text-[10px] tracking-wider cursor-pointer"
+                >
+                  Initiate Approval Pipeline
+                </button>
+              </form>
+
+              {/* Active Requests List */}
+              <div className="space-y-3.5 pt-2">
+                <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Active Verification Pipeline Queue</h5>
+                {simulatedWorkflowRequests.length === 0 ? (
+                  <p className="text-slate-400 italic text-center py-4">No active pipeline requests.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {simulatedWorkflowRequests.map(req => {
+                      const percentage = Math.round((req.currentLevel / req.maxLevel) * 100);
+                      return (
+                        <div key={req.id} className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2 text-[10px] font-semibold">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="text-[8px] font-mono text-slate-400 font-bold">{req.id} • {req.initiator}</p>
+                              <h4 className="font-black text-slate-900 text-[11px] leading-tight">{req.workflowName}</h4>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
+                              req.status === "Approved" ? "bg-emerald-600 text-white" : "bg-yellow-500 text-slate-950"
+                            }`}>
+                              {req.status}
+                            </span>
+                          </div>
+
+                          <p className="text-slate-600 italic font-medium leading-snug">{req.details}</p>
+
+                          <div className="space-y-1">
+                            <div className="flex justify-between text-[8px] font-bold text-slate-400">
+                              <span>Pipeline Level Progress:</span>
+                              <span>{req.currentLevel} of {req.maxLevel} Approved ({percentage}%)</span>
+                            </div>
+                            <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                              <div className="bg-red-600 h-full transition-all" style={{ width: `${percentage}%` }} />
+                            </div>
+                            <p className="text-[8px] font-mono text-red-600 leading-snug font-bold">
+                              Current level path: <span className="text-slate-800 font-black">{req.levels[req.currentLevel] || "Approved & Logged"}</span>
+                            </p>
+                          </div>
+
+                          {req.status === "Pending" && (
+                            <div className="flex gap-1.5 pt-1">
+                              <button
+                                onClick={() => handleAdvanceApproval(req.id, true)}
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 rounded cursor-pointer text-center text-[9px] uppercase tracking-wider"
+                              >
+                                Approve Next Stage
+                              </button>
+                              <button
+                                onClick={() => handleAdvanceApproval(req.id, false)}
+                                className="px-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-1 rounded cursor-pointer text-center text-[9px] uppercase"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* System and Developer Info Column */}
             <div className="space-y-4">
-              <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-slate-300 space-y-3">
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 space-y-3">
                 <h4 className="text-xs font-black uppercase tracking-wider text-red-500">Security Policies (Enforced)</h4>
                 <div className="space-y-2 font-mono text-[10px]">
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
                     <span>Session Idle Timeout:</span>
-                    <span className="text-white font-bold">{systemSettings.sessionTimeout}</span>
+                    <span className="text-white font-bold">{systemSettings?.sessionTimeout || "10 Minutes"}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
                     <span>RBAC Validation level:</span>
-                    <span className="text-white font-bold">{systemSettings.rbacEnforcement}</span>
+                    <span className="text-white font-bold">{systemSettings?.rbacEnforcement || "Strict Level 4"}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
                     <span>Administrative MFA:</span>
-                    <span className="text-white font-bold">{systemSettings.mfaAuthentication}</span>
+                    <span className="text-white font-bold">{systemSettings?.mfaAuthentication || "Active (SMS/Email)"}</span>
                   </div>
                   <div className="flex justify-between pb-1.5">
                     <span>Firestore Cold Backup:</span>
-                    <span className="text-emerald-500 font-bold">{systemSettings.automaticDailyCloudBackup}</span>
+                    <span className="text-emerald-500 font-bold">{systemSettings?.automaticDailyCloudBackup || "Every 24 Hours"}</span>
                   </div>
                 </div>
               </div>
@@ -3769,7 +4422,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <h4 className="text-sm font-black tracking-tight">Nuriye Ahmed Adem</h4>
                   <p className="text-[11px] text-slate-300 font-medium">Full Stack ERP Architect</p>
                   <p className="text-[11px] font-mono text-red-400">0910097862 / 0920843843</p>
-                  <p className="text-[11px] font-mono text-slate-400">mejennur669@gmail.com</p>
+                  <p className="text-[11px] font-mono text-slate-400 font-semibold">mejennur669@gmail.com</p>
                 </div>
                 <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 italic leading-snug">
                   Designed explicitly for OVID Aluminum Formwork Systems. Authenticated under high-integrity multi-region cloud servers.
@@ -6391,6 +7044,310 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     </div>
                   )}
                 </div>
+              </div>
+            </div>
+          </div>
+
+          {/* --- PHASE 3: WORKFORCE PERFORMANCE ANALYTICS & LEADERBOARDS --- */}
+          <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 shadow-xs space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-200/60 pb-4">
+              <div>
+                <h3 className="text-sm font-black uppercase text-slate-800 flex items-center gap-2">
+                  <BarChart3 size={16} className="text-red-600" />
+                  <span>{isAmharic ? "የሰራተኞች የብቃትና የአፈጻጸም ትንተና" : "Workforce Performance Analytics Dashboard"}</span>
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAmharic 
+                    ? "የመገኘት፣ የሰዓት አክብሮት፣ የአምራችነት፣ የጥራት፣ የደህንነት እና የክህሎት ውጤቶች ስብስብና ሪፖርት" 
+                    : "Real-time consolidated multi-dimensional scorecards evaluating attendance, punctuality, productivity, safety, and skills."}
+                </p>
+              </div>
+              <div className="flex bg-white p-1 rounded-lg border shadow-2xs">
+                {["Daily", "Weekly", "Monthly", "Annual"].map(p => (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      setPerfReportPeriod(p);
+                      onLogAction("Performance Report Filter", `Switched analytics report scope to ${p} period.`);
+                    }}
+                    className={`px-3 py-1 text-[10px] font-bold rounded-md transition-all cursor-pointer ${
+                      perfReportPeriod === p 
+                        ? "bg-slate-900 text-white shadow-xs" 
+                        : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
+                    }`}
+                  >
+                    {isAmharic ? (
+                      p === "Daily" ? "ዕለታዊ" :
+                      p === "Weekly" ? "ሳምንታዊ" :
+                      p === "Monthly" ? "ወርሃዊ" : "ዓመታዊ"
+                    ) : p}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Performance Metrics Table */}
+            <div className="bg-white rounded-xl border border-slate-200/80 overflow-hidden font-sans">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs min-w-[800px]">
+                  <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[9px] tracking-wider border-b border-slate-200">
+                    <tr>
+                      <th className="p-3">{isAmharic ? "ሠራተኛ" : "Staff Member"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "መገኘት" : "Attendance"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "ሰዓት አክብሮት" : "Punctuality"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "አምራችነት" : "Productivity"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "ጥራት" : "Quality"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "ደህንነት" : "Safety"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "ቡድን ስራ" : "Teamwork"}</th>
+                      <th className="p-3 text-center">{isAmharic ? "ክህሎት" : "Skill Level"}</th>
+                      <th className="p-3 text-right">{isAmharic ? "ጠቅላላ ውጤት" : "Weighted KPI"}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold text-[11px]">
+                    {[
+                      { name: "Chala Chuko", role: "Gang Chief", att: 98, punc: 96, prod: 94, qual: 95, safe: 98, team: 97, skill: 95, rating: 96.1, project: "Bole Heights", zone: "Zone A", floor: "Floor 4" },
+                      { name: "Mulugeta Shiferaw", role: "Lead Assembler", att: 100, punc: 98, prod: 95, qual: 96, safe: 99, team: 98, skill: 92, rating: 97.1, project: "Bole Heights", zone: "Zone A", floor: "Floor 4" },
+                      { name: "Alemayehu Kebede", role: "Site Engineer", att: 95, punc: 92, prod: 90, qual: 94, safe: 96, team: 92, skill: 94, rating: 93.3, project: "Bole Heights", zone: "Zone B", floor: "Floor 5" },
+                      { name: "Zewdu Ayele", role: "Equipment Operator", att: 92, punc: 95, prod: 91, qual: 92, safe: 95, team: 88, skill: 96, rating: 92.7, project: "CMC High-Rise", zone: "Zone A", floor: "Ground" },
+                      { name: "Kassahun Tsegaye", role: "Supervisor", att: 90, punc: 88, prod: 85, qual: 89, safe: 92, team: 90, skill: 89, rating: 88.7, project: "Gotera Condos", zone: "Zone C", floor: "Floor 3" },
+                      { name: "Yohannes B.", role: "Lead Surveyor", att: 94, punc: 94, prod: 92, qual: 95, safe: 95, team: 91, skill: 95, rating: 93.9, project: "Bole Heights", zone: "Zone B", floor: "Floor 4" }
+                    ].map(emp => {
+                      let periodAtt = emp.att;
+                      let periodProd = emp.prod;
+                      if (perfReportPeriod === "Daily") {
+                        periodAtt = emp.att >= 95 ? 100 : 90;
+                        periodProd = Math.min(100, emp.prod + 2);
+                      } else if (perfReportPeriod === "Weekly") {
+                        periodAtt = emp.att;
+                        periodProd = emp.prod;
+                      } else if (perfReportPeriod === "Monthly") {
+                        periodAtt = Math.max(80, emp.att - 1);
+                        periodProd = Math.max(80, emp.prod - 1);
+                      } else if (perfReportPeriod === "Annual") {
+                        periodAtt = Math.max(85, emp.att - 2);
+                        periodProd = Math.max(85, emp.prod - 2);
+                      }
+                      const weightedKpi = Math.round((periodAtt * 0.15 + emp.punc * 0.10 + periodProd * 0.25 + emp.qual * 0.20 + emp.safe * 0.15 + emp.team * 0.05 + emp.skill * 0.10) * 10) / 10;
+
+                      return (
+                        <tr key={emp.name} className="hover:bg-slate-50/50">
+                          <td className="p-3">
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-900">{emp.name}</span>
+                              <span className="text-[9px] text-slate-500 font-medium font-sans">{emp.role} | {emp.project}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-center">
+                            <span className={`px-2 py-0.5 rounded font-mono font-bold ${periodAtt >= 95 ? "text-emerald-700 bg-emerald-50" : periodAtt >= 90 ? "text-blue-700 bg-blue-50" : "text-amber-700 bg-amber-50"}`}>
+                              {periodAtt}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-center font-mono">{emp.punc}%</td>
+                          <td className="p-3 text-center font-mono">{periodProd}%</td>
+                          <td className="p-3 text-center font-mono">{emp.qual}%</td>
+                          <td className="p-3 text-center font-mono">{emp.safe}%</td>
+                          <td className="p-3 text-center font-mono">{emp.team}%</td>
+                          <td className="p-3 text-center">
+                            <span className="bg-slate-100 text-slate-700 font-mono font-bold px-1.5 py-0.5 rounded text-[10px]">
+                              {emp.skill}%
+                            </span>
+                          </td>
+                          <td className="p-3 text-right">
+                            <span className={`font-mono font-black text-xs ${weightedKpi >= 95 ? "text-emerald-600" : weightedKpi >= 90 ? "text-blue-600" : "text-amber-600"}`}>
+                              {weightedKpi}%
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Performance Leaderboards */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Leaderboard Selector & Column */}
+              <div className="lg:col-span-2 bg-white p-5 rounded-xl border border-slate-200/80 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+                  <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1.5 font-sans">
+                    <CheckSquare size={14} className="text-red-600" />
+                    <span>{isAmharic ? "ከፍተኛ ውጤት ያስመዘገቡ ሰራተኞችና ቡድኖች" : "Operational Leaders Matrix"}</span>
+                  </h4>
+                  <div className="flex bg-slate-100 p-0.5 rounded border text-[10px]">
+                    {["Team", "Floor", "Zone", "Project"].map(opt => (
+                      <button
+                        key={opt}
+                        onClick={() => setPerfLeaderboardFilter(opt)}
+                        className={`px-2.5 py-1 font-bold rounded transition-all cursor-pointer ${
+                          perfLeaderboardFilter === opt 
+                            ? "bg-white text-slate-900 shadow-2xs" 
+                            : "text-slate-500 hover:text-slate-800"
+                        }`}
+                      >
+                        {isAmharic ? (
+                          opt === "Team" ? "በቡድን" :
+                          opt === "Floor" ? "በፎቅ" :
+                          opt === "Zone" ? "በቀጠና" : "በፕሮጀክት"
+                        ) : `By ${opt}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-3 font-sans">
+                  {perfLeaderboardFilter === "Team" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ቡድን" : "RANK 1 TEAM"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Assembly Team Alpha (Slab Setup)</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Gang Chief: <strong>Chala Chuko</strong> | 8 Assemblers</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-emerald-700 font-mono block">96.6% Avg</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">102% Goal</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ቡድን" : "RANK 2 TEAM"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Assembly Team Beta (Shoring & Props)</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Supervisor: <strong>Kassahun T.</strong> | 10 Assemblers</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-slate-700 font-mono block">91.2% Avg</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">95% Goal</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {perfLeaderboardFilter === "Floor" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ፎቅ" : "RANK 1 FLOOR"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Floor 4 - Cycle #6</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Project: <strong>Bole Heights</strong> | Shutter cycle 4 days</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-emerald-700 font-mono block">94.8% Avg</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">Slab Casted</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ፎቅ" : "RANK 2 FLOOR"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Floor 5 - Cycle #1</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Project: <strong>Bole Heights</strong> | Props reinforcement active</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-slate-700 font-mono block">89.4% Avg</span>
+                          <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">On Schedule</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {perfLeaderboardFilter === "Zone" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ቀጠና" : "RANK 1 ZONE"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Zone A - Main Shutter Zone</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">High-volume modular panels | Bole Heights</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-emerald-700 font-mono block">95.4% Avg</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">Zero Defects</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ቀጠና" : "RANK 2 ZONE"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Zone B - Elevator Core Wall</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Complex heavy framing | Bole Heights</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-slate-700 font-mono block">91.8% Avg</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">Passed QC</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {perfLeaderboardFilter === "Project" && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ፕሮጀክት" : "RANK 1 PROJECT"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">Bole Heights Multi-Use Tower</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">OVID Construction Sector A | Bole Subcity</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-emerald-700 font-mono block">94.2% Avg</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">98.5% Safe</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ፕሮጀክት" : "RANK 2 PROJECT"}</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">CMC High-Rise Housing</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">OVID Construction Sector B | Yeka Subcity</p>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-xs font-black text-slate-700 font-mono block">90.5% Avg</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">92% Safe</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* AI Performance Digest Card */}
+              <div className="bg-slate-900 text-white p-5 rounded-xl border border-red-500/20 flex flex-col justify-between space-y-4">
+                <div className="space-y-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-500 flex items-center gap-1.5 font-sans">
+                    <Sparkles size={14} className="text-red-500" />
+                    <span>{isAmharic ? "የAI አፈጻጸም ማጠቃለያ" : "AI Performance Optimization Digest"}</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-300 leading-relaxed font-sans">
+                    {isAmharic 
+                      ? "የAI ረዳቱ የሰራተኞችን ውጤቶች በመመርመር ድርጅታዊ ብቃትን ለማሳደግ የሚረዱ ምክሮችን ይሰጣል።" 
+                      : "Trigger neural analysis over consolidated attendance sheets, quality tolerances, and peer ratings to generate target-centric corrective recommendations."}
+                  </p>
+                </div>
+
+                {perfDigestActive && (
+                  <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 leading-relaxed space-y-2">
+                    <div className="flex justify-between items-center text-xs text-red-400 font-bold font-sans border-b border-slate-800 pb-1">
+                      <span>⚡ GENERATED ACTION PLAN</span>
+                      <span className="text-[9px] text-slate-500">CONFIDENCE: 98%</span>
+                    </div>
+                    <p className="text-slate-100">{perfDigestContent}</p>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => {
+                    setPerfDigestActive(true);
+                    setPerfDigestContent(
+                      isAmharic 
+                        ? "በሳይት Bole Heights የሚገኘው Assembly Team Alpha ከፍተኛ የ96.6% ብቃት አሳይቷል። በሌላ በኩል በGotera ኮንዶሚኒየም የሚገኘው የKassahun T. ቡድን በሰዓት አክብሮትና በproductivity ላይ መጠነኛ ቅናሽ ስላሳየ (88% እና 85%) የክህሎት ማሻሻያ ስልጠና በፎርምወርክ መመሪያ ላይ እንዲያገኙ ይመከራል።" 
+                        : "Assembly Team Alpha under Gang Chief Chala Chuko exceeds standard productivity vectors at 96.6%. Corrective training recommended for Kassahun T's crew on Floor 3 Gotera Condos to bolster concrete pour cyclical times (currently 85% velocity)."
+                    );
+                    onLogAction("AI Performance Digest", "Compiled multi-metric optimization directive via deep-learning model on workforce indicators.");
+                  }}
+                  className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 rounded-lg text-[10px] uppercase tracking-wider cursor-pointer font-sans"
+                >
+                  {isAmharic ? "የብቃት ትንተና አውጣ" : "📊 Generate AI Performance Digest"}
+                </button>
               </div>
             </div>
           </div>

@@ -368,10 +368,11 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   // New Performance Evaluation Sheet values
   const [evalWorkerId, setEvalWorkerId] = useState("");
-  const [pDiscipline, setPDiscipline] = useState(25);
-  const [pQuality, setPQuality] = useState(25);
+  const [pDiscipline, setPDiscipline] = useState(20);
+  const [pQuality, setPQuality] = useState(20);
   const [pProductivity, setPProductivity] = useState(20);
   const [pSafety, setPSafety] = useState(15);
+  const [pEquipmentHandling, setPEquipmentHandling] = useState(10);
   const [pTeamwork, setPTeamwork] = useState(10);
   const [pAttendance, setPAttendance] = useState(5);
   const [evalComment, setEvalComment] = useState("");
@@ -409,7 +410,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
     const worker = workers.find(w => w.id === evalWorkerId);
     if (!worker) return;
 
-    const total = pDiscipline + pQuality + pProductivity + pSafety + pTeamwork + pAttendance;
+    const total = pDiscipline + pQuality + pProductivity + pSafety + pEquipmentHandling + pTeamwork + pAttendance;
     
     // Performance Grades rules:
     // 95-100: Excellent, 85-94: Very Good, 70-84: Good, 50-69: Average, <50: Poor
@@ -428,6 +429,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
       quality: pQuality,
       productivity: pProductivity,
       safetyCompliance: pSafety,
+      equipmentHandling: pEquipmentHandling,
       teamwork: pTeamwork,
       attendance: pAttendance,
       totalScore: total,
@@ -2083,35 +2085,41 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
                 {/* Score Indicators */}
                 <div className="space-y-2 col-span-2 bg-slate-50 p-3 rounded-lg border border-slate-200">
-                  <span className="font-bold text-slate-700 block mb-1">Indicators (Max 100% total)</span>
+                  <span className="font-bold text-slate-700 block mb-1">
+                    {isAmharic ? "አፈጻጸም መመዘኛ አመልካቾች (ድምር 100%)" : "Indicators (Max 100% total)"}
+                  </span>
                   <div className="grid grid-cols-3 gap-2">
                     <div>
-                      <label className="text-[10px] text-slate-500">Discipline (25%)</label>
-                      <input type="number" min={0} max={25} value={pDiscipline} onChange={e => setPDiscipline(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "ዲስፕሊን" : "Discipline"} (20%)</label>
+                      <input type="number" min={0} max={20} value={pDiscipline} onChange={e => setPDiscipline(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-500">Quality (25%)</label>
-                      <input type="number" min={0} max={25} value={pQuality} onChange={e => setPQuality(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "ጥራት" : "Quality"} (20%)</label>
+                      <input type="number" min={0} max={20} value={pQuality} onChange={e => setPQuality(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-500">Productivity (20%)</label>
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "ምርታማነት" : "Productivity"} (20%)</label>
                       <input type="number" min={0} max={20} value={pProductivity} onChange={e => setPProductivity(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-500">Safety (15%)</label>
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "ደህንነት" : "Safety"} (15%)</label>
                       <input type="number" min={0} max={15} value={pSafety} onChange={e => setPSafety(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-500">Teamwork (10%)</label>
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "የእቃ አያያዝ" : "Tool/Material Handling"} (10%)</label>
+                      <input type="number" min={0} max={10} value={pEquipmentHandling} onChange={e => setPEquipmentHandling(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "የቡድን ስራ" : "Teamwork"} (10%)</label>
                       <input type="number" min={0} max={10} value={pTeamwork} onChange={e => setPTeamwork(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-500">Attendance (5%)</label>
+                      <label className="text-[10px] text-slate-500">{isAmharic ? "መገኘት" : "Attendance"} (5%)</label>
                       <input type="number" min={0} max={5} value={pAttendance} onChange={e => setPAttendance(Number(e.target.value))} className="w-full bg-white p-1 rounded border font-mono" />
                     </div>
                   </div>
                   <div className="text-right text-[10px] font-bold text-red-600 mt-2">
-                    Total Calculated: {pDiscipline + pQuality + pProductivity + pSafety + pTeamwork + pAttendance} / 100
+                    {isAmharic ? "የተሰላ አጠቃላይ ውጤት:" : "Total Calculated:"} {pDiscipline + pQuality + pProductivity + pSafety + pEquipmentHandling + pTeamwork + pAttendance} / 100
                   </div>
                 </div>
 
@@ -2179,10 +2187,11 @@ export const Attendance: React.FC<AttendanceProps> = ({
                     <th className="p-3">Worker ID</th>
                     <th className="p-3">Name</th>
                     <th className="p-3">Date</th>
-                    <th className="p-3 text-center">Disc (25)</th>
-                    <th className="p-3 text-center">Qual (25)</th>
+                    <th className="p-3 text-center">Disc (20)</th>
+                    <th className="p-3 text-center">Qual (20)</th>
                     <th className="p-3 text-center">Prod (20)</th>
                     <th className="p-3 text-center">Safe (15)</th>
+                    <th className="p-3 text-center">Tool/Handling (10)</th>
                     <th className="p-3 text-center">Team (10)</th>
                     <th className="p-3 text-center">Att (5)</th>
                     <th className="p-3 text-center">Total (100)</th>
@@ -2207,6 +2216,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                           <td className="p-3 text-center font-mono text-slate-600">{e.quality}</td>
                           <td className="p-3 text-center font-mono text-slate-600">{e.productivity}</td>
                           <td className="p-3 text-center font-mono text-slate-600">{e.safetyCompliance}</td>
+                          <td className="p-3 text-center font-mono text-slate-600">{e.equipmentHandling || 10}</td>
                           <td className="p-3 text-center font-mono text-slate-600">{e.teamwork}</td>
                           <td className="p-3 text-center font-mono text-slate-600">{e.attendance}</td>
                           <td className="p-3 text-center font-mono font-black text-slate-800 text-sm">{e.totalScore}</td>

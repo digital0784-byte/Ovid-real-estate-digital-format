@@ -349,6 +349,14 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
   const [projectStages, setProjectStages] = useState<ProjectStageOverview[]>(INITIAL_STAGES);
   const [verificationElements, setVerificationElements] = useState<VerificationElement[]>(INITIAL_VERIFICATION_ELEMENTS);
   const [formworkPanels, setFormworkPanels] = useState<AluminumFormworkPanel[]>(INITIAL_FORMWORK_PANELS);
+  
+  // --- CUSTOM PANEL DIMENSION INPUT STATE (FOR AUTOMATIC AREA CALCULATION) ---
+  const [panelTypeInput, setPanelTypeInput] = useState<string>("Wall Panel");
+  const [panelWidthInput, setPanelWidthInput] = useState<string>("600");
+  const [panelHeightInput, setPanelHeightInput] = useState<string>("240");
+  const [panelQtyInput, setPanelQtyInput] = useState<number>(1);
+  const [panelLocationInput, setPanelLocationInput] = useState<string>("Tower A Floor 4");
+
   const [progressSummary, setProgressSummary] = useState<ProgressSummary>(INITIAL_PROGRESS);
   const [selectedProject, setSelectedProject] = useState<string>("OVID Bole Heights");
 
@@ -1370,11 +1378,179 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                     alert(isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነል ፍተሻ እንደገና እየተሰላ ነው..." : "Re-scanning panel placements with CAD drawing...");
                     setFormworkPanels(prev => prev.map(p => ({ ...p, status: "Correct" })));
                   }}
-                  className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black uppercase py-2.5 rounded-xl flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-sm"
+                  className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black uppercase py-2.5 rounded-xl flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-sm animate-pulse"
                 >
                   <RefreshCw size={13} className="text-indigo-400 animate-spin-slow" />
                   <span>Simulate Scanner CAD Reconciliation</span>
                 </button>
+
+                {/* DYNAMIC PANEL INPUT & AUTOMATIC AREA CALCULATOR */}
+                <div className="bg-slate-50/80 p-4 rounded-xl border border-slate-200/60 space-y-3.5">
+                  <div className="flex items-center space-x-2 border-b border-slate-200/60 pb-2">
+                    <Sliders className="text-indigo-600 animate-pulse" size={15} />
+                    <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-700">
+                      {isAmharic ? "የፓነል አይነት እና መጠን ማስገቢያ (Automatic Area Calculator)" : "Panel Dimension Input & Auto Area Calculator"}
+                    </h4>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    {/* Panel Type Selection */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide block">
+                        {isAmharic ? "የፓነል አይነት" : "Panel Type"}
+                      </label>
+                      <select
+                        value={panelTypeInput}
+                        onChange={(e) => setPanelTypeInput(e.target.value)}
+                        className="w-full bg-white border border-slate-250 rounded-lg p-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-indigo-500 font-sans font-medium"
+                      >
+                        <option value="Wall Panel">{isAmharic ? "Wall Panel (የግድግዳ)" : "Wall Panel"}</option>
+                        <option value="Beam Panel">{isAmharic ? "Beam Panel (የጋርደር)" : "Beam Panel"}</option>
+                        <option value="Deck Panel">{isAmharic ? "Deck Panel (የወለል)" : "Deck Panel"}</option>
+                        <option value="Corner Panel">{isAmharic ? "Corner Panel (የማዕዘን)" : "Corner Panel"}</option>
+                        <option value="Internal Corner">{isAmharic ? "Internal Corner (የውስጥ)" : "Internal Corner"}</option>
+                        <option value="External Corner">{isAmharic ? "External Corner (የውጭ)" : "External Corner"}</option>
+                      </select>
+                    </div>
+
+                    {/* Installed Location */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide block">
+                        {isAmharic ? "የመገጣጠሚያ አካባቢ" : "Location / Area"}
+                      </label>
+                      <input
+                        type="text"
+                        value={panelLocationInput}
+                        onChange={(e) => setPanelLocationInput(e.target.value)}
+                        placeholder="e.g. Shear Wall B, Floor 4"
+                        className="w-full bg-white border border-slate-250 rounded-lg p-1.5 text-xs text-slate-800 focus:ring-1 focus:ring-indigo-500 font-sans"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Dimensions Row */}
+                  <div className="grid grid-cols-3 gap-2">
+                    {/* Width (mm) */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide block">
+                        {isAmharic ? "ስፋት (ሚ.ሜ)" : "Width (mm)"}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={panelWidthInput}
+                        onChange={(e) => setPanelWidthInput(e.target.value)}
+                        className="w-full bg-white border border-slate-250 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800 focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* Height (mm) */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide block">
+                        {isAmharic ? "ቁመት (ሚ.ሜ)" : "Height (mm)"}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={panelHeightInput}
+                        onChange={(e) => setPanelHeightInput(e.target.value)}
+                        className="w-full bg-white border border-slate-250 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800 focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wide block">
+                        {isAmharic ? "ብዛት" : "Qty"}
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={panelQtyInput}
+                        onChange={(e) => setPanelQtyInput(Math.max(1, parseInt(e.target.value) || 1))}
+                        className="w-full bg-white border border-slate-250 rounded-lg p-1.5 text-xs font-mono font-bold text-slate-800 focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Automatic Real-Time Area Calculations */}
+                  <div className="bg-slate-900 text-white rounded-xl p-3 border border-slate-800 flex items-center justify-between gap-2 shadow-inner">
+                    <div className="space-y-1">
+                      <span className="text-[8px] uppercase tracking-widest text-indigo-400 font-extrabold block">
+                        {isAmharic ? "የአንድ ፓነል ስፋት" : "Single Panel Area"}
+                      </span>
+                      <div className="flex items-baseline space-x-1.5">
+                        <span className="text-lg font-black font-mono text-emerald-400">
+                          {((parseFloat(panelWidthInput) || 0) * (parseFloat(panelHeightInput) || 0) / 1000000).toFixed(4)}
+                        </span>
+                        <span className="text-[9px] text-slate-400 font-bold">m²</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right space-y-1">
+                      <span className="text-[8px] uppercase tracking-widest text-indigo-400 font-extrabold block">
+                        {isAmharic ? "ጠቅላላ ስፋት (m²)" : "Total Batch Area (m²)"}
+                      </span>
+                      <div className="flex items-baseline justify-end space-x-1.5">
+                        <span className="text-xl font-black font-mono text-indigo-300">
+                          {(((parseFloat(panelWidthInput) || 0) * (parseFloat(panelHeightInput) || 0) * panelQtyInput) / 1000000).toFixed(3)}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-bold">m²</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Helper Dimension Example text */}
+                  <div className="text-[9px] text-slate-400 font-medium leading-relaxed italic bg-slate-100/50 p-2 rounded-lg">
+                    💡 {isAmharic 
+                      ? "ለምሳሌ፦ የግድግዳ ፓነል (Wall Panels) መጠን 600×240 ሚ.ሜ ሲሆን፣ ሲስተሙ በራስ-ሰር 0.144 m² የፓነል ስፋት ያሰላል።" 
+                      : "Example: For Wall Panels with dimensions 600×240 mm, the system automatically computes an area of 0.144 m² per unit."}
+                  </div>
+
+                  {/* Add button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const w = parseFloat(panelWidthInput) || 0;
+                      const h = parseFloat(panelHeightInput) || 0;
+                      if (w <= 0 || h <= 0) {
+                        alert(isAmharic ? "እባክዎን ትክክለኛ ስፋት እና ቁመት ያስገቡ" : "Please input valid width and height dimensions.");
+                        return;
+                      }
+                      
+                      const panelArea = (w * h * panelQtyInput) / 1000000;
+                      const newId = `P-CST-${Date.now().toString().slice(-4)}`;
+                      const newRecord: AluminumFormworkPanel = {
+                        panelId: newId,
+                        size: `${w}x${h}`,
+                        location: panelLocationInput || (isAmharic ? "ማዕከላዊ ግንባታ ቦታ" : "Central Formwork Location"),
+                        type: panelTypeInput as any,
+                        quantity: panelQtyInput,
+                        status: "Correct",
+                        installedLocation: `${panelTypeInput.charAt(0)}-${Math.floor(Math.random() * 20) + 1}`
+                      };
+
+                      setFormworkPanels(prev => [newRecord, ...prev]);
+
+                      if (onLogAction) {
+                        onLogAction(
+                          isAmharic ? "አዲስ የፎርምወርክ ፓነል ተመዝግቧል" : "Registered Custom Formwork Panel",
+                          isAmharic 
+                            ? `የፓነል አይነት: ${panelTypeInput}፣ መጠን: ${w}x${h} ሚ.ሜ፣ ብዛት: ${panelQtyInput}፣ በራስ-ሰር የተሰላ ስፋት: ${panelArea.toFixed(3)} m²`
+                            : `Added custom ${panelTypeInput} [${w}x${h}mm], Qty: ${panelQtyInput}, Calculated Area: ${panelArea.toFixed(3)} m² to CAD log.`
+                        );
+                      }
+
+                      // Reset location input & show success confirmation toast/alert via log
+                      setPanelLocationInput("");
+                      setPanelQtyInput(1);
+                    }}
+                    className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-2.5 px-3 rounded-xl text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/10 active:scale-95"
+                  >
+                    <Plus size={13} />
+                    <span>{isAmharic ? "አዲስ ፓነል ወደ መዝገብ ጨምር" : "Add Panel to Audit Inventory"}</span>
+                  </button>
+                </div>
 
                 {/* Panels Status List */}
                 <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">

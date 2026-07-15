@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { ShieldCheck, Search, ShieldAlert, Filter, Clock, User } from "lucide-react";
+import { ShieldCheck, Search, ShieldAlert, Filter, Clock, User, MapPin, Compass } from "lucide-react";
 import { AuditLog, UserRole } from "../types";
 
 interface AuditLogViewProps {
@@ -99,12 +99,13 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                 <th className="py-3 px-4">{isAmharic ? "ሚና" : "Assigned Role"}</th>
                 <th className="py-3 px-4">{isAmharic ? "ተግባር" : "Action"}</th>
                 <th className="py-3 px-4">{isAmharic ? "ዝርዝር መግለጫ" : "Details"}</th>
+                <th className="py-3 px-4">{isAmharic ? "የጂፒኤስ መገኛ" : "GPS Location"}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 text-xs">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                  <td colSpan={7} className="py-8 text-center text-slate-400 font-medium">
                     {isAmharic ? "ምንም ዓይነት የኦዲት መዝገብ አልተገኘም።" : "No audit trail logs match your query."}
                   </td>
                 </tr>
@@ -156,6 +157,38 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                       </td>
                       <td className="py-3 px-4 text-slate-600 max-w-xs truncate" title={log.details}>
                         {log.details}
+                      </td>
+                      <td className="py-3 px-4">
+                        {log.gps ? (
+                          log.gps.status === "locating" ? (
+                            <span className="inline-flex items-center gap-1.5 text-[10px] bg-amber-50/70 text-amber-700 font-mono py-0.5 px-2 rounded-md border border-amber-200/50">
+                              <Compass size={11} className="animate-spin text-amber-500" />
+                              <span>{isAmharic ? "በመፈለግ ላይ..." : "Locating..."}</span>
+                            </span>
+                          ) : log.gps.status === "acquired" ? (
+                            <div className="space-y-0.5 max-w-[120px]">
+                              <span className="inline-flex items-center gap-1 text-[10px] bg-emerald-50 text-emerald-700 font-mono py-0.2 px-1.5 rounded-md border border-emerald-200 font-bold">
+                                <MapPin size={10} className="text-emerald-500 animate-pulse" />
+                                <span>{isAmharic ? "የተገኘ" : "Secure GPS"}</span>
+                              </span>
+                              <div className="text-[10px] text-slate-700 font-mono font-semibold block tracking-tight leading-none">
+                                {log.gps.latitude}, {log.gps.longitude}
+                              </div>
+                              {log.gps.accuracy && (
+                                <span className="text-[8px] text-slate-400 block font-mono leading-none">
+                                  {isAmharic ? `ትክክለኛነት: ±${log.gps.accuracy}ሜ` : `Accuracy: ±${log.gps.accuracy}m`}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 text-[10px] bg-rose-50 text-rose-600 font-mono py-0.5 px-2 rounded-md border border-rose-200">
+                              <ShieldAlert size={11} />
+                              <span>{isAmharic ? "አልተሳካም" : "Failed"}</span>
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-slate-300 font-mono text-[10px]">—</span>
+                        )}
                       </td>
                     </tr>
                   );

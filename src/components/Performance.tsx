@@ -44,10 +44,11 @@ export const Performance: React.FC<PerformanceProps> = ({
   // Evaluation Form State
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [selectedMetric, setSelectedMetric] = useState<"productivity" | "quality" | "safety">("productivity");
-  const [discipline, setDiscipline] = useState(23);
-  const [quality, setQuality] = useState(22);
+  const [discipline, setDiscipline] = useState(18);
+  const [quality, setQuality] = useState(18);
   const [productivity, setProductivity] = useState(18);
   const [safety, setSafety] = useState(14);
+  const [equipmentHandling, setEquipmentHandling] = useState(9);
   const [teamwork, setTeamwork] = useState(9);
   const [attendance, setAttendance] = useState(5);
   const [comment, setComment] = useState("");
@@ -59,7 +60,7 @@ export const Performance: React.FC<PerformanceProps> = ({
     const worker = workers.find(w => w.id === selectedWorkerId);
     if (!worker) return;
 
-    const total = discipline + quality + productivity + safety + teamwork + attendance;
+    const total = discipline + quality + productivity + safety + equipmentHandling + teamwork + attendance;
     
     let level: PerformanceEvaluation["level"] = "Poor";
     if (total >= 95) level = "Excellent";
@@ -76,6 +77,7 @@ export const Performance: React.FC<PerformanceProps> = ({
       quality,
       productivity,
       safetyCompliance: safety,
+      equipmentHandling,
       teamwork,
       attendance,
       totalScore: total,
@@ -177,11 +179,11 @@ export const Performance: React.FC<PerformanceProps> = ({
               
               <div className="space-y-1">
                 <label className="font-semibold text-slate-600 flex justify-between">
-                  <span>Discipline (25%)</span>
-                  <span className="text-red-600 font-bold font-mono">{discipline}/25</span>
+                  <span>{isAmharic ? "ዲስፕሊን (20%)" : "Discipline (20%)"}</span>
+                  <span className="text-red-600 font-bold font-mono">{discipline}/20</span>
                 </label>
                 <input 
-                  type="number" min="0" max="25" value={discipline}
+                  type="number" min="0" max="20" value={discipline}
                   onChange={e => setDiscipline(Number(e.target.value))}
                   className="w-full bg-slate-50 border rounded p-1.5 font-bold" 
                 />
@@ -189,11 +191,11 @@ export const Performance: React.FC<PerformanceProps> = ({
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-600 flex justify-between">
-                  <span>Work Quality (25%)</span>
-                  <span className="text-red-600 font-bold font-mono">{quality}/25</span>
+                  <span>{isAmharic ? "የስራ ጥራት (20%)" : "Work Quality (20%)"}</span>
+                  <span className="text-red-600 font-bold font-mono">{quality}/20</span>
                 </label>
                 <input 
-                  type="number" min="0" max="25" value={quality}
+                  type="number" min="0" max="20" value={quality}
                   onChange={e => setQuality(Number(e.target.value))}
                   className="w-full bg-slate-50 border rounded p-1.5 font-bold" 
                 />
@@ -201,7 +203,7 @@ export const Performance: React.FC<PerformanceProps> = ({
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-600 flex justify-between">
-                  <span>Productivity (20%)</span>
+                  <span>{isAmharic ? "ምርታማነት (20%)" : "Productivity (20%)"}</span>
                   <span className="text-red-600 font-bold font-mono">{productivity}/20</span>
                 </label>
                 <input 
@@ -213,7 +215,7 @@ export const Performance: React.FC<PerformanceProps> = ({
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-600 flex justify-between">
-                  <span>Safety (15%)</span>
+                  <span>{isAmharic ? "ደህንነት (15%)" : "Safety (15%)"}</span>
                   <span className="text-red-600 font-bold font-mono">{safety}/15</span>
                 </label>
                 <input 
@@ -223,9 +225,21 @@ export const Performance: React.FC<PerformanceProps> = ({
                 />
               </div>
 
+              <div className="space-y-1 col-span-2">
+                <label className="font-semibold text-slate-600 flex justify-between">
+                  <span>{isAmharic ? "የእቃ አያያዝ እና አጠቃቀም (10%)" : "Equipment & Material Handling (10%)"}</span>
+                  <span className="text-red-600 font-bold font-mono">{equipmentHandling}/10</span>
+                </label>
+                <input 
+                  type="number" min="0" max="10" value={equipmentHandling}
+                  onChange={e => setEquipmentHandling(Number(e.target.value))}
+                  className="w-full bg-slate-50 border rounded p-1.5 font-bold" 
+                />
+              </div>
+
               <div className="space-y-1">
                 <label className="font-semibold text-slate-600 flex justify-between">
-                  <span>Teamwork (10%)</span>
+                  <span>{isAmharic ? "የቡድን ስራ (10%)" : "Teamwork (10%)"}</span>
                   <span className="text-red-600 font-bold font-mono">{teamwork}/10</span>
                 </label>
                 <input 
@@ -237,7 +251,7 @@ export const Performance: React.FC<PerformanceProps> = ({
 
               <div className="space-y-1">
                 <label className="font-semibold text-slate-600 flex justify-between">
-                  <span>Attendance (5%)</span>
+                  <span>{isAmharic ? "መገኘት (5%)" : "Attendance (5%)"}</span>
                   <span className="text-red-600 font-bold font-mono">{attendance}/5</span>
                 </label>
                 <input 
@@ -251,24 +265,24 @@ export const Performance: React.FC<PerformanceProps> = ({
 
             {/* Comment */}
             <div className="space-y-1">
-              <label className="font-semibold text-slate-600">Performance Notes / Comments</label>
+              <label className="font-semibold text-slate-600">{isAmharic ? "የአስተያየት ማስታወሻዎች" : "Performance Notes / Comments"}</label>
               <textarea 
                 rows={2} value={comment}
                 onChange={e => setComment(e.target.value)}
-                placeholder="Exceptional wall layout placement today..."
+                placeholder={isAmharic ? "ስለ ሰራተኛው አጠቃላይ አፈጻጸም እዚህ ይጻፉ..." : "Exceptional wall layout placement today..."}
                 className="w-full bg-slate-50 border rounded p-2 text-slate-800 outline-none" 
               />
             </div>
 
             <div className="bg-slate-50 p-2.5 rounded-lg border text-center font-bold text-slate-800">
-              Computed Score: <span className="text-red-600 font-black text-sm">{discipline + quality + productivity + safety + teamwork + attendance}/100</span>
+              {isAmharic ? "የተሰላ ውጤት:" : "Computed Score:"} <span className="text-red-600 font-black text-sm">{discipline + quality + productivity + safety + equipmentHandling + teamwork + attendance}/100</span>
             </div>
 
             <button
               type="submit"
               className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors"
             >
-              Log Evaluation
+              {isAmharic ? "ውጤቱን መዝግብ" : "Log Evaluation"}
             </button>
           </form>
         </div>

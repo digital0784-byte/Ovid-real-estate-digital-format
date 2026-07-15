@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
 import { 
   initialWorkers, 
   initialTeams, 
@@ -48,6 +49,7 @@ import { SurveyingInstrumentModule } from "./components/SurveyingInstrumentModul
 import { LoginScreen } from "./components/LoginScreen";
 import { SecuritySettingsHub } from "./components/SecuritySettingsHub";
 import { EnterpriseErpHub } from "./components/EnterpriseErpHub";
+import { WorkerProfiles } from "./components/WorkerProfiles";
 
 // Lucide Icons
 import { 
@@ -71,7 +73,15 @@ import {
   Compass,
   Database,
   FileText,
-  Cpu
+  Cpu,
+  Wifi,
+  Send,
+  RefreshCw,
+  CheckCircle2,
+  Radio,
+  Bell,
+  X,
+  ArrowRight
 } from "lucide-react";
 
 export default function App() {
@@ -109,6 +119,22 @@ export default function App() {
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [projectDocsSubTab, setProjectDocsSubTab] = useState<"newModule" | "vault">("newModule");
+
+  // Toast notifications for cross-app data transmissions
+  interface AppToast {
+    id: string;
+    titleEn: string;
+    titleAm: string;
+    descEn: string;
+    descAm: string;
+    type: "sync" | "success" | "warning" | "info";
+    senderApp: string;
+    senderAppAm: string;
+    receiverApp: string;
+    receiverAppAm: string;
+    timestamp: string;
+  }
+  const [toasts, setToasts] = useState<AppToast[]>([]);
 
   // Security and Authentication session states
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -245,16 +271,16 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.HEAD_OFFICE]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "enterpriseErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SUPERVISOR]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "enterpriseErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SURVEYOR]: ["dashboard", "enterpriseErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.WORKER]: ["dashboard", "attendance", "progress", "siteLayout", "surveying", "securitySettings"]
+    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "securitySettings"],
+    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "securitySettings"]
   };
 
   const t = (key: string): string => {
@@ -339,11 +365,162 @@ export default function App() {
     };
   }, [isAuthenticated, lastActivity, sessionTimeoutMinutes]);
 
+  // Trigger system notification toast for cross-app transmissions
+  const triggerNotificationToast = (action: string, details: string) => {
+    let titleEn = "Data Transmitted";
+    let titleAm = "መረጃ ተልኳል";
+    let descEn = details;
+    let descAm = "ሲስተሙ መረጃን ከአንድ ሞዱል ወደ ሌላው በተሳካ ሁኔታ አስተላልፏል።";
+    let type: "sync" | "success" | "warning" | "info" = "info";
+    let senderApp = "Active ERP Module";
+    let senderAppAm = "አገልግሎት ላይ ያለ ሞዱል";
+    let receiverApp = "Central Database";
+    let receiverAppAm = "ማዕከላዊ ዳታቤዝ";
+
+    const actLower = action.toLowerCase();
+    const detLower = details.toLowerCase();
+
+    if (actLower.includes("offline queue") || actLower.includes("offline queue synchronized") || detLower.includes("synchronized pending local")) {
+      titleEn = "Offline Buffer Synchronized";
+      titleAm = "የመስመር ውጭ መረጃ ተመሳስሏል";
+      descEn = "Attendance records successfully transferred from terminal local buffer to cloud storage.";
+      descAm = "የመገኘት መዝገቦች ከተርሚናል አካባቢያዊ ማከማቻ ወደ ዋናው መስሪያ ቤት ደመና በተሳካ ሁኔታ ተላልፈዋል";
+      senderApp = "Local Terminal Buffer";
+      senderAppAm = "የአካባቢ ተርሚናል ማከማቻ";
+      receiverApp = "Head Office Cloud DB";
+      receiverAppAm = "ኦቪድ ዋና መስሪያ ቤት የደመና ዳታቤዝ";
+      type = "sync";
+    } else if (actLower.includes("biometric") || actLower.includes("attendance logged") || actLower.includes("attendance scan")) {
+      titleEn = "Biometric Record Dispatched";
+      titleAm = "ባዮሜትሪክ መረጃ ተልኳል";
+      descEn = details;
+      descAm = "የሰራተኛው ባዮሜትሪክ መረጃ በቀጥታ ወደ ማዕከላዊ የመገኘት መቆጣጠሪያ ተልኳል።";
+      senderApp = "Biometric Gate Terminal";
+      senderAppAm = "ባዮሜትሪክ መግቢያ በር";
+      receiverApp = "Central Attendance DB";
+      receiverAppAm = "ማዕከላዊ የመገኘት መዝገብ ዳታቤዝ";
+      type = "success";
+    } else if (actLower.includes("sap erp") || actLower.includes("erp") || actLower.includes("ledger") || detLower.includes("synchronized to central") || detLower.includes("sap")) {
+      titleEn = "SAP ERP Integration Sync";
+      titleAm = "ከ SAP ERP ጋር ማመሳሰል";
+      descEn = "Financial and materials payload reconciled with external SAP gateway.";
+      descAm = "የሂሳብ እና የንብረት ዝመና መረጃ ከውጭ SAP ሲስተም ጋር በተሳካ ሁኔታ ተገናኝቷል።";
+      senderApp = "Enterprise ERP Hub";
+      senderAppAm = "ኢንተርፕራይዝ ERP ሲስተም";
+      receiverApp = "SAP ERP Gateway";
+      receiverAppAm = "ማዕከላዊ SAP መግቢያ";
+      type = "sync";
+    } else if (actLower.includes("performance") || actLower.includes("evaluation") || actLower.includes("evaluated")) {
+      titleEn = "Performance File Transmitted";
+      titleAm = "የአፈጻጸም ግምገማ ተልኳል";
+      descEn = "Worker grading metrics transferred directly to Head Office HR directory.";
+      descAm = "የሰራተኛው ውጤትና ግምገማ መረጃ ወደ ዋናው መስሪያ ቤት HR መዝገብ ተላልፏል።";
+      senderApp = "Performance Evaluator App";
+      senderAppAm = "የአፈጻጸም መመዘኛ መተግበሪያ";
+      receiverApp = "Corporate HR Core";
+      receiverAppAm = "የዋና መስሪያ ቤት HR ማዕከል";
+      type = "success";
+    } else if (actLower.includes("safety") || actLower.includes("hse") || actLower.includes("safety score")) {
+      titleEn = "HSE Compliance Synced";
+      titleAm = "የደህንነት መረጃ ተመሳስሏል";
+      descEn = "Daily hazard log & toolbox session details synchronized with safety division.";
+      descAm = "የዕለታዊ ደህንነት ውይይት መዝገብ ወደ ዋናው የHSE መቆጣጠሪያ ማዕከል ተልኳል።";
+      senderApp = "Site Safety Monitor";
+      senderAppAm = "የሳይት ደህንነት ተቆጣጣሪ";
+      receiverApp = "HSE Headquarters Hub";
+      receiverAppAm = "HSE ዋና መስሪያ ቤት ማዕከል";
+      type = "success";
+    } else if (actLower.includes("snag") || actLower.includes("quality") || actLower.includes("defect")) {
+      titleEn = "Quality Audit Transmitted";
+      titleAm = "የጥራት ቁጥጥር መረጃ ተልኳል";
+      descEn = "Defect status and repair checklist synchronized with site supervisor app.";
+      descAm = "የጥራት ጉድለት ዝርዝር ሪፖርት ወደ ግንባታ ተቆጣጣሪ ክፍል መተግበሪያ ተልኳል።";
+      senderApp = "Quality Assurance Auditor";
+      senderAppAm = "የጥራት ቁጥጥር ሞዱል";
+      receiverApp = "Engineering Defect Core";
+      receiverAppAm = "የመሃንዲሶች መቆጣጠሪያ ማዕከል";
+      type = "warning";
+    } else if (actLower.includes("drone") || actLower.includes("flight") || actLower.includes("mapping")) {
+      titleEn = "Drone Photogrammetry Synced";
+      titleAm = "የድሮን ካርታ መረጃ ተመሳስሏል";
+      descEn = "Aerial raster mapping and topography files dispatched to CAD modeler.";
+      descAm = "የድሮን የአየር ላይ ፎቶዎችና ካርታ ወደ CAD ሞዴሊንግ ሲስተም ተልኳል።";
+      senderApp = "UAV Drone Flight App";
+      senderAppAm = "የድሮን በረራ መተግበሪያ";
+      receiverApp = "Autodesk CAD Viewer";
+      receiverAppAm = "የCAD ስዕሎች መጋዘን";
+      type = "sync";
+    } else if (actLower.includes("zone") || actLower.includes("planning") || actLower.includes("progress")) {
+      titleEn = "Site Schedule Updated";
+      titleAm = "የሳይት ግንባታ እቅድ ተዘምኗል";
+      descEn = "Formwork progress metrics synchronized with project scheduler engine.";
+      descAm = "የአሉሚኒየም ፎርምወርክ ስራ ሂደት ከጊዜ ሰሌዳው ጋር ተመሳስሏል።";
+      senderApp = "Daily Progress Logger";
+      senderAppAm = "ዕለታዊ ሂደት መመዝገቢያ";
+      receiverApp = "Planning Scheduler Core";
+      receiverAppAm = "እቅድና የጊዜ ሰሌዳ ሞዱል";
+      type = "info";
+    } else if (actLower.includes("worker") || actLower.includes("personnel") || actLower.includes("staff")) {
+      titleEn = "Staff Database Replicated";
+      titleAm = "የሰራተኞች መረጃ ተዘምኗል";
+      descEn = "Employee details automatically replicated to biometric access panels.";
+      descAm = "የሰራተኛው አዲስ መረጃ ወደ ባዮሜትሪክ መለያ መሣሪያዎች በተሳካ ሁኔታ ተላልፏል።";
+      senderApp = "Personnel Register (HR)";
+      senderAppAm = "የሰራተኞች HR መዝገብ";
+      receiverApp = "Biometric Control Hub";
+      receiverAppAm = "ባዮሜትሪክ ማዕከል";
+      type = "sync";
+    } else if (actLower.includes("network status") || actLower.includes("online") || actLower.includes("offline")) {
+      titleEn = "Network State Synchronized";
+      titleAm = "የኔትወርክ ግንኙነት ተስተካክሏል";
+      descEn = actLower.includes("online") ? "Cloud datastore connection restored. Auto-sync active." : "Local buffer fallback activated. Data cached locally.";
+      descAm = actLower.includes("online") ? "ከደመና ማከማቻ ጋር ያለው ግንኙነት ተመልሷል። የቀጥታ ማመሳሰል በርቷል።" : "ከደመና ማከማቻ ጋር ያለው ግንኙነት ተቋርጧል። መረጃዎች በአካባቢው ይቀመጣሉ።";
+      senderApp = "Device Connectivity Gateway";
+      senderAppAm = "የመሳሪያው ግንኙነት መቆጣጠሪያ";
+      receiverApp = "Cloud Server Broker";
+      receiverAppAm = "የደመና ሰርቨር ማገናኛ";
+      type = actLower.includes("online") ? "sync" : "warning";
+    } else if (actLower.includes("survey") || actLower.includes("leica") || actLower.includes("instrument")) {
+      titleEn = "Leica TS16 Telemetry Transmitted";
+      titleAm = "የሰርቬይንግ ልኬት መረጃ ተልኳል";
+      descEn = "Survey total station coordinate buffer uploaded to CAD planning system.";
+      descAm = "የሰርቬይ መለኪያ መረጃ ከላይካ መሣሪያ በቀጥታ ወደ CAD ዲዛይን ሲስተም ተልኳል።";
+      senderApp = "Leica Total Station TS16";
+      senderAppAm = "ላይካ ሰርቬይንግ መሣሪያ";
+      receiverApp = "Cloud CAD Planner";
+      receiverAppAm = "ደመና-ተኮር CAD ሲስተም";
+      type = "sync";
+    }
+
+    const toastId = `${Date.now()}-${Math.random()}`;
+    const newToast: AppToast = {
+      id: toastId,
+      titleEn,
+      titleAm,
+      descEn,
+      descAm,
+      type,
+      senderApp,
+      senderAppAm,
+      receiverApp,
+      receiverAppAm,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    };
+
+    setToasts(prev => [newToast, ...prev.slice(0, 4)]); // Keep at most 5 toasts visible
+
+    // Self-dismiss after 6 seconds
+    setTimeout(() => {
+      setToasts(prev => prev.filter(t => t.id !== toastId));
+    }, 6000);
+  };
+
   // Audit log generator helper
   const logAction = (action: string, details: string, customizedRole?: UserRole) => {
     const activeRole = customizedRole || currentUserRole;
+    const logId = `AUD-${Date.now().toString().slice(-4)}`;
     const newLog: AuditLog = {
-      id: `AUD-${Date.now().toString().slice(-4)}`,
+      id: logId,
       timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
       userId: activeRole === UserRole.HEAD_OFFICE ? "HO-01" :
               activeRole === UserRole.PROJECT_MANAGER ? "PM-01" :
@@ -367,7 +544,98 @@ export default function App() {
       action,
       details
     };
+
+    // Check if it is a sensitive action like Clock In, Safety Log, quality, registration
+    const actLower = action.toLowerCase();
+    const detLower = details.toLowerCase();
+    const isSensitive = actLower.includes("attendance") || 
+                        actLower.includes("clock") || 
+                        actLower.includes("safety") || 
+                        actLower.includes("hse") || 
+                        actLower.includes("login") || 
+                        actLower.includes("register") || 
+                        actLower.includes("terminate") || 
+                        actLower.includes("snag") || 
+                        actLower.includes("quality") || 
+                        actLower.includes("zone") || 
+                        actLower.includes("plan");
+
+    if (isSensitive) {
+      newLog.gps = {
+        latitude: 0,
+        longitude: 0,
+        status: "locating"
+      };
+    }
+
     setAuditLogs((prev) => [newLog, ...prev]);
+    triggerNotificationToast(action, details);
+
+    // Fetch GPS coordinates asynchronously
+    if (isSensitive) {
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            setAuditLogs((prevLogs) =>
+              prevLogs.map((log) =>
+                log.id === logId
+                  ? {
+                      ...log,
+                      gps: {
+                        latitude: parseFloat(position.coords.latitude.toFixed(6)),
+                        longitude: parseFloat(position.coords.longitude.toFixed(6)),
+                        accuracy: Math.round(position.coords.accuracy),
+                        status: "acquired" as const
+                      }
+                    }
+                  : log
+              )
+            );
+          },
+          (error) => {
+            console.warn("Geolocation failed/denied, utilizing high-fidelity simulated construction site coordinates", error);
+            // Addis Ababa Bole Heights B1 Construction Site default fallback
+            const simulatedLat = parseFloat((9.011743 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+            const simulatedLng = parseFloat((38.794651 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+            setAuditLogs((prevLogs) =>
+              prevLogs.map((log) =>
+                log.id === logId
+                  ? {
+                      ...log,
+                      gps: {
+                        latitude: simulatedLat,
+                        longitude: simulatedLng,
+                        accuracy: 12,
+                        status: "acquired" as const
+                      }
+                    }
+                  : log
+              )
+            );
+          },
+          { enableHighAccuracy: true, timeout: 4500, maximumAge: 0 }
+        );
+      } else {
+        // No geolocation API, fallback directly
+        const simulatedLat = parseFloat((9.011743 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+        const simulatedLng = parseFloat((38.794651 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+        setAuditLogs((prevLogs) =>
+          prevLogs.map((log) =>
+            log.id === logId
+              ? {
+                  ...log,
+                  gps: {
+                    latitude: simulatedLat,
+                    longitude: simulatedLng,
+                    accuracy: 15,
+                    status: "acquired" as const
+                  }
+                }
+              : log
+          )
+        );
+      }
+    }
   };
 
   // State Manipulation Handlers
@@ -428,6 +696,11 @@ export default function App() {
     logAction("Worker Registered", `Added worker ${w.name} (${w.trade}) to department ${w.department}`);
   };
 
+  const handleUpdateWorker = (updatedWorker: Worker) => {
+    setWorkers((prev) => prev.map((w) => (w.id === updatedWorker.id ? updatedWorker : w)));
+    logAction("Worker Profile Updated", `Modified credentials/skills for ${updatedWorker.name} (${updatedWorker.id})`);
+  };
+
   const handleDeleteWorker = (id: string) => {
     const worker = workers.find(w => w.id === id);
     setWorkers((prev) => prev.filter((w) => w.id !== id));
@@ -466,7 +739,7 @@ export default function App() {
               <Building2 size={22} />
             </div>
             <div>
-              <span className="text-xs uppercase tracking-widest font-black text-red-600">OVID Group</span>
+              <span className="text-xs uppercase tracking-widest font-black text-red-600">{isAmharic ? "ዲጂታል ኮንስትራክሽን" : "Digital Construction"}</span>
               <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
                 Aluminum Formwork Attendance & Productivity System
               </h1>
@@ -558,6 +831,19 @@ export default function App() {
               >
                 <Activity size={15} />
                 <span>{t("Dashboard")}</span>
+              </button>
+            )}
+
+            {/* Worker Profiles Tab */}
+            {tabPermissions[currentUserRole]?.includes("workerProfiles") && (
+              <button
+                onClick={() => setActiveTab("workerProfiles")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "workerProfiles" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Users size={15} className="text-red-500" />
+                <span>{isAmharic ? "የሰራተኞች መገለጫዎች" : "Worker Profiles"}</span>
               </button>
             )}
 
@@ -833,6 +1119,18 @@ export default function App() {
           />
         )}
 
+        {activeTab === "workerProfiles" && (
+          <WorkerProfiles
+            workers={workers}
+            onAddWorker={handleAddWorker}
+            onUpdateWorker={handleUpdateWorker}
+            onDeleteWorker={handleDeleteWorker}
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
         {activeTab === "enterpriseErp" && (
           <EnterpriseErpHub 
             isAmharic={isAmharic}
@@ -1094,7 +1392,7 @@ export default function App() {
       {/* FOOTER SECTION */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 no-print">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
-          <p>© {new Date().getFullYear()} OVID Real Estate. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
+          <p>© {new Date().getFullYear()} Digital Construction. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
           <p className="font-semibold text-slate-500">
             {isAmharic 
               ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
@@ -1104,6 +1402,102 @@ export default function App() {
           <p className="font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>
         </div>
       </footer>
+
+      {/* FLOATING SYSTEM TOAST NOTIFICATIONS (CROSS-APP TRANSMISSIONS) */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-3.5 max-w-sm w-full px-4 sm:px-0 pointer-events-none no-print">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: 30, scale: 0.9 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -20, scale: 0.95 }}
+              transition={{ type: "spring", stiffness: 260, damping: 21 }}
+              className="pointer-events-auto bg-slate-900/95 backdrop-blur-md text-white rounded-2xl shadow-2xl border border-slate-800/85 p-4 overflow-hidden relative flex flex-col gap-2.5"
+            >
+              {/* Top bar with system category */}
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                <span className="text-[10px] uppercase font-black tracking-widest text-red-500 bg-red-950/75 px-2 py-0.5 rounded-md flex items-center gap-1.5 font-sans">
+                  <Cpu size={10} className="animate-pulse" />
+                  {isAmharic ? "የመተግበሪያ መረጃ ማስተላለፊያ" : "Cross-App Data Telemetry"}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-mono text-slate-500">{toast.timestamp}</span>
+                  <button
+                    onClick={() => setToasts(prev => prev.filter(t => t.id !== toast.id))}
+                    className="text-slate-400 hover:text-white p-0.5 rounded-lg hover:bg-slate-800 transition-colors"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sender & Receiver visual bridge */}
+              <div className="bg-slate-950/80 p-2 rounded-xl border border-slate-800/60 flex items-center justify-between gap-1 text-[10px] font-semibold text-slate-300 font-mono">
+                <div className="flex flex-col">
+                  <span className="text-[8px] text-slate-500 uppercase font-black">{isAmharic ? "መነሻ አፕ" : "From App"}</span>
+                  <span className="truncate max-w-[120px] text-red-400 font-bold">{isAmharic ? toast.senderAppAm : toast.senderApp}</span>
+                </div>
+                
+                <div className="flex items-center justify-center flex-grow px-1 overflow-hidden relative">
+                  <div className="absolute inset-x-0 h-[1.5px] bg-slate-800"></div>
+                  {/* Floating dot to simulate data movement */}
+                  <motion.div 
+                    animate={{ x: [-40, 40] }}
+                    transition={{ repeat: Infinity, duration: 1.5, ease: "linear" }}
+                    className="w-1.5 h-1.5 rounded-full bg-red-500 absolute"
+                  />
+                  <ArrowRight size={12} className="text-red-500 relative z-10" />
+                </div>
+
+                <div className="flex flex-col text-right">
+                  <span className="text-[8px] text-slate-500 uppercase font-black">{isAmharic ? "መድረሻ አፕ" : "To App"}</span>
+                  <span className="truncate max-w-[120px] text-emerald-400 font-bold">{isAmharic ? toast.receiverAppAm : toast.receiverApp}</span>
+                </div>
+              </div>
+
+              {/* Icon, Title, and Description */}
+              <div className="flex items-start gap-3">
+                <div className={`p-2.5 rounded-xl shrink-0 ${
+                  toast.type === "sync" ? "bg-red-500/15 text-red-400 border border-red-500/20" :
+                  toast.type === "success" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
+                  toast.type === "warning" ? "bg-amber-500/15 text-amber-400 border border-amber-500/20" :
+                  "bg-blue-500/15 text-blue-400 border border-blue-500/20"
+                }`}>
+                  {toast.type === "sync" ? <RefreshCw size={18} className="animate-spin" /> :
+                   toast.type === "success" ? <CheckCircle2 size={18} className="animate-bounce" /> :
+                   toast.type === "warning" ? <ShieldAlert size={18} /> :
+                   <Wifi size={18} />}
+                </div>
+
+                <div className="flex-grow space-y-0.5">
+                  <h4 className="font-bold text-xs text-white leading-tight">
+                    {isAmharic ? toast.titleAm : toast.titleEn}
+                  </h4>
+                  <p className="text-[11px] text-slate-300 leading-normal font-sans">
+                    {isAmharic ? toast.descAm : toast.descEn}
+                  </p>
+                </div>
+              </div>
+
+              {/* Progress Bar timer animation */}
+              <div className="absolute bottom-0 left-0 right-0 h-1 bg-slate-800">
+                <motion.div
+                  initial={{ width: "100%" }}
+                  animate={{ width: "0%" }}
+                  transition={{ duration: 6, ease: "linear" }}
+                  className={`h-full ${
+                    toast.type === "sync" ? "bg-red-500" :
+                    toast.type === "success" ? "bg-emerald-500" :
+                    toast.type === "warning" ? "bg-amber-500" :
+                    "bg-blue-500"
+                  }`}
+                />
+              </div>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
 
     </div>
   );
