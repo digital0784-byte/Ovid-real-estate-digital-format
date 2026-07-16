@@ -1,101 +1,271 @@
 {
   "entities": {
-    "Worker": {
-      "title": "Worker",
-      "description": "Represents an OVID site worker registered in the roster.",
+    "User": {
+      "title": "User",
+      "description": "Represents a system user with authentication and role-based access controls.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "Employee ID (e.g., OVID-W-101)" },
-        "name": { "type": "string" },
-        "photo": { "type": "string" },
-        "phoneNumber": { "type": "string" },
-        "nationalId": { "type": "string" },
-        "gender": { "type": "string", "enum": ["Male", "Female", "Other"] },
-        "dateOfBirth": { "type": "string" },
-        "address": { "type": "string" },
-        "emergencyContact": { "type": "string" },
-        "company": { "type": "string" },
-        "department": { "type": "string" },
-        "trade": { "type": "string" },
-        "position": { "type": "string" },
-        "employmentType": { "type": "string" },
-        "joinedDate": { "type": "string" },
-        "assignedProject": { "type": "string" },
-        "building": { "type": "string" },
-        "floor": { "type": "number" },
-        "zone": { "type": "string" },
-        "teamLeader": { "type": "string" },
-        "gangChief": { "type": "string" },
-        "supervisor": { "type": "string" },
-        "qrCode": { "type": "string" },
-        "faceRecognitionData": { "type": "string" },
-        "fingerprint": { "type": "string" },
-        "status": { "type": "string", "enum": ["Active", "Inactive"] },
-        "teamId": { "type": "string" }
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager"] },
+        "status": { "type": "string", "enum": ["Active", "Suspended"] },
+        "createdAt": { "type": "string" },
+        "phoneNumber": { "type": "string" }
       },
-      "required": ["id", "name", "company", "department", "trade", "status", "teamId"]
+      "required": ["uid", "email", "role", "status"]
     },
-    "AttendanceRecord": {
-      "title": "AttendanceRecord",
-      "description": "Represents a single daily check-in/out session for a worker, including overtime calculations.",
+    "Project": {
+      "title": "Project",
+      "description": "Represents an enterprise construction project master document.",
       "type": "object",
       "properties": {
-        "id": { "type": "string", "description": "Attendance Record ID (e.g., ATT-1001)" },
-        "workerId": { "type": "string" },
-        "workerName": { "type": "string" },
-        "department": { "type": "string" },
-        "trade": { "type": "string" },
-        "company": { "type": "string" },
-        "building": { "type": "string" },
-        "floor": { "type": "number" },
-        "zone": { "type": "string" },
-        "date": { "type": "string" },
-        "checkIn": { "type": "string" },
-        "checkOut": { "type": "string" },
-        "method": { "type": "string" },
-        "workingHours": { "type": "number" },
-        "overtime": { "type": "number" },
-        "status": { "type": "string", "enum": ["Present", "Absent", "Late", "Leave", "Holiday"] },
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "location": { "type": "string" },
+        "budget": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Planning", "Active", "Completed", "On Hold"] },
+        "managerId": { "type": "string" }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "Site": {
+      "title": "Site",
+      "description": "Represents a specific physical site under a project division.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "name": { "type": "string" },
+        "address": { "type": "string" },
         "gpsCoordinates": {
           "type": "object",
           "properties": {
             "lat": { "type": "number" },
             "lng": { "type": "number" }
           }
-        },
-        "deviceId": { "type": "string" },
-        "verifiedBy": { "type": "string" },
-        "breakTime": { "type": "number" },
-        "netWorkingHours": { "type": "number" },
-        "remarks": { "type": "string" }
+        }
       },
-      "required": ["id", "workerId", "workerName", "date", "status"]
+      "required": ["id", "projectId", "name"]
     },
-    "PerformanceEvaluation": {
-      "title": "PerformanceEvaluation",
-      "description": "Represents a daily performance grading scorecard submitted for a worker.",
+    "Employee": {
+      "title": "Employee",
+      "description": "Detailed staff/employee profile record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "role": { "type": "string" },
+        "department": { "type": "string" },
+        "joinedDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["id", "name", "role", "status"]
+    },
+    "AttendanceRecord": {
+      "title": "AttendanceRecord",
+      "description": "Represents a single daily check-in/out session for a worker, including biometric validation.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "workerId": { "type": "string" },
         "workerName": { "type": "string" },
         "date": { "type": "string" },
-        "discipline": { "type": "number" },
-        "quality": { "type": "number" },
-        "productivity": { "type": "number" },
-        "safetyCompliance": { "type": "number" },
-        "teamwork": { "type": "number" },
-        "attendance": { "type": "number" },
-        "totalScore": { "type": "number" },
-        "level": { "type": "string", "enum": ["Excellent", "Very Good", "Good", "Average", "Poor"] },
-        "comment": { "type": "string" },
-        "evaluatedBy": { "type": "string" }
+        "checkIn": { "type": "string" },
+        "checkOut": { "type": "string" },
+        "method": { "type": "string", "enum": ["Fingerprint", "FaceID", "Manual", "RFID"] },
+        "workingHours": { "type": "number" },
+        "overtime": { "type": "number" },
+        "status": { "type": "string", "enum": ["Present", "Absent", "Late", "Leave", "Holiday"] }
       },
-      "required": ["id", "workerId", "workerName", "date", "totalScore", "level", "evaluatedBy"]
+      "required": ["id", "workerId", "workerName", "date", "status"]
+    },
+    "Payroll": {
+      "title": "Payroll",
+      "description": "Represents monthly payroll calculations, basic pay, deductions, and overtime totals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "month": { "type": "string" },
+        "basicSalary": { "type": "number" },
+        "overtimePay": { "type": "number" },
+        "allowances": { "type": "number" },
+        "deductions": { "type": "number" },
+        "netPayable": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Approved", "Paid"] }
+      },
+      "required": ["id", "employeeId", "month", "netPayable", "status"]
+    },
+    "Material": {
+      "title": "Material",
+      "description": "Represents cataloged build materials with global specifications.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "unit": { "type": "string" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "name", "unit"]
+    },
+    "Inventory": {
+      "title": "Inventory",
+      "description": "Represents active inventory balances, quantities, and reorder levels across sites.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "siteId": { "type": "string" },
+        "materialId": { "type": "string" },
+        "quantity": { "type": "number" },
+        "reorderLevel": { "type": "number" },
+        "lastUpdated": { "type": "string" }
+      },
+      "required": ["id", "siteId", "materialId", "quantity"]
+    },
+    "Equipment": {
+      "title": "Equipment",
+      "description": "Represents heavy machinery and asset lists deployed at sites.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "status": { "type": "string", "enum": ["Available", "In Use", "Maintenance", "Broken"] },
+        "assignedSiteId": { "type": "string" }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "Vehicle": {
+      "title": "Vehicle",
+      "description": "Fleet vehicles and transport dispatch assets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "plateNumber": { "type": "string" },
+        "type": { "type": "string" },
+        "status": { "type": "string", "enum": ["Operational", "In Service", "Under Repair"] }
+      },
+      "required": ["id", "plateNumber", "status"]
+    },
+    "FormworkPanel": {
+      "title": "FormworkPanel",
+      "description": "Formwork systems inventory, tracking casting steel panel installations and stripping cycles.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "dimensions": { "type": "string" },
+        "totalQty": { "type": "number" },
+        "deployedQty": { "type": "number" }
+      },
+      "required": ["id", "type", "totalQty"]
+    },
+    "CADFile": {
+      "title": "CADFile",
+      "description": "Represents blueprinted engineering CAD drawings and revision hashes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "version": { "type": "string" },
+        "fileUrl": { "type": "string" },
+        "uploadedBy": { "type": "string" },
+        "uploadedAt": { "type": "string" }
+      },
+      "required": ["id", "title", "version", "fileUrl"]
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "description": "Unified site supervisor daily progress journal entries.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "siteId": { "type": "string" },
+        "date": { "type": "string" },
+        "progressHighlights": { "type": "string" },
+        "incidents": { "type": "string" },
+        "submittedBy": { "type": "string" }
+      },
+      "required": ["id", "siteId", "date", "submittedBy"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "Real-time critical systems alert payload.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "title": { "type": "string" },
+        "message": { "type": "string" },
+        "type": { "type": "string" },
+        "read": { "type": "boolean" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "recipientId", "title", "message", "read", "timestamp"]
+    },
+    "Approval": {
+      "title": "Approval",
+      "description": "Multi-stage enterprise ERP approval workflows.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string", "enum": ["Purchase Request", "Overtime Approval", "Contract Signing", "Leave Request"] },
+        "requesterId": { "type": "string" },
+        "approverId": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected"] },
+        "details": { "type": "string" },
+        "amount": { "type": "number" }
+      },
+      "required": ["id", "type", "requesterId", "status"]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "On-site and administrative cash flow outflows.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "projectId": { "type": "string" },
+        "category": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Paid"] },
+        "date": { "type": "string" }
+      },
+      "required": ["id", "projectId", "category", "amount", "status"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Client billing and billing receivables registers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "clientName": { "type": "string" },
+        "amount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Sent", "Paid", "Overdue"] },
+        "dueDate": { "type": "string" }
+      },
+      "required": ["id", "clientName", "amount", "status"]
+    },
+    "Contract": {
+      "title": "Contract",
+      "description": "Enterprise subcontractors and procurement vendor contracts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "party": { "type": "string" },
+        "value": { "type": "number" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Completed", "Terminated"] }
+      },
+      "required": ["id", "title", "party", "value", "status"]
     },
     "AuditLog": {
       "title": "AuditLog",
-      "description": "System-wide tracking logs for operations performed inside the workspace.",
+      "description": "Continuous compliance security audit trails.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -110,21 +280,81 @@
     }
   },
   "firestore": {
-    "/workers/{workerId}": {
-      "schema": "Worker",
-      "description": "Master registered employee records."
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "System access user roles mapping registry."
+    },
+    "/projects/{projectId}": {
+      "schema": "Project",
+      "description": "Master registered projects."
+    },
+    "/sites/{siteId}": {
+      "schema": "Site",
+      "description": "Construction site registries."
+    },
+    "/employees/{employeeId}": {
+      "schema": "Employee",
+      "description": "Master employee records."
     },
     "/attendance/{attendanceId}": {
       "schema": "AttendanceRecord",
-      "description": "Secured site attendance checking logs and overtime balances."
+      "description": "Secured site attendance checking logs."
     },
-    "/evaluations/{evaluationId}": {
-      "schema": "PerformanceEvaluation",
-      "description": "Grades recorded during foreman & site supervisor evaluation shifts."
+    "/payroll/{payrollId}": {
+      "schema": "Payroll",
+      "description": "Payroll records."
+    },
+    "/materials/{materialId}": {
+      "schema": "Material",
+      "description": "Material spec files."
+    },
+    "/inventory/{inventoryId}": {
+      "schema": "Inventory",
+      "description": "Material quantities deployed on site."
+    },
+    "/equipment/{equipmentId}": {
+      "schema": "Equipment",
+      "description": "Site heavy machinery inventory lists."
+    },
+    "/vehicles/{vehicleId}": {
+      "schema": "Vehicle",
+      "description": "Fleet vehicles and transport dispatch assets."
+    },
+    "/formworkPanels/{panelId}": {
+      "schema": "FormworkPanel",
+      "description": "Steel formwork panels state inventory."
+    },
+    "/cadFiles/{cadId}": {
+      "schema": "CADFile",
+      "description": "Engineering CAD drawings and schema specs."
+    },
+    "/dailyReports/{reportId}": {
+      "schema": "DailyReport",
+      "description": "Unified site supervisor daily progress journal entries."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "Notification",
+      "description": "Real-time system alarms."
+    },
+    "/approvals/{approvalId}": {
+      "schema": "Approval",
+      "description": "Multi-stage corporate ERP workflows."
+    },
+    "/expenses/{expenseId}": {
+      "schema": "Expense",
+      "description": "Active site cash flow spend logbook."
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Billing invoicing tracking logs."
+    },
+    "/contracts/{contractId}": {
+      "schema": "Contract",
+      "description": "Subcontractors and procurement contract specs."
     },
     "/auditLogs/{logId}": {
       "schema": "AuditLog",
-      "description": "Continuous compliance security audit trails."
+      "description": "Immutable security tracking audit logs."
     }
   }
 }

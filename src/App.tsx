@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { DbService } from "./services/db";
 import { 
   initialWorkers, 
   initialTeams, 
@@ -49,7 +50,11 @@ import { SurveyingInstrumentModule } from "./components/SurveyingInstrumentModul
 import { LoginScreen } from "./components/LoginScreen";
 import { SecuritySettingsHub } from "./components/SecuritySettingsHub";
 import { EnterpriseErpHub } from "./components/EnterpriseErpHub";
+import { FinanceErpHub } from "./components/FinanceErpHub";
 import { WorkerProfiles } from "./components/WorkerProfiles";
+import { FormworkManagement } from "./components/FormworkManagement";
+import { MobileAppsHub } from "./components/MobileAppsHub";
+import { LaunchReadinessHub } from "./components/LaunchReadinessHub";
 
 // Lucide Icons
 import { 
@@ -81,41 +86,30 @@ import {
   Radio,
   Bell,
   X,
-  ArrowRight
+  ArrowRight,
+  Grid,
+  DollarSign,
+  Smartphone,
+  Rocket
 } from "lucide-react";
 
 export default function App() {
-  // Master State Arrays
-  const [workers, setWorkers] = useState<Worker[]>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("ovid_workers");
-      if (stored) {
-        try { return JSON.parse(stored); } catch (e) { console.error(e); }
-      }
-    }
-    return initialWorkers;
-  });
-  const [teams, setTeams] = useState<Team[]>(initialTeams);
-  const [zones, setZones] = useState<ProjectZone[]>(initialZones);
-  const [attendance, setAttendance] = useState<AttendanceRecord[]>(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("ovid_attendance");
-      if (stored) {
-        try { return JSON.parse(stored); } catch (e) { console.error(e); }
-      }
-    }
-    return initialAttendance;
-  });
-  const [evaluations, setEvaluations] = useState<PerformanceEvaluation[]>(initialEvaluations);
-  const [progressLogs, setProgressLogs] = useState<DailyProgressLog[]>(initialProgressLogs);
-  const [safetyLogs, setSafetyLogs] = useState<SafetyLog[]>(initialSafetyLogs);
-  const [qualitySnags, setQualitySnags] = useState<QualitySnag[]>(initialQualitySnags);
-  const [qualityLogs, setQualityLogs] = useState<QualityLog[]>(initialQualityLogs);
+  // Master State Arrays loaded dynamically from DbService
+  const [workers, setWorkers] = useState<Worker[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [zones, setZones] = useState<ProjectZone[]>([]);
+  const [attendance, setAttendance] = useState<AttendanceRecord[]>([]);
+  const [evaluations, setEvaluations] = useState<PerformanceEvaluation[]>([]);
+  const [progressLogs, setProgressLogs] = useState<DailyProgressLog[]>([]);
+  const [safetyLogs, setSafetyLogs] = useState<SafetyLog[]>([]);
+  const [qualitySnags, setQualitySnags] = useState<QualitySnag[]>([]);
+  const [qualityLogs, setQualityLogs] = useState<QualityLog[]>([]);
   const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
+  const [isLoading, setIsLoading] = useState(true);
 
   // Shell UI parameters
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.HEAD_OFFICE);
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(initialAuditLogs);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [projectDocsSubTab, setProjectDocsSubTab] = useState<"newModule" | "vault">("newModule");
@@ -205,6 +199,9 @@ export default function App() {
       "Projects & Docs": "Projects & Site Documents",
       "Surveying & Concrete": "Surveying & Concrete",
       "Enterprise ERP Suite": "Enterprise ERP Suite",
+      "Finance ERP Hub": "Finance ERP Hub",
+      "Mobile Apps": "Mobile Apps Hub",
+      "Launch Readiness": "Commercial Launch Center",
     },
     am: {
       "Dashboard": "ዋና ሰሌዳ (Dashboard)",
@@ -223,6 +220,9 @@ export default function App() {
       "Safety & Quality": "ደህንነት እና ጥራት (Safety/Quality)",
       "AI Predictions": "አይአይ ትንበያ (AI Predictions)",
       "Enterprise ERP Suite": "የድርጅት ERP ስብስብ (ERP Suite)",
+      "Finance ERP Hub": "የፋይናንስ ኢአርፒ ማዕከል (Finance ERP)",
+      "Mobile Apps": "የሞባይል መተግበሪያዎች (Mobile Apps Hub)",
+      "Launch Readiness": "የንግድ ስራ ማስጀመሪያ (Launch Readiness)",
       "Admin": "አስተዳደር ፓነል (Admin)",
       "Workers Present": "የመጡ ሰራተኞች",
       "Late": "የዘገዩ",
@@ -271,16 +271,20 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "securitySettings"],
-    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "securitySettings"]
+    [UserRole.SUPER_ADMIN]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.HR_MANAGER]: ["dashboard", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"]
   };
 
   const t = (key: string): string => {
@@ -288,18 +292,60 @@ export default function App() {
     return translations[lang][key] || key;
   };
 
-  // Synchronize master state arrays to localStorage for offline permanence on construction site
+  // Load master datasets from the real database service
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ovid_attendance", JSON.stringify(attendance));
+    let active = true;
+    async function loadAllData() {
+      try {
+        setIsLoading(true);
+        const [
+          fetchedWorkers,
+          fetchedTeams,
+          fetchedZones,
+          fetchedAttendance,
+          fetchedEvaluations,
+          fetchedProgress,
+          fetchedSafety,
+          fetchedSnags,
+          fetchedQuality,
+          fetchedAudit
+        ] = await Promise.all([
+          DbService.getWorkers(),
+          DbService.getTeams(),
+          DbService.getZones(),
+          DbService.getAttendance(),
+          DbService.getEvaluations(),
+          DbService.getProgressLogs(),
+          DbService.getSafetyLogs(),
+          DbService.getQualitySnags(),
+          DbService.getQualityLogs(),
+          DbService.getAuditLogs()
+        ]);
+        if (active) {
+          setWorkers(fetchedWorkers);
+          setTeams(fetchedTeams);
+          setZones(fetchedZones);
+          setAttendance(fetchedAttendance);
+          setEvaluations(fetchedEvaluations);
+          setProgressLogs(fetchedProgress);
+          setSafetyLogs(fetchedSafety);
+          setQualitySnags(fetchedSnags);
+          setQualityLogs(fetchedQuality);
+          setAuditLogs(fetchedAudit);
+        }
+      } catch (e) {
+        console.error("Error loading master datasets:", e);
+      } finally {
+        if (active) {
+          setIsLoading(false);
+        }
+      }
     }
-  }, [attendance]);
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("ovid_workers", JSON.stringify(workers));
-    }
-  }, [workers]);
+    loadAllData();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   // Handle window online/offline events for unstable network indicator
   React.useEffect(() => {
@@ -570,48 +616,38 @@ export default function App() {
 
     setAuditLogs((prev) => [newLog, ...prev]);
     triggerNotificationToast(action, details);
+    DbService.addAuditLog(newLog).catch(e => console.error("Error writing audit log:", e));
 
     // Fetch GPS coordinates asynchronously
     if (isSensitive) {
       if (navigator.geolocation) {
         navigator.geolocation.getCurrentPosition(
           (position) => {
+            const gps = {
+              latitude: parseFloat(position.coords.latitude.toFixed(6)),
+              longitude: parseFloat(position.coords.longitude.toFixed(6)),
+              accuracy: Math.round(position.coords.accuracy),
+              status: "acquired" as const
+            };
             setAuditLogs((prevLogs) =>
-              prevLogs.map((log) =>
-                log.id === logId
-                  ? {
-                      ...log,
-                      gps: {
-                        latitude: parseFloat(position.coords.latitude.toFixed(6)),
-                        longitude: parseFloat(position.coords.longitude.toFixed(6)),
-                        accuracy: Math.round(position.coords.accuracy),
-                        status: "acquired" as const
-                      }
-                    }
-                  : log
-              )
+              prevLogs.map((log) => (log.id === logId ? { ...log, gps } : log))
             );
+            DbService.addAuditLog({ ...newLog, gps }).catch(e => console.error(e));
           },
           (error) => {
             console.warn("Geolocation failed/denied, utilizing high-fidelity simulated construction site coordinates", error);
-            // Addis Ababa Bole Heights B1 Construction Site default fallback
             const simulatedLat = parseFloat((9.011743 + (Math.random() - 0.5) * 0.0004).toFixed(6));
             const simulatedLng = parseFloat((38.794651 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+            const gps = {
+              latitude: simulatedLat,
+              longitude: simulatedLng,
+              accuracy: 12,
+              status: "acquired" as const
+            };
             setAuditLogs((prevLogs) =>
-              prevLogs.map((log) =>
-                log.id === logId
-                  ? {
-                      ...log,
-                      gps: {
-                        latitude: simulatedLat,
-                        longitude: simulatedLng,
-                        accuracy: 12,
-                        status: "acquired" as const
-                      }
-                    }
-                  : log
-              )
+              prevLogs.map((log) => (log.id === logId ? { ...log, gps } : log))
             );
+            DbService.addAuditLog({ ...newLog, gps }).catch(e => console.error(e));
           },
           { enableHighAccuracy: true, timeout: 4500, maximumAge: 0 }
         );
@@ -619,27 +655,22 @@ export default function App() {
         // No geolocation API, fallback directly
         const simulatedLat = parseFloat((9.011743 + (Math.random() - 0.5) * 0.0004).toFixed(6));
         const simulatedLng = parseFloat((38.794651 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+        const gps = {
+          latitude: simulatedLat,
+          longitude: simulatedLng,
+          accuracy: 15,
+          status: "acquired" as const
+        };
         setAuditLogs((prevLogs) =>
-          prevLogs.map((log) =>
-            log.id === logId
-              ? {
-                  ...log,
-                  gps: {
-                    latitude: simulatedLat,
-                    longitude: simulatedLng,
-                    accuracy: 15,
-                    status: "acquired" as const
-                  }
-                }
-              : log
-          )
+          prevLogs.map((log) => (log.id === logId ? { ...log, gps } : log))
         );
+        DbService.addAuditLog({ ...newLog, gps }).catch(e => console.error(e));
       }
     }
   };
 
   // State Manipulation Handlers
-  const handleAddAttendance = (record: AttendanceRecord) => {
+  const handleAddAttendance = async (record: AttendanceRecord) => {
     setAttendance((prev) => {
       const exists = prev.some((r) => r.id === record.id);
       if (exists) {
@@ -647,68 +678,83 @@ export default function App() {
       }
       return [record, ...prev];
     });
+    await DbService.addAttendanceRecord(record);
     logAction("Biometric Attendance Logged", `Clocked ${record.checkOut ? "OUT" : "IN"} worker ${record.workerName} via ${record.method}. Status: ${record.status}`);
   };
 
-  const handleUpdateZone = (updatedZone: ProjectZone) => {
+  const handleUpdateZone = async (updatedZone: ProjectZone) => {
     setZones((prev) => prev.map((z) => (z.id === updatedZone.id ? updatedZone : z)));
+    await DbService.updateZone(updatedZone);
     logAction("Zone Plan Updated", `Updated completion stats for Zone ${updatedZone.zone} on floor ${updatedZone.floor}. Overall Completion: ${updatedZone.completionPercentage}%`);
   };
 
-  const handleAddZone = (newZone: ProjectZone) => {
+  const handleAddZone = async (newZone: ProjectZone) => {
     setZones((prev) => {
       if (prev.some((z) => z.id === newZone.id)) return prev;
       return [...prev, newZone];
     });
+    await DbService.updateZone(newZone);
     logAction("New Zone Created", `Created structural project zone ${newZone.id} in building ${newZone.building}`);
   };
 
-  const handleAddLog = (newLog: DailyProgressLog) => {
+  const handleAddLog = async (newLog: DailyProgressLog) => {
     setProgressLogs((prev) => [newLog, ...prev]);
+    await DbService.addProgressLog(newLog);
     logAction("Daily Progress Logged", `Logged formwork metrics for ${newLog.zone}. Installed: ${newLog.installedPanels} panels, Stripped: ${newLog.removedPanels} panels.`);
   };
 
-  const handleAddEvaluation = (newEval: PerformanceEvaluation) => {
+  const handleAddEvaluation = async (newEval: PerformanceEvaluation) => {
     setEvaluations((prev) => [newEval, ...prev]);
+    await DbService.addEvaluation(newEval);
     logAction("Worker Performance Evaluated", `Evaluated worker ${newEval.workerName}. Overall Score: ${newEval.totalScore}/100. Rank: ${newEval.level}`);
   };
 
-  const handleAddSafetyLog = (newSafetyLog: SafetyLog) => {
+  const handleAddSafetyLog = async (newSafetyLog: SafetyLog) => {
     setSafetyLogs((prev) => [newSafetyLog, ...prev]);
+    await DbService.addSafetyLog(newSafetyLog);
     logAction("Safety Audit Registered", `Logged safety Toolbox topic: "${newSafetyLog.toolboxTopic}". Daily Safety Compliance Index: ${newSafetyLog.safetyScore}%`);
   };
 
-  const handleAddSnag = (newSnag: QualitySnag) => {
+  const handleAddSnag = async (newSnag: QualitySnag) => {
     setQualitySnags((prev) => [newSnag, ...prev]);
+    await DbService.addQualitySnag(newSnag);
     logAction("Quality Snag Logged", `Reported structural defect: "${newSnag.description}" under category "${newSnag.defectType}"`);
   };
 
-  const handleResolveSnag = (snagId: string) => {
+  const handleResolveSnag = async (snagId: string) => {
     setQualitySnags((prev) => 
       prev.map((snag) => snag.id === snagId ? { ...snag, status: "Resolved" } : snag)
     );
+    const target = qualitySnags.find(s => s.id === snagId);
+    if (target) {
+      await DbService.updateQualitySnag({ ...target, status: "Resolved" });
+    }
     logAction("Quality Snag Resolved", `Marked outstanding defect ID: ${snagId} as Resolved & verified.`);
   };
 
   // Admin roster operations
-  const handleAddWorker = (w: Worker) => {
+  const handleAddWorker = async (w: Worker) => {
     setWorkers((prev) => [...prev, w]);
+    await DbService.addWorker(w);
     logAction("Worker Registered", `Added worker ${w.name} (${w.trade}) to department ${w.department}`);
   };
 
-  const handleUpdateWorker = (updatedWorker: Worker) => {
+  const handleUpdateWorker = async (updatedWorker: Worker) => {
     setWorkers((prev) => prev.map((w) => (w.id === updatedWorker.id ? updatedWorker : w)));
+    await DbService.updateWorker(updatedWorker);
     logAction("Worker Profile Updated", `Modified credentials/skills for ${updatedWorker.name} (${updatedWorker.id})`);
   };
 
-  const handleDeleteWorker = (id: string) => {
+  const handleDeleteWorker = async (id: string) => {
     const worker = workers.find(w => w.id === id);
     setWorkers((prev) => prev.filter((w) => w.id !== id));
+    await DbService.deleteWorker(id);
     logAction("Worker Terminated", `Removed worker ${worker ? worker.name : id} from organization roster`);
   };
 
-  const handleAddTeam = (team: Team) => {
+  const handleAddTeam = async (team: Team) => {
     setTeams((prev) => [...prev, team]);
+    await DbService.addTeam(team);
     logAction("Construction Team Created", `Registered team "${team.name}" in department ${team.department}`);
   };
 
@@ -725,6 +771,29 @@ export default function App() {
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${role} | Metadata: ${JSON.stringify(loginLog)}`, role);
         }}
       />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans relative overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+        <div className="relative z-10 flex flex-col items-center space-y-6 max-w-md px-6 text-center">
+          <div className="p-4 bg-red-600/10 border border-red-500/30 text-red-500 rounded-2xl shadow-xl shadow-red-600/10 animate-pulse">
+            <RefreshCw size={40} className="animate-spin text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-white leading-tight">
+              {isAmharic ? "መረጃ በመጫን ላይ..." : "Loading ERP Core Database..."}
+            </h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed font-mono">
+              {isAmharic 
+                ? "እባክዎ የደመና መረጃ ቋት እና የደህንነት መቆጣጠሪያ እስኪመሳሰሉ ድረስ ይጠብቁ።" 
+                : "Synchronizing state registries with secure OVID construction telemetry database..."}
+            </p>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -858,6 +927,22 @@ export default function App() {
                 <Cpu size={15} className="text-red-500 animate-pulse" />
                 <span className="flex items-center gap-1">
                   {t("Enterprise ERP Suite")}
+                  <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
+                </span>
+              </button>
+            )}
+
+            {/* Finance ERP Hub Tab */}
+            {tabPermissions[currentUserRole]?.includes("financeErp") && (
+              <button
+                onClick={() => setActiveTab("financeErp")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "financeErp" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <DollarSign size={15} className="text-red-500 animate-pulse" />
+                <span className="flex items-center gap-1">
+                  {t("Finance ERP Hub")}
                   <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
                 </span>
               </button>
@@ -1006,6 +1091,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Aluminum Formwork Management Tab */}
+            {tabPermissions[currentUserRole]?.includes("formworkManagement") && (
+              <button
+                onClick={() => setActiveTab("formworkManagement")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "formworkManagement" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Grid size={15} className="text-red-500 animate-pulse" />
+                <span>{isAmharic ? "አሉሚኒየም ፎርምወርክ" : "Formwork Assets"}</span>
+              </button>
+            )}
+
             {/* Performance Rankings Tab */}
             {tabPermissions[currentUserRole]?.includes("performance") && (
               <button
@@ -1084,6 +1182,32 @@ export default function App() {
               </button>
             )}
 
+            {/* Mobile Apps Tab */}
+            {tabPermissions[currentUserRole]?.includes("mobileApps") && (
+              <button
+                onClick={() => setActiveTab("mobileApps")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-indigo-400 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "mobileApps" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Smartphone size={15} />
+                <span>{t("Mobile Apps")}</span>
+              </button>
+            )}
+
+            {/* Launch Readiness Tab */}
+            {tabPermissions[currentUserRole]?.includes("launchReadiness") && (
+              <button
+                onClick={() => setActiveTab("launchReadiness")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-orange-400 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "launchReadiness" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Rocket size={15} />
+                <span>{t("Launch Readiness")}</span>
+              </button>
+            )}
+
             {/* Security & Settings Tab */}
             {tabPermissions[currentUserRole]?.includes("securitySettings") && (
               <button
@@ -1135,6 +1259,13 @@ export default function App() {
           <EnterpriseErpHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "financeErp" && (
+          <FinanceErpHub 
+            isAmharic={isAmharic}
             onLogAction={(action, details) => logAction(action, details)}
           />
         )}
@@ -1308,6 +1439,24 @@ export default function App() {
           />
         )}
 
+        {activeTab === "formworkManagement" && (
+          <FormworkManagement
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserName={
+              currentUserRole === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem (Head Office Admin)" :
+              currentUserRole === UserRole.PROJECT_MANAGER ? "Eng. Dawit (Project Manager)" :
+              currentUserRole === UserRole.SECTION_HEAD ? "Alemayehu Kebede (Section Head)" :
+              currentUserRole === UserRole.SUPERVISOR ? "Kassa Hunegn (Supervisor)" :
+              currentUserRole === UserRole.SITE_ENGINEER ? "Sintayehu Alula (Site Engineer)" :
+              currentUserRole === UserRole.SURVEYOR ? "Tadesse Chala (Surveyor)" :
+              currentUserRole === UserRole.TIME_KEEPER ? "Abebe Girma (Time Keeper)" :
+              currentUserRole === UserRole.TEAM_LEADER ? "Yohannes Bekele (Team Leader)" :
+              currentUserRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" : "Bekele Tesfaye (Worker)"
+            }
+          />
+        )}
+
         {activeTab === "performance" && (
           <Performance 
             workers={workers} 
@@ -1375,6 +1524,25 @@ export default function App() {
             logs={auditLogs} 
             isAmharic={isAmharic}
             t={t}
+          />
+        )}
+
+        {activeTab === "mobileApps" && tabPermissions[currentUserRole]?.includes("mobileApps") && (
+          <MobileAppsHub 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+            workers={workers}
+            teams={teams}
+            onAddSnag={(newSnag) => setQualitySnags(prev => [newSnag, ...prev])}
+          />
+        )}
+
+        {activeTab === "launchReadiness" && tabPermissions[currentUserRole]?.includes("launchReadiness") && (
+          <LaunchReadinessHub 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
 

@@ -11,7 +11,13 @@ import {
   SystemNotification,
   AttendanceMethod,
   UserRole,
-  AuditLog
+  AuditLog,
+  AluminumFormworkPanel,
+  PanelMovementLog,
+  PanelDamageReport,
+  PanelRepairRecord,
+  PanelType,
+  PanelStatus
 } from "./types";
 
 // Seed Workers
@@ -417,3 +423,179 @@ export const dictionaryAmharic: Record<string, string> = {
   "Save": "አስቀምጥ",
   "Close": "ዝጋ"
 };
+
+export const initialFormworkPanels: AluminumFormworkPanel[] = [
+  {
+    id: "AFP-1001",
+    serialNumber: "SN-AL-889021",
+    bundleNumber: "BDL-44",
+    size: "1200x600 mm",
+    type: PanelType.WALL,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 4 Zone A",
+    status: PanelStatus.IN_USE,
+    usageCount: 42,
+    createdAt: "2025-01-10T08:00:00Z"
+  },
+  {
+    id: "AFP-1002",
+    serialNumber: "SN-AL-889022",
+    bundleNumber: "BDL-44",
+    size: "1200x600 mm",
+    type: PanelType.WALL,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 4 Zone A",
+    status: PanelStatus.IN_USE,
+    usageCount: 42,
+    createdAt: "2025-01-10T08:00:00Z"
+  },
+  {
+    id: "AFP-1003",
+    serialNumber: "SN-AL-889023",
+    bundleNumber: "BDL-44",
+    size: "2400x450 mm",
+    type: PanelType.WALL,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 4 Zone B",
+    status: PanelStatus.ACTIVE,
+    usageCount: 38,
+    createdAt: "2025-01-12T09:30:00Z"
+  },
+  {
+    id: "AFP-1004",
+    serialNumber: "SN-AL-554101",
+    bundleNumber: "BDL-12",
+    size: "900x400 mm",
+    type: PanelType.BEAM,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 3 Zone C",
+    status: PanelStatus.DAMAGED,
+    usageCount: 56,
+    createdAt: "2025-01-15T11:00:00Z"
+  },
+  {
+    id: "AFP-1005",
+    serialNumber: "SN-AL-332190",
+    bundleNumber: "BDL-09",
+    size: "1200x600 mm",
+    type: PanelType.SLAB,
+    quantity: 1,
+    location: "OVID Saris Block B",
+    zone: "Floor 2 Zone A",
+    status: PanelStatus.UNDER_REPAIR,
+    usageCount: 65,
+    createdAt: "2025-01-20T14:15:00Z"
+  },
+  {
+    id: "AFP-1006",
+    serialNumber: "SN-AL-110098",
+    bundleNumber: "BDL-03",
+    size: "1200x1200 mm",
+    type: PanelType.COLUMN,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 4 Zone A",
+    status: PanelStatus.MISSING,
+    usageCount: 15,
+    createdAt: "2025-02-01T10:00:00Z"
+  },
+  {
+    id: "AFP-1007",
+    serialNumber: "SN-AL-443122",
+    bundleNumber: "BDL-15",
+    size: "200x200 mm",
+    type: PanelType.CORNER,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 4 Zone A",
+    status: PanelStatus.IN_USE,
+    usageCount: 22,
+    createdAt: "2025-02-05T13:45:00Z"
+  },
+  {
+    id: "AFP-1008",
+    serialNumber: "SN-AL-776251",
+    bundleNumber: "BDL-31",
+    size: "Custom Curved",
+    type: PanelType.SPECIAL,
+    quantity: 1,
+    location: "OVID Bole Heights",
+    zone: "Floor 4 Zone B",
+    status: PanelStatus.ACTIVE,
+    usageCount: 10,
+    createdAt: "2025-02-10T16:20:00Z"
+  }
+];
+
+export const initialMovementLogs: PanelMovementLog[] = [
+  {
+    id: "PMV-101",
+    panelId: "AFP-1001",
+    fromLocation: "Central Warehouse",
+    fromZone: "Storage A",
+    toLocation: "OVID Bole Heights",
+    toZone: "Floor 4 Zone A",
+    timestamp: "2025-06-10T08:30:00Z",
+    movedBy: "Fikru Tolossa (Gang Chief)",
+    notes: "Assigned for high-accuracy shear wall layout"
+  },
+  {
+    id: "PMV-102",
+    panelId: "AFP-1002",
+    fromLocation: "Central Warehouse",
+    fromZone: "Storage A",
+    toLocation: "OVID Bole Heights",
+    toZone: "Floor 4 Zone A",
+    timestamp: "2025-06-10T08:32:00Z",
+    movedBy: "Fikru Tolossa (Gang Chief)"
+  },
+  {
+    id: "PMV-103",
+    panelId: "AFP-1004",
+    fromLocation: "OVID Bole Heights",
+    fromZone: "Floor 3 Zone C",
+    toLocation: "Site Scrap Yard",
+    toZone: "Audit Area",
+    timestamp: "2025-06-14T11:45:00Z",
+    movedBy: "Eng. Yoseph Hailu",
+    notes: "Damaged during heavy slab concrete pouring"
+  }
+];
+
+export const initialDamageReports: PanelDamageReport[] = [
+  {
+    id: "PDR-501",
+    panelId: "AFP-1004",
+    severity: "High",
+    description: "Flange bent and surface dented during formwork stripping using hammers",
+    reportedBy: "Bekele Tesfaye (Carpenter)",
+    reportedDate: "2025-06-14",
+    status: "Reported"
+  },
+  {
+    id: "PDR-502",
+    panelId: "AFP-1005",
+    severity: "Medium",
+    description: "Corner weld separation on frame",
+    reportedBy: "Aster Gudeta (Carpenter)",
+    reportedDate: "2025-06-12",
+    status: "In Repair"
+  }
+];
+
+export const initialRepairRecords: PanelRepairRecord[] = [
+  {
+    id: "PRR-901",
+    panelId: "AFP-1005",
+    damageReportId: "PDR-502",
+    technician: "Mulugeta Welding Works",
+    repairDetails: "Re-welded frame corners with high-strength aluminum alloy and ground flat",
+    cost: 1500,
+    repairDate: "2025-06-15"
+  }
+];
+

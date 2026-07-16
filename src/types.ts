@@ -1,14 +1,18 @@
 export enum UserRole {
+  SUPER_ADMIN = "Super Admin",
   HEAD_OFFICE = "Head Office",
   PROJECT_MANAGER = "Project Manager",
-  SECTION_HEAD = "Section Head",
-  SUPERVISOR = "Supervisor",
   SITE_ENGINEER = "Site Engineer",
-  SURVEYOR = "Surveyor",
+  SUPERVISOR = "Supervisor",
+  TIME_KEEPER = "Time Keeper",
   TEAM_LEADER = "Team Leader",
   GANG_CHIEF = "Gang Chief",
-  TIME_KEEPER = "Time Keeper",
-  WORKER = "Worker"
+  WORKER = "Worker",
+  STORE_MANAGER = "Store Manager",
+  HR_MANAGER = "HR Manager",
+  FINANCE_MANAGER = "Finance Manager",
+  SECTION_HEAD = "Section Head",
+  SURVEYOR = "Surveyor"
 }
 
 export interface AuditLog {
@@ -286,3 +290,67 @@ export interface AIPredictionsResult {
   weeklyManagementReport: string; // Markdown formatted report
   generatedAt: string;
 }
+
+export enum PanelType {
+  WALL = "Wall Panel",
+  BEAM = "Beam Panel",
+  SLAB = "Slab Panel",
+  COLUMN = "Column Panel",
+  CORNER = "Corner Panel",
+  SPECIAL = "Special Panel"
+}
+
+export enum PanelStatus {
+  ACTIVE = "Active",
+  IN_USE = "In Use",
+  DAMAGED = "Damaged",
+  UNDER_REPAIR = "Under Repair",
+  MISSING = "Missing"
+}
+
+export interface AluminumFormworkPanel {
+  id: string;
+  serialNumber: string;
+  bundleNumber: string;
+  size: string;
+  type: PanelType;
+  quantity: number;
+  location: string;
+  zone: string;
+  status: PanelStatus;
+  usageCount: number;
+  createdAt: string;
+}
+
+export interface PanelMovementLog {
+  id: string;
+  panelId: string;
+  fromLocation: string;
+  fromZone: string;
+  toLocation: string;
+  toZone: string;
+  timestamp: string;
+  movedBy: string;
+  notes?: string;
+}
+
+export interface PanelDamageReport {
+  id: string;
+  panelId: string;
+  severity: "Low" | "Medium" | "High";
+  description: string;
+  reportedBy: string;
+  reportedDate: string;
+  status: "Reported" | "In Repair" | "Repaired" | "Scrapped";
+}
+
+export interface PanelRepairRecord {
+  id: string;
+  panelId: string;
+  damageReportId: string;
+  technician: string;
+  repairDetails: string;
+  cost: number;
+  repairDate: string;
+}
+

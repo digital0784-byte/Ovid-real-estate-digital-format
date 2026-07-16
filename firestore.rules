@@ -2,22 +2,70 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Global safety net
+    // Global default safety net: Lock down all documents
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Common global helper functions
+    // ==========================================
+    // SECURITY UTILITIES & HELPER FUNCTIONS
+    // ==========================================
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isEmailVerified() {
-      return request.auth.token.email_verified == true;
+    // Retrieve active user profile and roles from the secure users collection
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    function getUserRole() {
+      return getUserData().role;
+    }
+
+    // Role membership predicates
+    function hasRole(role) {
+      return isSignedIn() && getUserRole() == role;
+    }
+
+    function isSuperAdmin() {
+      return hasRole('Super Admin');
+    }
+
+    function isHeadOffice() {
+      return hasRole('Head Office');
+    }
+
+    function isProjectManager() {
+      return hasRole('Project Manager');
+    }
+
+    function isSiteEngineer() {
+      return hasRole('Site Engineer');
+    }
+
+    function isSupervisor() {
+      return hasRole('Supervisor');
+    }
+
+    function isTimeKeeper() {
+      return hasRole('Time Keeper');
+    }
+
+    function isStoreManager() {
+      return hasRole('Store Manager');
+    }
+
+    function isHRManager() {
+      return hasRole('HR Manager');
+    }
+
+    function isFinanceManager() {
+      return hasRole('Finance Manager');
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
     }
 
     function incoming() {
@@ -28,83 +76,121 @@ service cloud.firestore {
       return resource.data;
     }
 
-    // Validation for Worker entity
-    function isValidWorker(data) {
-      return data.id is string && data.id.size() <= 64 &&
-             data.name is string && data.name.size() <= 128 &&
-             data.company is string && data.company.size() <= 128 &&
-             data.department is string && data.department.size() <= 128 &&
-             data.trade is string && data.trade.size() <= 128 &&
-             data.status is string && (data.status == "Active" || data.status == "Inactive") &&
-             data.teamId is string && data.teamId.size() <= 64;
+    // ID validation sanity check
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
-    // Validation for Attendance Record
-    function isValidAttendanceRecord(data) {
-      return data.id is string && data.id.size() <= 64 &&
-             data.workerId is string && data.workerId.size() <= 64 &&
-             data.workerName is string && data.workerName.size() <= 128 &&
-             data.date is string && data.date.size() == 10 &&
-             data.status is string && (data.status == "Present" || data.status == "Absent" || data.status == "Late" || data.status == "Leave" || data.status == "Holiday") &&
-             (data.workingHours is number && data.workingHours >= 0 && data.workingHours <= 24) &&
-             (data.overtime is number && data.overtime >= 0 && data.overtime <= 24);
-    }
+    // ==========================================
+    // MODULE-SPECIFIC RULE MATCHING
+    // ==========================================
 
-    // Validation for Performance Evaluation
-    function isValidPerformanceEvaluation(data) {
-      return data.id is string && data.id.size() <= 64 &&
-             data.workerId is string && data.workerId.size() <= 64 &&
-             data.workerName is string && data.workerName.size() <= 128 &&
-             data.date is string && data.date.size() == 10 &&
-             data.totalScore is number && data.totalScore >= 0 && data.totalScore <= 100 &&
-             data.level is string && (data.level == "Excellent" || data.level == "Very Good" || data.level == "Good" || data.level == "Average" || data.level == "Poor") &&
-             data.evaluatedBy is string && data.evaluatedBy.size() <= 128;
-    }
-
-    // Validation for Audit Log
-    function isValidAuditLog(data) {
-      return data.id is string && data.id.size() <= 64 &&
-             data.timestamp is string && data.timestamp.size() <= 64 &&
-             data.userId is string && data.userId.size() <= 128 &&
-             data.userName is string && data.userName.size() <= 128 &&
-             data.role is string && data.action is string && data.action.size() <= 256 &&
-             data.details is string && data.details.size() <= 2048;
-    }
-
-    // MATCH BLOCK: Workers
-    match /workers/{workerId} {
+    // 1. Users collection
+    match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(workerId) && isValidWorker(incoming());
-      allow update: if isSignedIn() && isValidId(workerId) && isValidWorker(incoming()) && (
-        incoming().diff(existing()).affectedKeys().hasOnly(['status', 'assignedProject', 'building', 'floor', 'zone'])
-      );
-      allow delete: if isSignedIn();
+      allow create, update: if isSuperAdmin() || isHeadOffice() || isOwner(userId);
+      allow delete: if isSuperAdmin();
     }
 
-    // MATCH BLOCK: Attendance records
+    // 2. Projects & Sites
+    match /projects/{projectId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+    match /sites/{siteId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+
+    // 3. Employees
+    match /employees/{employeeId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+    }
+
+    // 4. Attendance (Requires Time Keeper, Supervisor or higher)
     match /attendance/{attendanceId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(attendanceId) && isValidAttendanceRecord(incoming());
-      allow update: if isSignedIn() && isValidId(attendanceId) && isValidAttendanceRecord(incoming()) && (
-        // Action Check: Checkout session completion or foreman correction
-        incoming().diff(existing()).affectedKeys().hasAny(['checkOut', 'workingHours', 'overtime', 'status', 'remarks'])
-      );
-      allow delete: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isTimeKeeper() || isSupervisor() || isProjectManager();
     }
 
-    // MATCH BLOCK: Evaluations
-    match /evaluations/{evaluationId} {
+    // 5. Payroll
+    match /payroll/{payrollId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isHRManager() || (isSignedIn() && incoming().employeeId == request.auth.uid);
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
+
+    // 6. Materials & Inventory
+    match /materials/{materialId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(evaluationId) && isValidPerformanceEvaluation(incoming());
-      allow update: if isSignedIn() && isValidId(evaluationId) && isValidPerformanceEvaluation(incoming());
-      allow delete: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+    }
+    match /inventory/{inventoryId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
 
-    // MATCH BLOCK: Audit Logs
+    // 7. Equipment & Vehicles
+    match /equipment/{equipmentId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+    }
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+    }
+
+    // 8. Formwork Panels
+    match /formworkPanels/{panelId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+
+    // 9. CAD Files
+    match /cadFiles/{cadId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isProjectManager();
+    }
+
+    // 10. Daily Reports
+    match /dailyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+
+    // 11. Notifications
+    match /notifications/{notifId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager();
+    }
+
+    // 12. Approvals
+    match /approvals/{approvalId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isFinanceManager() || isHRManager();
+      allow delete: if isSuperAdmin();
+    }
+
+    // 13. Expenses, Invoices, & Contracts
+    match /expenses/{expenseId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
+    match /invoices/{invoiceId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
+    match /contracts/{contractId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
+
+    // 14. Audit Logs (Append-Only and strictly Immutable once written)
     match /auditLogs/{logId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming());
-      allow update, delete: if false; // Audit logs are write-once and immutable
+      allow read: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow create: if isSignedIn() && isValidId(logId);
+      allow update, delete: if false;
     }
   }
 }

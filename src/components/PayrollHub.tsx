@@ -114,6 +114,15 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+
+  // Stakeholder report dispatching states
+  const [reportType, setReportType] = useState<"attendance" | "overtime" | "payroll">("attendance");
+  const [sendToTeamLeader, setSendToTeamLeader] = useState(true);
+  const [sendToTimeKeeper, setSendToTimeKeeper] = useState(true);
+  const [sendToHeadOffice, setSendToHeadOffice] = useState(true);
+  const [reportNotes, setReportNotes] = useState("");
+  const [isSendingReport, setIsSendingReport] = useState(false);
+  const [reportSentSuccess, setReportSentSuccess] = useState(false);
   
   // Security Toggles
   const [encryptData, setEncryptData] = useState(false);
@@ -1260,6 +1269,194 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
               </div>
             </div>
 
+          </div>
+
+          {/* Dynamic Stakeholder Dispatch Desk */}
+          <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-6 space-y-4 no-print">
+            <div className="flex items-center space-x-2 text-slate-900 font-bold border-b border-slate-200 pb-3">
+              <Sparkles size={18} className="text-red-500 animate-pulse" />
+              <h4 className="text-sm font-extrabold">{isAmharic ? "ስማርት ሪፖርት መላኪያ ማዕከል" : "Stakeholder Report Dispatch Desk"}</h4>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left Form */}
+              <div className="space-y-4 text-xs">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">{isAmharic ? "የሪፖርት ዓይነት ይምረጡ" : "1. Select Report Focus Area"}</label>
+                  <select
+                    value={reportType}
+                    onChange={(e) => setReportType(e.target.value as any)}
+                    className="w-full bg-white border border-slate-200 rounded-lg p-2.5 focus:border-red-500 font-medium outline-none"
+                  >
+                    <option value="attendance">
+                      {isAmharic ? "የዕለት መገኘትና የመግቢያ/መውጫ ሪፖርት (Attendance Percentage Audit)" : "Employee Attendance Percentage & 4-Point Audit"}
+                    </option>
+                    <option value="overtime">
+                      {isAmharic ? "የትርፍ ሰዓትና የተጣራ የስራ ሰዓት ሪፖርት (Overtime Allowances Sheet)" : "Overtime Hours & Wage Payments Statement"}
+                    </option>
+                    <option value="payroll">
+                      {isAmharic ? "የደመወዝ ክፍያና የቅጣት እርምጃዎች ሪፖርት (Financial Smart Payroll Ledger)" : "Master Smart Payroll & Shortage Deductions Ledger"}
+                    </option>
+                  </select>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="font-bold text-slate-700 block">{isAmharic ? "ተቀባይ አካላትን ይምረጡ" : "2. Select Authorized Recipients"}</label>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    {/* Team Leader */}
+                    <label className={`p-3 rounded-xl border flex items-center space-x-3 cursor-pointer transition-all ${sendToTeamLeader ? 'bg-white border-red-500 shadow-xs' : 'bg-slate-100/50 border-slate-200 text-slate-400'}`}>
+                      <input
+                        type="checkbox"
+                        checked={sendToTeamLeader}
+                        onChange={(e) => setSendToTeamLeader(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border ${sendToTeamLeader ? 'bg-red-500 border-red-500 text-white' : 'border-slate-300 bg-white'}`}>
+                        {sendToTeamLeader && <CheckCircle2 size={10} className="text-white bg-red-500 rounded-full" />}
+                      </div>
+                      <div>
+                        <span className="font-bold block text-slate-800">{isAmharic ? "የቡድን መሪ" : "Team Leader"}</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">Yohannes Bekele</span>
+                      </div>
+                    </label>
+
+                    {/* Time Keeper */}
+                    <label className={`p-3 rounded-xl border flex items-center space-x-3 cursor-pointer transition-all ${sendToTimeKeeper ? 'bg-white border-red-500 shadow-xs' : 'bg-slate-100/50 border-slate-200 text-slate-400'}`}>
+                      <input
+                        type="checkbox"
+                        checked={sendToTimeKeeper}
+                        onChange={(e) => setSendToTimeKeeper(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border ${sendToTimeKeeper ? 'bg-red-500 border-red-500 text-white' : 'border-slate-300 bg-white'}`}>
+                        {sendToTimeKeeper && <CheckCircle2 size={10} className="text-white bg-red-500 rounded-full" />}
+                      </div>
+                      <div>
+                        <span className="font-bold block text-slate-800">{isAmharic ? "ሰዓት ቆጣሪ" : "Time Keeper"}</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">Abebe Girma</span>
+                      </div>
+                    </label>
+
+                    {/* Head Office */}
+                    <label className={`p-3 rounded-xl border flex items-center space-x-3 cursor-pointer transition-all ${sendToHeadOffice ? 'bg-white border-red-500 shadow-xs' : 'bg-slate-100/50 border-slate-200 text-slate-400'}`}>
+                      <input
+                        type="checkbox"
+                        checked={sendToHeadOffice}
+                        onChange={(e) => setSendToHeadOffice(e.target.checked)}
+                        className="sr-only"
+                      />
+                      <div className={`w-4 h-4 rounded flex items-center justify-center border ${sendToHeadOffice ? 'bg-red-500 border-red-500 text-white' : 'border-slate-300 bg-white'}`}>
+                        {sendToHeadOffice && <CheckCircle2 size={10} className="text-white bg-red-500 rounded-full" />}
+                      </div>
+                      <div>
+                        <span className="font-bold block text-slate-800">{isAmharic ? "ዋና መስሪያ ቤት" : "Head Office"}</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">Eng. Yoseph</span>
+                      </div>
+                    </label>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Notes & Send Button */}
+              <div className="space-y-4 text-xs flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700">{isAmharic ? "ለተቀባዮች መልዕክት ወይም ማሳሰቢያ ይጻፉ" : "3. Custom Instructions / Notes"}</label>
+                  <textarea
+                    value={reportNotes}
+                    onChange={(e) => setReportNotes(e.target.value)}
+                    placeholder={isAmharic ? "የሪፖርት ማብራሪያ ወይም ተጨማሪ ማስታወሻዎች..." : "Write optional instructions or specific warnings regarding late clock-ins or overtime adjustments..."}
+                    className="w-full bg-white border border-slate-200 rounded-lg p-2.5 min-h-[90px] focus:outline-none focus:border-red-500"
+                  />
+                </div>
+
+                <div>
+                  <button
+                    onClick={() => {
+                      if (!sendToTeamLeader && !sendToTimeKeeper && !sendToHeadOffice) {
+                        alert(isAmharic ? "እባክዎን ቢያንስ አንድ ተቀባይ ይምረጡ!" : "Please select at least one recipient!");
+                        return;
+                      }
+                      setIsSendingReport(true);
+                      setReportSentSuccess(false);
+
+                      setTimeout(() => {
+                        setIsSendingReport(false);
+                        setReportSentSuccess(true);
+                        
+                        // Formulate recipients string
+                        const recipientsList: string[] = [];
+                        if (sendToTeamLeader) recipientsList.push("Team Leader (Yohannes Bekele)");
+                        if (sendToTimeKeeper) recipientsList.push("Time Keeper (Abebe Girma)");
+                        if (sendToHeadOffice) recipientsList.push("Head Office (Eng. Yoseph)");
+                        const recStr = recipientsList.join(", ");
+
+                        // Add dynamic notification
+                        const focusTitle = reportType === "attendance" ? "Attendance Percentage Audit" 
+                          : reportType === "overtime" ? "Overtime Payments Statement" 
+                          : "Smart Payroll Ledger";
+
+                        const notifMessage = `Compiled ${focusTitle} successfully transmitted to: ${recStr}. ${reportNotes ? 'Notes: ' + reportNotes : ''}`;
+                        
+                        const newNotif: PayrollNotification = {
+                          id: `N-PAY-${Math.floor(100 + Math.random() * 900)}`,
+                          type: "payroll_ready",
+                          recipient: sendToHeadOffice ? "Head Office" : "Authorized Personnel",
+                          title: `Auto-Report Dispatched: ${focusTitle}`,
+                          message: notifMessage,
+                          timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
+                          read: false
+                        };
+                        setNotifications(prev => [newNotif, ...prev]);
+
+                        // Add audit log
+                        addAuditLog(
+                          "Report Dispatched", 
+                          `Automated ${focusTitle} sent to ${recStr}.`
+                        );
+
+                        setReportNotes("");
+                        
+                        // Auto clear success msg after 5s
+                        setTimeout(() => {
+                          setReportSentSuccess(false);
+                        }, 5000);
+
+                      }, 1500);
+                    }}
+                    disabled={isSendingReport}
+                    className="w-full bg-red-600 hover:bg-red-700 text-white font-black text-xs py-3 rounded-xl transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer disabled:bg-slate-400 disabled:cursor-not-allowed text-center uppercase"
+                  >
+                    {isSendingReport ? (
+                      <>
+                        <RefreshCw size={14} className="animate-spin" />
+                        <span>{isAmharic ? "በመላክ ላይ ነው..." : "Compiling & Transmitting Report..."}</span>
+                      </>
+                    ) : (
+                      <>
+                        <FileText size={14} />
+                        <span>{isAmharic ? "ሪፖርት ላክ" : "Compile & Dispatch Report to Stakeholders"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Success Animation Notification */}
+            {reportSentSuccess && (
+              <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl p-4 text-xs font-bold flex items-center space-x-3 shadow-xs animate-fadeIn">
+                <CheckCircle2 size={16} className="text-emerald-400 shrink-0 animate-bounce" />
+                <div className="space-y-0.5">
+                  <p>{isAmharic ? "ሪፖርት በተሳካ ሁኔታ ተልኳል!" : "Transmission Complete!"}</p>
+                  <p className="text-[10px] text-slate-400 font-normal">
+                    {isAmharic 
+                      ? "የመገኘት፣ የትርፍ ሰዓትና የደመወዝ መረጃዎች ለቡድን መሪው፣ ሰዓት ቆጣሪውና ለዋናው መስሪያ ቤት በደህንነት ተልከዋል።" 
+                      : `The compiled ${reportType} logs have been securely dispatched to the selected stakeholders. Audit trail updated.`}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* MASTER SUMMARY PREVIEW FOR PRINTING */}

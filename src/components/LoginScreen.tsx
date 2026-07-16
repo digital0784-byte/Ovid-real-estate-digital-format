@@ -124,15 +124,19 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   // Helper to map Employee ID to standard roles
   const getRoleFromEmpId = (id: string): UserRole => {
     const formatted = id.toUpperCase().trim();
-    if (formatted.startsWith("HO") || formatted === "YOSEPH" || formatted === "NURIYE" || formatted === "NURI" || formatted === "ADMIN") return UserRole.HEAD_OFFICE;
+    if (formatted.startsWith("SA") || formatted === "SUPERADMIN" || formatted === "ADMIN") return UserRole.SUPER_ADMIN;
+    if (formatted.startsWith("HO") || formatted === "YOSEPH" || formatted === "NURIYE" || formatted === "NURI") return UserRole.HEAD_OFFICE;
     if (formatted.startsWith("PM") || formatted === "DAWIT") return UserRole.PROJECT_MANAGER;
-    if (formatted.startsWith("SH") || formatted === "ALEMAYEHU") return UserRole.SECTION_HEAD;
-    if (formatted.startsWith("SV") || formatted === "KASSA") return UserRole.SUPERVISOR;
     if (formatted.startsWith("SE") || formatted === "SINTAYEHU") return UserRole.SITE_ENGINEER;
-    if (formatted.startsWith("SR") || formatted === "TADESSE") return UserRole.SURVEYOR;
+    if (formatted.startsWith("SV") || formatted === "KASSA") return UserRole.SUPERVISOR;
+    if (formatted.startsWith("TK") || formatted === "ABEBE") return UserRole.TIME_KEEPER;
     if (formatted.startsWith("TL") || formatted === "YOHANNES") return UserRole.TEAM_LEADER;
     if (formatted.startsWith("GC") || formatted === "FIKRU") return UserRole.GANG_CHIEF;
-    if (formatted.startsWith("TK") || formatted === "ABEBE") return UserRole.TIME_KEEPER;
+    if (formatted.startsWith("SM") || formatted === "MULUGETA") return UserRole.STORE_MANAGER;
+    if (formatted.startsWith("HR") || formatted === "TIGIST") return UserRole.HR_MANAGER;
+    if (formatted.startsWith("FM") || formatted === "BEMENT") return UserRole.FINANCE_MANAGER;
+    if (formatted.startsWith("SH") || formatted === "ALEMAYEHU") return UserRole.SECTION_HEAD;
+    if (formatted.startsWith("SR") || formatted === "TADESSE") return UserRole.SURVEYOR;
     return UserRole.WORKER;
   };
 
@@ -270,7 +274,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     setPrivacyAccepted(true);
     
     // Autofill matching role mock credentials
-    if (role === UserRole.HEAD_OFFICE) {
+    if (role === UserRole.SUPER_ADMIN) {
+      setEmail("admin@ovidrealestate.com");
+      setPassword("super_admin_pass_123");
+      setPhoneNumber("+251910001122");
+      setEmployeeId("OVID-SA-ADMIN");
+    } else if (role === UserRole.HEAD_OFFICE) {
       setEmail("mejennur669@gmail.com");
       setPassword("admin_pass_9981");
       setPhoneNumber("0910097862");
@@ -280,26 +289,56 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       setPassword("pm_sec_7721");
       setPhoneNumber("+251922334455");
       setEmployeeId("OVID-PM-01");
-    } else if (role === UserRole.SECTION_HEAD) {
-      setEmail("alemayehu@ovidrealestate.com");
-      setPassword("sh_sec_4411");
-      setPhoneNumber("+251933445566");
-      setEmployeeId("OVID-SH-01");
     } else if (role === UserRole.SITE_ENGINEER) {
       setEmail("sintayehu@ovidrealestate.com");
       setPassword("se_eng_5522");
       setPhoneNumber("+251944556677");
       setEmployeeId("OVID-SE-01");
-    } else if (role === UserRole.SURVEYOR) {
-      setEmail("tadesse.s@ovidrealestate.com");
-      setPassword("sv_pass_1100");
-      setPhoneNumber("+251955667788");
-      setEmployeeId("OVID-SR-01");
+    } else if (role === UserRole.SUPERVISOR) {
+      setEmail("kassa.sv@ovidrealestate.com");
+      setPassword("sv_pass_4433");
+      setPhoneNumber("+251955112233");
+      setEmployeeId("OVID-SV-01");
     } else if (role === UserRole.TIME_KEEPER) {
       setEmail("abebe.tk@ovidrealestate.com");
       setPassword("tk_pass_5566");
       setPhoneNumber("+251966778899");
       setEmployeeId("OVID-TK-01");
+    } else if (role === UserRole.TEAM_LEADER) {
+      setEmail("yohannes.tl@ovidrealestate.com");
+      setPassword("tl_pass_8899");
+      setPhoneNumber("+251977112233");
+      setEmployeeId("OVID-TL-01");
+    } else if (role === UserRole.GANG_CHIEF) {
+      setEmail("fikru.gc@ovidrealestate.com");
+      setPassword("gc_pass_2211");
+      setPhoneNumber("+251988112233");
+      setEmployeeId("OVID-GC-01");
+    } else if (role === UserRole.STORE_MANAGER) {
+      setEmail("mulugeta.sm@ovidrealestate.com");
+      setPassword("store_pass_99");
+      setPhoneNumber("+251999112233");
+      setEmployeeId("OVID-SM-01");
+    } else if (role === UserRole.HR_MANAGER) {
+      setEmail("tigist.hr@ovidrealestate.com");
+      setPassword("hr_pass_7766");
+      setPhoneNumber("+251911445566");
+      setEmployeeId("OVID-HR-01");
+    } else if (role === UserRole.FINANCE_MANAGER) {
+      setEmail("bement.fm@ovidrealestate.com");
+      setPassword("finance_pass_88");
+      setPhoneNumber("+251922445566");
+      setEmployeeId("OVID-FM-01");
+    } else if (role === UserRole.SECTION_HEAD) {
+      setEmail("alemayehu@ovidrealestate.com");
+      setPassword("sh_sec_4411");
+      setPhoneNumber("+251933445566");
+      setEmployeeId("OVID-SH-01");
+    } else if (role === UserRole.SURVEYOR) {
+      setEmail("tadesse.s@ovidrealestate.com");
+      setPassword("sv_pass_1100");
+      setPhoneNumber("+251955667788");
+      setEmployeeId("OVID-SR-01");
     } else {
       setEmail("bekele.w@ovidrealestate.com");
       setPassword("worker_pass");
@@ -366,14 +405,20 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                 <span className="text-red-500 font-bold">{isAmharic ? "አውቶሞቢል" : "AUTOFILL"}</span>
               </label>
 
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-2 gap-1.5 max-h-[180px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-800">
                 {[
+                  { role: UserRole.SUPER_ADMIN, label: isAmharic ? "ሱፐር አድሚን" : "Super Admin" },
                   { role: UserRole.HEAD_OFFICE, label: isAmharic ? "ዋና መስሪያ ቤት" : "Head Office" },
-                  { role: UserRole.PROJECT_MANAGER, label: isAmharic ? "ፕሮጀክት ስራ አስኪያጅ" : "Proj Manager" },
-                  { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ" : "Section Head" },
+                  { role: UserRole.PROJECT_MANAGER, label: isAmharic ? "ፕሮጀክት ስራ አስኪያጅ" : "Project Manager" },
                   { role: UserRole.SITE_ENGINEER, label: isAmharic ? "ሳይት መሃንዲስ" : "Site Engineer" },
-                  { role: UserRole.SURVEYOR, label: isAmharic ? "ሰርቬየር" : "Surveyor" },
+                  { role: UserRole.SUPERVISOR, label: isAmharic ? "ሳይት ተቆጣጣሪ" : "Supervisor" },
                   { role: UserRole.TIME_KEEPER, label: isAmharic ? "መገኘት ተቆጣጣሪ" : "Time Keeper" },
+                  { role: UserRole.TEAM_LEADER, label: isAmharic ? "ቡድን መሪ" : "Team Leader" },
+                  { role: UserRole.GANG_CHIEF, label: isAmharic ? "ጋንግ ቺፍ" : "Gang Chief" },
+                  { role: UserRole.STORE_MANAGER, label: isAmharic ? "መጋዘን ኃላፊ" : "Store Manager" },
+                  { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል ኃላፊ" : "HR Manager" },
+                  { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "ፋይናንስ ኃላፊ" : "Finance Manager" },
+                  { role: UserRole.WORKER, label: isAmharic ? "ሰራተኛ" : "Worker" }
                 ].map((item) => (
                   <button
                     key={item.role}
@@ -383,7 +428,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       selectedRole === item.role ? "border-red-500/80 bg-red-950/20 text-red-400" : "text-slate-300"
                     }`}
                   >
-                    <div className={`w-1.5 h-1.5 rounded-full ${selectedRole === item.role ? "bg-red-500" : "bg-slate-600"}`} />
+                    <div className={`w-1.5 h-1.5 rounded-full ${selectedRole === item.role ? "bg-red-500 animate-pulse" : "bg-slate-600"}`} />
                     <span>{item.label}</span>
                   </button>
                 ))}
