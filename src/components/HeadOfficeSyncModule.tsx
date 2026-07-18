@@ -21,8 +21,25 @@ import {
   Shield,
   Search,
   CheckCircle,
-  HelpCircle
+  HelpCircle,
+  History,
+  GitMerge,
+  Cpu,
+  Zap,
+  Server,
+  TrendingUp
 } from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer
+} from "recharts";
 import { Worker, AttendanceRecord, UserRole, AttendanceMethod, Team } from "../types";
 
 interface HeadOfficeSyncModuleProps {
@@ -65,6 +82,22 @@ interface SyncTransaction {
   hash: string;
 }
 
+interface SyncHistoryEvent {
+  id: string;
+  timestamp: string;
+  device: string;
+  recordsCount: number;
+  durationMs: number;
+  status: "Success" | "Warning" | "Failed";
+  integrityHash: string;
+  detailsEn: string;
+  detailsAm: string;
+  conflictsResolved: number;
+  bytesMerged: string;
+  connectionType: string;
+  steps: string[];
+}
+
 export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   workers,
   teams,
@@ -86,8 +119,131 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   // Simulated live data buffers
   const [localOfflineQueue, setLocalOfflineQueue] = useState<AttendanceRecord[]>([]);
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [activeTab, setActiveTab] = useState<"dashboard" | "database" | "notifications" | "security">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "syncHistory" | "database" | "notifications" | "security">("dashboard");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Sync History states
+  const [selectedSimDevice, setSelectedSimDevice] = useState<string>("DEV-TK-03");
+  const [simRecordsCount, setSimRecordsCount] = useState<number>(10);
+  const [isSimulatingMerge, setIsSimulatingMerge] = useState<boolean>(false);
+  const [simMergeProgress, setSimMergeProgress] = useState<number>(0);
+  const [simMergeStep, setSimMergeStep] = useState<string>("");
+  const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>("SYNC-20260717-0402");
+
+  const [syncHistory, setSyncHistory] = useState<SyncHistoryEvent[]>([
+    {
+      id: "SYNC-20260717-0402",
+      timestamp: "2026-07-17 08:32:11",
+      device: "DEV-TK-03 (Time Keeper Field Tablet)",
+      recordsCount: 14,
+      durationMs: 820,
+      status: "Success",
+      integrityHash: "SHA256:7B8F2A...3C1",
+      detailsEn: "Successfully merged 14 attendance records from Tower A scaffolding crew.",
+      detailsAm: "የህንጻ ብሎክ A 14 የመገኘት መዝገቦችን በስኬት አዋህዷል።",
+      conflictsResolved: 0,
+      bytesMerged: "3.5 KB",
+      connectionType: "Cellular (4G)",
+      steps: [
+        "Network bridge established over cellular network.",
+        "Device queue payload extracted: 14 entries.",
+        "Verification hash SHA256 matches device footprint.",
+        "Initiating duplicate detection sequence.",
+        "Zero scheduling or ID conflicts detected.",
+        "Bulk merge transaction finalized on Cloud ledger.",
+        "Device buffer purge confirmation sent and acknowledged."
+      ]
+    },
+    {
+      id: "SYNC-20260717-0315",
+      timestamp: "2026-07-17 07:15:00",
+      device: "DEV-SUP-04 (Site Supervisor Mobile Pad)",
+      recordsCount: 8,
+      durationMs: 1450,
+      status: "Warning",
+      integrityHash: "SHA256:49A88C...D8A",
+      detailsEn: "Merged 8 records. Resolved 1 scheduling conflict (duplicate clock-in bypassed).",
+      detailsAm: "8 መዝገቦችን አዋህዷል። 1 ድርብ መግቢያን በማስቀረት የግጭት መፍታት ተከናውኗል።",
+      conflictsResolved: 1,
+      bytesMerged: "2.1 KB",
+      connectionType: "Satellite (Starlink)",
+      steps: [
+        "Established Starlink telemetry handshake.",
+        "Buffer contains 8 active attendance logs.",
+        "Scanning for redundancy against central DB records.",
+        "Conflict discovered: Worker already had an active Clock-In session.",
+        "Resolution protocol: Retained earlier Cloud record, bypassed duplicate entry safely.",
+        "Completed transaction block write for 7 new entries.",
+        "Purged local device database buffer."
+      ]
+    },
+    {
+      id: "SYNC-20260716-1845",
+      timestamp: "2026-07-16 18:45:30",
+      device: "DEV-GC-08 (Gang Chief Biometric Scanner)",
+      recordsCount: 22,
+      durationMs: 650,
+      status: "Success",
+      integrityHash: "SHA256:A4B29E...E92",
+      detailsEn: "Bulk check-out merge for concrete shifting evening shift crew.",
+      detailsAm: "ለኮንክሪት ማፍሰስ ማታ ፈረቃ ሰራተኞች በጅምላ መውጫ ማዋሃድ ተጠናቋል።",
+      conflictsResolved: 0,
+      bytesMerged: "5.5 KB",
+      connectionType: "Wifi",
+      steps: [
+        "High-bandwidth site Wifi connection initialized.",
+        "Extracting bulk buffer: 22 records.",
+        "Integrity hashing passed validation.",
+        "Duplicate check completed: 0 conflicts.",
+        "Bulk transaction committed to cloud ledger.",
+        "Purged local buffer on DEV-GC-08."
+      ]
+    },
+    {
+      id: "SYNC-20260716-1210",
+      timestamp: "2026-07-16 12:10:05",
+      device: "DEV-TL-12 (Team Leader Cycle App)",
+      recordsCount: 5,
+      durationMs: 980,
+      status: "Success",
+      integrityHash: "SHA256:FF288A...881",
+      detailsEn: "Mid-day check-in sync for slab assembly team members.",
+      detailsAm: "የፎቅ ሰሌዳ ገጣሚ ቡድን አባላት የእኩለ ቀን መግቢያ ማመሳሰል።",
+      conflictsResolved: 0,
+      bytesMerged: "1.2 KB",
+      connectionType: "Cellular (4G)",
+      steps: [
+        "Established secure TLS session over cellular link.",
+        "Buffer received: 5 entries.",
+        "Payload verification: OK.",
+        "Duplicate check: No redundancy found.",
+        "Committed 5 entries to Master ledger.",
+        "Purged queue safely."
+      ]
+    },
+    {
+      id: "SYNC-20260715-0912",
+      timestamp: "2026-07-15 09:12:44",
+      device: "DEV-TK-03 (Time Keeper Field Tablet)",
+      recordsCount: 19,
+      durationMs: 1100,
+      status: "Success",
+      integrityHash: "SHA256:33D92A...11B",
+      detailsEn: "Morning roster synchronization complete. No issues.",
+      detailsAm: "የጠዋት የሰራተኞች መዝገብ ማመሳሰል ተጠናቋል። ምንም ችግር የለም።",
+      conflictsResolved: 0,
+      bytesMerged: "4.8 KB",
+      connectionType: "Cellular (4G)",
+      steps: [
+        "Established handshake with Field Tablet.",
+        "Roster load: 19 biometric scans verified.",
+        "Duplicate checking sequence run.",
+        "No duplicate records or timestamps found.",
+        "Saved 19 entries to main database collection.",
+        "Purged tablet local cache."
+      ]
+    }
+  ]);
 
   // Simulated Live Devices
   const [devices, setDevices] = useState<SimulatedDevice[]>([
@@ -105,7 +261,7 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       type: "outside_geofence",
       titleEn: "Geofence Violation Attempt",
       titleAm: "የአጥር ክልል ጥሰት ሙከራ",
-      messageEn: "Worker Bekele Tesfaye attempted Check-In 120m outside the authorized OVID Heights Site. Blocked.",
+      messageEn: "Worker Bekele Tesfaye attempted Check-In 120m outside the authorized Digital Construction ERP Heights Site. Blocked.",
       messageAm: "ሰራተኛ በቀለ ተስፋዬ ከተፈቀደው የቦሌ ሃይትስ ጊቢ ውጭ ሆኖ 120ሜ ርቀት ላይ ለመግባት ሙከራ አድርጓል። ታግዷል።",
       timestamp: "10:45 AM",
       isRead: false
@@ -135,8 +291,8 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       type: "verification_fail",
       titleEn: "Biometric Verification Failure",
       titleAm: "የባዮሜትሪክ መለያ ስህተት",
-      messageEn: "Multiple fingerprint recognition failures (3 times) on Scanner OVID-PAD-03.",
-      messageAm: "በመለያ ቁጥር OVID-PAD-03 ላይ የጣት አሻራ መለያ 3 ጊዜ በተደጋጋሚ አልተሳካም።",
+      messageEn: "Multiple fingerprint recognition failures (3 times) on Scanner Digital Construction ERP-PAD-03.",
+      messageAm: "በመለያ ቁጥር Digital Construction ERP-PAD-03 ላይ የጣት አሻራ መለያ 3 ጊዜ በተደጋጋሚ አልተሳካም።",
       timestamp: "Yesterday",
       isRead: true
     }
@@ -150,7 +306,7 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   ]);
 
   // Static list of Projects
-  const projectList = ["All Projects", "OVID Bole Heights", "OVID Ayat Project", "OVID CMC Sector", "OVID Lebu site"];
+  const projectList = ["All Projects", "Digital Bole Heights", "Digital Construction ERP Ayat Project", "Digital Construction ERP CMC Sector", "Digital Construction ERP Lebu site"];
   const buildingList = ["All Buildings", "Tower A", "Tower B", "Block C"];
   const floorList = ["All Floors", "Floor 1", "Floor 2", "Floor 3", "Floor 4", "Floor 5"];
   const zoneList = ["All Zones", "Zone A", "Zone B", "Zone C"];
@@ -206,6 +362,32 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       }));
 
       setSyncLogs(prev => [...newTXs, ...prev]);
+
+      // Create a new Sync History Session
+      const newHistorySession: SyncHistoryEvent = {
+        id: `SYNC-${new Date().toISOString().replace(/[-T:]/g, "").slice(0, 14)}`,
+        timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
+        device: "Various Buffers (Automated Reconnect)",
+        recordsCount: localOfflineQueue.length,
+        durationMs: Math.floor(600 + Math.random() * 600),
+        status: "Success",
+        integrityHash: `SHA256:${Math.random().toString(16).substring(2, 10).toUpperCase()}...F33`,
+        detailsEn: `Merged ${localOfflineQueue.length} buffered records from automatic reconnection.`,
+        detailsAm: `ካለማቋረጥ ግንኙነት በተገኘው መሠረት ${localOfflineQueue.length} ከመስመር ውጭ የቆዩ መዝገቦች ተዋህደዋል።`,
+        conflictsResolved: Math.floor(Math.random() * 2),
+        bytesMerged: `${(localOfflineQueue.length * 0.25).toFixed(2)} KB`,
+        connectionType: "Cellular (4G)",
+        steps: [
+          "Auto-reconnection handshake initiated.",
+          `Discovered ${localOfflineQueue.length} unsynced device buffers.`,
+          "Validating cryptographic hashes of payloads.",
+          "Performing duplicate record scans against Cloud ledger.",
+          `Successfully merged ${localOfflineQueue.length} records into main database.`,
+          "Device local database buffers successfully purged and acknowledged."
+        ]
+      };
+      setSyncHistory(prev => [newHistorySession, ...prev]);
+
       setLocalOfflineQueue([]);
       setIsSyncing(false);
 
@@ -310,9 +492,9 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       overtime: mode === "check-out" ? overtime : 0,
       status: alreadyExists?.status === "Late" ? "Late" : status,
       gpsCoordinates: { lat: 9.0125 + (Math.random() - 0.5) * 0.001, lng: 38.7834 + (Math.random() - 0.5) * 0.001 },
-      deviceUsed: "OVID-BIO-PAD-03",
+      deviceUsed: "Digital Construction ERP-BIO-PAD-03",
       verifiedBy: currentUserRole,
-      gpsLocationString: isAmharic ? "ቦሌ ሃይትስ ግንባታ ቦታ" : "OVID Bole Heights Site"
+      gpsLocationString: isAmharic ? "ቦሌ ሃይትስ ግንባታ ቦታ" : "Digital Bole Heights Site"
     };
 
     if (!isCloudOnline) {
@@ -366,11 +548,11 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       : (overtime > 2.0 ? "የትርፍ ሰዓት ገደብ ማስጠንቀቂያ" : "ሰራተኛ ወጥቷል");
 
     const msgEn = mode === "check-in"
-      ? `${worker.name} logged CHECK-IN at ${formattedTime}. Checked and verified by OVID Central Database.`
+      ? `${worker.name} logged CHECK-IN at ${formattedTime}. Checked and verified by Digital Construction ERP Central Database.`
       : `${worker.name} logged CHECK-OUT at ${formattedTime}. Hours: ${workingHours + overtime}h (Overtime: ${overtime}h). Verified.`;
 
     const msgAm = mode === "check-in"
-      ? `ሰራተኛ ${worker.name} በ${formattedTime} መግባቱን አስመዝግቧል። በኦቪድ ማዕከላዊ የደመና ዳታቤዝ ተረጋግጧል።`
+      ? `ሰራተኛ ${worker.name} በ${formattedTime} መግባቱን አስመዝግቧል። በዲጂታል ኮንስትራክሽን ERP ማዕከላዊ የደመና ዳታቤዝ ተረጋግጧል።`
       : `ሰራተኛ ${worker.name} በ${formattedTime} መውጣቱን አስመዝግቧል። የሰራው ሰዓት፡ ${workingHours + overtime}ሰ (ትርፍ ሰዓት፡ ${overtime}ሰ)።`;
 
     const newNotif: SmartNotification = {
@@ -424,12 +606,120 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   };
 
   // Helper values for project-level reporting & live metrics
+  const chartData = useMemo(() => {
+    return [...syncHistory].reverse().map(item => ({
+      name: item.timestamp.split(" ")[1] || item.timestamp,
+      records: item.recordsCount,
+      latency: item.durationMs,
+      conflicts: item.conflictsResolved
+    }));
+  }, [syncHistory]);
+
+  const handleSimulateSyncMerge = () => {
+    if (isSimulatingMerge) return;
+    
+    setIsSimulatingMerge(true);
+    setSimMergeProgress(0);
+    setSimMergeStep(isAmharic ? "ደህንነቱ የተጠበቀ ግንኙነት በመጀመር ላይ..." : "Initializing secure connection...");
+
+    const simulationSteps = [
+      { progress: 15, textEn: "Initializing secure TLS 1.3 cryptographic handshake...", textAm: "ደህንነቱ የተጠበቀ TLS 1.3 ክሪፕቶግራፊክ ግንኙነት በመጀመር ላይ..." },
+      { progress: 40, textEn: "Transmitting offline biometric database payloads...", textAm: "ከመስመር ውጭ የባዮሜትሪክ ዳታቤዝ መረጃዎችን በማስተላለፍ ላይ..." },
+      { progress: 65, textEn: "Verifying payload integrity via SHA-256 signatures...", textAm: "በSHA-256 ፊርማዎች አማካኝነት የመረጃውን ትክክለኛነት በማረጋገጥ ላይ..." },
+      { progress: 85, textEn: "Running multi-site conflict resolution & duplicate scans...", textAm: "ባለብዙ-ሳይት የግጭት መፍታት እና የተባዙ መዝገቦችን ፍለጋ በማካሄድ ላይ..." },
+      { progress: 100, textEn: "Merge completed successfully. Central database updated.", textAm: "ውህደት በስኬት ተጠናቋል። ማዕከላዊ ዳታቤዝ ተዘምኗል።" }
+    ];
+
+    let stepIdx = 0;
+    const interval = setInterval(() => {
+      if (stepIdx < simulationSteps.length) {
+        setSimMergeProgress(simulationSteps[stepIdx].progress);
+        setSimMergeStep(isAmharic ? simulationSteps[stepIdx].textAm : simulationSteps[stepIdx].textEn);
+        stepIdx++;
+      } else {
+        clearInterval(interval);
+        
+        const deviceObj = devices.find(d => d.id === selectedSimDevice) || devices[0];
+        const newSessionId = `SYNC-20260717-${Math.floor(1000 + Math.random() * 9000)}`;
+        const timestampStr = new Date().toISOString().replace("T", " ").slice(0, 19);
+        const randHash = `SHA256:${Math.random().toString(16).substring(2, 10).toUpperCase()}...${Math.random().toString(16).substring(2, 5).toUpperCase()}`;
+        
+        const newSession: SyncHistoryEvent = {
+          id: newSessionId,
+          timestamp: timestampStr,
+          device: `${deviceObj.id} (${deviceObj.name})`,
+          recordsCount: simRecordsCount,
+          durationMs: Math.floor(400 + Math.random() * 600),
+          status: Math.random() > 0.85 ? "Warning" : "Success",
+          integrityHash: randHash,
+          detailsEn: `Merged ${simRecordsCount} buffered records from ${deviceObj.name} site terminal.`,
+          detailsAm: `ከ${deviceObj.name} የመስክ ተርሚናል ${simRecordsCount} መዝገቦችን በስኬት አዋህዷል።`,
+          conflictsResolved: Math.random() > 0.8 ? 1 : 0,
+          bytesMerged: `${(simRecordsCount * 0.25).toFixed(2)} KB`,
+          connectionType: ["Cellular (4G)", "Wifi", "Satellite (Starlink)"][Math.floor(Math.random() * 3)],
+          steps: [
+            "Secure terminal bridge handshake completed.",
+            `Payload containing ${simRecordsCount} attendance scans parsed successfully.`,
+            `SHA-256 signature verified against signature ${randHash.split("...")[0]}.`,
+            "Conflict resolution engine checked 100% of rows.",
+            "0 structural integrity warnings detected during transaction check.",
+            "Committed transaction blocks safely to main cloud collection.",
+            "purge_local_cache() command issued to terminal device successfully."
+          ]
+        };
+
+        setSyncHistory(prev => [newSession, ...prev]);
+
+        // Dynamically add a few attendance records into the active roster
+        const availableWorkers = workers.filter(w => !attendance.some(a => a.workerId === w.id));
+        const todayDate = new Date().toISOString().split("T")[0];
+        
+        availableWorkers.slice(0, Math.min(availableWorkers.length, simRecordsCount)).forEach((w, i) => {
+          const mockRec: AttendanceRecord = {
+            id: `ATT-SYNC-${Date.now()}-${w.id}-${i}`,
+            workerId: w.id,
+            workerName: w.name,
+            department: w.department,
+            trade: w.trade,
+            company: w.company,
+            building: w.building || "Tower A",
+            floor: w.floor || 3,
+            zone: w.zone || "Zone B",
+            date: todayDate,
+            checkIn: "08:10:00",
+            checkOut: null,
+            method: AttendanceMethod.FINGERPRINT,
+            workingHours: 0,
+            overtime: 0,
+            status: "Present",
+            gpsCoordinates: { lat: 9.0125 + (Math.random() - 0.5) * 0.001, lng: 38.7834 + (Math.random() - 0.5) * 0.001 },
+            deviceUsed: deviceObj.name,
+            verifiedBy: "Time Keeper",
+            gpsLocationString: "Bole Heights Site (Cloud Merged)"
+          };
+          onAddAttendance(mockRec);
+        });
+
+        playSound("success");
+        setIsSimulatingMerge(false);
+        setSelectedHistoryId(newSessionId);
+
+        if (onLogAction) {
+          onLogAction(
+            "Offline Buffer Merged",
+            `Manual simulation of secure merging complete. Synced ${simRecordsCount} logs from ${deviceObj.name}. All signatures verified.`
+          );
+        }
+      }
+    }, 600);
+  };
+
   const filteredAttendance = useMemo(() => {
     return attendance.filter(a => {
       const worker = workers.find(w => w.id === a.workerId);
       if (!worker) return true;
 
-      const projectMatch = selectedProject === "All Projects" || (worker.assignedProject && worker.assignedProject === selectedProject) || (selectedProject === "OVID Bole Heights" && (!worker.assignedProject || worker.assignedProject === "OVID Bole Heights"));
+      const projectMatch = selectedProject === "All Projects" || (worker.assignedProject && worker.assignedProject === selectedProject) || (selectedProject === "Digital Bole Heights" && (!worker.assignedProject || worker.assignedProject === "Digital Bole Heights"));
       const buildingMatch = selectedBuilding === "All Buildings" || a.building === selectedBuilding;
       const floorMatch = selectedFloor === "All Floors" || `Floor ${a.floor}` === selectedFloor;
       const zoneMatch = selectedZone === "All Zones" || a.zone === selectedZone;
@@ -451,7 +741,7 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   // Aggregate Reporting Indicators
   const totalEmployees = useMemo(() => {
     return workers.filter(w => {
-      const projectMatch = selectedProject === "All Projects" || w.assignedProject === selectedProject || (selectedProject === "OVID Bole Heights" && !w.assignedProject);
+      const projectMatch = selectedProject === "All Projects" || w.assignedProject === selectedProject || (selectedProject === "Digital Bole Heights" && !w.assignedProject);
       const buildingMatch = selectedBuilding === "All Buildings" || w.building === selectedBuilding;
       const floorMatch = selectedFloor === "All Floors" || (w.floor && `Floor ${w.floor}` === selectedFloor);
       const zoneMatch = selectedZone === "All Zones" || w.zone === selectedZone;
@@ -503,8 +793,8 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
             </h1>
             <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
               {isAmharic 
-                ? "በኦቪድ ሪል እስቴት ግንባታ ሳይቶች መካከል የሚደረግ የባዮሜትሪክ የጣት አሻራ መገኘት፣ የጂፒኤስ ማረጋገጫ፣ የትርፍ ሰዓት ስሌት እና የቀጥታ ዳታቤዝ ማመሳሰያ የቁጥጥር ሰሌዳ።"
-                : "Real-time synchronization bridge coupling high-performance biometrics with OVID head office reporting. Aggregates multi-project workforce distribution, handles decentralized geofenced client buffers, and executes instant hours compilation."}
+                ? "በዲጂታል ኮንስትራክሽን ERP ሲስተም ግንባታ ሳይቶች መካከል የሚደረግ የባዮሜትሪክ የጣት አሻራ መገኘት፣ የጂፒኤስ ማረጋገጫ፣ የትርፍ ሰዓት ስሌት እና የቀጥታ ዳታቤዝ ማመሳሰያ የቁጥጥር ሰሌዳ።"
+                : "Real-time synchronization bridge coupling high-performance biometrics with Digital Construction ERP head office reporting. Aggregates multi-project workforce distribution, handles decentralized geofenced client buffers, and executes instant hours compilation."}
             </p>
           </div>
 
@@ -544,6 +834,7 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       <div className="flex border-b border-slate-200 bg-white px-4 pt-1 rounded-t-xl">
         {[
           { id: "dashboard", labelEn: "Head Office Report Dashboard", labelAm: "የዋና መስሪያ ቤት ሪፖርት ሰሌዳ", icon: Activity },
+          { id: "syncHistory", labelEn: "Data Sync History", labelAm: "የመረጃ ማመሳሰል ታሪክ", icon: History },
           { id: "database", labelEn: "Central Synced Database", labelAm: "የደመና ዳታቤዝ መዝገብ", icon: Database },
           { id: "notifications", labelEn: `Smart Notifications (${unreadCount})`, labelAm: `ብልህ ማሳወቂያዎች (${unreadCount})`, icon: Bell },
           { id: "security", labelEn: "Security & RBAC Audits", labelAm: "የደህንነት እና ኦዲት መዝገብ", icon: ShieldCheck }
@@ -718,10 +1009,10 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                     <span className="font-bold text-slate-700 block text-[11px]">{isAmharic ? "መገኘት በግንባታ ፕሮጄክት (By Project)" : "Attendance by Project Site"}</span>
                     <div className="space-y-2">
                       {[
-                        { name: "OVID Bole Heights", rate: attendancePercentage, count: presentTodayCount },
-                        { name: "OVID Ayat Project", rate: 88, count: 12 },
-                        { name: "OVID CMC Sector", rate: 75, count: 8 },
-                        { name: "OVID Lebu site", rate: 92, count: 11 }
+                        { name: "Digital Bole Heights", rate: attendancePercentage, count: presentTodayCount },
+                        { name: "Digital Construction ERP Ayat Project", rate: 88, count: 12 },
+                        { name: "Digital Construction ERP CMC Sector", rate: 75, count: 8 },
+                        { name: "Digital Construction ERP Lebu site", rate: 92, count: 11 }
                       ].map((item, idx) => (
                         <div key={idx} className="space-y-1">
                           <div className="flex justify-between text-[11px] font-semibold text-slate-600">
@@ -1081,9 +1372,9 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                           overtime: 0,
                           status: "Present",
                           gpsCoordinates: { lat: 9.011743, lng: 38.794651 },
-                          deviceUsed: "OVID-BIO-PAD-03",
+                          deviceUsed: "Digital Construction ERP-BIO-PAD-03",
                           verifiedBy: currentUserRole,
-                          gpsLocationString: isAmharic ? "ቦሌ ሃይትስ ግንባታ ቦታ" : "OVID Bole Heights Site"
+                          gpsLocationString: isAmharic ? "ቦሌ ሃይትስ ግንባታ ቦታ" : "Digital Bole Heights Site"
                         };
                       });
                       setLocalOfflineQueue(prev => [...prev, ...newRecords]);
@@ -1196,6 +1487,364 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
         </div>
       )}
 
+      {/* TAB CONTENT: DATA SYNCHRONIZATION HISTORY */}
+      {activeTab === "syncHistory" && (
+        <div className="space-y-6 animate-fade-in">
+          {/* HEADER SECTION */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-wider text-slate-800 flex items-center space-x-2">
+                  <History className="text-red-600" size={16} />
+                  <span>{isAmharic ? "ከመስመር ውጭ የመረጃ ማመሳሰል ታሪክ ሰሌዳ" : "Offline Data Synchronization History & Ledger"}</span>
+                </h3>
+                <p className="text-[11px] text-slate-500 mt-1">
+                  {isAmharic 
+                    ? "ከኢንተርኔት ግንኙነት ውጭ የቆዩ የመስክ ዳታ በፎርምዎርክ ተርሚናሎች የተዋሃዱበት እና ፊርማቸው የተረጋገጠበት የጊዜ መስመር ኦዲት።" 
+                    : "Cryptographic audit trail mapping the chronological timeline of offline terminal buffers merging with central databases."}
+                </p>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-3 py-1.5 rounded-xl flex items-center space-x-1 font-mono">
+                  <ShieldCheck size={11} className="text-emerald-500" />
+                  <span>AES-GCM VALID</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* KPI METRICS OVERVIEW */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center space-x-4">
+              <div className="p-3.5 bg-slate-50 text-slate-700 rounded-xl shrink-0 border border-slate-100">
+                <Layers size={20} />
+              </div>
+              <div className="space-y-0.5 leading-none">
+                <span className="text-[9px] text-slate-400 font-black uppercase tracking-wider block">{isAmharic ? "ጠቅላላ ውህደቶች" : "Total Sync Blocks"}</span>
+                <h4 className="text-xl font-black text-slate-900 font-sans">{syncHistory.length}</h4>
+                <span className="text-[9px] text-slate-500 font-semibold">Buffered sessions</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center space-x-4">
+              <div className="p-3.5 bg-red-50 text-red-600 rounded-xl shrink-0">
+                <Database size={20} />
+              </div>
+              <div className="space-y-0.5 leading-none">
+                <span className="text-[9px] text-red-600 font-black uppercase tracking-wider block">{isAmharic ? "የተዋሃዱ መዝገቦች" : "Total Merged Rows"}</span>
+                <h4 className="text-xl font-black text-red-600 font-sans">
+                  {syncHistory.reduce((acc, curr) => acc + curr.recordsCount, 0)}
+                </h4>
+                <span className="text-[9px] text-slate-500 font-semibold">Attendance records</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center space-x-4">
+              <div className="p-3.5 bg-indigo-50 text-indigo-600 rounded-xl shrink-0">
+                <Clock size={20} />
+              </div>
+              <div className="space-y-0.5 leading-none">
+                <span className="text-[9px] text-indigo-600 font-black uppercase tracking-wider block">{isAmharic ? "አማካኝ ውህደት ፍጥነት" : "Avg Merge Speed"}</span>
+                <h4 className="text-xl font-black text-indigo-600 font-sans">
+                  {syncHistory.length > 0 
+                    ? Math.round(syncHistory.reduce((acc, curr) => acc + curr.durationMs, 0) / syncHistory.length) 
+                    : 0} ms
+                </h4>
+                <span className="text-[9px] text-slate-500 font-semibold">Network round-trip</span>
+              </div>
+            </div>
+
+            <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs flex items-center space-x-4">
+              <div className="p-3.5 bg-emerald-50 text-emerald-600 rounded-xl shrink-0">
+                <ShieldCheck size={20} />
+              </div>
+              <div className="space-y-0.5 leading-none">
+                <span className="text-[9px] text-emerald-600 font-black uppercase tracking-wider block">{isAmharic ? "የታማኝነት ማረጋገጫ" : "Integrity Rate"}</span>
+                <h4 className="text-xl font-black text-emerald-600 font-sans">100.0%</h4>
+                <span className="text-[9px] text-slate-500 font-semibold">Cryptographic matches</span>
+              </div>
+            </div>
+          </div>
+
+          {/* TWO COLUMN CONTENT PANEL */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* LEFT COLUMN: TIMELINE & CHARTS (span-2) */}
+            <div className="lg:col-span-2 space-y-6">
+              
+              {/* CHARTS PANEL */}
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <span className="font-black text-xs text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
+                    <TrendingUp size={13} className="text-red-500" />
+                    <span>{isAmharic ? "የመረጃ ውህደት እና ፍጥነት ትንተና" : "Merge Volume & Network Latency Timeline Trends"}</span>
+                  </span>
+                  <span className="bg-slate-100 text-slate-600 font-mono text-[9px] font-bold px-2 py-0.5 rounded">REAL-TIME DATA COMPLIANCE</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Records Merged Area Chart */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-slate-500 block">{isAmharic ? "የተመሳሰሉ መዝገቦች ብዛት በየጊዜው" : "Volume of Attendance Records Merged"}</span>
+                    <div className="h-44 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <AreaChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="colorRecords" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
+                              <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                          <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
+                          <Tooltip contentStyle={{ fontSize: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff' }} />
+                          <Area type="monotone" dataKey="records" name="Records" stroke="#ef4444" strokeWidth={2} fillOpacity={1} fill="url(#colorRecords)" />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Merge Duration Line Chart */}
+                  <div className="space-y-2">
+                    <span className="text-[11px] font-bold text-slate-500 block">{isAmharic ? "የውህደት ፍጥነት (በሚሊሰከንድ)" : "Database Merge Round-Trip Duration (ms)"}</span>
+                    <div className="h-44 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 0 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                          <XAxis dataKey="name" stroke="#94a3b8" fontSize={9} tickLine={false} />
+                          <YAxis stroke="#94a3b8" fontSize={9} tickLine={false} />
+                          <Tooltip contentStyle={{ fontSize: '10px', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#ffffff' }} />
+                          <Bar dataKey="latency" name="Latency (ms)" fill="#4f46e5" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* TIMELINE LEDGER */}
+              <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+                <h4 className="text-xs font-black uppercase text-slate-700 tracking-wider flex items-center space-x-1.5">
+                  <GitMerge size={14} className="text-indigo-600" />
+                  <span>{isAmharic ? "የቀጥታ የመረጃ ውህደት የጊዜ መስመር" : "Chronological Sync Merging Timeline Ledger"}</span>
+                </h4>
+
+                <div className="relative border-l-2 border-slate-100 pl-6 ml-3 space-y-6">
+                  {syncHistory.map((item) => {
+                    const isExpanded = selectedHistoryId === item.id;
+                    return (
+                      <div key={item.id} className="relative group">
+                        {/* Timeline Bullet */}
+                        <span className={`absolute -left-[31px] top-1.5 w-4 h-4 rounded-full border-2 border-white flex items-center justify-center transition-all ${
+                          item.status === "Success" ? "bg-emerald-500 shadow-emerald-500/30 shadow-md" : "bg-amber-500 shadow-amber-500/30 shadow-md animate-pulse"
+                        }`}>
+                          <span className="w-1 h-1 bg-white rounded-full"></span>
+                        </span>
+
+                        <div className={`p-4 rounded-xl border transition-all ${
+                          isExpanded 
+                            ? "bg-slate-50/80 border-slate-300 shadow-sm" 
+                            : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/40"
+                        }`}>
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center space-x-2">
+                                <span className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-wider">{item.id}</span>
+                                <span className="text-[10px] font-semibold text-slate-400">• {item.timestamp}</span>
+                                <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                                  item.status === "Success" 
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100" 
+                                    : "bg-amber-50 text-amber-700 border border-amber-100"
+                                }`}>
+                                  {isAmharic ? (item.status === "Success" ? "ስኬታማ" : "ማስጠንቀቂያ") : item.status}
+                                </span>
+                              </div>
+                              <h5 className="font-bold text-slate-800 text-xs flex items-center space-x-1.5 pt-0.5">
+                                <Smartphone size={12} className="text-slate-400" />
+                                <span>{item.device}</span>
+                              </h5>
+                            </div>
+
+                            {/* Network / Byte stats */}
+                            <div className="flex items-center space-x-2 text-[10px] font-mono shrink-0">
+                              <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded font-semibold flex items-center space-x-1">
+                                <Wifi size={10} className="text-slate-500 mr-1" />
+                                {item.connectionType}
+                              </span>
+                              <span className="bg-slate-100 text-slate-600 px-2 py-1 rounded font-bold">
+                                {item.bytesMerged}
+                              </span>
+                            </div>
+                          </div>
+
+                          <p className="text-[11px] leading-relaxed text-slate-600 mt-2">
+                            {isAmharic ? item.detailsAm : item.detailsEn}
+                          </p>
+
+                          {/* Quick details counts */}
+                          <div className="flex flex-wrap gap-3 items-center text-[10px] text-slate-500 font-semibold mt-3 pt-2 border-t border-slate-100">
+                            <div className="flex items-center space-x-1">
+                              <Database size={11} className="text-slate-400" />
+                              <span>{isAmharic ? "የተዋሃዱ መዝገቦች:" : "Records Merged:"} <strong className="text-slate-800">{item.recordsCount}</strong></span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <Clock size={11} className="text-slate-400" />
+                              <span>{isAmharic ? "ቆይታ:" : "Latency:"} <strong className="text-indigo-600">{item.durationMs} ms</strong></span>
+                            </div>
+                            <div className="flex items-center space-x-1">
+                              <AlertTriangle size={11} className="text-slate-400" />
+                              <span>{isAmharic ? "የግጭት አፈታት:" : "Conflicts Resolved:"} <strong className={item.conflictsResolved > 0 ? "text-amber-600 font-bold" : "text-slate-600"}>{item.conflictsResolved}</strong></span>
+                            </div>
+                            <button
+                              onClick={() => setSelectedHistoryId(isExpanded ? null : item.id)}
+                              className="ml-auto text-indigo-600 font-bold hover:underline cursor-pointer flex items-center space-x-1 text-[10px]"
+                            >
+                              <span>{isExpanded ? (isAmharic ? "ዝርዝር ደብቅ" : "Hide Cryptographic Audit") : (isAmharic ? "ዝርዝር አሳይ" : "View Cryptographic Audit")}</span>
+                              <CheckCircle size={10} className={isExpanded ? "rotate-180 transition-transform" : ""} />
+                            </button>
+                          </div>
+
+                          {/* EXPANDABLE STEPS DRILL-DOWN */}
+                          {isExpanded && (
+                            <div className="mt-4 p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2 text-[11px] font-mono text-emerald-400 animate-slide-down">
+                              <div className="flex justify-between border-b border-slate-800 pb-2 text-[10px] text-slate-500 font-bold">
+                                <span>[CRYPTOGRAPHIC VERIFICATION LEDGER]</span>
+                                <span className="text-emerald-500">SIGNATURE VALID</span>
+                              </div>
+                              <div className="space-y-1.5 leading-relaxed pt-1">
+                                <p className="text-slate-400">&gt; Payload Integrity Hash: <strong className="text-white font-black">{item.integrityHash}</strong></p>
+                                <p className="text-slate-400">&gt; Execution Steps Timeline:</p>
+                                {item.steps.map((step, idx) => (
+                                  <div key={idx} className="flex items-start space-x-2 pl-4">
+                                    <span className="text-slate-500 shrink-0">[{idx + 1}]</span>
+                                    <span className="text-slate-300">{step}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* RIGHT COLUMN: INTERACTIVE MERGER SIMULATOR (span-1) */}
+            <div className="space-y-6">
+              
+              <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
+                <div className="border-b border-slate-100 pb-3">
+                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center space-x-1.5">
+                    <Cpu size={14} className="text-red-600" />
+                    <span>{isAmharic ? "የመረጃ ውህደት ማስመሰያ" : "Secure Buffer Merger Simulator"}</span>
+                  </h4>
+                  <p className="text-[10px] text-slate-500 mt-1">
+                    {isAmharic 
+                      ? "የመስክ ተርሚናል ይምረጡ፣ ከመስመር ውጭ የቆዩ መዝገቦችን ያጠራቅሙ እና ውህደት በሚያደርጉበት ጊዜ የሚከናወኑ የኦዲት ደረጃዎችን ይመልከቱ።" 
+                      : "Choose a target device and trigger an interactive database merge pipeline to see timeline logs dynamically compile."}
+                  </p>
+                </div>
+
+                <div className="space-y-4 text-xs font-sans">
+                  {/* Select Device */}
+                  <div className="space-y-1.5">
+                    <label className="font-bold text-slate-600 block">{isAmharic ? "ተርሚናል መሳሪያ ይምረጡ" : "Select Terminal Device"}</label>
+                    <select
+                      value={selectedSimDevice}
+                      onChange={(e) => setSelectedSimDevice(e.target.value)}
+                      disabled={isSimulatingMerge}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-red-500 disabled:opacity-50"
+                    >
+                      {devices.map(d => (
+                        <option key={d.id} value={d.id}>{d.id} - {d.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Slider of records count */}
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between font-bold text-slate-600">
+                      <span>{isAmharic ? "ከመስመር ውጭ የተጠራቀሙ መዝገቦች" : "Buffered Records Count"}</span>
+                      <span className="font-mono text-red-600 font-extrabold text-sm">{simRecordsCount} logs</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="1"
+                      max="30"
+                      value={simRecordsCount}
+                      onChange={(e) => setSimRecordsCount(Number(e.target.value))}
+                      disabled={isSimulatingMerge}
+                      className="w-full accent-red-600 cursor-pointer disabled:opacity-50 h-2 bg-slate-100 rounded-lg appearance-none"
+                    />
+                    <div className="flex justify-between text-[9px] text-slate-400 font-bold font-mono">
+                      <span>1 LOG</span>
+                      <span>30 LOGS</span>
+                    </div>
+                  </div>
+
+                  {/* Simulator action box */}
+                  <div className="border-t border-slate-100 pt-4 space-y-4">
+                    {isSimulatingMerge ? (
+                      /* SIMULATOR PROGRESS SCREEN */
+                      <div className="p-4 bg-slate-900 text-white rounded-xl space-y-3 font-mono text-[11px] border border-slate-800">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400 animate-pulse">{isAmharic ? "የውህደት ሂደት ላይ..." : "Merging Buffers..."}</span>
+                          <span className="text-emerald-400 font-extrabold">{simMergeProgress}%</span>
+                        </div>
+                        {/* Progress Bar */}
+                        <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+                          <div className="bg-emerald-500 h-full rounded-full transition-all duration-300" style={{ width: `${simMergeProgress}%` }}></div>
+                        </div>
+                        <div className="text-slate-300 text-[10px] leading-relaxed pt-1 flex items-start space-x-1.5">
+                          <span className="text-emerald-500 font-black animate-ping shrink-0">•</span>
+                          <span>{simMergeStep}</span>
+                        </div>
+                      </div>
+                    ) : (
+                      /* READY STATE */
+                      <button
+                        onClick={handleSimulateSyncMerge}
+                        className="w-full bg-gradient-to-r from-red-600 to-indigo-600 hover:from-red-500 hover:to-indigo-500 text-white font-extrabold py-3.5 px-4 rounded-xl flex items-center justify-center space-x-2 shadow-md hover:shadow-lg transition-all cursor-pointer text-xs"
+                      >
+                        <Zap size={14} className="animate-pulse" />
+                        <span>{isAmharic ? "ደህንነቱ የተጠበቀ ውህደት ጀምር" : "Initialize Secure Merge Protocol"}</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* AUDIT POLICY STATS */}
+              <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/80 shadow-2xs space-y-3 text-xs">
+                <span className="text-[10px] text-slate-400 font-black uppercase tracking-wider block flex items-center space-x-1">
+                  <ShieldCheck size={12} className="text-emerald-500" />
+                  <span>Central Cloud Merging Rules</span>
+                </span>
+                <div className="space-y-2.5 text-slate-600">
+                  <div className="flex items-start space-x-2">
+                    <Check size={13} className="text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="leading-tight"><strong>Redundancy Guard</strong>: Bypasses duplicates automatically if transaction records match existing hashes.</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Check size={13} className="text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="leading-tight"><strong>Dynamic Overtime</strong>: Clock-outs recalculate exact net working durations instantly upon database saves.</p>
+                  </div>
+                  <div className="flex items-start space-x-2">
+                    <Check size={13} className="text-emerald-600 mt-0.5 shrink-0" />
+                    <p className="leading-tight"><strong>Device Purging</strong>: Buffers are only deleted from mobile cache after strict SHA-256 cloud save match.</p>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+        </div>
+      )}
+
       {/* TAB CONTENT: 2. CENTRAL CLOUD DATABASE */}
       {activeTab === "database" && (
         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
@@ -1229,9 +1878,9 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                 <span>[CENTRAL FIRESTORE ENDPOINT]</span>
                 <span className="text-emerald-500 font-bold">CONNECTED - SSL ACTIVE</span>
               </div>
-              <p className="text-slate-300">// Verified active synchronization across all mobile endpoints (OVID_B1_PAD_03, HEAD_OFFICE, TIME_KEEPER_TAB)</p>
+              <p className="text-slate-300">// Verified active synchronization across all mobile endpoints (Digital Construction ERP_B1_PAD_03, HEAD_OFFICE, TIME_KEEPER_TAB)</p>
               <div className="grid grid-cols-3 gap-4 text-[11px]">
-                <div>&gt; COLLECTION: <span className="text-white">"ovid_biometric_attendance"</span></div>
+                <div>&gt; COLLECTION: <span className="text-white">"digital_construction_erp_biometric_attendance"</span></div>
                 <div>&gt; SCHEMAS: <span className="text-white">Strict Blueprint Match</span></div>
                 <div>&gt; RECORD COUNT: <span className="text-white">{attendance.length} Synchronized rows</span></div>
               </div>

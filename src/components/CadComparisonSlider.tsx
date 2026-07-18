@@ -158,7 +158,7 @@ export const CadComparisonSlider: React.FC<CadComparisonSliderProps> = ({
                 <div className="w-5/6 h-5/6 rounded-lg border border-dashed border-red-500/40 p-4 font-mono text-[9px] text-red-400/80 flex flex-col justify-between relative">
                   <span className="text-[8px] bg-red-950/90 text-red-400 border border-red-800 px-2 py-0.5 rounded-full absolute top-2 right-2 font-bold uppercase">CAD REFERENCE TEMPLATE</span>
                   <div>
-                    <p className="text-red-400/70 border-b border-red-900/40 pb-1 font-bold">OVID STRUCTURAL CORE - AXIS C</p>
+                    <p className="text-red-400/70 border-b border-red-900/40 pb-1 font-bold">Digital Construction ERP STRUCTURAL CORE - AXIS C</p>
                     <p className="mt-2 text-slate-500">Slab Deck Boundaries: 12.4m x 16.0m</p>
                     <p className="text-slate-500">Panel Target: 100% Surface Coverage</p>
                   </div>

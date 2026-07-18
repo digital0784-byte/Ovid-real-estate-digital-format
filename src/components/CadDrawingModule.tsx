@@ -27,7 +27,8 @@ import {
   ThumbsUp,
   FileCheck,
   Check,
-  HelpCircle
+  HelpCircle,
+  FolderOpen
 } from "lucide-react";
 import { Worker, Team, AttendanceRecord, UserRole } from "../types";
 import { CadViewer } from "./CadViewer";
@@ -99,7 +100,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   onLogAction
 }) => {
   // --- SELECTION STATES ---
-  const [selectedProject, setSelectedProject] = useState<string>("OVID Bole Heights");
+  const [selectedProject, setSelectedProject] = useState<string>("Digital Bole Heights");
   const [selectedBuilding, setSelectedBuilding] = useState<string>("Block A");
   const [selectedFloor, setSelectedFloor] = useState<number>(4);
   const [selectedZone, setSelectedZone] = useState<string>("Zone A");
@@ -108,9 +109,9 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   const [drawings, setDrawings] = useState<CadDrawing[]>([
     {
       id: "CAD-BH-F04-Z01-V3",
-      filename: "OVID_BH_FL04_ZONE_A_STRUCTURAL.dwg",
+      filename: "Digital Construction ERP_BH_FL04_ZONE_A_STRUCTURAL.dwg",
       fileType: "DWG",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Block A",
       floor: 4,
       zone: "Zone A",
@@ -124,9 +125,9 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     },
     {
       id: "CAD-BH-F04-Z01-V2",
-      filename: "OVID_BH_FL04_ZONE_A_STRUCTURAL.dwg",
+      filename: "Digital Construction ERP_BH_FL04_ZONE_A_STRUCTURAL.dwg",
       fileType: "DWG",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Block A",
       floor: 4,
       zone: "Zone A",
@@ -140,9 +141,9 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     },
     {
       id: "CAD-BH-F04-Z01-V1",
-      filename: "OVID_BH_FL04_ZONE_A_STRUCTURAL.dwg",
+      filename: "Digital Construction ERP_BH_FL04_ZONE_A_STRUCTURAL.dwg",
       fileType: "DWG",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Block A",
       floor: 4,
       zone: "Zone A",
@@ -156,9 +157,9 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     },
     {
       id: "CAD-BH-F04-Z02-V2",
-      filename: "OVID_BH_FL04_ZONE_B_BEAMS.pdf",
+      filename: "Digital Construction ERP_BH_FL04_ZONE_B_BEAMS.pdf",
       fileType: "PDF",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Block A",
       floor: 4,
       zone: "Zone B",
@@ -172,9 +173,9 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     },
     {
       id: "CAD-AY-F02-Z01-V1",
-      filename: "OVID_AYAT_FL02_ZONE_A_SLAB.dxf",
+      filename: "Digital Construction ERP_AYAT_FL02_ZONE_A_SLAB.dxf",
       fileType: "DXF",
-      project: "OVID Ayat Project",
+      project: "Digital Construction ERP Ayat Project",
       building: "Block B",
       floor: 2,
       zone: "Zone A",
@@ -192,7 +193,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     {
       id: "IMG-BH-F04-ZA-01",
       filename: "IMG_20260708_1042_BH_F4_ZA.jpg",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Block A",
       floor: 4,
       zone: "Zone A",
@@ -207,7 +208,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     {
       id: "IMG-BH-F04-ZA-02",
       filename: "IMG_20260707_1615_BH_F4_ZA.jpg",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Block A",
       floor: 4,
       zone: "Zone A",
@@ -276,9 +277,224 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   const [isAiRunning, setIsAiRunning] = useState<boolean>(false);
   const [activeImageIdForAi, setActiveImageIdForAi] = useState<string>("IMG-BH-F04-ZA-01");
   const [cadAnalysisResult, setCadAnalysisResult] = useState<any | null>(null);
+
+  // --- MANUAL OVERRIDE & MATERIAL REQUIREMENT PLAN (MRP) STATES ---
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [editedBom, setEditedBom] = useState<{
+    wallPanels: number;
+    beamPanels: number;
+    slabPanels: number;
+    propSupports: number;
+    accessories: number;
+  } | null>(null);
+  const [editedComponents, setEditedComponents] = useState<any[] | null>(null);
+  const [isMrpCommitted, setIsMrpCommitted] = useState<boolean>(false);
+  const [isCommitting, setIsCommitting] = useState<boolean>(false);
+  const [mrpCommitHistory, setMrpCommitHistory] = useState<any[]>([
+    {
+      id: "MRP-104",
+      project: "Digital Bole Heights",
+      building: "Block A",
+      floor: 4,
+      zone: "Zone A",
+      totalPanels: 322,
+      wallPanels: 142,
+      beamPanels: 68,
+      slabPanels: 112,
+      propSupports: 45,
+      accessories: 320,
+      committedAt: "2026-07-16 14:32:10",
+      committedBy: "Eng. Yoseph Hailu",
+      status: "Verified & Committed"
+    }
+  ]);
+
+  const calculateBomFromComponentsLocal = (componentsList: any[]) => {
+    let wallCount = 0;
+    let beamCount = 0;
+    let slabCount = 0;
+    let propCount = 0;
+    let accessoryCount = 0;
+
+    componentsList.forEach((comp) => {
+      const code = comp.code.toUpperCase();
+      const name = comp.name.toLowerCase();
+      
+      if (["AC", "I/C", "WS", "W", "WE", "KICKER", "KICKER IC"].includes(code) || name.includes("wall") || name.includes("kicker")) {
+        wallCount += comp.quantity;
+      } else if (["B", "BEAM IC", "BEAM BOTTOM", "END BEAM", "STAIR END BEAM", "MB"].includes(code) || name.includes("beam")) {
+        beamCount += comp.quantity;
+      } else if (["SC", "D", "SIA", "SCA", "SCU", "SOA", "DST", "DS"].includes(code) || name.includes("slab") || name.includes("decking")) {
+        slabCount += comp.quantity;
+      } else if (["PROPHEAD", "STD", "STPH"].includes(code) || name.includes("prop") || name.includes("support")) {
+        propCount += comp.quantity;
+      } else {
+        accessoryCount += comp.quantity;
+      }
+    });
+
+    return {
+      wallPanels: wallCount,
+      beamPanels: beamCount,
+      slabPanels: slabCount,
+      propSupports: propCount,
+      accessories: accessoryCount || 320
+    };
+  };
+
+  const handleBomChange = (key: 'wallPanels' | 'beamPanels' | 'slabPanels' | 'propSupports' | 'accessories', val: number) => {
+    const currentBom = editedBom || {
+      wallPanels: cadAnalysisResult?.workPlan?.bom?.wallPanels || 0,
+      beamPanels: cadAnalysisResult?.workPlan?.bom?.beamPanels || 0,
+      slabPanels: cadAnalysisResult?.workPlan?.bom?.slabPanels || 0,
+      propSupports: cadAnalysisResult?.workPlan?.bom?.propSupports || 0,
+      accessories: cadAnalysisResult?.workPlan?.bom?.accessories || 0,
+    };
+    const updated = {
+      ...currentBom,
+      [key]: Math.max(0, val)
+    };
+    setEditedBom(updated);
+    setIsMrpCommitted(false);
+  };
+
+  const handleComponentQtyChange = (code: string, index: number, newQty: number) => {
+    const origComps = editedComponents || cadAnalysisResult?.workPlan?.formworkComponents || [];
+    const currentComponents = JSON.parse(JSON.stringify(origComps)); // deep copy
+    
+    if (currentComponents[index]) {
+      const updatedQty = Math.max(0, newQty);
+      const oldQty = currentComponents[index].quantity || 1;
+      const ratio = oldQty > 0 ? updatedQty / oldQty : 1;
+      const zb = currentComponents[index].zoneBreakdown || { zoneA: 0, zoneB: 0, zoneC: 0 };
+      
+      currentComponents[index] = {
+        ...currentComponents[index],
+        quantity: updatedQty,
+        zoneBreakdown: {
+          zoneA: Math.round(zb.zoneA * ratio),
+          zoneB: Math.round(zb.zoneB * ratio),
+          zoneC: Math.round(zb.zoneC * ratio),
+        }
+      };
+      
+      setEditedComponents(currentComponents);
+      
+      const recalculatedBom = calculateBomFromComponentsLocal(currentComponents);
+      setEditedBom(recalculatedBom);
+      setIsMrpCommitted(false);
+    }
+  };
+
+  const handleCommitToMrp = () => {
+    setIsCommitting(true);
+    setTimeout(() => {
+      setIsCommitting(false);
+      setIsMrpCommitted(true);
+      
+      const finalBom = editedBom || cadAnalysisResult?.workPlan?.bom || {
+        wallPanels: 142,
+        beamPanels: 68,
+        slabPanels: 112,
+        propSupports: 45,
+        accessories: 320,
+      };
+      
+      const totalP = finalBom.wallPanels + finalBom.beamPanels + finalBom.slabPanels;
+      
+      const newRecord = {
+        id: `MRP-${Math.floor(105 + Math.random() * 890)}`,
+        project: selectedProject,
+        building: selectedBuilding,
+        floor: selectedFloor,
+        zone: selectedZone,
+        totalPanels: totalP,
+        ...finalBom,
+        committedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+        committedBy: "Eng. Yoseph Hailu",
+        status: "Verified & Committed"
+      };
+      
+      setMrpCommitHistory(prev => [newRecord, ...prev]);
+      
+      if (onLogAction) {
+        onLogAction(
+          "CAD MRP Commit", 
+          `Verified & committed Material Requirement Plan (MRP) for floor ${selectedFloor}, Zone ${selectedZone}. Total: ${totalP} panels. (Wall: ${finalBom.wallPanels}, Beam: ${finalBom.beamPanels}, Slab: ${finalBom.slabPanels}).`
+        );
+      }
+    }, 1500);
+  };
   const [isAnalyzingCad, setIsAnalyzingCad] = useState<boolean>(false);
   const [cadAnalysisError, setCadAnalysisError] = useState<string | null>(null);
   const [cadPlanningStep, setCadPlanningStep] = useState<number>(0);
+  const [autoAnalyzeOnUpload, setAutoAnalyzeOnUpload] = useState<boolean>(true);
+  const [isDragActive, setIsDragActive] = useState<boolean>(false);
+  const [isFileExplorerOpen, setIsFileExplorerOpen] = useState<boolean>(false);
+  const [searchFileQuery, setSearchFileQuery] = useState<string>("");
+  const [selectedFileFilter, setSelectedFileFilter] = useState<string>("All");
+  
+  // States for detailed CAD component breakdown filter & search
+  const [searchComponentQuery, setSearchComponentQuery] = useState<string>("");
+  const [selectedComponentTypeFilter, setSelectedComponentTypeFilter] = useState<string>("All");
+
+  // Enterprise Document Manager mock database files
+  const enterpriseDocuments = useMemo(() => [
+    {
+      id: "ENT-DOC-001",
+      name: "Bole_Heights_T1_FL04_Slab_Layout_V3.dwg",
+      type: "DWG",
+      size: "11.2 MB",
+      date: "2026-07-10",
+      project: "Digital Bole Heights",
+      category: "Structural Blueprint"
+    },
+    {
+      id: "ENT-DOC-002",
+      name: "Ayat_Project_B2_FL02_Structural_Walls_V1.dxf",
+      type: "DXF",
+      size: "9.4 MB",
+      date: "2026-07-02",
+      project: "Digital Construction ERP Ayat Project",
+      category: "Wall Formwork Detail"
+    },
+    {
+      id: "ENT-DOC-003",
+      name: "FHC_Bole_T2_FL04_Beams_Formwork_V2.dwg",
+      type: "DWG",
+      size: "8.1 MB",
+      date: "2026-07-08",
+      project: "Digital Bole Heights",
+      category: "Beam Alignment Plan"
+    },
+    {
+      id: "ENT-DOC-004",
+      name: "Slab_Decking_Reinforcement_Detail_FL04_ZA.pdf",
+      type: "PDF",
+      size: "3.8 MB",
+      date: "2026-07-05",
+      project: "Digital Bole Heights",
+      category: "Reinforcement Plan"
+    },
+    {
+      id: "ENT-DOC-005",
+      name: "Formwork_System_General_Assembly_Instructions.pdf",
+      type: "PDF",
+      size: "5.2 MB",
+      date: "2026-06-20",
+      project: "General ERP",
+      category: "Assembly Guide"
+    },
+    {
+      id: "ENT-DOC-006",
+      name: "Joint_Connection_Pins_Tolerances_CAD.dwg",
+      type: "DWG",
+      size: "6.7 MB",
+      date: "2026-07-11",
+      project: "Digital Bole Heights",
+      category: "Accessories CAD"
+    }
+  ], []);
 
   const cadPlanningStepsEng = [
     "Reading CAD Vector Groups...",
@@ -302,7 +518,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
 
   const triggerRealTimeSync = (type: string) => {
     setIsSyncing(true);
-    setSyncMessage(isAmharic ? "መረጃዎች በቅጽበት ወደ ደመና እየተላኩ ነው..." : "Syncing details with OVID Enterprise Database...");
+    setSyncMessage(isAmharic ? "መረጃዎች በቅጽበት ወደ ደመና እየተላኩ ነው..." : "Syncing details with Digital Construction ERP Enterprise Database...");
     setTimeout(() => {
       setIsSyncing(false);
       setSyncMessage(isAmharic ? "ሁሉም መረጃዎች ከደመናው ጋር ተመሳስለዋል።" : "Real-time sync successful. Cloud storage active.");
@@ -365,6 +581,60 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   }, [selectedProject, selectedBuilding, selectedFloor, selectedZone, drawings]);
 
   // --- FUNCTION HANDLERS ---
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === "dragenter" || e.type === "dragover") {
+      setIsDragActive(true);
+    } else if (e.type === "dragleave") {
+      setIsDragActive(false);
+    }
+  };
+
+  const processSelectedFile = (file: File) => {
+    setCadFile(file);
+    setCadFilenameInput(file.name);
+    
+    // Infer file type
+    const ext = file.name.split(".").pop()?.toUpperCase() || "";
+    if (["DWG", "DXF", "PDF", "PNG", "JPG", "JPEG"].includes(ext)) {
+      setCadFileType(ext === "JPEG" ? "JPG" : ext as any);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragActive(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      processSelectedFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    if (e.target.files && e.target.files[0]) {
+      processSelectedFile(e.target.files[0]);
+    }
+  };
+
+  const handleSelectExplorerFile = (entFile: any) => {
+    // Simulate a File object
+    const dummyFile = new File(["dummyContent"], entFile.name, { type: "application/octet-stream" });
+    processSelectedFile(dummyFile);
+    setIsFileExplorerOpen(false);
+    
+    if (onLogAction) {
+      onLogAction("CAD Selection", `Selected CAD file "${entFile.name}" from Enterprise Document Manager`);
+    }
+    
+    // Notify user via the status sync banner
+    setSyncMessage(isAmharic 
+      ? `"${entFile.name}" ከፋይል ማናጀር በተሳካ ሁኔታ ተመርጧል!` 
+      : `Loaded "${entFile.name}" from Document Manager! Ready for analysis.`
+    );
+  };
 
   // 1. Site Engineer CAD Upload
   const handleCadUpload = (e: React.FormEvent) => {
@@ -378,7 +648,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
         ? Math.max(...filteredDrawings.map(d => d.revision)) + 1 
         : 1;
         
-      const newFname = cadFilenameInput.trim() || `OVID_FL0${selectedFloor}_${selectedZone.replace(/\s+/g, "_")}_STRUCTURAL_REV${nextRev}.${cadFileType.toLowerCase()}`;
+      const newFname = cadFilenameInput.trim() || `Digital Construction ERP_FL0${selectedFloor}_${selectedZone.replace(/\s+/g, "_")}_STRUCTURAL_REV${nextRev}.${cadFileType.toLowerCase()}`;
       
       const newDrawing: CadDrawing = {
         id: `CAD-UPLOAD-${Date.now()}`,
@@ -408,7 +678,12 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       }
       
       triggerRealTimeSync("drawing");
-      setActiveTab("viewer");
+      
+      if (autoAnalyzeOnUpload) {
+        runCadAutomaticPlanning(newFname);
+      } else {
+        setActiveTab("viewer");
+      }
     }, 1000);
   };
 
@@ -580,6 +855,10 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
 
       if (resJson.success) {
         setCadAnalysisResult(resJson.data);
+        setEditedBom(null);
+        setEditedComponents(null);
+        setIsMrpCommitted(false);
+        setIsEditMode(false);
         setActiveTab("autoPlan");
         if (onLogAction) {
           onLogAction("CAD Auto-Planner", `Generated scheduling cycles and materials Bill of Materials (BOM) for ${filename}`);
@@ -618,7 +897,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
             <div className="flex items-center space-x-2">
               <Building2 className="text-red-600" size={20} />
               <h2 className="text-lg font-black tracking-tight text-slate-800 uppercase">
-                {isAmharic ? "OVID የካድ ስዕሎች እና የለውጥ መቆጣጠሪያ" : "CAD & Revision Workspace"}
+                {isAmharic ? "Digital Construction ERP የካድ ስዕሎች እና የለውጥ መቆጣጠሪያ" : "CAD & Revision Workspace"}
               </h2>
             </div>
             <p className="text-xs text-slate-500 font-medium">
@@ -658,8 +937,8 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
               onChange={(e) => setSelectedProject(e.target.value)}
               className="w-full bg-white border border-slate-200 rounded-lg text-xs p-1.5 font-bold focus:ring-0 cursor-pointer"
             >
-              <option value="OVID Bole Heights">OVID Bole Heights</option>
-              <option value="OVID Ayat Project">OVID Ayat Project</option>
+              <option value="Digital Bole Heights">Digital Bole Heights</option>
+              <option value="Digital Construction ERP Ayat Project">Digital Construction ERP Ayat Project</option>
             </select>
           </div>
 
@@ -773,8 +1052,8 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
             {activeTab === "comparison" && (
               <CadComparisonSlider
                 isAmharic={isAmharic}
-                revAFilename="OVID_BH_FL04_ZONE_A_STRUCTURAL_REV1.dwg"
-                revBFilename="OVID_BH_FL04_ZONE_A_STRUCTURAL_REV2.dwg"
+                revAFilename="Digital Construction ERP_BH_FL04_ZONE_A_STRUCTURAL_REV1.dwg"
+                revBFilename="Digital Construction ERP_BH_FL04_ZONE_A_STRUCTURAL_REV2.dwg"
                 revADate="2026-06-12"
                 revBDate="2026-06-28"
                 revAUploader="Site Eng. Sintayehu Alula"
@@ -944,31 +1223,449 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                     </div>
                   </div>
                 ) : (
-                  <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-white space-y-4">
-                    <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
-                      <span className="text-[10px] text-red-400 font-bold font-mono">✓ AI PLAN COMPILED</span>
-                      <span className="text-[10px] text-slate-400 font-mono">Crew Recommendation: {cadAnalysisResult.workPlan.recommendedCrewSize} workers</span>
+                  (() => {
+                    const activeBom = editedBom || cadAnalysisResult?.workPlan?.bom || {
+                      wallPanels: 142,
+                      beamPanels: 68,
+                      slabPanels: 112,
+                      propSupports: 45,
+                      accessories: 320,
+                    };
+                    const activeComponents = editedComponents || cadAnalysisResult?.workPlan?.formworkComponents || [];
+                    const bomKeyMap: Record<string, 'wallPanels' | 'beamPanels' | 'slabPanels' | 'propSupports' | 'accessories'> = {
+                      wall: "wallPanels",
+                      beam: "beamPanels",
+                      slab: "slabPanels",
+                      prop: "propSupports",
+                      accessories: "accessories"
+                    };
+
+                    return (
+                      <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-white space-y-4">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-2.5">
+                          <div className="flex items-center space-x-2">
+                            <Sparkles className="text-red-500 animate-pulse" size={14} />
+                            <span className="text-[10px] text-red-400 font-bold font-mono uppercase tracking-wider">
+                              {isAmharic ? "✓ የካድ ፓነል ትንተና ተጠናቋል" : "✓ CAD PANEL EXTRACTION COMPLETE"}
+                            </span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {isAmharic ? `የሰራተኛ አስተያየት: ${cadAnalysisResult.workPlan.recommendedCrewSize} ሰራተኞች` : `Crew Recommendation: ${cadAnalysisResult.workPlan.recommendedCrewSize} workers`}
+                          </span>
+                        </div>
+
+                        {/* Manual Override & Verification Control Toolbar */}
+                        <div className="bg-slate-900 border border-slate-850 p-3 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                          <div className="space-y-1">
+                            <div className="flex items-center space-x-2">
+                              <span className="text-xs font-black uppercase text-slate-300">
+                                {isAmharic ? "የማረጋገጫና ቁጥጥር ፓነል" : "Verification & Override Controller"}
+                              </span>
+                              {isMrpCommitted ? (
+                                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[9px] font-mono px-2 py-0.5 rounded-full font-black">
+                                  {isAmharic ? "ለኤምአርፒ ተልኳል" : "✓ COMMITTED TO MRP"}
+                                </span>
+                              ) : (editedBom || editedComponents) ? (
+                                <span className="bg-amber-500/10 text-amber-400 border border-amber-500/30 text-[9px] font-mono px-2 py-0.5 rounded-full font-black animate-pulse">
+                                  {isAmharic ? "ያልተቀመጠ ለውጥ አለ" : "⚠️ OVERRIDDEN (UNSAVED)"}
+                                end of state
+                                </span>
+                              ) : (
+                                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/30 text-[9px] font-mono px-2 py-0.5 rounded-full font-black">
+                                  {isAmharic ? "በአይ የተገኘ ውጤት" : "🤖 AI ANALYZED"}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-400">
+                              {isAmharic 
+                                ? "የፓነል ብዛትን በእጅ ማስተካከል እና ለዕቃ እቅድ ማጽደቅ ያስችላል።" 
+                                : "Verify and adjust automated calculations before writing to the material requirement database."}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center space-x-2 w-full sm:w-auto shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (!isEditMode) {
+                                  if (!editedBom) setEditedBom(cadAnalysisResult?.workPlan?.bom);
+                                  if (!editedComponents) setEditedComponents(cadAnalysisResult?.workPlan?.formworkComponents);
+                                }
+                                setIsEditMode(!isEditMode);
+                              }}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center space-x-1 ${
+                                isEditMode
+                                  ? "bg-amber-500 hover:bg-amber-600 text-slate-950 font-black"
+                                  : "bg-slate-800 hover:bg-slate-750 text-slate-200"
+                              }`}
+                            >
+                              <span>{isEditMode ? "💾 " + (isAmharic ? "ማስተካከያ ዝጋ" : "Lock Values") : "✏️ " + (isAmharic ? "ብዛት ቀይር" : "Manual Override")}</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={isCommitting || isMrpCommitted}
+                              onClick={handleCommitToMrp}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all flex items-center space-x-1.5 cursor-pointer ${
+                                isMrpCommitted
+                                  ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 cursor-not-allowed"
+                                  : isCommitting
+                                  ? "bg-slate-800 text-slate-400 cursor-not-allowed"
+                                  : "bg-red-600 hover:bg-red-700 text-white shadow-md animate-pulse hover:animate-none"
+                              }`}
+                            >
+                              {isCommitting ? (
+                                <>
+                                  <RefreshCw className="animate-spin" size={13} />
+                                  <span>{isAmharic ? "በመመዝገብ ላይ..." : "Committing..."}</span>
+                                </>
+                              ) : isMrpCommitted ? (
+                                <>
+                                  <CheckCircle size={13} className="text-emerald-400" />
+                                  <span>{isAmharic ? "ለኤምአርፒ ጸድቋል" : "Committed"}</span>
+                                </>
+                              ) : (
+                                <>
+                                  <FileCheck size={13} />
+                                  <span>{isAmharic ? "ለኤምአርፒ አጽድቅ" : "Commit to MRP"}</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Highly Visual Material Panel Breakdown */}
+                        <div className="space-y-3">
+                          <h5 className="text-[11px] font-black uppercase text-slate-400 tracking-wider flex justify-between items-center">
+                            <span>{isAmharic ? "በአውቶማቲክ የተለዩ የፓነል አይነቶችና ብዛት" : "Automatically Detected Panel Types & Quantities"}</span>
+                            {isEditMode && (
+                              <span className="text-[9px] text-amber-400 font-mono italic animate-pulse">
+                                {isAmharic ? "*የእጅ ማስተካከያ ሁነታ ገባሪ ነው" : "*Manual Edit Mode Active"}
+                              </span>
+                            )}
+                          </h5>
+                          
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {/* Column 1: Detailed List with Progress Gauges */}
+                            <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 space-y-3">
+                              <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">
+                                {isAmharic ? "የቁሶች ዝርዝር (Materials Bill of Materials)" : "Formwork Bill of Materials (BOM)"}
+                              </span>
+
+                              <div className="space-y-2.5">
+                                {[
+                                  { 
+                                    key: "wall", 
+                                    label: isAmharic ? "የግድግዳ ፓነል (Wall Panels)" : "Wall Panels", 
+                                    count: activeBom.wallPanels || 0, 
+                                    max: 200,
+                                    color: "bg-red-500" 
+                                  },
+                                  { 
+                                    key: "beam", 
+                                    label: isAmharic ? "የቢም ፓነል (Beam Panels)" : "Beam Panels", 
+                                    count: activeBom.beamPanels || 0, 
+                                    max: 100,
+                                    color: "bg-indigo-500" 
+                                  },
+                                  { 
+                                    key: "slab", 
+                                    label: isAmharic ? "የፎቅ ሰሌዳ ፓነል (Slab Panels)" : "Slab Decking Panels", 
+                                    count: activeBom.slabPanels || 0, 
+                                    max: 200,
+                                    color: "bg-emerald-500" 
+                                  },
+                                  { 
+                                    key: "prop", 
+                                    label: isAmharic ? "የድጋፍ ምሰሶዎች (Prop Supports)" : "Telescopic Prop Supports", 
+                                    count: activeBom.propSupports || 0, 
+                                    max: 100,
+                                    color: "bg-amber-500" 
+                                  },
+                                  { 
+                                    key: "accessories", 
+                                    label: isAmharic ? "ፒኖችና ማያያዣዎች (Joint Pins)" : "Wedge & Pin Accessories", 
+                                    count: activeBom.accessories || 0, 
+                                    max: 500,
+                                    color: "bg-teal-500" 
+                                  }
+                                ].map((item) => {
+                                  const percentage = Math.min(Math.round((item.count / item.max) * 100), 100);
+                                  const targetKey = bomKeyMap[item.key];
+                                  return (
+                                    <div key={item.key} className="space-y-1">
+                                      <div className="flex justify-between items-center text-[10px] font-mono h-6">
+                                        <span className="text-slate-300 font-medium">{item.label}</span>
+                                        {isEditMode ? (
+                                          <div className="flex items-center space-x-1">
+                                            <input
+                                              type="number"
+                                              min="0"
+                                              value={item.count}
+                                              onChange={(e) => handleBomChange(targetKey, Number(e.target.value))}
+                                              className="w-16 bg-slate-950 border border-slate-700 rounded px-1.5 py-0.5 text-right font-bold text-red-400 font-mono text-[11px] focus:ring-1 focus:ring-red-500 outline-none"
+                                            />
+                                            <span className="text-[9px] text-slate-500">pcs</span>
+                                          </div>
+                                        ) : (
+                                          <span className="text-white font-bold">{item.count} pcs</span>
+                                        )}
+                                      </div>
+                                      <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                                        <div className={`h-full ${item.color}`} style={{ width: `${percentage}%` }} />
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+
+                              <div className="pt-2 border-t border-slate-800/80 flex justify-between items-center text-[11px] font-bold">
+                                <span className="text-slate-400">{isAmharic ? "ጠቅላላ የፓነል ብዛት" : "Total Panels Count:"}</span>
+                                <span className="text-red-400 font-black font-mono text-xs">
+                                  {(activeBom.wallPanels || 0) + 
+                                   (activeBom.beamPanels || 0) + 
+                                   (activeBom.slabPanels || 0)} {isAmharic ? "ፓነሎች" : "units"}
+                                </span>
+                              </div>
+                            </div>
+
+                        {/* Column 2: Structural Verification Checks */}
+                        <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 flex flex-col justify-between">
+                          <div className="space-y-2">
+                            <span className="text-[9px] text-slate-400 font-bold block uppercase tracking-wider">
+                              {isAmharic ? "የቀጥተኝነትና የደህንነት ፍተሻ" : "Plumbness & Structural Integrity"}
+                            </span>
+                            <div className="space-y-1.5 font-mono text-[11px]">
+                              <p className="text-slate-300">
+                                {isAmharic ? "የቀጥተኝነት ሁኔታ:" : "Laser Verticality Status:"} <strong className="text-emerald-400 font-bold">{cadAnalysisResult.dailyAssessment.plumbnessCheck || "Within Spec (+/- 1.5mm)"}</strong>
+                              </p>
+                              <p className="text-slate-300">
+                                {isAmharic ? "የንፅፅር ውጤት (ከካድ ጋር):" : "CAD Alignment Match:"} <strong className="text-indigo-400 font-bold">{cadAnalysisResult.dailyAssessment.cadComparisonScore || 97}% Accuracy</strong>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 p-2.5 bg-slate-950 rounded-lg border border-slate-800 space-y-1">
+                            <div className="flex items-center space-x-1.5 text-xs text-emerald-400 font-black">
+                              <CheckCircle size={14} />
+                              <span>{isAmharic ? "코ንክሪት ለመሙላት የተፈቀደ (Approved)" : "POUR STATUS: APPROVED"}</span>
+                            </div>
+                            <p className="text-[9px] text-slate-500 leading-tight">
+                              {isAmharic 
+                                ? "የአልሙኒየም ፎርምወርክ መገጣጠሚያዎች በካድ ድንጋጌ መሰረት የተሰሩ መሆናቸው ተረጋግጧል።" 
+                                : "Formwork alignment and structural tolerances correspond fully with CAD master revision. Laser release authorized."}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1.5">
-                        <span className="text-[9px] text-slate-400 font-bold block uppercase">Materials Bill of Materials (BOM)</span>
-                        <div className="grid grid-cols-3 gap-1.5 text-[10px] font-mono text-slate-300">
-                          <div>Walls: <strong className="text-white font-bold">{cadAnalysisResult.workPlan.bom.wallPanels || 120}</strong></div>
-                          <div>Beams: <strong className="text-white font-bold">{cadAnalysisResult.workPlan.bom.beamPanels || 45}</strong></div>
-                          <div>Slabs: <strong className="text-white font-bold">{cadAnalysisResult.workPlan.bom.slabPanels || 180}</strong></div>
-                          <div>Props: <strong className="text-white font-bold">{cadAnalysisResult.workPlan.bom.propSupports || 85}</strong></div>
-                          <div>Pins: <strong className="text-white font-bold">{cadAnalysisResult.workPlan.bom.accessories || 800}</strong></div>
+                    {/* Detailed Component Analysis & Zone Calculation Grid (33+ aluminum panel types) */}
+                    <div className="bg-slate-900/90 border border-slate-800 p-4 rounded-xl space-y-4">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-b border-slate-800/80 pb-3">
+                        <div className="space-y-0.5">
+                          <h6 className="text-[12px] font-black text-red-500 uppercase tracking-wider flex items-center space-x-1.5">
+                            <Sliders size={13} className="animate-pulse" />
+                            <span>
+                              {isAmharic ? "ዝርዝር የካድ ክፍሎችና የዞን መጠን ስሌት" : "Itemized CAD Components & Zone Breakdown"}
+                            </span>
+                          </h6>
+                          <p className="text-[10px] text-slate-400">
+                            {isAmharic 
+                              ? "ሁሉንም 33+ የአልሙኒየም ፎርምወርክ መለኪያዎች በየሴክተር ዞኑ ያሳያል" 
+                              : "Comprehensive calculation of all 33+ aluminum formwork panel types across sectors"}
+                          </p>
+                        </div>
+                        <span className="bg-red-500/10 text-red-400 text-[10px] font-mono px-2 py-0.5 rounded-full border border-red-500/20 font-black self-start sm:self-auto">
+                          33 {isAmharic ? "መለኪያዎች ተገኝተዋል" : "Part Types Tracked"}
+                        </span>
+                      </div>
+
+                      {/* Filter and Search Bar */}
+                      <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                        <div className="sm:col-span-5 relative">
+                          <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-500">
+                            <Sliders size={11} />
+                          </span>
+                          <input
+                            type="text"
+                            value={searchComponentQuery}
+                            onChange={(e) => setSearchComponentQuery(e.target.value)}
+                            placeholder={isAmharic ? "በኮድ፣ በስም ወይም መጠን ፈልግ..." : "Search code, name, or size..."}
+                            className="w-full bg-slate-950 border border-slate-800 rounded-lg text-[11px] text-white pl-7 pr-2.5 py-1.5 focus:ring-1 focus:ring-red-500 focus:border-red-500 font-medium"
+                          />
+                        </div>
+                        <div className="sm:col-span-7 flex overflow-x-auto gap-1 pb-1 scrollbar-thin scrollbar-thumb-slate-800">
+                          {[
+                            { id: "All", label: isAmharic ? "ሁሉም" : "All" },
+                            { id: "Wall", label: isAmharic ? "ግድግዳ" : "Walls" },
+                            { id: "Beam", label: isAmharic ? "ቢም" : "Beams" },
+                            { id: "Slab", label: isAmharic ? "ሰሌዳ" : "Slabs" },
+                            { id: "Stair", label: isAmharic ? "ደረጃ" : "Stairs" },
+                            { id: "Support", label: isAmharic ? "ድጋፍ" : "Supports" }
+                          ].map((tab) => (
+                            <button
+                              key={tab.id}
+                              type="button"
+                              onClick={() => setSelectedComponentTypeFilter(tab.id)}
+                              className={`px-2 py-1 rounded text-[10px] font-bold shrink-0 transition-all cursor-pointer ${
+                                selectedComponentTypeFilter === tab.id
+                                  ? "bg-red-500 text-white font-black"
+                                  : "bg-slate-950 border border-slate-800 text-slate-400 hover:text-white"
+                              }`}
+                            >
+                              {tab.label}
+                            </button>
+                          ))}
                         </div>
                       </div>
 
-                      <div className="bg-slate-900 p-3 rounded-xl border border-slate-800 space-y-1.5">
-                        <span className="text-[9px] text-slate-400 font-bold block uppercase">Plumbness Compliance</span>
-                        <p className="text-xs text-slate-200">{cadAnalysisResult.dailyAssessment.plumbnessCheck || "Within acceptable 3mm structural deviation"}</p>
-                        <div className="flex items-center space-x-1 text-[9px] font-mono text-emerald-400 font-bold">
-                          <Check size={11} />
-                          <span>Slab Pour Ready status: Approved</span>
-                        </div>
+                      {/* Components Table Grid */}
+                      <div className="overflow-x-auto rounded-lg border border-slate-800 max-h-[380px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+                        <table className="w-full text-left border-collapse text-[11px]">
+                          <thead className="bg-slate-950 sticky top-0 z-10 border-b border-slate-800 text-slate-400 font-black uppercase text-[9px] tracking-wider">
+                            <tr>
+                              <th className="p-2.5 w-16">{isAmharic ? "ኮድ" : "Code"}</th>
+                              <th className="p-2.5">{isAmharic ? "የክፍሉ ስምና መግለጫ" : "Component Name & Purpose"}</th>
+                              <th className="p-2.5 w-32">{isAmharic ? "የእቅድ መጠን (Size)" : "Dimensions"}</th>
+                              <th className="p-2.5 w-20 text-center">{isAmharic ? "ብዛት" : "Qty"}</th>
+                              <th className="p-2.5 w-44 text-center bg-slate-950/80">{isAmharic ? "በዞን ስርጭት" : "Zone Breakdown"}</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/60 font-medium">
+                            {activeComponents
+                              .map((comp: any, origIdx: number) => ({ ...comp, origIdx }))
+                              .filter((comp: any) => {
+                                const q = searchComponentQuery.toLowerCase();
+                                const matchesSearch = 
+                                  comp.code.toLowerCase().includes(q) ||
+                                  comp.name.toLowerCase().includes(q) ||
+                                  comp.nameAmharic.toLowerCase().includes(q) ||
+                                  comp.size.toLowerCase().includes(q);
+                                
+                                // Group helper category filter
+                                const code = comp.code.toUpperCase();
+                                const name = comp.name.toLowerCase();
+                                let matchesFilter = true;
+                                if (selectedComponentTypeFilter === "Wall") {
+                                  matchesFilter = ["AC", "I/C", "WS", "W", "WE", "KICKER", "KICKER IC"].includes(code) || name.includes("wall") || name.includes("kicker");
+                                } else if (selectedComponentTypeFilter === "Beam") {
+                                  matchesFilter = ["B", "BEAM IC", "BEAM BOTTOM", "END BEAM", "STAIR END BEAM", "MB"].includes(code) || name.includes("beam");
+                                } else if (selectedComponentTypeFilter === "Slab") {
+                                  matchesFilter = ["SC", "D", "SIA", "SCA", "SCU", "SOA", "DST", "DS"].includes(code) || name.includes("slab") || name.includes("decking");
+                                } else if (selectedComponentTypeFilter === "Stair") {
+                                  matchesFilter = ["STAIR DOWN", "STAIR UP", "STAIR SIDE SPONDA", "STAIR KICKER", "GUN", "STAIR IC", "TRADE", "RISER", "STAIR SLAB", "STD", "STPH"].includes(code) || name.includes("stair") || name.includes("trade") || name.includes("riser") || name.includes("tread");
+                                } else if (selectedComponentTypeFilter === "Support") {
+                                  matchesFilter = ["PROPHEAD", "STD", "STPH", "MB"].includes(code) || name.includes("prop") || name.includes("support");
+                                }
+                                
+                                return matchesSearch && matchesFilter;
+                              })
+                              .map((comp: any) => (
+                                <tr key={comp.code + comp.origIdx} className="hover:bg-slate-900/50 transition-colors">
+                                  {/* Code Badge */}
+                                  <td className="p-2.5 font-black text-center whitespace-nowrap">
+                                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono leading-none ${
+                                      comp.code === "AC" || comp.code === "I/C" ? "bg-red-500/10 text-red-400 border border-red-500/20" :
+                                      comp.code === "WS" || comp.code === "W" || comp.code === "WE" ? "bg-amber-500/10 text-amber-400 border border-amber-500/20" :
+                                      comp.code === "B" || comp.code === "Beam bottom" ? "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20" :
+                                      comp.code === "D" || comp.code === "SC" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                      "bg-teal-500/10 text-teal-400 border border-teal-500/20"
+                                    }`}>
+                                      {comp.code}
+                                    </span>
+                                  </td>
+
+                                  {/* Description & Names */}
+                                  <td className="p-2.5 max-w-xs sm:max-w-md">
+                                    <p className="font-bold text-slate-100 text-[11px] leading-tight">
+                                      {isAmharic ? comp.nameAmharic : comp.name}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 font-normal leading-normal mt-0.5 line-clamp-1 hover:line-clamp-none">
+                                      {comp.purpose}
+                                    </p>
+                                  </td>
+
+                                  {/* Size */}
+                                  <td className="p-2.5 font-mono text-slate-300 text-[11px]">
+                                    {comp.size}
+                                  </td>
+
+                                  {/* Qty count */}
+                                  <td className="p-2.5 text-center whitespace-nowrap font-black font-mono text-white">
+                                    {isEditMode ? (
+                                      <div className="flex items-center justify-center space-x-1">
+                                        <input
+                                          type="number"
+                                          min="0"
+                                          value={comp.quantity}
+                                          onChange={(e) => handleComponentQtyChange(comp.code, comp.origIdx, Number(e.target.value))}
+                                          className="w-14 bg-slate-950 border border-slate-700 rounded px-1 py-0.5 text-center font-bold text-red-400 font-mono text-[11px] focus:ring-1 focus:ring-red-500 outline-none"
+                                        />
+                                        <span className="text-[9px] text-slate-500">{comp.unit}</span>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        {comp.quantity} <span className="text-[9px] text-slate-500 font-medium">{comp.unit}</span>
+                                      </>
+                                    )}
+                                  </td>
+
+                                  {/* Zone breakdown metrics */}
+                                  <td className="p-2.5 bg-slate-950/20 border-l border-slate-800 text-center whitespace-nowrap">
+                                    <div className="flex items-center justify-center space-x-2.5 font-mono text-[10px]">
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[8px] text-slate-500 uppercase leading-none font-bold">Zone A</span>
+                                        <span className="text-red-400 font-black mt-0.5">{comp.zoneBreakdown?.zoneA || 0}</span>
+                                      </div>
+                                      <span className="text-slate-850">|</span>
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[8px] text-slate-500 uppercase leading-none font-bold">Zone B</span>
+                                        <span className="text-indigo-400 font-black mt-0.5">{comp.zoneBreakdown?.zoneB || 0}</span>
+                                      </div>
+                                      <span className="text-slate-850">|</span>
+                                      <div className="flex flex-col items-center">
+                                        <span className="text-[8px] text-slate-500 uppercase leading-none font-bold">Zone C</span>
+                                        <span className="text-emerald-400 font-black mt-0.5">{comp.zoneBreakdown?.zoneC || 0}</span>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              ))}
+
+                            {activeComponents
+                              .filter((comp: any) => {
+                                const q = searchComponentQuery.toLowerCase();
+                                const matchesSearch = 
+                                  comp.code.toLowerCase().includes(q) ||
+                                  comp.name.toLowerCase().includes(q) ||
+                                  comp.nameAmharic.toLowerCase().includes(q) ||
+                                  comp.size.toLowerCase().includes(q);
+                                
+                                const code = comp.code.toUpperCase();
+                                const name = comp.name.toLowerCase();
+                                let matchesFilter = true;
+                                if (selectedComponentTypeFilter === "Wall") {
+                                  matchesFilter = ["AC", "I/C", "WS", "W", "WE", "KICKER", "KICKER IC"].includes(code) || name.includes("wall") || name.includes("kicker");
+                                } else if (selectedComponentTypeFilter === "Beam") {
+                                  matchesFilter = ["B", "BEAM IC", "BEAM BOTTOM", "END BEAM", "STAIR END BEAM", "MB"].includes(code) || name.includes("beam");
+                                } else if (selectedComponentTypeFilter === "Slab") {
+                                  matchesFilter = ["SC", "D", "SIA", "SCA", "SCU", "SOA", "DST", "DS"].includes(code) || name.includes("slab") || name.includes("decking");
+                                } else if (selectedComponentTypeFilter === "Stair") {
+                                  matchesFilter = ["STAIR DOWN", "STAIR UP", "STAIR SIDE SPONDA", "STAIR KICKER", "GUN", "STAIR IC", "TRADE", "RISER", "STAIR SLAB", "STD", "STPH"].includes(code) || name.includes("stair") || name.includes("trade") || name.includes("riser") || name.includes("tread");
+                                } else if (selectedComponentTypeFilter === "Support") {
+                                  matchesFilter = ["PROPHEAD", "STD", "STPH", "MB"].includes(code) || name.includes("prop") || name.includes("support");
+                                }
+                                return matchesSearch && matchesFilter;
+                              }).length === 0 && (
+                              <tr>
+                                <td colSpan={5} className="text-center py-8 text-slate-500 italic">
+                                  {isAmharic ? "ማጣሪያውን የሚያሟላ ምንም የካድ ክፍል አልተገኘም።" : "No components found matching current filters."}
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
                       </div>
                     </div>
 
@@ -995,6 +1692,8 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                       Clear AI analysis
                     </button>
                   </div>
+                    );
+                  })()
                 )}
               </div>
             )}
@@ -1148,7 +1847,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
               {currentUserRole === UserRole.HEAD_OFFICE && (
                 <div className="space-y-3 text-xs">
                   <p className="text-slate-500">
-                    Provide legal digital sign-off. Approving publishes the revision as the active floor plan template.
+                    Prdigital_construction_erpe legal digital sign-off. Approving publishes the revision as the active floor plan template.
                   </p>
 
                   {activeDrawing.status === "Reviewed" ? (
@@ -1248,6 +1947,58 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                 </h3>
               </div>
 
+              {/* Drag and Drop Zone */}
+              <div
+                onDragEnter={handleDrag}
+                onDragOver={handleDrag}
+                onDragLeave={handleDrag}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-xl p-5 text-center transition-all ${
+                  isDragActive
+                    ? "border-red-500 bg-red-50/30"
+                    : "border-slate-200 bg-slate-50/50 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="file"
+                  id="cad-file-picker"
+                  className="hidden"
+                  accept=".dwg,.dxf,.pdf,.png,.jpg,.jpeg"
+                  onChange={handleFileChange}
+                />
+                <label htmlFor="cad-file-picker" className="cursor-pointer space-y-2 block">
+                  <Upload size={24} className="mx-auto text-slate-400" />
+                  <div className="text-xs">
+                    <span className="font-black text-slate-800">
+                      {isAmharic ? "እዚህ ይጎትቱት ወይም ጠቅ አድርገው ያስገቡ" : "Drag & Drop CAD file here or Click to select"}
+                    </span>
+                    <p className="text-[10px] text-slate-400 mt-1 font-mono">
+                      DWG, DXF, PDF, PNG, or JPG (Max 15MB)
+                    </p>
+                  </div>
+                </label>
+
+                {cadFile && (
+                  <div className="mt-3 inline-flex items-center space-x-1.5 bg-red-50 border border-red-100 px-3 py-1 rounded-lg text-[11px] text-red-800 font-bold">
+                    <FileText size={12} />
+                    <span className="truncate max-w-[200px]">{cadFile.name}</span>
+                    <span className="text-[9px] text-slate-400">({(cadFile.size / 1024 / 1024).toFixed(2)} MB)</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Browse File Manager Action Button */}
+              <div className="text-center pt-1 pb-2">
+                <button
+                  type="button"
+                  onClick={() => setIsFileExplorerOpen(true)}
+                  className="inline-flex items-center space-x-2 px-3 py-2 bg-slate-950 hover:bg-slate-800 text-white text-xs font-black rounded-xl transition-all shadow-sm cursor-pointer border border-slate-800"
+                >
+                  <FolderOpen size={13} className="text-red-500 animate-bounce" />
+                  <span>{isAmharic ? "ከድርጅቱ ፋይል ማናጀር ስዕል ምረጥ" : "Select CAD from File Manager"}</span>
+                </button>
+              </div>
+
               <form onSubmit={handleCadUpload} className="space-y-3.5 text-xs">
                 
                 <div className="grid grid-cols-2 gap-3">
@@ -1271,7 +2022,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                       type="text"
                       value={cadFilenameInput}
                       onChange={(e) => setCadFilenameInput(e.target.value)}
-                      placeholder="e.g., OVID_CORE_PLAN.dwg"
+                      placeholder="e.g., Digital Construction ERP_CORE_PLAN.dwg"
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg text-xs p-2 focus:ring-0"
                     />
                   </div>
@@ -1285,6 +2036,28 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                     placeholder="Enter change details (e.g., Added shoring props supporting beam level)."
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg text-xs p-2 focus:ring-0 resize-none h-14"
                   />
+                </div>
+
+                {/* AI Auto Panel Analysis Toggle Checkbox */}
+                <div className="bg-red-50/50 p-3 rounded-xl border border-red-200/50 flex items-start space-x-2.5">
+                  <input
+                    type="checkbox"
+                    id="auto-analyze-toggle"
+                    checked={autoAnalyzeOnUpload}
+                    onChange={(e) => setAutoAnalyzeOnUpload(e.target.checked)}
+                    className="mt-0.5 rounded text-red-600 focus:ring-0 w-3.5 h-3.5 cursor-pointer"
+                  />
+                  <label htmlFor="auto-analyze-toggle" className="cursor-pointer space-y-0.5 select-none">
+                    <div className="flex items-center space-x-1 font-black text-slate-800 text-xs">
+                      <Sparkles size={12} className="text-red-500" />
+                      <span>{isAmharic ? "አውቶማቲክ የፓነል አይነትና ብዛት መለየት (AI)" : "Auto-Extract Panel Types & Quantities (AI)"}</span>
+                    </div>
+                    <p className="text-[10px] text-slate-500 leading-tight">
+                      {isAmharic
+                        ? "በካድ ስዕሉ ላይ ያሉትን የግድግዳ፣ የፎቅና የድጋፍ ፓነሎችን አይነትና ብዛት በGemini AI ወዲያውኑ ያስተውላል።"
+                        : "Upload will instantly trigger Gemini AI to count required Wall, Beam, and Slab panels from the layout."}
+                    </p>
+                  </label>
                 </div>
 
                 <div className="flex justify-end">
@@ -1301,7 +2074,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                     ) : (
                       <>
                         <Upload size={13} className="text-red-500" />
-                        <span>Upload Draft</span>
+                        <span>{isAmharic ? "ስዕሉን አስገባና ተንትን" : "Upload Draft & Analyze"}</span>
                       </>
                     )}
                   </button>
@@ -1330,7 +2103,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                   <FileSpreadsheet className="text-red-500" size={18} />
                   <div>
                     <h3 className="font-black text-xs tracking-tight uppercase">Executive Report Generator</h3>
-                    <p className="text-[9px] text-slate-400 font-mono">OVID Construction ERP - Compliance center</p>
+                    <p className="text-[9px] text-slate-400 font-mono">Digital Construction ERP ERP - Compliance center</p>
                   </div>
                 </div>
                 <button 
@@ -1387,6 +2160,138 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                   className="bg-emerald-600 hover:bg-emerald-700 text-white font-black px-3.5 py-1.5 rounded-lg text-xs flex items-center space-x-1 cursor-pointer disabled:opacity-50"
                 >
                   {exportAnimation === "excel" ? "Exporting..." : "Export Excel"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* ENTERPRISE FILE EXPLORER MODAL */}
+      <AnimatePresence>
+        {isFileExplorerOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs" id="file_manager_modal">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              {/* Header */}
+              <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <FolderOpen className="text-red-500 animate-pulse" size={18} />
+                  <div>
+                    <h3 className="font-black text-xs tracking-tight uppercase">
+                      {isAmharic ? "ከድርጅቱ ፋይል ማናጀር ስዕል መምረጫ" : "Enterprise File Manager Explorer"}
+                    </h3>
+                    <p className="text-[9px] text-slate-400 font-mono">
+                      {isAmharic ? "ከደመና ማህደር ላይ የካድ ስዕሎችን መርጠው ያስገቡ" : "Browse and import preloaded CAD drawings from Cloud Vault"}
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setIsFileExplorerOpen(false)}
+                  className="text-slate-400 hover:text-white font-bold text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Search & Filter Toolbar */}
+              <div className="p-4 bg-slate-50 border-b border-slate-100 flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div className="relative w-full sm:w-64">
+                  <span className="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+                    <Sliders size={13} />
+                  </span>
+                  <input
+                    type="text"
+                    value={searchFileQuery}
+                    onChange={(e) => setSearchFileQuery(e.target.value)}
+                    placeholder={isAmharic ? "ስም ፈልግ..." : "Search blueprints..."}
+                    className="w-full bg-white border border-slate-200 rounded-xl text-xs pl-8 pr-3 py-1.5 focus:ring-0"
+                  />
+                </div>
+
+                <div className="flex space-x-1 w-full sm:w-auto overflow-x-auto font-bold text-xs">
+                  {["All", "DWG", "DXF", "PDF"].map((filter) => (
+                    <button
+                      key={filter}
+                      onClick={() => setSelectedFileFilter(filter)}
+                      className={`px-3 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                        selectedFileFilter === filter
+                          ? "bg-red-500 text-white font-black"
+                          : "bg-white border border-slate-200 text-slate-500 hover:bg-slate-100"
+                      }`}
+                    >
+                      {filter}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Files Grid List */}
+              <div className="p-4 overflow-y-auto flex-1 divide-y divide-slate-100 max-h-[450px]">
+                {enterpriseDocuments
+                  .filter((file) => {
+                    const matchesSearch = file.name.toLowerCase().includes(searchFileQuery.toLowerCase()) ||
+                                         file.category.toLowerCase().includes(searchFileQuery.toLowerCase());
+                    const matchesFilter = selectedFileFilter === "All" || file.type === selectedFileFilter;
+                    return matchesSearch && matchesFilter;
+                  })
+                  .map((file) => (
+                    <div 
+                      key={file.id} 
+                      className="py-3 flex items-center justify-between hover:bg-slate-50/80 px-2 rounded-xl transition-colors"
+                    >
+                      <div className="flex items-center space-x-3 truncate">
+                        <div className="p-2.5 bg-red-50 text-red-600 rounded-lg shrink-0">
+                          <FileText size={18} />
+                        </div>
+                        <div className="truncate">
+                          <p className="font-bold text-slate-800 text-xs truncate leading-tight">{file.name}</p>
+                          <div className="flex items-center space-x-2 mt-1 text-[10px] text-slate-400 font-medium">
+                            <span className="bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-mono text-[9px] uppercase">{file.type}</span>
+                            <span>{file.size}</span>
+                            <span>•</span>
+                            <span className="truncate">{file.category}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() => handleSelectExplorerFile(file)}
+                        className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white font-black text-xs rounded-lg transition-colors shrink-0 cursor-pointer"
+                      >
+                        {isAmharic ? "ምረጥ" : "Select"}
+                      </button>
+                    </div>
+                  ))}
+
+                {enterpriseDocuments.filter((file) => {
+                  const matchesSearch = file.name.toLowerCase().includes(searchFileQuery.toLowerCase()) ||
+                                       file.category.toLowerCase().includes(searchFileQuery.toLowerCase());
+                  const matchesFilter = selectedFileFilter === "All" || file.type === selectedFileFilter;
+                  return matchesSearch && matchesFilter;
+                }).length === 0 && (
+                  <div className="text-center py-12 text-slate-400 italic text-xs">
+                    No files found matching the search criteria.
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-50 p-4 border-t border-slate-100 flex items-center justify-between">
+                <p className="text-[10px] text-slate-400 italic font-medium">
+                  {isAmharic 
+                    ? "ከደመናው ማከማቻ የተመረጡት ፋይሎች በደህንነቱ የተጠበቁ ናቸው።" 
+                    : "Encrypted secure pipeline to project blueprint files."}
+                </p>
+                <button
+                  onClick={() => setIsFileExplorerOpen(false)}
+                  className="px-4 py-1.5 bg-white border border-slate-200 text-slate-700 font-bold text-xs rounded-lg hover:bg-slate-50 transition-colors cursor-pointer"
+                >
+                  {isAmharic ? "ዝጋ" : "Close"}
                 </button>
               </div>
             </motion.div>

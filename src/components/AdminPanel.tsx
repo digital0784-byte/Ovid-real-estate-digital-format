@@ -41,7 +41,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [workerName, setWorkerName] = useState("");
   const [workerTrade, setWorkerTrade] = useState("Foreman");
   const [workerDept, setWorkerDept] = useState("Formwork Assembly");
-  const [workerCompany, setWorkerCompany] = useState("OVID Construction");
+  const [workerCompany, setWorkerCompany] = useState("Digital Construction ERP");
   const [teamIdForWorker, setTeamIdForWorker] = useState("T-01");
 
   // Add Team Form State
@@ -282,7 +282,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
               <input 
                 type="text" required value={newBldgName}
                 onChange={e => setNewBldgName(e.target.value)}
-                placeholder="e.g. OVID Saris Block C"
+                placeholder="e.g. Digital Construction ERP Saris Block C"
                 className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 outline-none" 
               />
             </div>

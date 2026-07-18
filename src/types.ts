@@ -40,7 +40,7 @@ export enum AttendanceMethod {
 }
 
 export interface Worker {
-  id: string; // ID for worker (e.g., OVID-W-101)
+  id: string; // ID for worker (e.g., ERP-W-101)
   name: string;
   photo?: string;
   phoneNumber?: string;
@@ -49,7 +49,7 @@ export interface Worker {
   dateOfBirth?: string;
   address?: string;
   emergencyContact?: string;
-  company: string; // e.g., OVID Construction, subcontractor name
+  company: string; // e.g., Digital Construction ERP, subcontractor name
   department: string;
   trade: string; // e.g., Welder, Carpenter, Steel Fixer, Concrete Worker
   position?: string;

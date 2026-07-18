@@ -75,14 +75,14 @@ export function SecuritySettingsHub({
 
   // --- ENTERPRISE SOC STATES ---
   const [appCheckEnabled, setAppCheckEnabled] = useState(true);
-  const [appCheckProvider, setAppCheckProvider] = useState<"recaptcha_v3" | "recaptcha_enterprise" | "debug">("recaptcha_enterprise");
+  const [appCheckPrdigital_construction_erper, setAppCheckPrdigital_construction_erper] = useState<"recaptcha_v3" | "recaptcha_enterprise" | "debug">("recaptcha_enterprise");
   const [appCheckToken, setAppCheckToken] = useState("");
   const [appCheckLoading, setAppCheckLoading] = useState(false);
 
   const [apiStressLogs, setApiStressLogs] = useState<{ id: number; timestamp: string; url: string; status: number; result: string }[]>([]);
   const [apiStressLoading, setApiStressLoading] = useState(false);
 
-  const [plainText, setPlainText] = useState("OVID-EMP-0910097862-SALARY-125000-ETB");
+  const [plainText, setPlainText] = useState("Digital Construction ERP-EMP-0910097862-SALARY-125000-ETB");
   const [encryptedData, setEncryptedData] = useState<{ ciphertext: string; iv: string; tag: string; algorithm: string } | null>(null);
   const [decryptedText, setDecryptedText] = useState("");
   const [cryptoLoading, setCryptoLoading] = useState(false);
@@ -92,7 +92,7 @@ export function SecuritySettingsHub({
   const [mfaOtpInput, setMfaOtpInput] = useState("");
   const [mfaError, setMfaError] = useState("");
   const [mfaSuccessMsg, setMfaSuccessMsg] = useState("");
-  const [mfaSetupSecret] = useState("OVID-MFA-AD-56H7-L9K2");
+  const [mfaSetupSecret] = useState("Digital Construction ERP-MFA-AD-56H7-L9K2");
 
   const [localFingerprint, setLocalFingerprint] = useState<{ browser: string; os: string; screen: string; hash: string } | null>(null);
 
@@ -113,7 +113,7 @@ export function SecuritySettingsHub({
         hashNum = (hashNum << 5) - hashNum + str.charCodeAt(i);
         hashNum |= 0;
       }
-      const hashStr = "OVID_FP_" + Math.abs(hashNum).toString(16).toUpperCase();
+      const hashStr = "Digital Construction ERP_FP_" + Math.abs(hashNum).toString(16).toUpperCase();
       setLocalFingerprint({ browser, os, screen: screenResolution, hash: hashStr });
     }
   }, []);
@@ -124,12 +124,12 @@ export function SecuritySettingsHub({
       const res = await fetch("/api/security/app-check-token", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ provider: appCheckProvider === "recaptcha_enterprise" ? "reCAPTCHA Enterprise" : appCheckProvider === "recaptcha_v3" ? "reCAPTCHA v3" : "Debug Provider" })
+        body: JSON.stringify({ prdigital_construction_erper: appCheckPrdigital_construction_erper === "recaptcha_enterprise" ? "reCAPTCHA Enterprise" : appCheckPrdigital_construction_erper === "recaptcha_v3" ? "reCAPTCHA v3" : "Debug Prdigital_construction_erper" })
       });
       const data = await res.json();
       if (data.success) {
         setAppCheckToken(data.token);
-        onLogAction("App Check Token Issued", `Obtained attestation certificate from ${data.provider} to block API abuse.`);
+        onLogAction("App Check Token Issued", `Obtained attestation certificate from ${data.prdigital_construction_erper} to block API abuse.`);
       }
     } catch (e) {
       console.error(e);
@@ -299,7 +299,7 @@ export function SecuritySettingsHub({
   // User Registered Devices list
   const [devicesList, setDevicesList] = useState([
     { id: "DEV-01", device: "Desktop Workstation - Chrome (Current)", ip: "192.168.10.45", location: "Bole Heights Site B1", activeAt: "Just now" },
-    { id: "DEV-02", device: "OVID ERP Android App (Samsung S24)", ip: "10.0.8.22", location: "Bole Heights Site B1", activeAt: "2 hours ago" },
+    { id: "DEV-02", device: "Digital Construction ERP ERP Android App (Samsung S24)", ip: "10.0.8.22", location: "Bole Heights Site B1", activeAt: "2 hours ago" },
     { id: "DEV-03", device: "Survey Tablet iOS Client (iPad Pro)", ip: "10.0.8.114", location: "Bole Heights Site B1", activeAt: "1 day ago" }
   ]);
 
@@ -307,15 +307,15 @@ export function SecuritySettingsHub({
   // Online/Active users session list
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([
     { id: "SES-101", userId: "HO-01", userName: "Eng. Yoseph", role: UserRole.HEAD_OFFICE, device: "Desktop Workstation - Chrome", ip: "192.168.10.45", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 07:15:33", isCurrent: true },
-    { id: "SES-102", userId: "PM-01", userName: "Eng. Dawit", role: UserRole.PROJECT_MANAGER, device: "OVID ERP iOS (iPhone 15 Pro)", ip: "10.2.14.88", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 08:30:11", isCurrent: false },
+    { id: "SES-102", userId: "PM-01", userName: "Eng. Dawit", role: UserRole.PROJECT_MANAGER, device: "Digital Construction ERP ERP iOS (iPhone 15 Pro)", ip: "10.2.14.88", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 08:30:11", isCurrent: false },
     { id: "SES-103", userId: "SE-01", userName: "Sintayehu Alula", role: UserRole.SITE_ENGINEER, device: "Rugged Webpad OS", ip: "192.168.10.12", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 07:45:00", isCurrent: false },
     { id: "SES-104", userId: "TK-01", userName: "Abebe Girma", role: UserRole.TIME_KEEPER, device: "Attendance Biometric Kiosk B1", ip: "192.168.10.5", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 06:00:22", isCurrent: false }
   ]);
 
   // Mock Locked Accounts due to security failures
   const [lockedAccounts, setLockedAccounts] = useState<LockedAccount[]>([
-    { id: "OVID-W-103", name: "Chala Kebede", role: "Worker", reason: "Repeated Biometric Mismatch (Fingerprint 4 failed scans)", failedAttempts: 4, lockedAt: "2026-07-09 09:12:44" },
-    { id: "OVID-SV-03", name: "Kassa Hunegn", role: "Supervisor", reason: "Multiple incorrect MFA tokens entered", failedAttempts: 3, lockedAt: "2026-07-09 10:05:19" }
+    { id: "ERP-W-103", name: "Chala Kebede", role: "Worker", reason: "Repeated Biometric Mismatch (Fingerprint 4 failed scans)", failedAttempts: 4, lockedAt: "2026-07-09 09:12:44" },
+    { id: "Digital Construction ERP-SV-03", name: "Kassa Hunegn", role: "Supervisor", reason: "Multiple incorrect MFA tokens entered", failedAttempts: 3, lockedAt: "2026-07-09 10:05:19" }
   ]);
 
   // Security Alerts
@@ -896,7 +896,7 @@ export function SecuritySettingsHub({
                   <div className="flex items-center space-x-2">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                     <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-300 font-bold">
-                      OVID-ERP Security Shield
+                      Digital Construction ERP-ERP Security Shield
                     </span>
                   </div>
                   <h3 className="text-xl font-black uppercase tracking-tight">
@@ -904,8 +904,8 @@ export function SecuritySettingsHub({
                   </h3>
                   <p className="text-xs text-slate-300 max-w-xl">
                     {isAmharic 
-                      ? "የ OVID ግንባታ ፋይናንስ ERP ደህንነትን ለመጠበቅ የተዘረጉ ስምንቱ የጥበቃ እርከኖች። የእውነተኛ ጊዜ የኤፒአይ መቆጣጠሪያዎች፣ ምስጠራ እና የ2FA ቅንብሮችን እዚህ ያስተዳድሩ።" 
-                      : "The ultimate security gateway protecting OVID's multi-billion Birr structural ledger assets. Control Firebase App Check, API abuse shields, AES-256 field-level hardware encryption, and device fingerprint validation."}
+                      ? "የ Digital Construction ERP ግንባታ ፋይናንስ ERP ደህንነትን ለመጠበቅ የተዘረጉ ስምንቱ የጥበቃ እርከኖች። የእውነተኛ ጊዜ የኤፒአይ መቆጣጠሪያዎች፣ ምስጠራ እና የ2FA ቅንብሮችን እዚህ ያስተዳድሩ።" 
+                      : "The ultimate security gateway protecting Digital Construction ERP's multi-billion Birr structural ledger assets. Control Firebase App Check, API abuse shields, AES-256 field-level hardware encryption, and device fingerprint validation."}
                   </p>
                 </div>
                 <div className="flex items-center gap-2 bg-indigo-950/80 p-3 rounded-xl border border-indigo-500/20 font-mono text-[10px] text-indigo-200 font-sans">
@@ -959,18 +959,18 @@ export function SecuritySettingsHub({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "የማረጋገጫ አቅራቢ" : "Attestation Provider"}</label>
+                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "የማረጋገጫ አቅራቢ" : "Attestation Prdigital_construction_erper"}</label>
                     <select
-                      value={appCheckProvider}
+                      value={appCheckPrdigital_construction_erper}
                       onChange={(e: any) => {
-                        setAppCheckProvider(e.target.value);
-                        onLogAction("App Check Provider Updated", `Changed attestation technology to ${e.target.value}.`);
+                        setAppCheckPrdigital_construction_erper(e.target.value);
+                        onLogAction("App Check Prdigital_construction_erper Updated", `Changed attestation technology to ${e.target.value}.`);
                       }}
                       className="w-full px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none"
                     >
                       <option value="recaptcha_enterprise">Google reCAPTCHA Enterprise</option>
                       <option value="recaptcha_v3">reCAPTCHA v3 API</option>
-                      <option value="debug">Developer JWT Debug Provider</option>
+                      <option value="debug">Developer JWT Debug Prdigital_construction_erper</option>
                     </select>
                   </div>
 
@@ -1180,7 +1180,7 @@ export function SecuritySettingsHub({
                             <div className="bg-white"></div><div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-slate-950"></div>
                           </div>
                         </div>
-                        <span className="text-slate-500 text-[6px] mt-1">OVID-MFA</span>
+                        <span className="text-slate-500 text-[6px] mt-1">Digital Construction ERP-MFA</span>
                       </div>
                       <div className="space-y-1">
                         <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "2FA ምስጢራዊ ቁልፍ (Secret)" : "MFA Authentication Secret"}</span>
@@ -1369,8 +1369,8 @@ export function SecuritySettingsHub({
                 </h4>
                 <p>
                   {isAmharic 
-                    ? "OVID Real Estate የግንባታ ፕሮጀክቶችን ምርታማነት ለማሻሻል የሚያግዝ ዘመናዊ መቆጣጠሪያ ሲጠቀም፣ የሰራተኞችን የግል መረጃ ጥበቃ (Proclamation No. 1205/2020) እና ዓለም አቀፍ የ GDPR ደንቦችን በጥብቅ ይከተላል።" 
-                    : "This regulatory agreement establishes the data handling pipeline inside the OVID Smart Construction system. By integrating biometric hardware controls and telemetry logging, OVID Real Estate aligns itself strictly with global personal privacy frameworks and Proclamation No. 1205/2020 of the Federal Democratic Republic of Ethiopia."}
+                    ? "Digital Construction ERP System የግንባታ ፕሮጀክቶችን ምርታማነት ለማሻሻል የሚያግዝ ዘመናዊ መቆጣጠሪያ ሲጠቀም፣ የሰራተኞችን የግል መረጃ ጥበቃ (Proclamation No. 1205/2020) እና ዓለም አቀፍ የ GDPR ደንቦችን በጥብቅ ይከተላል።" 
+                    : "This regulatory agreement establishes the data handling pipeline inside the Digital Construction ERP Smart Construction system. By integrating biometric hardware controls and telemetry logging, Digital Construction ERP System aligns itself strictly with global personal privacy frameworks and Proclamation No. 1205/2020 of the Federal Democratic Republic of Ethiopia."}
                 </p>
               </div>
 
@@ -1423,7 +1423,7 @@ export function SecuritySettingsHub({
                 <p className="text-[10px] text-slate-500 font-mono mt-0.5">
                   {isAmharic 
                     ? "ይህ ሶፍትዌር ለብሔራዊ የደህንነት እና የግል መረጃ አጠቃቀም ደንቦች ተገዢ ሆኖ የተመዘገበ ነው።" 
-                    : "Audit ID: OVID-PRV-2026-B1 | Last regulatory compliance inspection passed."}
+                    : "Audit ID: Digital Construction ERP-PRV-2026-B1 | Last regulatory compliance inspection passed."}
                 </p>
               </div>
             </div>

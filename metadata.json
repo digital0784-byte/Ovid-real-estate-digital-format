@@ -1,6 +1,6 @@
 {
-  "name": "Digital Construction ERP command platform",
-  "description": "Comprehensive attendance, productivity, drawing-based CAD planning, safety, quality, and AI analytics platform for OVID Real Estate aluminum formwork systems.",
+  "name": "Digital Construction ERP System",
+  "description": "Comprehensive attendance, productivity, drawing-based CAD planning, safety, quality, and AI analytics platform for Digital Construction ERP System aluminum formwork systems.",
   "requestFramePermissions": ["camera", "geolocation"],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

@@ -190,7 +190,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
             <div className="flex items-center space-x-2">
               <span className="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping"></span>
               <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-300 font-bold">
-                {isAmharic ? "ኦቪድ ኢአርፒ የንግድ አገልግሎት ማስጀመሪያ" : "OVID ERP COMMERCIAL LAUNCH SYSTEM"}
+                {isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ኢአርፒ የንግድ አገልግሎት ማስጀመሪያ" : "Digital Construction ERP ERP COMMERCIAL LAUNCH SYSTEM"}
               </span>
             </div>
             <h2 className="text-2xl font-black uppercase tracking-tight flex items-center gap-2">
@@ -199,8 +199,8 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
             </h2>
             <p className="text-xs text-slate-300 max-w-2xl">
               {isAmharic 
-                ? "የ OVID ERP መተግበሪያን ለንግድ ዝግጁነት እዚህ ያረጋግጡ። አውቶማቲክ ሙከራዎችን ያሂዱ፣ የደህንነት ኦዲት ያድርጉ፣ የመተግበሪያዎችን አጠቃቀም ማንዋሎች ያንብቡ እና የደህንነት እቅዶችን ያግኙ።" 
-                : "Validate OVID Smart Construction ERP for enterprise production. Execute local unit test suites, run DAST/SAST penetration testing, simulate high-throughput performance loads, and download comprehensive operating manuals."}
+                ? "የ Digital Construction ERP ERP መተግበሪያን ለንግድ ዝግጁነት እዚህ ያረጋግጡ። አውቶማቲክ ሙከራዎችን ያሂዱ፣ የደህንነት ኦዲት ያድርጉ፣ የመተግበሪያዎችን አጠቃቀም ማንዋሎች ያንብቡ እና የደህንነት እቅዶችን ያግኙ።" 
+                : "Validate Digital Construction ERP Smart Construction ERP for enterprise production. Execute local unit test suites, run DAST/SAST penetration testing, simulate high-throughput performance loads, and download comprehensive operating manuals."}
             </p>
           </div>
           <div className="shrink-0 flex items-center gap-2 bg-slate-800/80 p-3 rounded-xl border border-slate-700">
@@ -279,7 +279,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                     </h3>
                     <p className="text-xs text-slate-600 leading-relaxed">
                       {isAmharic 
-                        ? "በ OVID ERP ውስጥ ያሉ ወሳኝ ቀመሮችን እና ስሌቶችን በትክክል መስራታቸውን እዚህ ይፈትሹ። ፈተናዎችን በማስጀመር የስራ አፈጻጸሙን ይቆጣጠሩ።" 
+                        ? "በ Digital Construction ERP ERP ውስጥ ያሉ ወሳኝ ቀመሮችን እና ስሌቶችን በትክክል መስራታቸውን እዚህ ይፈትሹ። ፈተናዎችን በማስጀመር የስራ አፈጻጸሙን ይቆጣጠሩ።" 
                         : "Verify key algebraic formulas governing structural verticality limits, biometrics hash verification, offline sequence serialization, and concrete curing prediction algorithms."}
                     </p>
                     <button
@@ -352,7 +352,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                   <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-3">
                     <div className="flex justify-between items-center">
                       <h3 className="text-sm font-black text-slate-900 uppercase">
-                        {isAmharic ? "የደህንነት ስጋት ጥበቃዎች (SOC Matrix)" : "OVID Threat Defense Integrity Ledger"}
+                        {isAmharic ? "የደህንነት ስጋት ጥበቃዎች (SOC Matrix)" : "Digital Construction ERP Threat Defense Integrity Ledger"}
                       </h3>
                       <span className="text-xs px-2.5 py-0.5 bg-emerald-100 text-emerald-800 rounded-full font-bold">100% Secure</span>
                     </div>
@@ -424,7 +424,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                       </h3>
                       <p className="text-slate-600 leading-relaxed font-sans">
                         {isAmharic 
-                          ? "OVID ERP በአንድ ጊዜ 10,000 ጥያቄዎችን ሲቀበል ያለውን ፍጥነትና መረጋጋት እዚህ ይፈትሹ። የቀጥታ ገበታውን ይመልከቱ።" 
+                          ? "Digital Construction ERP ERP በአንድ ጊዜ 10,000 ጥያቄዎችን ሲቀበል ያለውን ፍጥነትና መረጋጋት እዚህ ይፈትሹ። የቀጥታ ገበታውን ይመልከቱ።" 
                           : "Simulate virtual field telemetry packets (from 10,000+ simultaneous worker terminals) to stress test DB cluster latency."}
                       </p>
 
@@ -508,7 +508,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                   </h3>
                   <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
                     {isAmharic 
-                      ? "የ OVID ERP መተግበሪያን በፈየርቤዝ (Firebase) ላይ በቀጥታ ለመጫን እነዚህን ቅደም ተከተሎች ይከተሉ::" 
+                      ? "የ Digital Construction ERP ERP መተግበሪያን በፈየርቤዝ (Firebase) ላይ በቀጥታ ለመጫን እነዚህን ቅደም ተከተሎች ይከተሉ::" 
                       : "Directly push compiled production assets to GCP Cloud Run and Firebase Hosting using simple commands."}
                   </p>
                   
@@ -536,7 +536,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                   </h3>
                   <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
                     {isAmharic 
-                      ? "መተግበሪያውን በድርጅቱ የዶሜይን አድራሻ (ለምሳሌ erp.ovid.com.et) ላይ ለመጫን እና የደህንነት ሰርተፊኬት (SSL) ለማቀናበር Nginx ኮንፊግን ይጠቀሙ::" 
+                      ? "መተግበሪያውን በድርጅቱ የዶሜይን አድራሻ (ለምሳሌ erp.digital_construction_erp.com.et) ላይ ለመጫን እና የደህንነት ሰርተፊኬት (SSL) ለማቀናበር Nginx ኮንፊግን ይጠቀሙ::" 
                       : "Route production DNS records (A/CNAME) to Nginx reverse proxy. SSL certificated automatically handled via Let's Encrypt automated cron renewal script."}
                   </p>
                 </div>
@@ -619,9 +619,9 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
             {/* Documentation sub selector */}
             <div className="flex border-b border-slate-200 gap-4">
               {[
-                { id: "user_manual", label: isAmharic ? "የተጠቃሚ መመሪያ (User Manual)" : "OVID User Manual", icon: BookOpen },
-                { id: "admin_manual", label: isAmharic ? "የአስተዳደር መመሪያ (Admin Manual)" : "OVID Admin Guide", icon: ShieldCheck },
-                { id: "api_docs", label: isAmharic ? "የኤፒአይ ሰነድ (API Spec)" : "OVID API Docs", icon: Code2 }
+                { id: "user_manual", label: isAmharic ? "የተጠቃሚ መመሪያ (User Manual)" : "Digital Construction ERP User Manual", icon: BookOpen },
+                { id: "admin_manual", label: isAmharic ? "የአስተዳደር መመሪያ (Admin Manual)" : "Digital Construction ERP Admin Guide", icon: ShieldCheck },
+                { id: "api_docs", label: isAmharic ? "የኤፒአይ ሰነድ (API Spec)" : "Digital Construction ERP API Docs", icon: Code2 }
               ].map((sub) => {
                 const Icon = sub.icon;
                 return (
@@ -663,7 +663,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                       role: "1. Field Workers",
                       action: "Daily Attendance & Geofenced Clock-In",
                       steps: [
-                        "Launch OVID Worker Mobile App terminal.",
+                        "Launch Digital Construction ERP Worker Mobile App terminal.",
                         "Hold fingerprint scanner for 2 seconds to authenticate biometric template.",
                         "Confirm location is within active geofenced bounds of Bole Heights site.",
                         "Verify screen shows 'Clock-In Success' before starting daily tasks."
@@ -725,7 +725,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
               <div className="space-y-4 animate-fade-in">
                 <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
                   <div className="border-b border-slate-200 pb-2">
-                    <h4 className="text-sm font-black text-slate-900 uppercase">{isAmharic ? "ኦቪድ ኢአርፒ አስተዳደር ፓነል መመሪያ" : "System Administration Playbook"}</h4>
+                    <h4 className="text-sm font-black text-slate-900 uppercase">{isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ኢአርፒ አስተዳደር ፓነል መመሪያ" : "System Administration Playbook"}</h4>
                     <p className="text-xs text-slate-500">{isAmharic ? "የስርዓቱን ደህንነት ለመጠበቅና ለመቆጣጠር የሚያስችል መመሪያ" : "Official operating handbook for systems architects and SOC administrators."}</p>
                   </div>
 
@@ -823,7 +823,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                     </h4>
                     <p className="text-[11px] text-slate-500 font-sans leading-relaxed">
                       {isAmharic 
-                        ? "OVID ERP የመረጃ ደህንነቱን ለመጠበቅ በየቀኑ አውቶማቲክ የደመና መጠባበቂያ (Backup) ያዘጋጃል።" 
+                        ? "Digital Construction ERP ERP የመረጃ ደህንነቱን ለመጠበቅ በየቀኑ አውቶማቲክ የደመና መጠባበቂያ (Backup) ያዘጋጃል።" 
                         : "Ensures maximum recovery objectives (RPO < 1 hour, RTO < 10 mins) across critical ERP ledgers."}
                     </p>
                   </div>
@@ -917,11 +917,11 @@ function fName(v: string) {
 // Static text configurations for configs & playbooks
 const nginxBlock = `server {
     listen 443 ssl http2;
-    server_name erp.ovid.com.et;
+    server_name erp.digital_construction_erp.com.et;
 
     # SSL Certifications from Let's Encrypt
-    ssl_certificate /etc/letsencrypt/live/erp.ovid.com.et/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/erp.ovid.com.et/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/erp.digital_construction_erp.com.et/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/erp.digital_construction_erp.com.et/privkey.pem;
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
@@ -934,7 +934,7 @@ const nginxBlock = `server {
     gzip on;
     gzip_types text/plain text/css application/json application/javascript;
 
-    # Reverse Proxy to OVID Node.js container on port 3000
+    # Reverse Proxy to Digital Construction ERP Node.js container on port 3000
     location / {
         proxy_pass http://127.0.0.1:3000;
         proxy_http_version 1.1;
@@ -948,8 +948,8 @@ const nginxBlock = `server {
 }`;
 
 const capacitorConfig = `{
-  "appId": "com.ovid.construction.erp",
-  "appName": "OVID Construction ERP",
+  "appId": "com.digital.construction.erp",
+  "appName": "Digital Construction ERP ERP",
   "webDir": "dist",
   "bundledWebRuntime": false,
   "plugins": {
@@ -971,13 +971,13 @@ const capacitorConfig = `{
 const playStoreGuide = `# STEP-BY-STEP PLAY STORE PRODUCTION RELEASE
 
 1. Generate Release Signing Keystore:
-   keytool -genkey -v -keystore ovid-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias ovid-alias
+   keytool -genkey -v -keystore digital-construction-release-key.jks -keyalg RSA -keysize 2048 -validity 10000 -alias digital_construction_erp-alias
 
 2. Build Signed Release App Bundle (AAB):
    cd android && ./gradlew bundleRelease
 
 3. Align and Sign the .aab package:
-   jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA256 -keystore ovid-release-key.jks app-release-bundle.aab ovid-alias
+   jarsigner -verbose -sigalg SHA256withRSA -digestalg SHA256 -keystore digital-construction-release-key.jks app-release-bundle.aab digital_construction_erp-alias
 
 4. Google Play Console Upload:
    - Navigate to Play Console -> Production track.
@@ -987,14 +987,14 @@ const playStoreGuide = `# STEP-BY-STEP PLAY STORE PRODUCTION RELEASE
 
 const apiDocsBlock = `{
   "request": {
-    "url": "https://erp.ovid.com.et/api/v1/attendance/geofence",
+    "url": "https://erp.digital_construction_erp.com.et/api/v1/attendance/geofence",
     "method": "POST",
     "headers": {
       "Content-Type": "application/json",
       "Authorization": "Bearer jwt_token_hash_value"
     },
     "body": {
-      "workerId": "OVID-WRK-40291",
+      "workerId": "Digital Construction ERP-WRK-40291",
       "timestamp": "2026-07-16T08:42:00.000Z",
       "biometricChecksum": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
       "coordinates": {
@@ -1018,11 +1018,11 @@ const apiDocsBlock = `{
 
 function apiTemplate(method: string, path: string, desc: string) {
   return `// ${desc}
-fetch('https://erp.ovid.com.et${path}', {
+fetch('https://erp.digital_construction_erp.com.et${path}', {
   method: '${method}',
   headers: {
     'Content-Type': 'application/json',
-    'Authorization': 'Bearer <OVID_SECURE_TOKEN>'
+    'Authorization': 'Bearer <Digital Construction ERP_SECURE_TOKEN>'
   }${method === "POST" ? `,
   body: JSON.stringify({
     timestamp: new Date().toISOString()

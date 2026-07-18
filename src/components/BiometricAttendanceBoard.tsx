@@ -486,7 +486,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         overtime: 0,
         status,
         gpsCoordinates: { lat: simLat, lng: simLng },
-        deviceUsed: "OVID-KIOSK-PRO-01",
+        deviceUsed: "Digital Construction ERP-KIOSK-PRO-01",
         verifiedBy: currentUserRole,
         gpsLocationString: `Bole Heights (${currentDistance}m)`
       };
@@ -554,7 +554,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         checkOut: timeStr,
         workingHours: parseFloat((stdHrs + overtime).toFixed(1)),
         overtime: parseFloat(overtime.toFixed(1)),
-        deviceUsed: "OVID-KIOSK-PRO-01",
+        deviceUsed: "Digital Construction ERP-KIOSK-PRO-01",
         gpsLocationString: `Bole Heights (${currentDistance}m)`
       };
 
@@ -619,7 +619,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                   workerName: draft.workerName,
                   department: "Aluminum Formwork",
                   trade: "Carpenter",
-                  company: "OVID Construction",
+                  company: "Digital Construction ERP",
                   building: "Tower 1",
                   floor: 4,
                   zone: "Zone B",
@@ -631,7 +631,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                   overtime: 0,
                   status: "Present",
                   gpsCoordinates: draft.coordinates,
-                  deviceUsed: "OVID-KIOSK-PRO-01",
+                  deviceUsed: "Digital Construction ERP-KIOSK-PRO-01",
                   gpsLocationString: `Bole Heights (${draft.distance}m)`
                 });
               }
@@ -736,7 +736,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
       if (reportDimension === "floor") key = `Floor ${r.floor}`;
       else if (reportDimension === "zone") key = r.zone;
       else if (reportDimension === "team") key = r.trade; // proxying trade for team
-      else if (reportDimension === "project") key = "OVID Bole Heights";
+      else if (reportDimension === "project") key = "Digital Bole Heights";
 
       if (!counts[key]) {
         counts[key] = { total: 0, present: 0, late: 0, overtime: 0 };
@@ -771,7 +771,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `OVID_Attendance_Report_${reportType}_by_${reportDimension}.csv`);
+    link.setAttribute("download", `Digital Construction ERP_Attendance_Report_${reportType}_by_${reportDimension}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -846,7 +846,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
               <span className="text-slate-500 font-mono text-[10px]">•</span>
               <span className="text-xs text-slate-300 font-mono font-bold flex items-center space-x-1">
                 <Database size={11} className="text-red-500" />
-                <span>OVID Bole Heights</span>
+                <span>Digital Bole Heights</span>
               </span>
             </div>
             <h2 className="text-xl font-black tracking-tight mt-1">
@@ -1299,8 +1299,8 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                           <span className="block text-slate-500 text-[7px] uppercase">HARDWARE HASH</span>
                           <span className="text-slate-400">
                             {biometricMethod === "fingerprint" 
-                              ? `F_TEMP_0x${scanResult.worker.id.replace("OVID-W-","")}`
-                              : `F_FACE_0x${scanResult.worker.id.replace("OVID-W-","")}`}
+                              ? `F_TEMP_0x${scanResult.worker.id.replace("ERP-W-","")}`
+                              : `F_FACE_0x${scanResult.worker.id.replace("ERP-W-","")}`}
                           </span>
                         </div>
                       </div>
@@ -1631,7 +1631,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                     <td className="p-3">
                       <span className="inline-flex items-center space-x-1 text-slate-500">
                         <MapPin size={10} className="text-emerald-500" />
-                        <span className="text-[10px] font-mono">Inside (OVID)</span>
+                        <span className="text-[10px] font-mono">Inside (Digital Construction ERP)</span>
                       </span>
                     </td>
                     <td className="p-3">
@@ -1758,7 +1758,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         {/* Live report template preview (COL-SPAN-2) */}
         <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-4 shadow-inner">
           <div className="flex justify-between items-center border-b border-slate-100 pb-2 mb-2.5 font-mono text-[9px] text-slate-400">
-            <span>PREVIEW: OVID CONSTRUCTION - ALU_FORM_PAYROLL</span>
+            <span>PREVIEW: Digital Construction ERP CONSTRUCTION - ALU_FORM_PAYROLL</span>
             <span className="text-red-500">READY FOR EXPORT</span>
           </div>
 

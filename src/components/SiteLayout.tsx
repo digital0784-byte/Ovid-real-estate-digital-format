@@ -38,8 +38,8 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
   progressLogs = []
 }) => {
   // Navigation states
-  const [selectedProject, setSelectedProject] = useState<string>("OVID Bole Heights");
-  const [selectedBuilding, setSelectedBuilding] = useState<string>("OVID Bole Heights"); // Matches standard mock names
+  const [selectedProject, setSelectedProject] = useState<string>("Digital Bole Heights");
+  const [selectedBuilding, setSelectedBuilding] = useState<string>("Digital Bole Heights"); // Matches standard mock names
   const [selectedFloor, setSelectedFloor] = useState<number>(4);
   const [selectedZoneId, setSelectedZoneId] = useState<string>("B1-F04-ZA");
   
@@ -55,9 +55,9 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
     initialZones.forEach(z => {
       if (z.building) list.add(z.building);
     });
-    // Add default OVID projects
-    list.add("OVID Bole Heights");
-    list.add("OVID Ayat Project");
+    // Add default Digital Construction ERP projects
+    list.add("Digital Bole Heights");
+    list.add("Digital Construction ERP Ayat Project");
     return Array.from(list);
   }, [initialZones]);
 
@@ -70,7 +70,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
       // Normalizing project string match
       const pMatch = z.building.toLowerCase().includes(selectedProject.toLowerCase()) || 
                      selectedProject.toLowerCase().includes(z.building.toLowerCase()) ||
-                     (selectedProject === "OVID Bole Heights" && z.building === "OVID Bole Heights");
+                     (selectedProject === "Digital Bole Heights" && z.building === "Digital Bole Heights");
       
       const fMatch = z.floor === selectedFloor;
       return pMatch && fMatch;
@@ -101,7 +101,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
         completionPercentage: 100,
         status: "Completed" as const,
         area: 145,
-        assignedGangChiefId: "OVID-W-103",
+        assignedGangChiefId: "ERP-W-103",
         assignedGangChiefName: "Chala Kebede"
       },
       {
@@ -122,7 +122,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
         completionPercentage: 20,
         status: "In Progress" as const,
         area: 160,
-        assignedGangChiefId: "OVID-W-101",
+        assignedGangChiefId: "ERP-W-101",
         assignedGangChiefName: "Bekele Tesfaye"
       },
       {
@@ -143,7 +143,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
         completionPercentage: 0,
         status: "Not Started" as const,
         area: 110,
-        assignedGangChiefId: "OVID-W-106",
+        assignedGangChiefId: "ERP-W-106",
         assignedGangChiefName: "Tariku Mengistu"
       }
     ];
@@ -172,7 +172,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
     if (!selectedZone) return null;
     
     // Find team where leader or member matches the assigned Gang Chief
-    const gangChiefId = selectedZone.assignedGangChiefId || "OVID-W-101";
+    const gangChiefId = selectedZone.assignedGangChiefId || "ERP-W-101";
     
     // Search teams
     const matched = teams.find(t => t.leaderId === gangChiefId || t.memberIds.includes(gangChiefId));
@@ -416,7 +416,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
             <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
               {isAmharic 
                 ? "በህንጻዎች እና በፎቆች ላይ ያሉትን የግንባታ ዞኖች በፎቅ ፕላን ንድፍ በመመልከት፣ የስራ ሁኔታዎችን፣ የሰራተኞችን ስርጭት እና የቀጥታ የመጡ ሰራተኞችን ዝርዝር ይቆጣጠሩ።"
-                : "Provides a high-fidelity interactive structural schematic floor blueprint mapping the OVID aluminum formwork cycles. Click on any zone to inspect aluminum panel alignments, check assigned Gang Crews, and view live active biometric rosters."}
+                : "Prdigital_construction_erpes a high-fidelity interactive structural schematic floor blueprint mapping the Digital Construction ERP aluminum formwork cycles. Click on any zone to inspect aluminum panel alignments, check assigned Gang Crews, and view live active biometric rosters."}
             </p>
           </div>
         </div>

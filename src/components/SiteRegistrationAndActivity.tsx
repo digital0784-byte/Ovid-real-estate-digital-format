@@ -44,7 +44,7 @@ import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 // Interfaces according to specification
 export interface RegisteredSite {
-  id: string; // e.g. OVID-SITE-2026-001
+  id: string; // e.g. Digital Construction ERP-SITE-2026-001
   projectName: string;
   clientName: string;
   contractorName: string;
@@ -129,10 +129,10 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   // --- DATABASE STATE (Simulated Firestore with real-time replication effect) ---
   const [sites, setSites] = useState<RegisteredSite[]>([
     {
-      id: "OVID-SITE-2026-001",
-      projectName: "OVID Bole Heights",
+      id: "Digital Construction ERP-SITE-2026-001",
+      projectName: "Digital Bole Heights",
       clientName: "Federal Housing Corporation",
-      contractorName: "OVID Construction Plc",
+      contractorName: "Digital Construction ERP Plc",
       region: "Addis Ababa",
       cityWoreda: "Bole Sub-City, Woreda 03",
       gpsLocation: "9.0118° N, 38.7954° E",
@@ -156,10 +156,10 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
       ]
     },
     {
-      id: "OVID-SITE-2026-002",
-      projectName: "OVID Ayat East Block T2",
-      clientName: "OVID Real Estate",
-      contractorName: "OVID Construction Plc",
+      id: "Digital Construction ERP-SITE-2026-002",
+      projectName: "Digital Construction ERP Ayat East Block T2",
+      clientName: "Digital Construction ERP System",
+      contractorName: "Digital Construction ERP Plc",
       region: "Addis Ababa",
       cityWoreda: "Yeka Sub-City, Woreda 11",
       gpsLocation: "9.0254° N, 38.8612° E",
@@ -180,10 +180,10 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
       ]
     },
     {
-      id: "OVID-SITE-2026-003",
+      id: "Digital Construction ERP-SITE-2026-003",
       projectName: "Lideta Smart Apartments",
       clientName: "Ministry of Urban Development",
-      contractorName: "OVID Construction Plc",
+      contractorName: "Digital Construction ERP Plc",
       region: "Addis Ababa",
       cityWoreda: "Lideta Sub-City, Woreda 04",
       gpsLocation: "9.0042° N, 38.7412° E",
@@ -206,7 +206,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   const [dailyActivities, setDailyActivities] = useState<DailyActivity[]>([
     {
       id: "ACT-001",
-      siteId: "OVID-SITE-2026-001",
+      siteId: "Digital Construction ERP-SITE-2026-001",
       buildingName: "Tower Block A",
       floorNumber: 4,
       zoneName: "Zone A",
@@ -222,7 +222,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
     },
     {
       id: "ACT-002",
-      siteId: "OVID-SITE-2026-001",
+      siteId: "Digital Construction ERP-SITE-2026-001",
       buildingName: "Tower Block A",
       floorNumber: 4,
       zoneName: "Zone B",
@@ -270,7 +270,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   };
 
   // --- SELECTION STATES ---
-  const [selectedSiteId, setSelectedSiteId] = useState<string>("OVID-SITE-2026-001");
+  const [selectedSiteId, setSelectedSiteId] = useState<string>("Digital Construction ERP-SITE-2026-001");
   const selectedSite = useMemo(() => {
     return sites.find(s => s.id === selectedSiteId) || sites[0];
   }, [sites, selectedSiteId]);
@@ -308,7 +308,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   // --- SITE REGISTRATION FORM STATES ---
   const [formProjName, setFormProjName] = useState("");
   const [formClient, setFormClient] = useState("");
-  const [formContractor, setFormContractor] = useState("OVID Construction Plc");
+  const [formContractor, setFormContractor] = useState("Digital Construction ERP Plc");
   const [formRegion, setFormRegion] = useState("Addis Ababa");
   const [formCityWoreda, setFormCityWoreda] = useState("");
   const [formStart, setFormStart] = useState("");
@@ -377,7 +377,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
     e.preventDefault();
     if (!canRegisterSite) return;
 
-    const generatedSiteId = `OVID-SITE-2026-00${sites.length + 1}`;
+    const generatedSiteId = `Digital Construction ERP-SITE-2026-00${sites.length + 1}`;
     
     // Initial standard documents pack for new site
     const initialDocs = [
@@ -387,8 +387,8 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
 
     const newSite: RegisteredSite = {
       id: generatedSiteId,
-      projectName: formProjName || "OVID New Site Project",
-      clientName: formClient || "Internal OVID Development",
+      projectName: formProjName || "Digital Construction ERP New Site Project",
+      clientName: formClient || "Internal Digital Construction ERP Development",
       contractorName: formContractor,
       region: formRegion,
       cityWoreda: formCityWoreda || "Addis Ababa Woreda 04",
@@ -480,7 +480,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
       photos: [
         "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop&q=60"
       ],
-      photographer: `${currentUserRole} - OVID site team`,
+      photographer: `${currentUserRole} - Digital Construction ERP site team`,
       productivityPerWorker: productivityVal,
       supervisorComments: actComments.trim() || "Standard daily shift inspect. Formwork checklist verified green."
     };
@@ -541,7 +541,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
           <div>
             <p className="text-xs font-black uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
               <Database size={13} className="text-red-500" />
-              {isAmharic ? "OVID የደመና ዳታቤዝ ማመሳሰያ ሰሌዳ" : "OVID REAL-TIME FIRESTORE GATEWAY"}
+              {isAmharic ? "Digital Construction ERP የደመና ዳታቤዝ ማመሳሰያ ሰሌዳ" : "Digital Construction ERP REAL-TIME FIRESTORE GATEWAY"}
             </p>
             <p className="text-[11px] text-slate-400 font-mono">
               {syncMsg}
@@ -640,7 +640,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
                           required
                           value={formProjName}
                           onChange={(e) => setFormProjName(e.target.value)}
-                          placeholder="e.g. OVID Bole Heights Block C"
+                          placeholder="e.g. Digital Bole Heights Block C"
                           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                         />
                       </div>

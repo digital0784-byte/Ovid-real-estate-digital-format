@@ -68,20 +68,32 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
   t,
   currentUserRole
 }) => {
+  // Check permission for zone creation and planning (Section Head, Supervisor, Team Leader, and higher Admins)
+  const canManageZones = useMemo(() => {
+    return [
+      UserRole.SUPER_ADMIN,
+      UserRole.HEAD_OFFICE,
+      UserRole.PROJECT_MANAGER,
+      UserRole.SECTION_HEAD,
+      UserRole.SUPERVISOR,
+      UserRole.TEAM_LEADER
+    ].includes(currentUserRole);
+  }, [currentUserRole]);
+
   // Sub-tabs
   const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "teamLeader" | "gangChief">("dashboard");
 
   // Local state for Drawing Management
   const [drawings, setDrawings] = useState<DrawingItem[]>([
-    { id: "DWG-001", name: "OVID_Heights_B1_FL04_Formwork.dwg", type: "DWG", project: "OVID Bole Heights", building: "OVID Bole Heights", block: "Block A", floor: 4, zone: "Zone A", uploadedAt: "2026-06-24 10:15", uploadedBy: "Eng. Yoseph", fileSize: "14.2 MB" },
-    { id: "DWG-002", name: "OVID_Heights_B1_FL04_ZoneB_Slab.pdf", type: "PDF", project: "OVID Bole Heights", building: "OVID Bole Heights", block: "Block A", floor: 4, zone: "Zone B", uploadedAt: "2026-06-25 14:30", uploadedBy: "Eng. Yoseph", fileSize: "4.8 MB" },
-    { id: "DWG-003", name: "OVID_Heights_Structural_BIM.ifc", type: "IFC", project: "OVID Bole Heights", building: "OVID Bole Heights", block: "Block A", floor: 3, zone: "Zone A", uploadedAt: "2026-06-15 09:00", uploadedBy: "Eng. Yoseph", fileSize: "112.5 MB" }
+    { id: "DWG-001", name: "Digital_Heights_B1_FL04_Formwork.dwg", type: "DWG", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 4, zone: "Zone A", uploadedAt: "2026-06-24 10:15", uploadedBy: "Eng. Yoseph", fileSize: "14.2 MB" },
+    { id: "DWG-002", name: "Digital_Heights_B1_FL04_ZoneB_Slab.pdf", type: "PDF", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 4, zone: "Zone B", uploadedAt: "2026-06-25 14:30", uploadedBy: "Eng. Yoseph", fileSize: "4.8 MB" },
+    { id: "DWG-003", name: "Digital_Heights_Structural_BIM.ifc", type: "IFC", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 3, zone: "Zone A", uploadedAt: "2026-06-15 09:00", uploadedBy: "Eng. Yoseph", fileSize: "112.5 MB" }
   ]);
 
   // Drawing Form Inputs
   const [newDrawName, setNewDrawName] = useState("");
   const [newDrawType, setNewDrawType] = useState<"DWG" | "PDF" | "IFC" | "PNG" | "JPG">("DWG");
-  const [newDrawBldg, setNewDrawBldg] = useState("OVID Bole Heights");
+  const [newDrawBldg, setNewDrawBldg] = useState("Digital Bole Heights");
   const [newDrawBlock, setNewDrawBlock] = useState("Block A");
   const [newDrawFloor, setNewDrawFloor] = useState(4);
   const [newDrawZone, setNewDrawZone] = useState("Zone A");
@@ -89,7 +101,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
 
   // New Zone Planning Inputs
   const [zoneIdInput, setZoneIdInput] = useState("");
-  const [zoneBldgInput, setZoneBldgInput] = useState("OVID Bole Heights");
+  const [zoneBldgInput, setZoneBldgInput] = useState("Digital Bole Heights");
   const [zoneFloorInput, setZoneFloorInput] = useState(4);
   const [zoneNameInput, setZoneNameInput] = useState("Zone B");
   const [zoneAreaInput, setZoneAreaInput] = useState(150);
@@ -176,7 +188,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
       const approvedByTeamLeader = z.approvedByTeamLeader || (z.status === "Completed");
       const approvedDate = z.approvedDate || (z.status === "Completed" ? "2026-06-30" : undefined);
       const drawingId = z.drawingId || "DWG-001";
-      const drawingName = z.drawingName || "OVID_Heights_B1_FL04_Formwork.dwg";
+      const drawingName = z.drawingName || "Digital_Heights_B1_FL04_Formwork.dwg";
 
       return {
         ...z,
@@ -226,7 +238,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
               id: `DWG-${Date.now().toString().slice(-3)}`,
               name: newDrawName,
               type: newDrawType,
-              project: "OVID Bole Heights",
+              project: "Digital Bole Heights",
               building: newDrawBldg,
               block: newDrawBlock,
               floor: newDrawFloor,
@@ -405,7 +417,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
 
         items.push({
           zoneId,
-          building: "OVID Bole Heights",
+          building: "Digital Bole Heights",
           floor: f,
           zoneName: `Zone ${zoneLetter}`,
           sequenceOrder: sequence++,
@@ -1188,7 +1200,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                     <label className="block text-slate-700 font-semibold mb-1">{isAmharic ? "የንድፍ ፋይል ስም" : "Drawing Filename"}</label>
                     <input 
                       type="text" 
-                      placeholder="e.g. OVID_TowerA_Slab_F05.dwg"
+                      placeholder="e.g. Digital_TowerA_Slab_F05.dwg"
                       value={newDrawName}
                       onChange={(e) => setNewDrawName(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 focus:bg-white outline-none"
@@ -1260,31 +1272,46 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                   <span>{isAmharic ? "አዲስ የግንባታ ዞን ማቀጃ" : "Plan New Structural Zone"}</span>
                 </h3>
 
-                <form onSubmit={handleCreateZone} className="space-y-3.5 text-xs">
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-1">{isAmharic ? "የዞን መለያ (Zone ID)" : "Unique Zone ID"}</label>
-                      <input 
-                        type="text" 
-                        placeholder="B1-F04-ZD"
-                        value={zoneIdInput}
-                        onChange={(e) => setZoneIdInput(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-800 outline-none"
-                        required
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-slate-700 font-semibold mb-1">{isAmharic ? "የዞኑ ስም" : "Zone Name"}</label>
-                      <input 
-                        type="text" 
-                        placeholder="Zone D"
-                        value={zoneNameInput}
-                        onChange={(e) => setZoneNameInput(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-800 outline-none"
-                      />
-                    </div>
+                {!canManageZones && (
+                  <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-800 leading-relaxed font-semibold">
+                    <p className="font-bold flex items-center gap-1">
+                      <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+                      <span>{isAmharic ? "የዞን ማዘጋጃ ፈቃድ የለዎትም" : "Zone Creation Restricted"}</span>
+                    </p>
+                    <p className="mt-1 font-medium text-amber-700">
+                      {isAmharic 
+                        ? "እያንዳንዱ ሳይት እና ህንፃ የሚያስፈልገውን ዞን drawing ላይ ከሌሌ supervisor, team leader and section head ዞኑን ማዘጋጀት ይችላሉ።" 
+                        : "If the zone required by each site and building is not on the drawing, the supervisor, team leader, and section head can prepare/create the zone."}
+                    </p>
                   </div>
+                )}
+
+                <form onSubmit={handleCreateZone} className="space-y-3.5 text-xs">
+                  <fieldset disabled={!canManageZones} className="space-y-3.5 disabled:opacity-60">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-slate-700 font-semibold mb-1">{isAmharic ? "የዞን መለያ (Zone ID)" : "Unique Zone ID"}</label>
+                        <input 
+                          type="text" 
+                          placeholder="B1-F04-ZD"
+                          value={zoneIdInput}
+                          onChange={(e) => setZoneIdInput(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-800 outline-none focus:bg-white"
+                          required
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-slate-700 font-semibold mb-1">{isAmharic ? "የዞኑ ስም" : "Zone Name"}</label>
+                        <input 
+                          type="text" 
+                          placeholder="Zone D"
+                          value={zoneNameInput}
+                          onChange={(e) => setZoneNameInput(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-800 outline-none focus:bg-white"
+                        />
+                      </div>
+                    </div>
 
                   <div className="grid grid-cols-3 gap-2">
                     <div>
@@ -1403,10 +1430,12 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                       </button>
                     </div>
                   </div>
+                </fieldset>
 
                   <button 
                     type="submit"
-                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded cursor-pointer shadow-xs transition-colors"
+                    disabled={!canManageZones}
+                    className="w-full py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:hover:bg-red-600 text-white font-bold rounded cursor-pointer shadow-xs transition-colors"
                   >
                     {isAmharic ? "አዲስ የግንባታ ዞን ፍጠር" : "Allocate Planned Zone"}
                   </button>

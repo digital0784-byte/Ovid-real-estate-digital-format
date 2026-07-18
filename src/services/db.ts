@@ -53,7 +53,7 @@ import {
 // High-integrity Local Database Engine
 class LocalDatabaseEngine {
   private getStorageKey(collectionName: string): string {
-    return `ovid_db_${collectionName}`;
+    return `digital_construction_db_${collectionName}`;
   }
 
   public getList<T>(collectionName: string, defaultData: T[]): T[] {

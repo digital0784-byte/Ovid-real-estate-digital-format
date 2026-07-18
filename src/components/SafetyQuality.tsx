@@ -258,7 +258,7 @@ export const SafetyQuality: React.FC<SafetyQualityProps> = ({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <h1 className="text-xl font-extrabold text-slate-900 tracking-tight">
-            {isAmharic ? "ደህንነት እና ጥራት ቁጥጥር ሞዱል" : "OVID Safety & Quality Control Center"}
+            {isAmharic ? "ደህንነት እና ጥራት ቁጥጥር ሞዱል" : "Digital Construction ERP Safety & Quality Control Center"}
           </h1>
           <p className="text-xs text-slate-500">
             {isAmharic 
@@ -574,7 +574,7 @@ export const SafetyQuality: React.FC<SafetyQualityProps> = ({
                 </div>
 
                 <h1 className="text-2xl font-black tracking-tight leading-none md:text-3xl">
-                  {isAmharic ? "አይአይ ደህንነት ስጋት እና አደጋ ትንበያ" : "OVID AI Precursor-Based Safety Risk Forecaster"}
+                  {isAmharic ? "አይአይ ደህንነት ስጋት እና አደጋ ትንበያ" : "Digital Construction ERP AI Precursor-Based Safety Risk Forecaster"}
                 </h1>
                 
                 <p className="text-slate-300 text-xs leading-relaxed">
@@ -689,7 +689,7 @@ export const SafetyQuality: React.FC<SafetyQualityProps> = ({
                 <div className="bg-emerald-50 text-emerald-800 border border-emerald-200 p-3.5 rounded-xl text-xs flex items-center justify-between">
                   <span className="flex items-center space-x-2 font-semibold">
                     <CheckCircle className="text-emerald-600" size={16} />
-                    <span>Success: Predictive Safety Report successfully compiled as **OVID-SHIELD-REPORT.pdf**. Saved to downloads!</span>
+                    <span>Success: Predictive Safety Report successfully compiled as **Digital Construction ERP-SHIELD-REPORT.pdf**. Saved to downloads!</span>
                   </span>
                   <span className="text-[9px] bg-emerald-100 text-emerald-900 font-mono px-2 py-0.5 rounded font-bold">PDF / Excel</span>
                 </div>

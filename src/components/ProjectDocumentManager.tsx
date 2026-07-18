@@ -40,7 +40,7 @@ import { Worker, Team, AttendanceRecord, UserRole } from "../types";
 
 // Types matching specification
 export interface Project {
-  id: string; // e.g. OVID-PROJ-001
+  id: string; // e.g. Digital Construction ERP-PROJ-001
   name: string;
   client: string;
   contractor: string;
@@ -142,10 +142,10 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   // --- SAMPLE SEED DATA ---
   const [projects, setProjects] = useState<Project[]>([
     {
-      id: "OVID-PRJ-101",
-      name: "OVID Bole Heights",
+      id: "Digital Construction ERP-PRJ-101",
+      name: "Digital Bole Heights",
       client: "Federal Housing Corporation",
-      contractor: "OVID Construction",
+      contractor: "Digital Construction ERP",
       projectManager: "Eng. Yoseph Hailu",
       supervisor: "Kassa Hunegn",
       teamLeaders: ["Yohannes Bekele", "Hiwot Girma"],
@@ -164,10 +164,10 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       description: "Premium high-rise residential complex utilizing pre-engineered aluminum formwork cast in-situ technology. Aiming for 6-day cycle times per floor level."
     },
     {
-      id: "OVID-PRJ-102",
-      name: "OVID Ayat East Block",
-      client: "OVID Real Estate",
-      contractor: "OVID Construction",
+      id: "Digital Construction ERP-PRJ-102",
+      name: "Digital Construction ERP Ayat East Block",
+      client: "Digital Construction ERP System",
+      contractor: "Digital Construction ERP",
       projectManager: "Eng. Samuel Alene",
       supervisor: "Martha Hagos",
       teamLeaders: ["Bekele Tesfaye"],
@@ -186,10 +186,10 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       description: "Mass housing initiative targeting modern residential blocks. Rapid concrete casing utilizing composite aluminum shoring plates."
     },
     {
-      id: "OVID-PRJ-103",
+      id: "Digital Construction ERP-PRJ-103",
       name: "Lideta Smart Apartments",
       client: "Ministry of Urban Development",
-      contractor: "OVID Construction",
+      contractor: "Digital Construction ERP",
       projectManager: "Eng. Daniel Girma",
       supervisor: "Solomon Kassa",
       teamLeaders: ["Abeba Kebede"],
@@ -210,9 +210,9 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   ]);
 
   const [buildings, setBuildings] = useState<Building[]>([
-    { id: "BLD-101-A", projectId: "OVID-PRJ-101", name: "Tower Block A", buildingNumber: "B1", floorsCount: 15, basementLevels: 2, roofLevel: 16, totalArea: 18500 },
-    { id: "BLD-101-B", projectId: "OVID-PRJ-101", name: "Tower Block B", buildingNumber: "B2", floorsCount: 12, basementLevels: 1, roofLevel: 13, totalArea: 14200 },
-    { id: "BLD-102-A", projectId: "OVID-PRJ-102", name: "Ayat Tower 1", buildingNumber: "T1", floorsCount: 10, basementLevels: 1, roofLevel: 11, totalArea: 11000 }
+    { id: "BLD-101-A", projectId: "Digital Construction ERP-PRJ-101", name: "Tower Block A", buildingNumber: "B1", floorsCount: 15, basementLevels: 2, roofLevel: 16, totalArea: 18500 },
+    { id: "BLD-101-B", projectId: "Digital Construction ERP-PRJ-101", name: "Tower Block B", buildingNumber: "B2", floorsCount: 12, basementLevels: 1, roofLevel: 13, totalArea: 14200 },
+    { id: "BLD-102-A", projectId: "Digital Construction ERP-PRJ-102", name: "Ayat Tower 1", buildingNumber: "T1", floorsCount: 10, basementLevels: 1, roofLevel: 11, totalArea: 11000 }
   ]);
 
   const [floors, setFloors] = useState<Floor[]>([
@@ -228,23 +228,23 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   ]);
 
   const [drawings, setDrawings] = useState<CadDrawing[]>([
-    { id: "CAD-201", projectId: "OVID-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "OVID_BH_FL04_ZONE_A_REV3.dwg", type: "DWG", revisionNumber: 3, uploadDate: "2026-06-28", uploadedBy: "Senior Eng. Daniel Girma", status: "Approved", fileSize: "18.4 MB" },
-    { id: "CAD-202", projectId: "OVID-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-B", name: "OVID_BH_FL04_ZONE_B_REV2.pdf", type: "PDF", revisionNumber: 2, uploadDate: "2026-06-25", uploadedBy: "Eng. Hana Tekle", status: "Approved", fileSize: "4.2 MB" },
-    { id: "CAD-203", projectId: "OVID-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "OVID_BH_FL04_ZONE_A_AL_FORMWORK.dwg", type: "Aluminum Formwork Layout", revisionNumber: 1, uploadDate: "2026-06-12", uploadedBy: "Eng. Daniel Girma", status: "Archived", fileSize: "12.1 MB" },
-    { id: "CAD-204", projectId: "OVID-PRJ-102", buildingId: "BLD-102-A", floorId: "FLR-101-B-2", zoneId: "", name: "OVID_AY_FL02_BLOCK_1_REV1.ifc", type: "IFC", revisionNumber: 1, uploadDate: "2026-07-02", uploadedBy: "Samuel Alene", status: "Pending Approval", fileSize: "42.8 MB" }
+    { id: "CAD-201", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "Digital Construction ERP_BH_FL04_ZONE_A_REV3.dwg", type: "DWG", revisionNumber: 3, uploadDate: "2026-06-28", uploadedBy: "Senior Eng. Daniel Girma", status: "Approved", fileSize: "18.4 MB" },
+    { id: "CAD-202", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-B", name: "Digital Construction ERP_BH_FL04_ZONE_B_REV2.pdf", type: "PDF", revisionNumber: 2, uploadDate: "2026-06-25", uploadedBy: "Eng. Hana Tekle", status: "Approved", fileSize: "4.2 MB" },
+    { id: "CAD-203", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "Digital Construction ERP_BH_FL04_ZONE_A_AL_FORMWORK.dwg", type: "Aluminum Formwork Layout", revisionNumber: 1, uploadDate: "2026-06-12", uploadedBy: "Eng. Daniel Girma", status: "Archived", fileSize: "12.1 MB" },
+    { id: "CAD-204", projectId: "Digital Construction ERP-PRJ-102", buildingId: "BLD-102-A", floorId: "FLR-101-B-2", zoneId: "", name: "Digital Construction ERP_AY_FL02_BLOCK_1_REV1.ifc", type: "IFC", revisionNumber: 1, uploadDate: "2026-07-02", uploadedBy: "Samuel Alene", status: "Pending Approval", fileSize: "42.8 MB" }
   ]);
 
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([
-    { id: "DOC-501", projectId: "OVID-PRJ-101", name: "MethodStatement_AluminumFormwork_PourSOP.pdf", type: "Method Statement", fileExtension: "PDF", uploadDate: "2026-06-15", uploadedBy: "Eng. Yoseph Hailu", fileSize: "2.1 MB" },
-    { id: "DOC-502", projectId: "OVID-PRJ-101", name: "QualityChecklist_PreConcretePour_Audit.xlsx", type: "Inspection Checklist", fileExtension: "XLSX", uploadDate: "2026-07-01", uploadedBy: "Supervisor Kassa Hunegn", fileSize: "340 KB" },
-    { id: "DOC-503", projectId: "OVID-PRJ-101", name: "HSE_SafetyRisk_ScaffoldingFall_Plan.pdf", type: "Safety Document", fileExtension: "PDF", uploadDate: "2026-06-20", uploadedBy: "Fikru Tolossa", fileSize: "1.2 MB" },
-    { id: "DOC-504", projectId: "OVID-PRJ-101", name: "BillOfMaterials_CornerBrackets_Pins.xlsx", type: "Material List", fileExtension: "XLSX", uploadDate: "2026-07-04", uploadedBy: "Eng. Yoseph Hailu", fileSize: "890 KB" },
-    { id: "DOC-505", projectId: "OVID-PRJ-102", name: "AyatBlockT1_DailyReport_July07.pdf", type: "Daily Report", fileExtension: "PDF", uploadDate: "2026-07-07", uploadedBy: "Martha Hagos", fileSize: "1.4 MB" }
+    { id: "DOC-501", projectId: "Digital Construction ERP-PRJ-101", name: "MethodStatement_AluminumFormwork_PourSOP.pdf", type: "Method Statement", fileExtension: "PDF", uploadDate: "2026-06-15", uploadedBy: "Eng. Yoseph Hailu", fileSize: "2.1 MB" },
+    { id: "DOC-502", projectId: "Digital Construction ERP-PRJ-101", name: "QualityChecklist_PreConcretePour_Audit.xlsx", type: "Inspection Checklist", fileExtension: "XLSX", uploadDate: "2026-07-01", uploadedBy: "Supervisor Kassa Hunegn", fileSize: "340 KB" },
+    { id: "DOC-503", projectId: "Digital Construction ERP-PRJ-101", name: "HSE_SafetyRisk_ScaffoldingFall_Plan.pdf", type: "Safety Document", fileExtension: "PDF", uploadDate: "2026-06-20", uploadedBy: "Fikru Tolossa", fileSize: "1.2 MB" },
+    { id: "DOC-504", projectId: "Digital Construction ERP-PRJ-101", name: "BillOfMaterials_CornerBrackets_Pins.xlsx", type: "Material List", fileExtension: "XLSX", uploadDate: "2026-07-04", uploadedBy: "Eng. Yoseph Hailu", fileSize: "890 KB" },
+    { id: "DOC-505", projectId: "Digital Construction ERP-PRJ-102", name: "AyatBlockT1_DailyReport_July07.pdf", type: "Daily Report", fileExtension: "PDF", uploadDate: "2026-07-07", uploadedBy: "Martha Hagos", fileSize: "1.4 MB" }
   ]);
 
   // --- RECONCILING SYNC STATE ---
   const [isSyncing, setIsSyncing] = useState<boolean>(false);
-  const [syncStatus, setSyncStatus] = useState<string>("Synced with OVID Cloud Server");
+  const [syncStatus, setSyncStatus] = useState<string>("Synced with Digital Construction ERP Cloud Server");
 
   const triggerRealTimeSync = (action: string) => {
     setIsSyncing(true);
@@ -256,7 +256,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   };
 
   // --- ACTIVE SELECTIONS FOR UI ---
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("OVID-PRJ-101");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("Digital Construction ERP-PRJ-101");
   const selectedProject = useMemo(() => {
     return projects.find(p => p.id === selectedProjectId) || projects[0];
   }, [projects, selectedProjectId]);
@@ -278,7 +278,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   // 1. Project Form
   const [projName, setProjName] = useState<string>("");
   const [projClient, setProjClient] = useState<string>("");
-  const [projContractor, setProjContractor] = useState<string>("OVID Construction");
+  const [projContractor, setProjContractor] = useState<string>("Digital Construction ERP");
   const [projPM, setProjPM] = useState<string>("");
   const [projSupervisor, setProjSupervisor] = useState<string>("");
   const [projAddress, setProjAddress] = useState<string>("");
@@ -292,7 +292,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   const [projDesc, setProjDesc] = useState<string>("");
 
   // 2. Building Form
-  const [selectedBldProj, setSelectedBldProj] = useState<string>("OVID-PRJ-101");
+  const [selectedBldProj, setSelectedBldProj] = useState<string>("Digital Construction ERP-PRJ-101");
   const [bldName, setBldName] = useState<string>("");
   const [bldNumber, setBldNumber] = useState<string>("");
   const [bldFloors, setBldFloors] = useState<number>(10);
@@ -366,9 +366,9 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
     // Role level filtering - Gang Chiefs and Team Leaders only see what they are assigned to
     if (currentUserRole === UserRole.GANG_CHIEF) {
-      list = list.filter(p => p.gangChiefs.includes("Fikru Tolossa") || p.name === "OVID Bole Heights");
+      list = list.filter(p => p.gangChiefs.includes("Fikru Tolossa") || p.name === "Digital Bole Heights");
     } else if (currentUserRole === UserRole.TEAM_LEADER) {
-      list = list.filter(p => p.teamLeaders.includes("Yohannes Bekele") || p.name === "OVID Bole Heights");
+      list = list.filter(p => p.teamLeaders.includes("Yohannes Bekele") || p.name === "Digital Bole Heights");
     } else if (currentUserRole === UserRole.TIME_KEEPER) {
       // Time keepers see all active sites for auditing
       list = list.filter(p => p.status === "In Progress");
@@ -383,11 +383,11 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
     e.preventDefault();
     if (!canRegisterAndEdit) return;
 
-    const newId = `OVID-PRJ-${100 + projects.length + 1}`;
+    const newId = `Digital Construction ERP-PRJ-${100 + projects.length + 1}`;
     const newProj: Project = {
       id: newId,
       name: projName || "Unnamed Project",
-      client: projClient || "Internal OVID",
+      client: projClient || "Internal Digital Construction ERP",
       contractor: projContractor,
       projectManager: projPM || "Unassigned",
       supervisor: projSupervisor || "Unassigned",
@@ -421,7 +421,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
     setProjDesc("");
 
     if (onLogAction) {
-      onLogAction("Created Project Site", `Registered OVID Project ${newProj.name} (${newId}) with GPS coordinate geofence: ${newProj.lat}, ${newProj.lng}`);
+      onLogAction("Created Project Site", `Registered Digital Construction ERP Project ${newProj.name} (${newId}) with GPS coordinate geofence: ${newProj.lat}, ${newProj.lng}`);
     }
 
     triggerRealTimeSync("CreateProject");
@@ -587,8 +587,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
     setIsNavigating(true);
     setNavProgress(0);
     setNavigationSteps([
-      "Acquiring satellite lock for OVID site coordinates...",
-      "Routing from OVID Head Office (HQ, Addis Ababa) to " + selectedProject.name + "...",
+      "Acquiring satellite lock for Digital Construction ERP site coordinates...",
+      "Routing from Digital Construction ERP Head Office (HQ, Addis Ababa) to " + selectedProject.name + "...",
       "Heading towards Bole Road / Ayat Roundabout depending on destination...",
       "Passing outer security gate & validating geofence coordinates...",
       "Success! Entered the configured " + selectedProject.geofenceRadius + "m Geofence area."
@@ -633,7 +633,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
             <div className="flex items-center space-x-2">
               <Database size={14} className="text-red-500" />
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-300">
-                {isAmharic ? "OVID የደመና መረጃዎች ማመሳሰያ ሞዱል" : "OVID CLOUD SYNC MASTER"}
+                {isAmharic ? "Digital Construction ERP የደመና መረጃዎች ማመሳሰያ ሞዱል" : "Digital Construction ERP CLOUD SYNC MASTER"}
               </p>
             </div>
             <p className="text-xs text-slate-400 font-mono">
@@ -751,7 +751,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                 <div className="lg:col-span-5 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-100 pb-3">
                     <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "ተግባራዊ የሪል እስቴት ፕሮጀክቶች" : "Active OVID Real Estate Sites"}
+                      {isAmharic ? "ተግባራዊ የሪል እስቴት ፕሮጀክቶች" : "Active Digital Construction ERP System Sites"}
                     </h3>
                     <span className="text-[10px] text-slate-400">Select to display coordinates</span>
                   </div>
@@ -940,7 +940,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                   <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
                     🏗️ {isAmharic ? "አዲስ የግንባታ ፕሮጀክት መመዝገቢያ ፎርም" : "Project Registration Workspace"}
                   </h3>
-                  <p className="text-[10px] text-slate-400">Use this form to initiate a new OVID site and assign relevant engineering personnel.</p>
+                  <p className="text-[10px] text-slate-400">Use this form to initiate a new Digital Construction ERP site and assign relevant engineering personnel.</p>
                 </div>
                 <span className="text-[9px] bg-slate-100 px-2.5 py-1 rounded text-slate-500 font-bold uppercase">
                   {canRegisterAndEdit ? "HO AUTHORIZED" : "READ ONLY"}
@@ -959,7 +959,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         required
                         value={projName}
                         onChange={(e) => setProjName(e.target.value)}
-                        placeholder="e.g. OVID Ayat East Block C"
+                        placeholder="e.g. Digital Construction ERP Ayat East Block C"
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
                     </div>
@@ -971,7 +971,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         required
                         value={projClient}
                         onChange={(e) => setProjClient(e.target.value)}
-                        placeholder="e.g. OVID Real Estate"
+                        placeholder="e.g. Digital Construction ERP System"
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
                     </div>
@@ -1036,7 +1036,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-200">
                     <div className="md:col-span-4 border-b border-slate-200 pb-2">
                       <h4 className="text-xs font-black uppercase text-slate-800">Geofence Location Coordinates</h4>
-                      <p className="text-[10px] text-slate-400">Provide direct coordinates for mobile check-in verification maps.</p>
+                      <p className="text-[10px] text-slate-400">Prdigital_construction_erpe direct coordinates for mobile check-in verification maps.</p>
                     </div>
 
                     <div>
@@ -1530,7 +1530,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                           required
                           value={cadName}
                           onChange={(e) => setCadName(e.target.value)}
-                          placeholder="OVID_BH_FL04_ZONE_A_REV3.dwg"
+                          placeholder="Digital Construction ERP_BH_FL04_ZONE_A_REV3.dwg"
                           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                         />
                       </div>

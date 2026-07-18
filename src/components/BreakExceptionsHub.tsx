@@ -95,7 +95,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
 
   const [multiPunches, setMultiPunches] = useState<MultiPunchDay[]>([
     {
-      workerId: "OVID-W-101",
+      workerId: "ERP-W-101",
       workerName: "Bekele Tesfaye",
       trade: "Carpenter",
       team: "T-01",
@@ -111,7 +111,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       isSynced: true
     },
     {
-      workerId: "OVID-W-102",
+      workerId: "ERP-W-102",
       workerName: "Chala Kebede",
       trade: "Welder",
       team: "T-01",
@@ -127,7 +127,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       isSynced: true
     },
     {
-      workerId: "OVID-W-103",
+      workerId: "ERP-W-103",
       workerName: "Yosef Assefa",
       trade: "Steel Fixer",
       team: "T-02",
@@ -143,7 +143,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       isSynced: true
     },
     {
-      workerId: "OVID-W-104",
+      workerId: "ERP-W-104",
       workerName: "Alemayehu Tekle",
       trade: "Concrete Worker",
       team: "T-02",
@@ -159,7 +159,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       isSynced: true
     },
     {
-      workerId: "OVID-W-105",
+      workerId: "ERP-W-105",
       workerName: "Mulugeta Alene",
       trade: "Mason",
       team: "T-03",
@@ -180,7 +180,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
   const [exceptions, setExceptions] = useState<ExceptionLog[]>([
     {
       id: "EXC-201",
-      workerId: "OVID-W-102",
+      workerId: "ERP-W-102",
       workerName: "Chala Kebede",
       trade: "Welder",
       type: "LATE_ARRIVAL",
@@ -194,7 +194,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
     },
     {
       id: "EXC-202",
-      workerId: "OVID-W-103",
+      workerId: "ERP-W-103",
       workerName: "Yosef Assefa",
       trade: "Steel Fixer",
       type: "LATE_LUNCH_RETURN",
@@ -208,7 +208,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
     },
     {
       id: "EXC-203",
-      workerId: "OVID-W-104",
+      workerId: "ERP-W-104",
       workerName: "Alemayehu Tekle",
       trade: "Concrete Worker",
       type: "EARLY_DEPARTURE",
@@ -228,7 +228,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       id: "NOT-901",
       type: "Late Arrival",
       title: "Roster Violation: Late Check-In",
-      message: "Chala Kebede (OVID-W-102) logged morning in at 08:35 (Deviation: +35 mins). Exception submitted.",
+      message: "Chala Kebede (ERP-W-102) logged morning in at 08:35 (Deviation: +35 mins). Exception submitted.",
       time: "08:35 AM",
       role: "Time Keeper",
       status: "Unread"
@@ -237,7 +237,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       id: "NOT-902",
       type: "Lunch Exception",
       title: "Roster Alert: Late Lunch Return",
-      message: "Yosef Assefa (OVID-W-103) clocked back at 13:25 (Lunch break exceeded by 25 mins).",
+      message: "Yosef Assefa (ERP-W-103) clocked back at 13:25 (Lunch break exceeded by 25 mins).",
       time: "01:25 PM",
       role: "Team Leader",
       status: "Unread"
@@ -312,7 +312,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
 
   // Report Generator settings
   const [activeReportTab, setActiveReportTab] = useState<"daily" | "lunch" | "late" | "early" | "exception" | "overtime" | "history">("daily");
-  const [selectedWorkerHistoryId, setSelectedWorkerHistoryId] = useState("OVID-W-101");
+  const [selectedWorkerHistoryId, setSelectedWorkerHistoryId] = useState("ERP-W-101");
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
 
@@ -517,7 +517,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
         workerName: worker.name,
         department: worker.department || "Formwork",
         trade: worker.trade || "Carpenter",
-        company: worker.company || "OVID Real Estate",
+        company: worker.company || "Digital Construction ERP System",
         building: worker.building || "Tower A",
         floor: worker.floor || 4,
         zone: worker.zone || "Zone A",
@@ -646,8 +646,8 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
     setTimeout(() => {
       setIsExporting(false);
       setExportMessage(isAmharic 
-        ? `ሪፖርቱ በተሳካ ሁኔታ ተዘጋጅቷል! የወረደው ፋይል ስም፡ OVID_${reportName}_${todayStr}.xlsx` 
-        : `Success! Synchronized report "${reportName}" exported to Head Office and downloaded locally as OVID_${reportName}_${todayStr}.xlsx`);
+        ? `ሪፖርቱ በተሳካ ሁኔታ ተዘጋጅቷል! የወረደው ፋይል ስም፡ Digital Construction ERP_${reportName}_${todayStr}.xlsx` 
+        : `Success! Synchronized report "${reportName}" exported to Head Office and downloaded locally as Digital Construction ERP_${reportName}_${todayStr}.xlsx`);
       setTimeout(() => setExportMessage(""), 4000);
     }, 2000);
   };
@@ -658,7 +658,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
     if (!syncFormName.trim()) return;
 
     const randomNum = Math.floor(100 + Math.random() * 900);
-    const newId = `OVID-W-${randomNum}`;
+    const newId = `ERP-W-${randomNum}`;
 
     setSyncSuccessMsg(isAmharic ? "የሰራተኛ ፕሮፋይል በመገናኘት ላይ ነው..." : "Broadcasting employee registration to 5 ERP Node channels...");
     
@@ -1015,7 +1015,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
             <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5 space-y-3">
               <h4 className="text-[11px] font-black uppercase text-slate-700 tracking-wider flex items-center space-x-1">
                 <ShieldCheck size={14} className="text-emerald-500" />
-                <span>OVID Construction Compliance Rules</span>
+                <span>Digital Construction ERP Compliance Rules</span>
               </h4>
               <ul className="text-[11px] text-slate-600 space-y-2 leading-relaxed">
                 <li className="flex items-start space-x-1.5">
@@ -1454,7 +1454,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
           <div className="border-b border-slate-100 pb-4">
             <h3 className="text-sm font-black text-slate-900">{isAmharic ? "ኢንተርፕራይዝ የሰራተኞች ምዝገባ ማመሳሰያ" : "Enterprise Automatic Synchronization Engine"}</h3>
             <p className="text-xs text-slate-500 mt-1">
-              When a new employee profile is registered, the OVID sync core automatically propagates the biometric status and trade specialization matrix across all respective on-site supervisor and head office platforms. No manual sharing required.
+              When a new employee profile is registered, the Digital Construction ERP sync core automatically propagates the biometric status and trade specialization matrix across all respective on-site supervisor and head office platforms. No manual sharing required.
             </p>
           </div>
 
@@ -1668,9 +1668,9 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
             {/* Header of Report Document */}
             <div className="flex justify-between items-start border-b border-slate-300 pb-4 text-xs font-sans">
               <div className="space-y-1">
-                <h4 className="text-sm font-black uppercase text-slate-900 tracking-wide">OVID Real Estate & Infrastructure</h4>
+                <h4 className="text-sm font-black uppercase text-slate-900 tracking-wide">Digital Construction ERP System & Infrastructure</h4>
                 <p className="text-[10px] text-slate-500">Bole Heights Project Site B1 • Aluminum Formwork Hub</p>
-                <p className="text-[10px] font-mono font-bold text-slate-800">REPORT_ID: OVID_RE_ATT_{activeReportTab.toUpperCase()}_092</p>
+                <p className="text-[10px] font-mono font-bold text-slate-800">REPORT_ID: Digital Construction ERP_RE_ATT_{activeReportTab.toUpperCase()}_092</p>
               </div>
               <div className="text-right space-y-1 text-[10px]">
                 <p><strong>Generated:</strong> {todayStr} 02:58 AM</p>

@@ -139,7 +139,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="relative z-10 space-y-2">
           <div className="flex items-center space-x-2">
             <span className="bg-red-600 text-xs uppercase tracking-widest font-semibold px-2.5 py-1 rounded-full">
-              OVID Real Estate
+              Digital Construction ERP System
             </span>
             <span className="flex items-center space-x-1 text-slate-400 text-xs bg-slate-800 px-2 py-1 rounded">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
@@ -151,8 +151,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </h1>
           <p className="text-slate-300 text-sm max-w-2xl font-sans">
             {isAmharic 
-              ? "የኦቪድ ሪል እስቴት መገኘት፣ ምርታማነት፣ ደህንነት እና ጥራት ቁጥጥር በቴክኖሎጂ የተደገፈ ትንበያ ሲስተም።"
-              : "OVID's digital command center monitoring real-time cycle times, daily safety audits, spatial workforce allocations, and AI-driven completion predictions."}
+              ? "የዲጂታል ኮንስትራክሽን ERP ሲስተም መገኘት፣ ምርታማነት፣ ደህንነት እና ጥራት ቁጥጥር በቴክኖሎጂ የተደገፈ ትንበያ ሲስተም።"
+              : "Digital Construction ERP's digital command center monitoring real-time cycle times, daily safety audits, spatial workforce allocations, and AI-driven completion predictions."}
           </p>
         </div>
       </div>
@@ -199,10 +199,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                    currentUserRole === UserRole.GANG_CHIEF ? "Fikru Tolossa" : "Bekele Tesfaye"}
                 </span>
                 <span className="text-[11px] text-slate-500 font-mono block">
-                  ID: {currentUserRole === UserRole.HEAD_OFFICE ? "OVID-HO-01" :
-                       currentUserRole === UserRole.TIME_KEEPER ? "OVID-TK-01" :
-                       currentUserRole === UserRole.TEAM_LEADER ? "OVID-TL-01" :
-                       currentUserRole === UserRole.GANG_CHIEF ? "OVID-GC-01" : "OVID-W-101"}
+                  ID: {currentUserRole === UserRole.HEAD_OFFICE ? "Digital Construction ERP-HO-01" :
+                       currentUserRole === UserRole.TIME_KEEPER ? "Digital Construction ERP-TK-01" :
+                       currentUserRole === UserRole.TEAM_LEADER ? "Digital Construction ERP-TL-01" :
+                       currentUserRole === UserRole.GANG_CHIEF ? "Digital Construction ERP-GC-01" : "ERP-W-101"}
                 </span>
               </div>
             </div>

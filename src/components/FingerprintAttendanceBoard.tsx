@@ -97,7 +97,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   // Live clock state
   const [currentTime, setCurrentTime] = useState(new Date());
   
-  // Master geofence of OVID Bole Heights construction site
+  // Master geofence of Digital Bole Heights construction site
   const [geofenceLat, setGeofenceLat] = useState(9.0049);
   const [geofenceLng, setGeofenceLng] = useState(38.7783);
   const [allowedRadius, setAllowedRadius] = useState(150); // in meters
@@ -403,7 +403,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
       playSound("error");
       const errorReason = isAmharic
         ? `የመገኛ ቦታ ክልል ጥሰት፡ ሰራተኛው ከተፈቀደው የግንባታ ግቢ ውጭ በ ${currentDistance}ሜትር ርቆ ይገኛል።`
-        : `GPS Geofence Breach: Worker is outside the authorized OVID construction boundary by ${currentDistance}m.`;
+        : `GPS Geofence Breach: Worker is outside the authorized Digital Construction ERP construction boundary by ${currentDistance}m.`;
 
       setConfirmationOverlay({
         status: "failed",
@@ -534,7 +534,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         method: verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
         gpsCoordinates: { lat: simLat, lng: simLng },
         timestamp: new Date(),
-        gpsLocationString: isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `OVID Heights (${currentDistance}m deviation)`,
+        gpsLocationString: isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `Digital Construction ERP Heights (${currentDistance}m deviation)`,
         isInside: true
       };
 
@@ -568,7 +568,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     }
 
     // 6. Committing successful attendance directly online (Sync active)
-    commitAttendanceRecord(worker, kioskMode, verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION, { lat: simLat, lng: simLng }, currentTime, isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `OVID Heights (${currentDistance}m deviation)`, true);
+    commitAttendanceRecord(worker, kioskMode, verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION, { lat: simLat, lng: simLng }, currentTime, isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `Digital Construction ERP Heights (${currentDistance}m deviation)`, true);
   };
 
   // Helper to construct, write and log a valid attendance record
@@ -611,7 +611,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         overtime: 0,
         status: status,
         gpsCoordinates: coords,
-        deviceUsed: "OVID-BIO-PAD-03",
+        deviceUsed: "Digital Construction ERP-BIO-PAD-03",
         verifiedBy: currentUserRole,
         gpsLocationString: locString
       };
@@ -665,7 +665,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
           workingHours: totalAccumulatedHours,
           overtime,
           status: existingRecord.status === "Late" ? "Late" : "Present",
-          deviceUsed: "OVID-BIO-PAD-03",
+          deviceUsed: "Digital Construction ERP-BIO-PAD-03",
           verifiedBy: currentUserRole,
           gpsLocationString: locString
         };
@@ -737,8 +737,8 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
       coordinates: coords,
       gpsStatus,
       verifiedBy: currentUserRole,
-      deviceId: "OVID-BIO-PAD-03",
-      project: "OVID Bole Heights",
+      deviceId: "Digital Construction ERP-BIO-PAD-03",
+      project: "Digital Bole Heights",
       building: "Tower A",
       floor: 4,
       zone: "Zone B",
@@ -945,7 +945,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
               }}
               className="w-full bg-slate-900 text-white font-extrabold py-3 rounded-xl hover:bg-slate-800 transition-colors cursor-pointer"
             >
-              {isAmharic ? "ወደ ቀድሞው መልስ" : "Reset Default OVID Geofence"}
+              {isAmharic ? "ወደ ቀድሞው መልስ" : "Reset Default Digital Construction ERP Geofence"}
             </button>
           </div>
         </div>
@@ -1062,14 +1062,14 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
             {/* Logo and Project metadata */}
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 bg-red-600 rounded-xl flex items-center justify-center font-black text-white tracking-tighter text-sm shadow-md shadow-red-600/30">
-                OVID
+                Digital Construction ERP
               </div>
               <div>
                 <span className="text-[10px] uppercase font-bold tracking-widest text-slate-500 block leading-none">
-                  OVID CONSTRUCTION GROUP
+                  Digital Construction ERP CONSTRUCTION GROUP
                 </span>
                 <h3 className="text-lg font-black tracking-tight mt-1">
-                  {isAmharic ? "ኦቪድ ቦሌ ሃይትስ ግንባታ" : "OVID Bole Heights Project"}
+                  {isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ቦሌ ሃይትስ ግንባታ" : "Digital Bole Heights Project"}
                 </h3>
               </div>
             </div>

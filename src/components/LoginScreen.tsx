@@ -241,7 +241,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         ? "Mobile App client (iOS/Android ERP Core)" 
         : "Desktop Workstation (Windows 11 Enterprise / Chrome)",
       ip: `192.168.10.${Math.floor(10 + Math.random() * 200)}`,
-      gps: "9.0272° N, 38.7483° E (OVID Bole Heights Site B1)"
+      gps: "9.0272° N, 38.7483° E (Digital Bole Heights Site B1)"
     };
 
     setSuccessMessage(isAmharic ? "በተሳካ ሁኔታ ገብተዋል! በመጫን ላይ..." : "Authorized successfully! Loading ERP...");
@@ -275,75 +275,75 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     
     // Autofill matching role mock credentials
     if (role === UserRole.SUPER_ADMIN) {
-      setEmail("admin@ovidrealestate.com");
+      setEmail("admin@digital_construction_erprealestate.com");
       setPassword("super_admin_pass_123");
       setPhoneNumber("+251910001122");
-      setEmployeeId("OVID-SA-ADMIN");
+      setEmployeeId("Digital Construction ERP-SA-ADMIN");
     } else if (role === UserRole.HEAD_OFFICE) {
       setEmail("mejennur669@gmail.com");
       setPassword("admin_pass_9981");
       setPhoneNumber("0910097862");
-      setEmployeeId("OVID-HO-NURI");
+      setEmployeeId("Digital Construction ERP-HO-NURI");
     } else if (role === UserRole.PROJECT_MANAGER) {
-      setEmail("dawit.pm@ovidrealestate.com");
+      setEmail("dawit.pm@digital_construction_erprealestate.com");
       setPassword("pm_sec_7721");
       setPhoneNumber("+251922334455");
-      setEmployeeId("OVID-PM-01");
+      setEmployeeId("Digital Construction ERP-PM-01");
     } else if (role === UserRole.SITE_ENGINEER) {
-      setEmail("sintayehu@ovidrealestate.com");
+      setEmail("sintayehu@digital_construction_erprealestate.com");
       setPassword("se_eng_5522");
       setPhoneNumber("+251944556677");
-      setEmployeeId("OVID-SE-01");
+      setEmployeeId("Digital Construction ERP-SE-01");
     } else if (role === UserRole.SUPERVISOR) {
-      setEmail("kassa.sv@ovidrealestate.com");
+      setEmail("kassa.sv@digital_construction_erprealestate.com");
       setPassword("sv_pass_4433");
       setPhoneNumber("+251955112233");
-      setEmployeeId("OVID-SV-01");
+      setEmployeeId("Digital Construction ERP-SV-01");
     } else if (role === UserRole.TIME_KEEPER) {
-      setEmail("abebe.tk@ovidrealestate.com");
+      setEmail("abebe.tk@digital_construction_erprealestate.com");
       setPassword("tk_pass_5566");
       setPhoneNumber("+251966778899");
-      setEmployeeId("OVID-TK-01");
+      setEmployeeId("Digital Construction ERP-TK-01");
     } else if (role === UserRole.TEAM_LEADER) {
-      setEmail("yohannes.tl@ovidrealestate.com");
+      setEmail("yohannes.tl@digital_construction_erprealestate.com");
       setPassword("tl_pass_8899");
       setPhoneNumber("+251977112233");
-      setEmployeeId("OVID-TL-01");
+      setEmployeeId("Digital Construction ERP-TL-01");
     } else if (role === UserRole.GANG_CHIEF) {
-      setEmail("fikru.gc@ovidrealestate.com");
+      setEmail("fikru.gc@digital_construction_erprealestate.com");
       setPassword("gc_pass_2211");
       setPhoneNumber("+251988112233");
-      setEmployeeId("OVID-GC-01");
+      setEmployeeId("Digital Construction ERP-GC-01");
     } else if (role === UserRole.STORE_MANAGER) {
-      setEmail("mulugeta.sm@ovidrealestate.com");
+      setEmail("mulugeta.sm@digital_construction_erprealestate.com");
       setPassword("store_pass_99");
       setPhoneNumber("+251999112233");
-      setEmployeeId("OVID-SM-01");
+      setEmployeeId("Digital Construction ERP-SM-01");
     } else if (role === UserRole.HR_MANAGER) {
-      setEmail("tigist.hr@ovidrealestate.com");
+      setEmail("tigist.hr@digital_construction_erprealestate.com");
       setPassword("hr_pass_7766");
       setPhoneNumber("+251911445566");
-      setEmployeeId("OVID-HR-01");
+      setEmployeeId("Digital Construction ERP-HR-01");
     } else if (role === UserRole.FINANCE_MANAGER) {
-      setEmail("bement.fm@ovidrealestate.com");
+      setEmail("bement.fm@digital_construction_erprealestate.com");
       setPassword("finance_pass_88");
       setPhoneNumber("+251922445566");
-      setEmployeeId("OVID-FM-01");
+      setEmployeeId("Digital Construction ERP-FM-01");
     } else if (role === UserRole.SECTION_HEAD) {
-      setEmail("alemayehu@ovidrealestate.com");
+      setEmail("alemayehu@digital_construction_erprealestate.com");
       setPassword("sh_sec_4411");
       setPhoneNumber("+251933445566");
-      setEmployeeId("OVID-SH-01");
+      setEmployeeId("Digital Construction ERP-SH-01");
     } else if (role === UserRole.SURVEYOR) {
-      setEmail("tadesse.s@ovidrealestate.com");
+      setEmail("tadesse.s@digital_construction_erprealestate.com");
       setPassword("sv_pass_1100");
       setPhoneNumber("+251955667788");
-      setEmployeeId("OVID-SR-01");
+      setEmployeeId("Digital Construction ERP-SR-01");
     } else {
-      setEmail("bekele.w@ovidrealestate.com");
+      setEmail("bekele.w@digital_construction_erprealestate.com");
       setPassword("worker_pass");
       setPhoneNumber("+251977889900");
-      setEmployeeId("OVID-W-101");
+      setEmployeeId("ERP-W-101");
     }
   };
 
@@ -359,7 +359,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             <Shield size={20} className="animate-pulse" />
           </div>
           <div>
-            <h1 className="text-sm font-black tracking-widest text-white uppercase">{isAmharic ? "ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም" : "Digital Construction ERP command platform"}</h1>
+            <h1 className="text-sm font-black tracking-widest text-white uppercase">{isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ሲስተም" : "Digital Construction ERP System"}</h1>
             <p className="text-[10px] font-mono tracking-wider text-slate-400">SMART CONSTRUCTION ERP</p>
           </div>
         </div>
@@ -388,8 +388,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             
             <h2 className="text-xl font-bold tracking-tight text-white leading-tight">
               {isAmharic 
-                ? "ወደ ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም መግቢያ" 
-                : "Enter Digital Construction ERP command platform"}
+                ? "ወደ ዲጂታል ኮንስትራክሽን ERP ሲስተም መግቢያ" 
+                : "Enter Digital Construction ERP System"}
             </h2>
             
             <p className="text-xs text-slate-400 mt-2 leading-relaxed">
@@ -534,7 +534,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          placeholder="e.g. yoseph@ovidrealestate.com"
+                          placeholder="e.g. yoseph@digital_construction_erprealestate.com"
                           className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
                         />
                       </div>
@@ -616,7 +616,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         type="text"
                         value={employeeId}
                         onChange={(e) => setEmployeeId(e.target.value)}
-                        placeholder="e.g. OVID-PM-01, OVID-HO-01"
+                        placeholder="e.g. Digital Construction ERP-PM-01, Digital Construction ERP-HO-01"
                         className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono uppercase"
                       />
                     </div>
@@ -789,7 +789,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                   className="mt-1 accent-red-600 rounded cursor-pointer"
                 />
                 <span className="text-[10px] text-slate-400 leading-normal group-hover:text-slate-300 transition-colors">
-                  {isAmharic ? "የዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም" : "I accept the Digital Construction ERP command platform "}{" "}
+                  {isAmharic ? "የዲጂታል ኮንስትራክሽን ERP ሲስተም" : "I accept the Digital Construction ERP System "}{" "}
                   <button
                     type="button"
                     onClick={() => setShowPrivacyModal(true)}
@@ -834,7 +834,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
       {/* FOOTER & TRUST INDICATION */}
       <div className="relative z-10 text-center py-6 border-t border-slate-900 text-slate-500 text-[11px] font-mono space-y-1">
-        <p>© {new Date().getFullYear()} Digital Construction ERP command platform Engineering Division. All rights reserved.</p>
+        <p>© {new Date().getFullYear()} Digital Construction ERP System Engineering Division. All rights reserved.</p>
         <p className="text-slate-400 font-bold">
           {isAmharic 
             ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
@@ -842,7 +842,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843
         </p>
         <p className="text-[10px] text-slate-600">
-          Authorized ERP Terminal ID: OVID-ET-ADB-B1 | Registered Audit Logs Count: {auditLogsCount} | mejennur669@gmail.com
+          Authorized ERP Terminal ID: Digital Construction ERP-ET-ADB-B1 | Registered Audit Logs Count: {auditLogsCount} | mejennur669@gmail.com
         </p>
       </div>
 
@@ -854,7 +854,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
               <div className="flex items-center space-x-2 text-red-500">
                 <ShieldCheck size={18} />
                 <h3 className="font-black uppercase text-xs tracking-wider text-white">
-                  {isAmharic ? "ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም የግላዊነት ፖሊሲ" : "Digital Construction ERP command platform Privacy & Compliance Policy"}
+                  {isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ሲስተም የግላዊነት ፖሊሲ" : "Digital Construction ERP System Privacy & Compliance Policy"}
                 </h3>
               </div>
               <button
@@ -870,8 +870,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
               <p className="font-bold text-white border-b border-slate-800 pb-1">1. {isAmharic ? "የመረጃ አሰባሰብ እና አጠቃቀም ምድብ" : "Information Category & Collection Principles"}</p>
               <p>
                 {isAmharic 
-                  ? "ይህ የኦቪድ ስማርት ግንባታ መቆጣጠሪያ ሶፍትዌር የግንባታውን ደህንነት እና የሰው ኃይል ትክክለኛነት ለማረጋገጥ የሚከተሉትን መረጃዎች ይሰበስባል፦ የጣት አሻራ ሃሽ ኮዶች፣ የፊት ገጽታ ምስል ማመሳሰያ ሃሽ፣ የስራ መገኛ GPS ቦታ (በሳይት ውስጥ ሲሆኑ ብቻ)፣ እና የመገኘት ዝርዝሮችን።" 
-                  : "OVID Smart Construction ERP records structural survey inputs, supervisor photo uploads, CAD interactions, and employee biometric hash data to generate accurate timesheets, prevent construction drift, and automate payroll checks."}
+                  ? "ይህ የዲጂታል ኮንስትራክሽን ERP ስማርት ግንባታ መቆጣጠሪያ ሶፍትዌር የግንባታውን ደህንነት እና የሰው ኃይል ትክክለኛነት ለማረጋገጥ የሚከተሉትን መረጃዎች ይሰበስባል፦ የጣት አሻራ ሃሽ ኮዶች፣ የፊት ገጽታ ምስል ማመሳሰያ ሃሽ፣ የስራ መገኛ GPS ቦታ (በሳይት ውስጥ ሲሆኑ ብቻ)፣ እና የመገኘት ዝርዝሮችን።" 
+                  : "Digital Construction ERP Smart Construction ERP records structural survey inputs, supervisor photo uploads, CAD interactions, and employee biometric hash data to generate accurate timesheets, prevent construction drift, and automate payroll checks."}
               </p>
               <p>
                 {isAmharic 
@@ -896,14 +896,14 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
               <p className="font-bold text-white border-b border-slate-800 pb-1">4. {isAmharic ? "የተጠቃሚ መብቶች እና የእውቂያ አድራሻ" : "Employee Rights & Compliance Contacts"}</p>
               <p>
                 {isAmharic 
-                  ? "የኦቪድ ሰራተኞች በማንኛውም ጊዜ በመቆጣጠሪያው ላይ የተመዘገበውን የራሳቸውን መገለጫ መረጃ የመመልከት፣ የማረም፣ ወይም ባዮሜትሪክ መረጃ መልሶ የመመዝገብ መብት አላቸው። ጥያቄዎች ካሉዎት በ email: privacy@ovidrealestate.com ማነጋገር ይችላሉ።" 
-                  : "All site workers and management team members hold the right to inspect their personal metadata profile, request biometric re-enrollment, and verify work history logs. For questions regarding GDPR compliance or data handling, write to compliance@ovidrealestate.com."}
+                  ? "የዲጂታል ኮንስትራክሽን ERP ሰራተኞች በማንኛውም ጊዜ በመቆጣጠሪያው ላይ የተመዘገበውን የራሳቸውን መገለጫ መረጃ የመመልከት፣ የማረም፣ ወይም ባዮሜትሪክ መረጃ መልሶ የመመዝገብ መብት አላቸው። ጥያቄዎች ካሉዎት በ email: privacy@digital_construction_erprealestate.com ማነጋገር ይችላሉ።" 
+                  : "All site workers and management team members hold the right to inspect their personal metadata profile, request biometric re-enrollment, and verify work history logs. For questions regarding GDPR compliance or data handling, write to compliance@digital_construction_erprealestate.com."}
               </p>
             </div>
 
             <div className="border-t border-slate-800 pt-3 mt-4 flex justify-between items-center">
               <span className="text-[9px] font-mono text-slate-500">
-                OVID ERP Policy v4.2.1-SEC
+                Digital Construction ERP ERP Policy v4.2.1-SEC
               </span>
               <button
                 type="button"

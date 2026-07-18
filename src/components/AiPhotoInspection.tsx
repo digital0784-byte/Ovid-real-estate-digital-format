@@ -516,7 +516,7 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
                 <Sparkles size={10} />
                 <span>AI COMPUTER VISION</span>
               </span>
-              <span className="text-slate-400 font-mono text-[10px]">OVID INSPECT CORE v2.1</span>
+              <span className="text-slate-400 font-mono text-[10px]">Digital Construction ERP INSPECT CORE v2.1</span>
             </div>
             <h2 className="text-xl font-extrabold tracking-tight">
               {isAmharic ? "አይአይ ሳይት ፎቶ ቁጥጥር እና የኮንክሪት ዝግጁነት መድረክ" : "AI Photo Progress Inspection & Concrete Readiness Suite"}

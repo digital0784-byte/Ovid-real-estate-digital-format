@@ -477,7 +477,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   const [documents, setDocuments] = useState([
     { id: "CAD-101", name: "FormworkLayout_Floor4_B1.dwg", type: "CAD Drawing", ver: "v2.4", syncDate: "2026-07-08", approval: "Approved by Nuriye" },
     { id: "SD-304", name: "CornerBracket_AssemblyDetail_Shop.pdf", type: "Shop Drawing", ver: "v1.2", syncDate: "2026-07-05", approval: "Approved by Eng. Dawit" },
-    { id: "MTS-501", name: "MethodStatement_HighRiseFormwork_OVID.pdf", type: "Method Statement", ver: "v3.0", syncDate: "2026-06-15", approval: "Lead Admin Signed" },
+    { id: "MTS-501", name: "MethodStatement_HighRiseFormwork_Digital Construction ERP.pdf", type: "Method Statement", ver: "v3.0", syncDate: "2026-06-15", approval: "Lead Admin Signed" },
     { id: "RFI-221", name: "RFI_SlabConduits_Elect_ZoneB.docx", type: "RFI", ver: "v1.0", syncDate: "2026-07-09", approval: "Awaiting Consultant" }
   ]);
 
@@ -527,12 +527,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       surveyResults: "Verticality check passed (vertical slope deviation < 1.2mm)",
       activities: "Formwork stripping on Level 4 Zone A; Erecting scaffolding on Level 5 Slab support",
       photos: "B1_Floor4_West_Facing.jpg",
-      droneImages: "OVID_Drone_Ortho_B1_0709.tiff",
+      droneImages: "Digital Construction ERP_Drone_Ortho_B1_0709.tiff",
       safetyIncidents: "Zero incidents (1 Toolbox meeting completed at 07:30 AM)",
       materialUsage: "450 Wall panels, 1200 Wedge pins, 5 Drums chemical release agent",
       equipmentUsage: "Tower Crane 01 (8.5 Hrs), Mobile Crane (4.0 Hrs), Concrete Vibrators (6.5 Hrs)",
       concreteActivities: "Poured 16 m³ compressive concrete C30 on Floor 4 Area C Column Bases",
-      visitors: "Consultant inspector Eng. Tekle, OVID Executive Auditor Senait M.",
+      visitors: "Consultant inspector Eng. Tekle, Digital Construction ERP Executive Auditor Senait M.",
       engineerNotes: "Slab supports alignment verified. Minor slab deflection check on Zone B completed.",
       supervisorNotes: "Scraping of stripped panels went smoothly. Group B completed formwork oiled stack.",
       aiSummary: "Highly productive day. Formwork cycle completed in 4.2 days vs 5.0 target. Slurry seals 100% airtight."
@@ -545,12 +545,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       surveyResults: "Column alignment checked, all within 2mm tolerance",
       activities: "Concrete pouring columns C1 to C8; Pre-curing water sprays on Floor 3 columns",
       photos: "B1_Floor4_Pour_Preparation.jpg",
-      droneImages: "OVID_Drone_Altitude_B1_0708.tiff",
+      droneImages: "Digital Construction ERP_Drone_Altitude_B1_0708.tiff",
       safetyIncidents: "None (Minor hazard warning on scaffolding toe-boards resolved)",
       materialUsage: "180 Corner brackets, 80 Tie-rods, 30 Steel props adjusted",
       equipmentUsage: "Backup Generator 250kVA (1.2 Hrs), High-Freq Vibrators (5 Hrs)",
       concreteActivities: "Poured 18 m³ concrete columns C1-C8 (slump 120mm checked)",
-      visitors: "OVID VP HR Dr. Solomon G.",
+      visitors: "Digital Construction ERP VP HR Dr. Solomon G.",
       engineerNotes: "Cube compressive test CUBE-C30-41A prepared for curing tank.",
       supervisorNotes: "Assembly crew worked till 06:30 PM to secure the tie-rod sleeves.",
       aiSummary: "Pouring sequence optimized. Curing regime initiated on schedule."
@@ -589,7 +589,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     { id: "AST-402", code: "RFID-SURV-TS16", name: "Leica TS16 Total Station Precision", category: "Survey Instruments", location: "Surveying Yard Office", assignedTo: "Yohannes B. (Surveyor)", status: "Healthy", serviceHistory: "Calibrated on 2026-07-01 by Leica Ethio" },
     { id: "AST-403", code: "QR-CRANE-POTAIN", name: "Potain Tower Crane MC125", category: "Cranes", location: "Block B1 Construction Center", assignedTo: "Chala B. (Operator)", status: "Active", serviceHistory: "Slew ring safety overhaul completed 2026-05-10" },
     { id: "AST-404", code: "QR-GEN-CAT250", name: "Caterpillar 250kVA Generator", category: "Generators", location: "Power Station South Yard", assignedTo: "Yoseph H. (Supervisor)", status: "Standby", serviceHistory: "Engine oil, filters replaced on 2026-06-20" },
-    { id: "AST-405", code: "QR-PUMP-SANY32", name: "Sany Concrete Pump Truck 32m", category: "Concrete Pumps", location: "OVID Central Yard", assignedTo: "Zewdu A. (Operator)", status: "Maintenance", serviceHistory: "Piston seal wearing out, spare parts on order" },
+    { id: "AST-405", code: "QR-PUMP-SANY32", name: "Sany Concrete Pump Truck 32m", category: "Concrete Pumps", location: "Digital Construction ERP Central Yard", assignedTo: "Zewdu A. (Operator)", status: "Maintenance", serviceHistory: "Piston seal wearing out, spare parts on order" },
     { id: "AST-406", code: "RFID-DRONE-RTK", name: "DJI Matrice 300 RTK Survey Drone", category: "Drones", location: "Engineering Office Block", assignedTo: "Eng. Yoseph (Tech Lead)", status: "Healthy", serviceHistory: "Compass recalibrated, firmware updated 2026-07-05" },
     { id: "AST-407", code: "QR-TOOL-HILTI", name: "Hilti TE-70 Heavy Rotary Hammer", category: "Power Tools", location: "Central Tool Store", assignedTo: "Gangs Crew Alpha", status: "Healthy", serviceHistory: "Trigger assembly replaced 2026-04-18" }
   ]);
@@ -670,13 +670,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // Req 22: Multi-Project Management
   const [multiProjects, setMultiProjects] = useState([
-    { id: "PRJ-01", company: "OVID Construction PLC", name: "Bole Heights Phase I", towers: "Block B1 + B2 (Towers)", floors: "G+12 Floors", zones: "Zones A, B, C", budget: "ETB 45M", progress: 76.5, status: "Active" },
-    { id: "PRJ-02", company: "OVID Real Estate", name: "Yeka Hills Premium Gated Estate", towers: "12 Residential Towers", floors: "G+15 Floors", zones: "Phases 1, 2, 3", budget: "ETB 180M", progress: 22.0, status: "Active" },
-    { id: "PRJ-03", company: "OVID Infrastructure", name: "Lemi National Cement Plant Expansion", towers: "Industrial Concrete Silos", floors: "Heavy Industrial Structure", zones: "Zone West, Crusher Yard", budget: "ETB 240M", progress: 94.0, status: "Active" },
-    { id: "PRJ-04", company: "OVID Housing Co.", name: "Gotera Low-Cost Block housing", towers: "Block A1, A2, A3, A4", floors: "G+7 Floors", zones: "Zone North", budget: "ETB 38M", progress: 5.0, status: "Mobilization" }
+    { id: "PRJ-01", company: "Digital Construction ERP PLC", name: "Bole Heights Phase I", towers: "Block B1 + B2 (Towers)", floors: "G+12 Floors", zones: "Zones A, B, C", budget: "ETB 45M", progress: 76.5, status: "Active" },
+    { id: "PRJ-02", company: "Digital Construction ERP System", name: "Yeka Hills Premium Gated Estate", towers: "12 Residential Towers", floors: "G+15 Floors", zones: "Phases 1, 2, 3", budget: "ETB 180M", progress: 22.0, status: "Active" },
+    { id: "PRJ-03", company: "Digital Infrastructure", name: "Lemi National Cement Plant Expansion", towers: "Industrial Concrete Silos", floors: "Heavy Industrial Structure", zones: "Zone West, Crusher Yard", budget: "ETB 240M", progress: 94.0, status: "Active" },
+    { id: "PRJ-04", company: "Digital Housing Co.", name: "Gotera Low-Cost Block housing", towers: "Block A1, A2, A3, A4", floors: "G+7 Floors", zones: "Zone North", budget: "ETB 38M", progress: 5.0, status: "Mobilization" }
   ]);
   const [newProject, setNewProject] = useState({
-    company: "OVID Construction PLC",
+    company: "Digital Construction ERP PLC",
     name: "",
     towers: "Block B3",
     floors: "G+10 Floors",
@@ -686,7 +686,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   // Req 24: Enterprise API Integration & Sync Logs
   const [apiLogs, setApiLogs] = useState([
     { id: "API-9482", endpoint: "/api/v1/erp/sync-inventory", method: "POST", status: 200, system: "SAP ERP Financials", payload: "Sync 13 Material items, zero discrepancies.", timestamp: "2026-07-09 11:15" },
-    { id: "API-9481", endpoint: "/api/v1/hr/biometric-pull", method: "GET", status: 200, system: "OVID HRMS (ZKTeco Hub)", payload: "Pulled 65 worker check-in times.", timestamp: "2026-07-09 11:00" },
+    { id: "API-9481", endpoint: "/api/v1/hr/biometric-pull", method: "GET", status: 200, system: "Digital Construction ERP HRMS (ZKTeco Hub)", payload: "Pulled 65 worker check-in times.", timestamp: "2026-07-09 11:00" },
     { id: "API-9480", endpoint: "/api/v1/bim/telemetry", method: "POST", status: 201, system: "Autodesk Construction Cloud (BIM)", payload: "Updated Floor 4 Zone A mesh model progress (76.5%).", timestamp: "2026-07-09 10:45" },
     { id: "API-9479", endpoint: "/api/v1/gis/topography-contour", method: "POST", status: 200, system: "ArcGIS Survey Integration", payload: "Uploaded Ortho mosaic drone point cloud.", timestamp: "2026-07-09 08:30" },
     { id: "API-9478", endpoint: "/api/v1/accounting/purchase-invoice-sync", method: "POST", status: 500, system: "Peachtree Accounting Integration", payload: "Error: Socket connection timeout. Retrying in 120s...", timestamp: "2026-07-09 07:15" }
@@ -734,7 +734,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   });
 
   // --- PHASE 3 STATE EXPANSION ---
-  const [selectedCompany, setSelectedCompany] = useState<string>("OVID Construction PLC");
+  const [selectedCompany, setSelectedCompany] = useState<string>("Digital Construction ERP PLC");
   
   // Simulated Workflow Engine Requests (for the 18 configurable processes)
   const [simulatedWorkflowRequests, setSimulatedWorkflowRequests] = useState([
@@ -792,7 +792,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     { item: "Panels (Standard Wall/Col)", required: 1420, warehouseStock: 1550, unit: "Pcs", delta: 130, status: "Surplus", cost: "ETB 24,000", recommendation: "No immediate procurement needed. Surplus available." },
     { item: "Beams (Shoring)", required: 480, warehouseStock: 420, unit: "Pcs", delta: -60, status: "Shortage", cost: "ETB 180,000", recommendation: "Procure 60 beams immediately or transfer from CMC Site." },
     { item: "Soffits & Corners", required: 350, warehouseStock: 380, unit: "Pcs", delta: 30, status: "Surplus", cost: "ETB 15,000", recommendation: "Stock levels sufficient for Floor 4 & 5 cycle." },
-    { item: "Tie Rods", required: 1200, warehouseStock: 950, unit: "Pcs", delta: -250, status: "Shortage", cost: "ETB 50,000", recommendation: "Order 250 high-tensile tie rods from local OVID supplier." },
+    { item: "Tie Rods", required: 1200, warehouseStock: 950, unit: "Pcs", delta: -250, status: "Shortage", cost: "ETB 50,000", recommendation: "Order 250 high-tensile tie rods from local Digital Construction ERP supplier." },
     { item: "Wedges & Pins", required: 3500, warehouseStock: 4200, unit: "Pcs", delta: 700, status: "Surplus", cost: "ETB 7,000", recommendation: "Surplus of wedges. Store extra in secure bins." },
     { item: "Props (Heavy Duty)", required: 950, warehouseStock: 820, unit: "Pcs", delta: -130, status: "Shortage", cost: "ETB 260,000", recommendation: "Urgent shortage of props. Request rental dispatch or transfer from Ayat warehouse." },
     { item: "Soffit Accessories", required: 180, warehouseStock: 200, unit: "Pcs", delta: 20, status: "Surplus", cost: "ETB 12,000", recommendation: "Stock optimal. Monitor wear and tear." }
@@ -1029,7 +1029,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       item: newPrItem.item,
       qty: newPrItem.qty || "100 Pcs",
       cost: newPrItem.cost || "ETB 50,000",
-      supplier: newPrItem.supplier || "Local Provider",
+      supplier: newPrItem.supplier || "Local Prdigital_construction_erper",
       status: "Pending Approval",
       date: new Date().toISOString().split("T")[0],
       approvalBy: "Awaiting Nuriye"
@@ -1176,7 +1176,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             </span>
           </div>
           <h2 className="text-lg font-black tracking-tight font-sans">
-            {isAmharic ? "OVID አልሙኒየም ፎርምወርክ ኢንተርፕራይዝ ሲስተም" : "OVID Aluminum Formwork Enterprise ERP"}
+            {isAmharic ? "Digital Construction ERP አልሙኒየም ፎርምወርክ ኢንተርፕራይዝ ሲስተም" : "Digital Construction ERP Aluminum Formwork Enterprise ERP"}
           </h2>
           <p className="text-xs text-slate-300 max-w-xl">
             {isAmharic 
@@ -1809,7 +1809,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <p className="flex items-start gap-1.5">
                         <span className="text-red-400">⚠️</span>
                         <span>
-                          <strong>Prop Shortage</strong>: Shoring Props are deficient by {planResults.props - 140} units. System recommends dispatching from the central OVID warehouse immediately.
+                          <strong>Prop Shortage</strong>: Shoring Props are deficient by {planResults.props - 140} units. System recommends dispatching from the central Digital Construction ERP warehouse immediately.
                         </span>
                       </p>
                     )}
@@ -2235,7 +2235,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <textarea
                     required
                     rows={3}
-                    placeholder="Provide precise location, time, and severity of hazard..."
+                    placeholder="Prdigital_construction_erpe precise location, time, and severity of hazard..."
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newHseReport.topic}
                     onChange={(e) => setNewHseReport({ ...newHseReport, topic: e.target.value })}
@@ -2747,7 +2747,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የአስተያየት ዝርዝር" : "Review Notes / Comments"}</label>
-                  <textarea rows={3} placeholder="Provide specific directives or tolerances to adjust..." className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none" />
+                  <textarea rows={3} placeholder="Prdigital_construction_erpe specific directives or tolerances to adjust..." className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none" />
                 </div>
                 <button
                   onClick={() => {
@@ -2988,7 +2988,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             </div>
             <button
               onClick={() => {
-                alert("Site Diary PDF generated successfully! Saved to OVID Document Repository.");
+                alert("Site Diary PDF generated successfully! Saved to Digital Construction ERP Document Repository.");
                 onLogAction("Generate Site Diary PDF", `Exported diary for ${diaryLogs[0]?.date}`);
               }}
               className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs py-2 px-4 rounded-lg flex items-center gap-1.5 transition-all shadow-md cursor-pointer self-start"
@@ -3058,7 +3058,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   materialUsage: newDiaryEntry.materialUsage || "450 Wall panels, 1200 Wedge pins",
                   equipmentUsage: "Tower Crane 01 (8.0 Hrs), Concrete Vibrators (4.5 Hrs)",
                   concreteActivities: newDiaryEntry.concreteActivities,
-                  visitors: "OVID Quality Supervisor Team",
+                  visitors: "Digital Construction ERP Quality Supervisor Team",
                   engineerNotes: newDiaryEntry.engineerNotes || "Standard verification complete.",
                   supervisorNotes: newDiaryEntry.supervisorNotes || "Shift rotation handoff successful.",
                   aiSummary: "Log compiled successfully. Safety indices at 100%. Sequence productivity matched target expectations."
@@ -3860,7 +3860,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <Briefcase size={16} className="text-red-600" />
                 <span>{isAmharic ? "መልቲ-ፕሮጀክት እና መልቲ-ካምፓኒ ቁጥጥር" : "Enterprise Multi-Project & Multi-Company Ledger"}</span>
               </h3>
-              <p className="text-xs text-slate-500">{isAmharic ? "OVID ግንባታ፣ ሪል ስቴት እና መሰረተ-ልማት ስራዎች በአንድ ላይ መቆጣጠሪያ" : "Monitor budgets, towers, blocks, and curing progress simultaneously across all OVID sister companies"}</p>
+              <p className="text-xs text-slate-500">{isAmharic ? "Digital Construction ERP ግንባታ፣ ሪል ስቴት እና መሰረተ-ልማት ስራዎች በአንድ ላይ መቆጣጠሪያ" : "Monitor budgets, towers, blocks, and curing progress simultaneously across all Digital Construction ERP sister companies"}</p>
             </div>
           </div>
 
@@ -3919,7 +3919,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 onLogAction("Provision Project", `Provisioned new workspace ${newP.name} under ${newP.company}`);
                 alert(`Workspace provisioned successfully! Autopilot initiated Firestore replica node for ${newP.name}.`);
                 setNewProject({
-                  company: "OVID Construction PLC",
+                  company: "Digital Construction ERP PLC",
                   name: "",
                   towers: "Block B3",
                   floors: "G+10 Floors",
@@ -3927,12 +3927,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 });
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">OVID Company Node</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Digital Construction ERP Company Node</label>
                   <select value={newProject.company} onChange={e => setNewProject({...newProject, company: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
-                    <option value="OVID Construction PLC">OVID Construction PLC</option>
-                    <option value="OVID Real Estate">OVID Real Estate</option>
-                    <option value="OVID Infrastructure">OVID Infrastructure</option>
-                    <option value="OVID Housing Co.">OVID Housing Co.</option>
+                    <option value="Digital Construction ERP PLC">Digital Construction ERP PLC</option>
+                    <option value="Digital Construction ERP System">Digital Construction ERP System</option>
+                    <option value="Digital Infrastructure">Digital Infrastructure</option>
+                    <option value="Digital Housing Co.">Digital Housing Co.</option>
                   </select>
                 </div>
                 <div>
@@ -3969,7 +3969,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <BarChart3 size={16} className="text-red-600" />
                 <span>{isAmharic ? "ኢንተርፕራይዝ የንግድ ኢንተለጀንስ (BI)" : "Executive Business Intelligence (BI) Analytics"}</span>
               </h3>
-              <p className="text-xs text-slate-500">{isAmharic ? "የ OVID ጠቅላላ ምርታማነት፣ የጥራት ጠቋሚዎች እና የወጪ አዝማሚያዎች በአይአይ ትንበያ" : "Analyzes overall equipment effectiveness, safety milestones, and financial margins in real-time"}</p>
+              <p className="text-xs text-slate-500">{isAmharic ? "የ Digital Construction ERP ጠቅላላ ምርታማነት፣ የጥራት ጠቋሚዎች እና የወጪ አዝማሚያዎች በአይአይ ትንበያ" : "Analyzes overall equipment effectiveness, safety milestones, and financial margins in real-time"}</p>
             </div>
           </div>
 
@@ -4425,7 +4425,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <p className="text-[11px] font-mono text-slate-400 font-semibold">mejennur669@gmail.com</p>
                 </div>
                 <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 italic leading-snug">
-                  Designed explicitly for OVID Aluminum Formwork Systems. Authenticated under high-integrity multi-region cloud servers.
+                  Designed explicitly for Digital Construction ERP Aluminum Formwork Systems. Authenticated under high-integrity multi-region cloud servers.
                 </div>
               </div>
             </div>
@@ -4450,7 +4450,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   </span>
                 </div>
                 <h3 className="text-xl font-black font-sans tracking-tight">
-                  {isAmharic ? "OVID የሞባይል አፖችና አይአይ ማዕከላዊ ሲስተም" : "OVID Mobile Apps & AI Construction Command Center"}
+                  {isAmharic ? "Digital Construction ERP የሞባይል አፖችና አይአይ ማዕከላዊ ሲስተም" : "Digital Construction ERP Mobile Apps & AI Construction Command Center"}
                 </h3>
                 <p className="text-xs text-slate-300 max-w-3xl">
                   {isAmharic
@@ -4521,7 +4521,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="bg-red-700 text-white p-4 pt-8 text-center border-b border-red-800 z-10 flex flex-col gap-0.5">
                   <div className="flex justify-between items-center text-[8px] font-mono opacity-80 mb-1">
                     <span>9:41 AM</span>
-                    <span className="font-sans font-bold">OVID ERP Mobile</span>
+                    <span className="font-sans font-bold">Digital Construction ERP ERP Mobile</span>
                     <span>🔋 100%</span>
                   </div>
                   <h4 className="text-xs font-black uppercase tracking-wider">{selectedMobileApp}</h4>
@@ -4538,7 +4538,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <div className="space-y-3">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-[10px] space-y-1">
                         <p className="text-slate-400 uppercase font-black tracking-widest">Live National Dashboard</p>
-                        <p className="text-white text-xs font-black">All 5 OVID Sites online</p>
+                        <p className="text-white text-xs font-black">All 5 Digital Construction ERP Sites online</p>
                         <div className="w-full bg-slate-950 rounded-full h-1 mt-1">
                           <div className="bg-red-500 h-1 rounded-full w-[76%]"></div>
                         </div>
@@ -5333,7 +5333,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedDbCollection === "companies" && (
                     <ul className="space-y-1 list-disc list-inside">
                       <li>companyId: <span className="text-blue-400">string (Primary Key)</span></li>
-                      <li>companyName: <span className="text-blue-400">string (eg. OVID Real Estate)</span></li>
+                      <li>companyName: <span className="text-blue-400">string (eg. Digital Construction ERP System)</span></li>
                       <li>logo: <span className="text-blue-400">string (Firebase Storage URI)</span></li>
                       <li>address: <span className="text-blue-400">string</span></li>
                       <li>status: <span className="text-emerald-400">string ("Active")</span></li>
@@ -5405,15 +5405,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <div className="space-y-1.5 font-mono text-[9px]">
                       <div className="flex justify-between border-b pb-1">
                         <span>AAB Package:</span>
-                        <span className="text-slate-900 font-bold">OVID_ERP_v2.4.aab</span>
+                        <span className="text-slate-900 font-bold">Digital Construction ERP_ERP_v2.4.aab</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span>APK Signed:</span>
-                        <span className="text-slate-900 font-bold">OVID_ERP_Production_Release.apk</span>
+                        <span className="text-slate-900 font-bold">Digital Construction ERP_ERP_Production_Release.apk</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span>Keystore Alias:</span>
-                        <span className="text-slate-950 font-bold">ovid-release-key</span>
+                        <span className="text-slate-950 font-bold">digital-construction-release-key</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Splash Screen:</span>
@@ -5431,7 +5431,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <div className="space-y-1.5 font-mono text-[9px]">
                       <div className="flex justify-between border-b pb-1">
                         <span>IPA Package:</span>
-                        <span className="text-slate-900 font-bold">OVID_ERP_Release_signed.ipa</span>
+                        <span className="text-slate-900 font-bold">Digital Construction ERP_ERP_Release_signed.ipa</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
                         <span>Certificates:</span>
@@ -5473,11 +5473,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   </span>
                 </div>
                 <h3 className="text-xl font-black font-sans tracking-tight">
-                  {isAmharic ? "OVID የግብረመልስና የደንበኛ ተሞክሮ (CX) ማዕከል" : "OVID Customer Experience & User Feedback System"}
+                  {isAmharic ? "Digital Construction ERP የግብረመልስና የደንበኛ ተሞክሮ (CX) ማዕከል" : "Digital Construction ERP Customer Experience & User Feedback System"}
                 </h3>
                 <p className="text-xs text-slate-300 max-w-3xl">
                   {isAmharic
-                    ? "ሰራተኞች፣ መሀንዲሶች እና ባለድርሻ አካላት ስለ ኦቪድ ድርጅት፣ ግንባታ ሂደቶች እና ስለ ERP አፕሊኬሽኑ አስተያየት የሚሰጡበት፣ ደረጃ የሚሰጡበት እና ችግሮች የሚፈቱበት የላቀ ሲስተም።"
+                    ? "ሰራተኞች፣ መሀንዲሶች እና ባለድርሻ አካላት ስለ ዲጂታል ኮንስትራክሽን ERP ድርጅት፣ ግንባታ ሂደቶች እና ስለ ERP አፕሊኬሽኑ አስተያየት የሚሰጡበት፣ ደረጃ የሚሰጡበት እና ችግሮች የሚፈቱበት የላቀ ሲስተም።"
                     : "A cross-organization pipeline for employees, engineers, and clients to log system issues, submit organizational reviews, upload photo/voice evidence, and trigger AI-powered sentiment & priority analysis."}
                 </p>
               </div>
@@ -5559,7 +5559,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <p className="text-[10px] text-slate-500">{isAmharic ? "አስተያየትዎን፣ ጥያቄዎን ወይም ቅሬታዎን እዚህ ይሙሉ" : "Voice your ideas, concerns, or technical issues"}</p>
                   </div>
                   <span className="px-2 py-0.5 rounded-full bg-slate-100 text-[9px] font-mono text-slate-600">
-                    OVID-CX-TICKET
+                    ERP-CX-TICKET
                   </span>
                 </div>
 
@@ -5620,7 +5620,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 cursor-pointer font-bold"
                       >
                         <option value="System">💻 {isAmharic ? "የሲስተም / አፕ ግብረመልስ" : "System / App Performance"}</option>
-                        <option value="Organization">🏢 {isAmharic ? "የድርጅት / የስራ አካባቢ" : "OVID Organization"}</option>
+                        <option value="Organization">🏢 {isAmharic ? "የድርጅት / የስራ አካባቢ" : "Digital Construction ERP Organization"}</option>
                         <option value="Construction">🏗️ {isAmharic ? "የግንባታ ሳይት ስራ" : "Construction Site Operations"}</option>
                       </select>
                     </div>
@@ -5954,7 +5954,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                       const newTicket = {
                         id: `FB-00${feedbacks.length + 1}`,
-                        userName: feedbackAnonymous ? (isAmharic ? "ስም-አልባ ሰራተኛ" : "Anonymous Employee") : (feedbackName || "OVID Staff Member"),
+                        userName: feedbackAnonymous ? (isAmharic ? "ስም-አልባ ሰራተኛ" : "Anonymous Employee") : (feedbackName || "Digital Construction ERP Staff Member"),
                         userRole: currentUserRole,
                         project: "Bole Heights Bloc B1",
                         site: "Bole Heights",
@@ -6133,7 +6133,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement("a");
                           link.setAttribute("href", url);
-                          link.setAttribute("download", `OVID_ERP_Feedback_Report_${new Date().toISOString().substring(0,10)}.csv`);
+                          link.setAttribute("download", `Digital Construction ERP_ERP_Feedback_Report_${new Date().toISOString().substring(0,10)}.csv`);
                           document.body.appendChild(link);
                           link.click();
                           document.body.removeChild(link);
@@ -7286,7 +7286,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <div>
                           <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ፕሮጀክት" : "RANK 1 PROJECT"}</p>
                           <h4 className="text-xs font-black text-slate-900 mt-1">Bole Heights Multi-Use Tower</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">OVID Construction Sector A | Bole Subcity</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Digital Construction ERP Sector A | Bole Subcity</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-emerald-700 font-mono block">94.2% Avg</span>
@@ -7298,7 +7298,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <div>
                           <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ፕሮጀክት" : "RANK 2 PROJECT"}</p>
                           <h4 className="text-xs font-black text-slate-900 mt-1">CMC High-Rise Housing</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">OVID Construction Sector B | Yeka Subcity</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Digital Construction ERP Sector B | Yeka Subcity</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-slate-700 font-mono block">90.5% Avg</span>

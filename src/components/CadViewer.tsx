@@ -459,7 +459,7 @@ export const CadViewer: React.FC<CadViewerProps> = ({
 
         {/* Real-time coordinates floating HUD */}
         <div className="absolute bottom-3 right-3 bg-slate-950/95 border border-slate-800 p-2 rounded-lg font-mono text-[9px] text-slate-300 space-y-0.5 pointer-events-none shadow-lg">
-          <p className="font-bold text-red-400">🌐 OVID CAD COORDINATE CORE</p>
+          <p className="font-bold text-red-400">🌐 Digital Construction ERP CAD COORDINATE CORE</p>
           <div className="grid grid-cols-2 gap-x-2">
             <span>X: <strong className="text-white">{(mousePos.x / 10).toFixed(2)}m</strong></span>
             <span>Y: <strong className="text-white">{(-mousePos.y / 10).toFixed(2)}m</strong></span>

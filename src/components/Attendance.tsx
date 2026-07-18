@@ -79,9 +79,9 @@ export const Attendance: React.FC<AttendanceProps> = ({
   // Role-Based Custom Notifications State
   const [notifications, setNotifications] = useState<any[]>([
     { id: "not-01", type: "Late Arrival", title: "Roster Delay Warning", message: "Chala Kebede arrived late on Floor 4 Zone B at 08:15:00.", timestamp: "2026-07-01 08:20", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER, UserRole.SUPERVISOR] },
-    { id: "not-02", type: "Biometric Failure", title: "Security Alert: Verification Mismatch", message: "Biometric similarity score was 32.1% (below 85% requirement) for OVID-W-103.", timestamp: "2026-07-01 08:35", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] },
+    { id: "not-02", type: "Biometric Failure", title: "Security Alert: Verification Mismatch", message: "Biometric similarity score was 32.1% (below 85% requirement) for ERP-W-103.", timestamp: "2026-07-01 08:35", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] },
     { id: "not-03", type: "Location Violation", title: "GPS Geofence Breach Rejected", message: "Check-in request blocked: GPS coordinate mismatch. Deviation: 4.1km (Airport).", timestamp: "2026-07-01 08:42", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER, UserRole.SUPERVISOR] },
-    { id: "not-04", type: "Duplicate Attempt", title: "Roster Integrity: Duplicate Check-In Blocked", message: "Duplicate morning clock-in attempt detected for Bekele Tesfaye (OVID-W-101). Record secure.", timestamp: "2026-07-01 07:58", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] }
+    { id: "not-04", type: "Duplicate Attempt", title: "Roster Integrity: Duplicate Check-In Blocked", message: "Duplicate morning clock-in attempt detected for Bekele Tesfaye (ERP-W-101). Record secure.", timestamp: "2026-07-01 07:58", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] }
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -90,11 +90,11 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const assignedArea = useMemo(() => {
     switch (currentUserRole) {
       case UserRole.TEAM_LEADER:
-        return { project: "OVID Bole Heights", building: "Tower 1", floor: 4, zone: "Zone A" };
+        return { project: "Digital Bole Heights", building: "Tower 1", floor: 4, zone: "Zone A" };
       case UserRole.GANG_CHIEF:
-        return { project: "OVID Bole Heights", building: "Tower 1", floor: 4, zone: "Zone B" };
+        return { project: "Digital Bole Heights", building: "Tower 1", floor: 4, zone: "Zone B" };
       case UserRole.SUPERVISOR:
-        return { project: "OVID Bole Heights", building: "Tower 1", floor: 4, zone: "" }; // See all zones on floor 4
+        return { project: "Digital Bole Heights", building: "Tower 1", floor: 4, zone: "" }; // See all zones on floor 4
       default:
         return null; // Time Keeper & Head Office can see all records
     }
@@ -170,13 +170,13 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [regDob, setRegDob] = useState("1998-05-15");
   const [regAddress, setRegAddress] = useState("Addis Ababa, Ethiopia");
   const [regEmergency, setRegEmergency] = useState("");
-  const [regCompany, setRegCompany] = useState("OVID Construction");
+  const [regCompany, setRegCompany] = useState("Digital Construction ERP");
   const [regDept, setRegDept] = useState("Formwork Assembly");
   const [regTrade, setRegTrade] = useState("Carpenter");
   const [regPosition, setRegPosition] = useState("Skilled Laborer");
   const [regEmploymentType, setRegEmploymentType] = useState("Daily Labourer");
   const [regJoinDate, setRegJoinDate] = useState(new Date().toISOString().split("T")[0]);
-  const [regProject, setRegProject] = useState("OVID Bole Heights");
+  const [regProject, setRegProject] = useState("Digital Bole Heights");
   const [regBuilding, setRegBuilding] = useState("Tower 1");
   const [regFloor, setRegFloor] = useState(4);
   const [regZone, setRegZone] = useState("Zone A");
@@ -201,7 +201,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
     // Generate numeric employee ID
     const randomId = Math.floor(100 + Math.random() * 900);
-    const newEmpId = `OVID-EMP-${randomId}`;
+    const newEmpId = `Digital Construction ERP-EMP-${randomId}`;
 
     const newWorker: Worker = {
       id: newEmpId,
@@ -288,7 +288,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const filteredAttendance = useMemo(() => {
     let result = sharedAttendance.filter(a => {
       const w = workers.find(work => work.id === a.workerId);
-      const workerProject = w?.assignedProject || "OVID Bole Heights";
+      const workerProject = w?.assignedProject || "Digital Bole Heights";
       const workerTrade = w?.trade || a.trade;
       const workerTeam = w?.teamId || "T-01";
       const workerFloor = w?.floor || a.floor;
@@ -456,7 +456,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [selectedWorkerId, setSelectedWorkerId] = useState("");
   const [selectedMethod, setSelectedMethod] = useState<AttendanceMethod>(AttendanceMethod.FINGERPRINT);
   const [scanStatus, setScanStatus] = useState<"idle" | "scanning" | "success" | "failed">("idle");
-  const [selectedBuilding, setSelectedBuilding] = useState("OVID Bole Heights");
+  const [selectedBuilding, setSelectedBuilding] = useState("Digital Bole Heights");
   const [selectedFloor, setSelectedFloor] = useState(4);
   const [selectedZone, setSelectedZone] = useState("Zone A");
   const [isCameraActive, setIsCameraActive] = useState(false);
@@ -477,7 +477,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [simLocation, setSimLocation] = useState<"on-site" | "airport" | "saris">("on-site");
   const [simBiometric, setSimBiometric] = useState<"success" | "mismatch" | "sensor_error">("success");
   const [simTimeMode, setSimTimeMode] = useState<"ontime" | "late" | "overtime">("ontime");
-  const [simDeviceId, setSimDeviceId] = useState("Device-OVID-TK01");
+  const [simDeviceId, setSimDeviceId] = useState("Device-Digital Construction ERP-TK01");
 
   // --- REJECTION / VERIFICATION ERROR ---
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -486,7 +486,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [alerts, setAlerts] = useState<any[]>([
     { id: "A-1", type: "Late Check-In", message: "Chala Kebede checked in late (08:15:00) on Floor 3 Zone B.", timestamp: "2026-07-01 08:16", read: false },
     { id: "A-2", type: "GPS Outside Authorized Area", message: "Yosef Assefa attempted clock-in from 12.4km deviation outside geofence.", timestamp: "2026-07-01 07:45", read: false },
-    { id: "A-3", type: "Face or Fingerprint Verification Failure", message: "Biometric validation mismatch reported on Device-OVID-TK01.", timestamp: "2026-07-01 07:35", read: false }
+    { id: "A-3", type: "Face or Fingerprint Verification Failure", message: "Biometric validation mismatch reported on Device-Digital Construction ERP-TK01.", timestamp: "2026-07-01 07:35", read: false }
   ]);
 
   const handleStartCamera = async () => {
@@ -557,7 +557,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
       if (simLocation !== "on-site") {
         setScanStatus("failed");
         const deviation = simLocation === "airport" ? "4.1km" : "12.4km";
-        const errMsg = `GPS Location Violation: Current tracking indicates a ${deviation} deviation from authorized OVID site center (Lat: ${geofenceLat}, Lng: ${geofenceLng}). Clock attempt rejected.`;
+        const errMsg = `GPS Location Violation: Current tracking indicates a ${deviation} deviation from authorized Digital Construction ERP site center (Lat: ${geofenceLat}, Lng: ${geofenceLng}). Clock attempt rejected.`;
         setVerificationError(errMsg);
 
         // Log to Alerts
@@ -755,7 +755,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", `OVID_Roster_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
+    link.setAttribute("download", `Digital Construction ERP_Roster_Attendance_Report_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -793,7 +793,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.setAttribute("download", `OVID_Roster_Attendance_Sheet_${new Date().toISOString().split('T')[0]}.xls`);
+    link.setAttribute("download", `Digital Construction ERP_Roster_Attendance_Sheet_${new Date().toISOString().split('T')[0]}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1104,7 +1104,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
                         {/* Assigned Location */}
                         <td className="p-3 text-slate-600">
-                          <div className="font-semibold">{w.assignedProject || "OVID Bole Heights"}</div>
+                          <div className="font-semibold">{w.assignedProject || "Digital Bole Heights"}</div>
                           <div className="text-[10px] text-slate-400 font-mono">
                             FL {w.floor || 4} - {w.zone || "Zone A"}
                           </div>
@@ -1176,7 +1176,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                             <button 
                               title="View Employee QR Card"
                               onClick={() => {
-                                alert(`OVID Real Estate Employee QR Identity Code:\n-------------------------------------\nID: ${w.id}\nName: ${w.name}\nTrade: ${w.trade}\nVerify Hash: ${w.qrCode || `QR-${w.id}`}`);
+                                alert(`Digital Construction ERP System Employee QR Identity Code:\n-------------------------------------\nID: ${w.id}\nName: ${w.name}\nTrade: ${w.trade}\nVerify Hash: ${w.qrCode || `QR-${w.id}`}`);
                               }}
                               className="p-1.5 bg-slate-100 text-slate-600 rounded hover:bg-slate-200"
                             >
@@ -1360,7 +1360,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                     onChange={(e) => setRegCompany(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none"
                   >
-                    <option value="OVID Construction">OVID Real Estate Construction</option>
+                    <option value="Digital Construction ERP">Digital Construction ERP System Construction</option>
                     <option value="Subcontractor Alpha">Subcontractor Alpha</option>
                     <option value="Subcontractor Beta">Subcontractor Beta</option>
                   </select>
@@ -1421,7 +1421,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                   >
                     <option value="Daily Labourer">Daily Labourer (ቆጠራ ሂሳብ)</option>
                     <option value="Contract">Fixed Term Contract</option>
-                    <option value="Permanent">OVID Permanent Staff</option>
+                    <option value="Permanent">Digital Construction ERP Permanent Staff</option>
                   </select>
                 </div>
 
@@ -1442,8 +1442,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
                     onChange={(e) => setRegProject(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none"
                   >
-                    <option value="OVID Bole Heights">OVID Bole Heights Project</option>
-                    <option value="OVID Saris Block B">OVID Saris Block B Project</option>
+                    <option value="Digital Bole Heights">Digital Bole Heights Project</option>
+                    <option value="Digital Saris Block B">Digital Saris Block B Project</option>
                   </select>
                 </div>
               </div>
@@ -1576,7 +1576,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-              <h3 className="text-base font-black text-slate-900 tracking-tight">{isAmharic ? "የሰራተኞች እለታዊ የመገኘት መቆጣጠሪያ ሰንጠረዥ" : "OVID Enterprise Daily Attendance Ledger"}</h3>
+              <h3 className="text-base font-black text-slate-900 tracking-tight">{isAmharic ? "የሰራተኞች እለታዊ የመገኘት መቆጣጠሪያ ሰንጠረዥ" : "Digital Construction ERP Enterprise Daily Attendance Ledger"}</h3>
               <p className="text-xs text-slate-500">
                 {isAmharic 
                   ? "የመገኘት ተቆጣጣሪው (Time Keeper) የሰራተኞችን ሰዓት፣ የተግባር ደረጃ እና የስራ ውጤት ማረጋገጥ ይችላል።"
@@ -1665,8 +1665,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
                 className="w-full bg-white text-[11px] border border-slate-200 rounded-lg p-1 outline-none"
               >
                 <option value="All">All Projects</option>
-                <option value="OVID Bole Heights">Bole Heights</option>
-                <option value="OVID Saris Block B">Saris Block B</option>
+                <option value="Digital Bole Heights">Bole Heights</option>
+                <option value="Digital Saris Block B">Saris Block B</option>
               </select>
             </div>
 
@@ -1925,7 +1925,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                   <div className="flex items-center space-x-2">
                     <Printer size={20} className="text-red-600 animate-pulse" />
                     <div>
-                      <h4 className="font-black text-slate-900 text-lg">OVID Production PDF Report Generator</h4>
+                      <h4 className="font-black text-slate-900 text-lg">Digital Construction ERP Production PDF Report Generator</h4>
                       <p className="text-xs text-slate-500">Fully structured official summary page optimized for physical printer or local digital PDF export.</p>
                     </div>
                   </div>
@@ -1938,11 +1938,11 @@ export const Attendance: React.FC<AttendanceProps> = ({
                 </div>
 
                 {/* Printable Document Area */}
-                <div id="ovid-printable-ledger" className="bg-white p-6 border border-slate-300 rounded-xl overflow-y-auto flex-grow text-slate-800 font-sans">
+                <div id="digital_construction_erp-printable-ledger" className="bg-white p-6 border border-slate-300 rounded-xl overflow-y-auto flex-grow text-slate-800 font-sans">
                   
-                  {/* OVID Official Header */}
+                  {/* Digital Construction ERP Official Header */}
                   <div className="text-center space-y-1 pb-4 border-b-2 border-slate-800">
-                    <h2 className="text-xl font-black uppercase tracking-widest text-slate-900">OVID REAL ESTATE</h2>
+                    <h2 className="text-xl font-black uppercase tracking-widest text-slate-900">DIGITAL CONSTRUCTION ERP SYSTEM</h2>
                     <p className="text-xs font-bold tracking-wider text-slate-600">Bole Heights Aluminum Formwork Production Command Center</p>
                     <p className="text-[10px] font-mono text-slate-400">Date: {new Date().toLocaleDateString()} | Local Sync Node: Bole Heights B1</p>
                   </div>
@@ -2556,8 +2556,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
                             setOfflineQueue([]);
                             setIsSyncingOffline(false);
                             alert(isAmharic 
-                              ? "የባዮሜትሪክ መዛግብት በተሳካ ሁኔታ ከደመናው OVID Firestore/PostgreSQL ዳታቤዝ ጋር ተመሳስለዋል!" 
-                              : "Roster cache fully synchronized with OVID Cloud database! Local SQLite store cleared.");
+                              ? "የባዮሜትሪክ መዛግብት በተሳካ ሁኔታ ከደመናው Digital Construction ERP Firestore/PostgreSQL ዳታቤዝ ጋር ተመሳስለዋል!" 
+                              : "Roster cache fully synchronized with Digital Construction ERP Cloud database! Local SQLite store cleared.");
                           }, 2000);
                         }}
                         disabled={isSyncingOffline || isOffline}
@@ -2759,7 +2759,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
               ) : (
                 <>
                   <Wifi size={14} className="text-emerald-500" />
-                  <span>{isAmharic ? "ከደመና ጋር የተገናኘ" : "Connected to OVID Cloud"}</span>
+                  <span>{isAmharic ? "ከደመና ጋር የተገናኘ" : "Connected to Digital Construction ERP Cloud"}</span>
                 </>
               )}
             </div>
@@ -2992,7 +2992,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                       
                       {/* Generated QR Code Card */}
                       <div className="bg-white p-4 rounded-xl border border-slate-300/80 shadow-xs flex flex-col items-center space-y-2 max-w-xs mx-auto">
-                        <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 block">OVID GROUP SECURE ID</span>
+                        <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 block">Digital Construction ERP GROUP SECURE ID</span>
                         
                         <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
                           {/* High fidelity HTML mock QR code with real hashes */}
@@ -3004,7 +3004,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                               <div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-100"></div><div className="bg-slate-900 rounded-xs"></div>
                             </div>
                             <div className="w-10 h-10 bg-white border-2 border-red-600 rounded-md shadow-sm z-10 flex items-center justify-center font-black text-red-600 text-[10px] font-mono">
-                              OVID
+                              Digital Construction ERP
                             </div>
                           </div>
                         </div>

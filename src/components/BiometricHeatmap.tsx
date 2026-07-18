@@ -170,7 +170,7 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
       workingHours: 0,
       overtime: 0,
       status: "Present",
-      deviceUsed: `OVID-BIO-SCAN-${Math.floor(10 + Math.random() * 90)}`,
+      deviceUsed: `Digital Construction ERP-BIO-SCAN-${Math.floor(10 + Math.random() * 90)}`,
       verifiedBy: "Biometric Auto-Gateway"
     };
 
@@ -449,7 +449,7 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
             {/* Technical Footer Accent */}
             <div className="mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-between text-[9px] font-mono text-slate-500">
               <span>* SYSTEM INTEGRATION: ACTIVE GATEWAY LOGS INBOUND</span>
-              <span>OVID DIGITAL TELEMETRY CORE v1.4</span>
+              <span>Digital Construction ERP DIGITAL TELEMETRY CORE v1.4</span>
             </div>
 
           </div>

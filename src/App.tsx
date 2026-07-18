@@ -55,6 +55,7 @@ import { WorkerProfiles } from "./components/WorkerProfiles";
 import { FormworkManagement } from "./components/FormworkManagement";
 import { MobileAppsHub } from "./components/MobileAppsHub";
 import { LaunchReadinessHub } from "./components/LaunchReadinessHub";
+import { SubcontractorPortal } from "./components/SubcontractorPortal";
 
 // Lucide Icons
 import { 
@@ -90,7 +91,8 @@ import {
   Grid,
   DollarSign,
   Smartphone,
-  Rocket
+  Rocket,
+  Briefcase
 } from "lucide-react";
 
 export default function App() {
@@ -176,7 +178,7 @@ export default function App() {
       "Working Hours": "Logged Hours",
       "Method": "Scan Tool",
       "Status": "Status",
-      "Project Planner & Scheduler": "OVID Aluminum Cycle Scheduler",
+      "Project Planner & Scheduler": "Digital Construction ERP Aluminum Cycle Scheduler",
       "Project Start Date": "Cycle Commencement Date",
       "Number of Floors": "Estimated Floors",
       "Zones per Floor": "Working Zones/Floor",
@@ -271,20 +273,20 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.SUPER_ADMIN]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.HR_MANAGER]: ["dashboard", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness"]
+    [UserRole.SUPER_ADMIN]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.HR_MANAGER]: ["dashboard", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"]
   };
 
   const t = (key: string): string => {
@@ -434,7 +436,7 @@ export default function App() {
       senderApp = "Local Terminal Buffer";
       senderAppAm = "የአካባቢ ተርሚናል ማከማቻ";
       receiverApp = "Head Office Cloud DB";
-      receiverAppAm = "ኦቪድ ዋና መስሪያ ቤት የደመና ዳታቤዝ";
+      receiverAppAm = "ዲጂታል ኮንስትራክሽን ERP ዋና መስሪያ ቤት የደመና ዳታቤዝ";
       type = "sync";
     } else if (actLower.includes("biometric") || actLower.includes("attendance logged") || actLower.includes("attendance scan")) {
       titleEn = "Biometric Record Dispatched";
@@ -789,7 +791,7 @@ export default function App() {
             <p className="text-xs text-slate-400 mt-2 leading-relaxed font-mono">
               {isAmharic 
                 ? "እባክዎ የደመና መረጃ ቋት እና የደህንነት መቆጣጠሪያ እስኪመሳሰሉ ድረስ ይጠብቁ።" 
-                : "Synchronizing state registries with secure OVID construction telemetry database..."}
+                : "Synchronizing state registries with secure Digital Construction ERP construction telemetry database..."}
             </p>
           </div>
         </div>
@@ -808,7 +810,7 @@ export default function App() {
               <Building2 size={22} />
             </div>
             <div>
-              <span className="text-xs uppercase tracking-widest font-black text-red-600">{isAmharic ? "ዲጂታል ኮንስትራክሽን ኢአርፒ መቆጣጠሪያ ፕላትፎርም" : "Digital Construction ERP command platform"}</span>
+              <span className="text-xs uppercase tracking-widest font-black text-red-600">{isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ሲስተም" : "Digital Construction ERP System"}</span>
               <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
                 Aluminum Formwork Attendance & Productivity System
               </h1>
@@ -1208,6 +1210,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Subcontractor Portal Tab */}
+            {tabPermissions[currentUserRole]?.includes("subcontractorPortal") && (
+              <button
+                onClick={() => setActiveTab("subcontractorPortal")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-amber-500 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "subcontractorPortal" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Briefcase size={15} className="text-red-500 animate-pulse" />
+                <span>{isAmharic ? "ንዑስ ተቋራጭ ፖርታል" : "Subcontractor Portal"}</span>
+              </button>
+            )}
+
             {/* Security & Settings Tab */}
             {tabPermissions[currentUserRole]?.includes("securitySettings") && (
               <button
@@ -1246,6 +1261,7 @@ export default function App() {
         {activeTab === "workerProfiles" && (
           <WorkerProfiles
             workers={workers}
+            zones={zones}
             onAddWorker={handleAddWorker}
             onUpdateWorker={handleUpdateWorker}
             onDeleteWorker={handleDeleteWorker}
@@ -1546,6 +1562,22 @@ export default function App() {
           />
         )}
 
+        {activeTab === "subcontractorPortal" && tabPermissions[currentUserRole]?.includes("subcontractorPortal") && (
+          <SubcontractorPortal 
+            workers={workers}
+            zones={zones}
+            attendance={attendance}
+            qualitySnags={qualitySnags}
+            progressLogs={progressLogs}
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onAddLog={handleAddLog}
+            onAddSnag={handleAddSnag}
+            onUpdateZone={handleUpdateZone}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
         {activeTab === "securitySettings" && tabPermissions[currentUserRole]?.includes("securitySettings") && (
           <SecuritySettingsHub 
             isAmharic={isAmharic}
@@ -1561,7 +1593,7 @@ export default function App() {
       {/* FOOTER SECTION */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 no-print">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
-          <p>© {new Date().getFullYear()} Digital Construction ERP command platform. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
+          <p>© {new Date().getFullYear()} Digital Construction ERP System. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
           <p className="font-semibold text-slate-500">
             {isAmharic 
               ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 

@@ -52,7 +52,8 @@ import {
   PanelRepairRecord, 
   PanelType, 
   PanelStatus,
-  UserRole
+  UserRole,
+  AuditLog
 } from "../types";
 
 interface FormworkManagementProps {
@@ -74,11 +75,23 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   // --- UI/Interaction States ---
-  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "database" | "movement" | "usage" | "damage_repair" | "missing" | "scanner">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "database" | "movement" | "usage" | "damage_repair" | "missing" | "scanner" | "bundle_calc">("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [locationFilter, setLocationFilter] = useState<string>("All");
+
+  // --- Automated Bundle Optimizer States ---
+  const [optLength, setOptLength] = useState<number>(35);
+  const [optHeight, setOptHeight] = useState<number>(3.0);
+  const [optCorners, setOptCorners] = useState<number>(10);
+  const [optDoubleSided, setOptDoubleSided] = useState<boolean>(true);
+  const [optLocation, setOptLocation] = useState<string>("Digital Bole Heights");
+  const [optZone, setOptZone] = useState<string>("Floor 5 Zone A");
+  const [optResults, setOptResults] = useState<any | null>(null);
+  const [optIsAllocating, setOptIsAllocating] = useState<boolean>(false);
+  const [optAllocationSuccess, setOptAllocationSuccess] = useState<boolean>(false);
+  const [optCurrentStep, setOptCurrentStep] = useState<number>(0);
 
   // --- Modal States ---
   const [showAddModal, setShowAddModal] = useState(false);
@@ -96,13 +109,13 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [newPanelBundle, setNewPanelBundle] = useState("");
   const [newPanelSize, setNewPanelSize] = useState("1200x600 mm");
   const [newPanelType, setNewPanelType] = useState<PanelType>(PanelType.WALL);
-  const [newPanelLocation, setNewPanelLocation] = useState("OVID Bole Heights");
+  const [newPanelLocation, setNewPanelLocation] = useState("Digital Bole Heights");
   const [newPanelZone, setNewPanelZone] = useState("Floor 4 Zone A");
   const [newPanelQuantity, setNewPanelQuantity] = useState(1);
   const [newPanelStatus, setNewPanelStatus] = useState<PanelStatus>(PanelStatus.ACTIVE);
 
   // Move Panel Form
-  const [moveDestination, setMoveDestination] = useState("OVID Saris Block B");
+  const [moveDestination, setMoveDestination] = useState("Digital Saris Block B");
   const [moveZone, setMoveZone] = useState("Floor 1 Zone B");
   const [moveNotes, setMoveNotes] = useState("");
 
@@ -421,6 +434,249 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
     }
   };
 
+  // --- Automated Bundle Optimizer Handlers ---
+  const handleRunOptimization = () => {
+    // Standard section width is 0.6 meters (600 mm)
+    const sectionWidth = 0.6;
+    const sectionsCount = Math.ceil(optLength / sectionWidth);
+    const sideMultiplier = optDoubleSided ? 2 : 1;
+    
+    // Primary Panel: 2400x600 mm (weight: 30.5 kg, area: 1.44 m2)
+    // Secondary Panel: 1200x600 mm (weight: 15.2 kg, area: 0.72 m2)
+    // Filler Panel: 1200x450 mm (weight: 11.4 kg, area: 0.54 m2)
+    // Corner Panel: 200x200x1200 mm (weight: 14 kg)
+    
+    let qty2400 = 0;
+    let qty1200 = 0;
+    let qtyFiller = 0;
+    
+    // Stack layout: Height division profile
+    // 1x 2400x600 mm Wall Panel (height: 2.4m) + 1x 1200x600 mm Wall Panel (height: 1.2m, overlaps concrete tie line)
+    qty2400 = sectionsCount * sideMultiplier;
+    qty1200 = sectionsCount * sideMultiplier;
+    
+    // Corner panels logic:
+    // Each corner needs full height. Corners are 1.2m tall.
+    // We stack corners to cover the target wall height.
+    const qtyCorners = optCorners * Math.ceil(optHeight / 1.2) * 2 * sideMultiplier;
+    
+    // Joint Pin & Wedge pins: standard is 8 pin sets per panel joint
+    const totalPanels = qty2400 + qty1200 + qtyCorners;
+    const qtyPins = totalPanels * 8; 
+    const qtyWallTies = (qty2400 * 3) + (qty1200 * 2); 
+    
+    // Adjustments for fractional length fillers
+    const remainderLength = optLength % sectionWidth;
+    if (remainderLength > 0) {
+      qtyFiller = Math.ceil(remainderLength / 0.45) * Math.ceil(optHeight / 1.2) * sideMultiplier;
+    }
+    
+    // Weights calculations
+    const wt2400 = qty2400 * 30.5;
+    const wt1200 = qty1200 * 15.2;
+    const wtFiller = qtyFiller * 11.4;
+    const wtCorner = qtyCorners * 14.0;
+    const wtHardware = (qtyPins * 0.15) + (qtyWallTies * 0.4);
+    const totalWeight = wt2400 + wt1200 + wtFiller + wtCorner + wtHardware;
+    
+    // Build optimized packages / bundles
+    const bundles: any[] = [];
+    const bundlePrefix = `BDL-OPT-${optLocation.replace(/\s+/g, '').substring(4, 8).toUpperCase()}-${Date.now().toString().substring(8, 12)}`;
+    
+    // 1. Wall Panels Bundles (2400x600)
+    const wall2400PanelsPerBundle = 25;
+    const wall2400BundlesCount = Math.ceil(qty2400 / wall2400PanelsPerBundle);
+    for (let i = 0; i < wall2400BundlesCount; i++) {
+      const currentQty = Math.min(qty2400 - (i * wall2400PanelsPerBundle), wall2400PanelsPerBundle);
+      bundles.push({
+        id: `${bundlePrefix}-W24-${i+1}`,
+        name: t(`Heavy Wall Panel Bundle #${i+1}`, `ከባድ የዎል ፓነል ጥቅል #${i+1}`),
+        type: "Primary Wall Panels (2400x600 mm)",
+        qtyItems: currentQty,
+        weightKg: Math.round(currentQty * 30.5),
+        composition: [
+          { item: "2400x600 mm Aluminum Panel", qty: currentQty, weight: Math.round(currentQty * 30.5) }
+        ],
+        handling: t("Forklift / Tower Crane - 4-Point Sling Hook", "ፎርክሊፍት / ታወር ክሬን - ባለ 4-ነጥብ ማንጠልጠያ"),
+        safetyRating: "A+ certified load strap"
+      });
+    }
+    
+    // 2. Wall Panels Bundles (1200x600)
+    const wall1200PanelsPerBundle = 50;
+    const wall1200BundlesCount = Math.ceil(qty1200 / wall1200PanelsPerBundle);
+    for (let i = 0; i < wall1200BundlesCount; i++) {
+      const currentQty = Math.min(qty1200 - (i * wall1200PanelsPerBundle), wall1200PanelsPerBundle);
+      bundles.push({
+        id: `${bundlePrefix}-W12-${i+1}`,
+        name: t(`Standard Wall Panel Bundle #${i+1}`, `መካከለኛ የዎል ፓነል ጥቅል #${i+1}`),
+        type: "Secondary Wall Panels (1200x600 mm)",
+        qtyItems: currentQty,
+        weightKg: Math.round(currentQty * 15.2),
+        composition: [
+          { item: "1200x600 mm Aluminum Panel", qty: currentQty, weight: Math.round(currentQty * 15.2) }
+        ],
+        handling: t("Crane Basket / Forklift Pallet", "የክሬን ቅርጫት / ፎርክሊፍት ፓሌት"),
+        safetyRating: "Standard steel strapping strap"
+      });
+    }
+    
+    // 3. Filler and Corner Bundle
+    if (qtyCorners > 0 || qtyFiller > 0) {
+      const comp = [];
+      if (qtyCorners > 0) comp.push({ item: "200x200x1200 mm Corner Joint", qty: qtyCorners, weight: Math.round(qtyCorners * 14.0) });
+      if (qtyFiller > 0) comp.push({ item: "1200x450 mm Wall Filler Panel", qty: qtyFiller, weight: Math.round(qtyFiller * 11.4) });
+      
+      const combinedQty = qtyCorners + qtyFiller;
+      const combinedWt = (qtyCorners * 14.0) + (qtyFiller * 11.4);
+      
+      bundles.push({
+        id: `${bundlePrefix}-CRN-01`,
+        name: t("Corner Joint & Filler Assembly Bundle", "የማዕዘንና የመሙያ ፓነሎች ጥቅል"),
+        type: "Corners & Adjustments Kit",
+        qtyItems: combinedQty,
+        weightKg: Math.round(combinedWt),
+        composition: comp,
+        handling: t("Sling Pallet Box Setup", "የፓሌት ሳጥን መገጣጠሚያ"),
+        safetyRating: "Crate Enclosed"
+      });
+    }
+    
+    // 4. Hardware Kit Bundle
+    bundles.push({
+      id: `${bundlePrefix}-ACC-01`,
+      name: t("Formwork Joint Pin & Tie Hardware Kit", "የአሉሚኒየም ፎርምወርቅ ማያያዣዎች ጥቅል"),
+      type: "Heavy Hardware Crates",
+      qtyItems: qtyPins + qtyWallTies,
+      weightKg: Math.round(wtHardware),
+      composition: [
+        { item: "High-Tensile Joint Pin Set", qty: qtyPins, weight: Math.round(qtyPins * 0.15) },
+        { item: "Heavy-Duty Wall Sleeve Tie", qty: qtyWallTies, weight: Math.round(qtyWallTies * 0.4) }
+      ],
+      handling: t("Lockable Steel Utility Box", "ሊቆለፍ የሚችል የብረት መያዣ ሳጥን"),
+      safetyRating: "Waterproof sealed crate"
+    });
+    
+    const wallAreaCovered = (qty2400 * 1.44) + (qty1200 * 0.72) + (qtyFiller * 0.54) + (qtyCorners * 0.48);
+    const nominalTargetArea = optLength * optHeight * sideMultiplier;
+    const fitFactor = Math.min(100, Math.round((wallAreaCovered / nominalTargetArea) * 100));
+    const jointLeakageRisk = optCorners > 12 ? "Medium" : "Very Low (Under 1.2%)";
+    const structuralHealthFactor = Math.max(80, 98 - (optCorners * 0.2)); 
+    
+    setOptResults({
+      targetLength: optLength,
+      targetHeight: optHeight,
+      isDoubleSided: optDoubleSided,
+      nominalArea: Math.round(nominalTargetArea * 10) / 10,
+      actualAreaCovered: Math.round(wallAreaCovered * 10) / 10,
+      fitFactor,
+      jointLeakageRisk,
+      structuralHealthFactor,
+      totalWeightKg: Math.round(totalWeight),
+      location: optLocation,
+      zone: optZone,
+      quantities: {
+        wall2400: qty2400,
+        wall1200: qty1200,
+        fillers: qtyFiller,
+        corners: qtyCorners,
+        pins: qtyPins,
+        ties: qtyWallTies
+      },
+      bundles
+    });
+    
+    setOptAllocationSuccess(false);
+  };
+
+  const handleAllocateBundles = async () => {
+    if (!optResults) return;
+    setOptIsAllocating(true);
+    
+    try {
+      const timestamp = new Date().toISOString();
+      let createdCount = 0;
+      
+      const allocations = [
+        { type: PanelType.WALL, size: "2400x600 mm", qty: optResults.quantities.wall2400, prefix: "W24" },
+        { type: PanelType.WALL, size: "1200x600 mm", qty: optResults.quantities.wall1200, prefix: "W12" },
+        { type: PanelType.WALL, size: "1200x450 mm", qty: optResults.quantities.fillers, prefix: "FIL" },
+        { type: PanelType.CORNER, size: "200x200 mm", qty: optResults.quantities.corners, prefix: "CRN" }
+      ];
+      
+      for (const alloc of allocations) {
+        if (alloc.qty <= 0) continue;
+        
+        const matchedBundle = optResults.bundles.find((b: any) => b.type.toLowerCase().includes(alloc.size.substring(0, 4)));
+        const bundleNum = matchedBundle ? matchedBundle.id : (optResults.bundles[0]?.id || "BDL-OPT-01");
+        
+        const serialNo = `SN-OPT-${alloc.prefix}-${optResults.zone.replace(/\s+/g, '').toUpperCase()}-${Math.floor(100 + Math.random() * 900)}`;
+        const panelId = `AFP-${Date.now().toString().substring(7, 11)}-${alloc.prefix}-${Math.floor(10 + Math.random() * 89)}`;
+        
+        const newPanel: AluminumFormworkPanel = {
+          id: panelId,
+          serialNumber: serialNo,
+          bundleNumber: bundleNum,
+          size: alloc.size,
+          type: alloc.type,
+          quantity: alloc.qty,
+          location: optResults.location,
+          zone: optResults.zone,
+          status: PanelStatus.ACTIVE,
+          usageCount: 0,
+          createdAt: timestamp
+        };
+        
+        await DbService.addFormworkPanel(newPanel);
+        createdCount += alloc.qty;
+        
+        const movementLog: PanelMovementLog = {
+          id: `PMV-OPT-${Date.now()}-${alloc.prefix}`,
+          panelId: panelId,
+          fromLocation: "Central Storage Hub",
+          fromZone: "Optimization Allocation",
+          toLocation: optResults.location,
+          toZone: optResults.zone,
+          timestamp: timestamp,
+          movedBy: currentUserName,
+          notes: `Automated bundle assembly optimization allocation for ${optResults.targetLength}m wall.`
+        };
+        await DbService.addPanelMovementLog(movementLog);
+      }
+      
+      const auditLog: AuditLog = {
+        id: `AUD-OPT-${Date.now()}`,
+        userName: currentUserName,
+        userId: "USER-ERP-101",
+        role: currentUserRole,
+        action: "Formwork Bundle Allocation",
+        details: `Optimized & allocated ${createdCount} panels into ${optResults.bundles.length} bundles for Digital Construction ERP Project ${optResults.location} (${optResults.zone}). Total weight: ${optResults.totalWeightKg}kg.`,
+        timestamp: timestamp
+      };
+      
+      await DbService.addAuditLog(auditLog);
+      await loadData();
+      setOptAllocationSuccess(true);
+      
+      if ("speechSynthesis" in window) {
+        const u = new SpeechSynthesisUtterance("Formwork optimization bundles have been successfully allocated to site inventory database!");
+        u.rate = 1.05;
+        window.speechSynthesis.speak(u);
+      }
+    } catch (e) {
+      console.error("Failed to allocate optimized formwork bundle", e);
+    } finally {
+      setOptIsAllocating(false);
+    }
+  };
+
+  // Run initial optimization calculation once on render if not exists
+  useEffect(() => {
+    if (activeSubTab === "bundle_calc" && !optResults) {
+      handleRunOptimization();
+    }
+  }, [activeSubTab]);
+
   // --- Simulate Camera Scanning ---
   const triggerScanSimulation = (code?: string) => {
     if (!scannerActive) {
@@ -432,7 +688,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
         setScannerMessage(t("Scanning code matrix overlays...", "የኮድ ማትሪክስ አቀማመጦችን በመፈተሽ ላይ..."));
         
         setTimeout(() => {
-          // If a code is provided, look for it, otherwise pick a random panel
+          // If a code is prdigital_construction_erped, look for it, otherwise pick a random panel
           let matched: AluminumFormworkPanel | undefined;
           if (code) {
             matched = panels.find(p => p.serialNumber === code || p.id === code);
@@ -482,7 +738,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   return (
     <div className="space-y-6">
       
-      {/* OVID Formwork System Banner */}
+      {/* Digital Construction ERP Formwork System Banner */}
       <div className="bg-slate-900 text-white rounded-2xl p-6 relative overflow-hidden border border-slate-800">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Layers size={180} className="rotate-12" />
@@ -492,7 +748,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
             <div className="p-2 bg-red-600 rounded-lg text-white">
               <Layers size={22} />
             </div>
-            <span className="text-xs font-mono tracking-widest text-red-500 uppercase font-bold">OVID ENTERPRISE SYSTEM</span>
+            <span className="text-xs font-mono tracking-widest text-red-500 uppercase font-bold">Digital Construction ERP ENTERPRISE SYSTEM</span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
             {t("Aluminum Formwork Management System", "የአሉሚኒየም ፎርምወርቅ አስተዳደር ስርዓት")}
@@ -600,6 +856,16 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
               {missingCount}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveSubTab("bundle_calc")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "bundle_calc"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <span>{t("📦 Bundle Optimizer", "📦 የጥቅል ማመቻቻ")}</span>
         </button>
         <button
           onClick={() => setActiveSubTab("scanner")}
@@ -1337,7 +1603,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                       <CheckCircle size={32} className="text-emerald-500" />
                       <p className="font-bold text-sm text-slate-900">{t("PERFECT: All panels accounted for!", "ድንቅ፡ ሁሉም ፓነሎች በትክክለኛ ቦታቸው ይገኛሉ!")}</p>
                       <p className="text-xs text-slate-400 max-w-md">
-                        {t("There are currently zero missing aluminum panel assets across OVID active residential blocks.", "በሁሉም የኦቪድ ፕሮጀክቶች ውስጥ የጠፋ የአሉሚኒየም ንብረት የለም።")}
+                        {t("There are currently zero missing aluminum panel assets across Digital Construction ERP active residential blocks.", "በሁሉም የዲጂታል ኮንስትራክሽን ERP ፕሮጀክቶች ውስጥ የጠፋ የአሉሚኒየም ንብረት የለም።")}
                       </p>
                     </div>
                   ) : (
@@ -1405,6 +1671,542 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                     ))}
                   </div>
                 </div>
+
+              </div>
+            )}
+
+            {/* === BUNDLE OPTIMIZATION VIEW === */}
+            {activeSubTab === "bundle_calc" && (
+              <div className="space-y-6">
+                
+                {/* Header Banner */}
+                <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-md border border-slate-700 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <span className="bg-blue-500 text-white text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full animate-pulse">
+                        {t("AI Smart Solver", "በአርቴፊሻል ኢንተለጀንስ የሚሰራ")}
+                      </span>
+                      <span className="bg-emerald-600 text-white text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full">
+                        {t("Enterprise Logistics", "የድርጅት ሎጅስቲክስ")}
+                      </span>
+                    </div>
+                    <h2 className="text-xl font-bold tracking-tight">
+                      {t("Automated Bundle & Formwork Optimizer", "አውቶማቲክ የፎርምወርቅ ጥቅል ማመቻቻ እና ማስያ")}
+                    </h2>
+                    <p className="text-slate-300 text-xs max-w-2xl">
+                      {t(
+                        "Input standard wall dimensions and zone configurations. The algorithm solves the optimal combination of aluminum panel sizes, packing them into physical crane-ready crates within strict safe weight limits.",
+                        "የግድግዳውን ርዝመት እና ቁመት ያስገቡ። ሲስተሙ በትንሽ ብክነት የሚገጣጠሙ የፓነል አይነቶችን በማስላት፣ በክብደት ተለይተው በክሬን ለመጫን እንዲመቹ አድርጎ ጥቅሎችን ያዘጋጃል።"
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleRunOptimization}
+                    className="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-5 py-3 rounded-xl shadow-sm transition-all shrink-0 hover:scale-[1.02] flex items-center space-x-1.5"
+                  >
+                    <span>{t("Calculate Optimization", "ማመቻቻውን አስላ")}</span>
+                  </button>
+                </div>
+
+                {/* Grid Inputs & Presets */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* Left Parameter Panel */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm space-y-5 lg:col-span-1">
+                    <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">
+                      {t("1. Structure Dimensions & Location", "1. የግንባታው ልኬት እና ቦታ")}
+                    </h3>
+                    
+                    <div className="space-y-4">
+                      {/* Length */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                          {t("Target Wall Length (Meters)", "የግድግዳው ጠቅላላ ርዝመት (በሜትር)")}
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="number"
+                            min="2"
+                            max="500"
+                            step="0.5"
+                            value={optLength}
+                            onChange={(e) => setOptLength(parseFloat(e.target.value) || 10)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Height */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                          {t("Target Wall Height (Meters)", "የግድግዳው ከፍታ (በሜትር)")}
+                        </label>
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="range"
+                            min="2.4"
+                            max="6.0"
+                            step="0.3"
+                            value={optHeight}
+                            onChange={(e) => setOptHeight(parseFloat(e.target.value))}
+                            className="w-full accent-slate-900"
+                          />
+                          <span className="font-mono text-sm font-bold bg-slate-100 text-slate-800 px-2.5 py-1 rounded-lg shrink-0">
+                            {optHeight.toFixed(1)}m
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Corners */}
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                          {t("Standard Corner Connections", "የማዕዘን ግንኙነቶች ብዛት")}
+                        </label>
+                        <div className="flex items-center space-x-2">
+                          <button 
+                            type="button"
+                            onClick={() => setOptCorners(Math.max(0, optCorners - 2))}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-sm transition-colors"
+                          >
+                            -
+                          </button>
+                          <input
+                            type="number"
+                            value={optCorners}
+                            onChange={(e) => setOptCorners(parseInt(e.target.value) || 0)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-1.5 text-center text-sm font-semibold focus:outline-none"
+                          />
+                          <button 
+                            type="button"
+                            onClick={() => setOptCorners(optCorners + 2)}
+                            className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-3 py-1.5 rounded-lg text-sm transition-colors"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Double/Single Sided Toggle */}
+                      <div className="space-y-1.5">
+                        <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
+                          {t("Formwork Pour Structure Type", "የፎርምወርቅ አቀማመጥ አይነት")}
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setOptDoubleSided(true)}
+                            className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all ${
+                              optDoubleSided 
+                                ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {t("Double-Sided Core", "ባለ ሁለት ጎን (Core)")}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setOptDoubleSided(false)}
+                            className={`px-3 py-2 text-xs font-bold rounded-xl border transition-all ${
+                              !optDoubleSided 
+                                ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                                : "bg-white border-slate-200 text-slate-600 hover:bg-slate-50"
+                            }`}
+                          >
+                            {t("Single-Sided Wall", "ባለ አንድ ጎን (Slab)")}
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Project and Zone Target */}
+                      <div className="grid grid-cols-2 gap-2 pt-2">
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            {t("Site Assignment", "ሳይት")}
+                          </label>
+                          <select
+                            value={optLocation}
+                            onChange={(e) => setOptLocation(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold focus:outline-none"
+                          >
+                            <option value="Digital Bole Heights">Digital Bole Heights</option>
+                            <option value="Digital Saris Block B">Digital Saris Block B</option>
+                            <option value="Central Warehouse">Central Warehouse</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                            {t("Specific Zone Code", "የተወሰነ ዞን")}
+                          </label>
+                          <input
+                            type="text"
+                            value={optZone}
+                            onChange={(e) => setOptZone(e.target.value)}
+                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-2 text-xs font-semibold focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                    </div>
+                  </div>
+
+                  {/* Center/Right Module Profile */}
+                  <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm space-y-5 lg:col-span-2 flex flex-col justify-between">
+                    <div className="space-y-4">
+                      <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2 flex items-center justify-between">
+                        <span>{t("2. Aluminum Panel Assembly Catalog", "2. የሚገኙ የአሉሚኒየም ፓነል ዝርዝሮች")}</span>
+                        <span className="text-[10px] bg-indigo-50 text-indigo-700 font-semibold px-2 py-0.5 rounded">
+                          {t("Grade T6061-T6 High Strength", "ከፍተኛ ጥንካሬ T6061-T6")}
+                        </span>
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Panel Types List */}
+                        <div className="border border-slate-100 rounded-xl p-3.5 space-y-3 bg-slate-50">
+                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            {t("Available Standard Modular Sizes", "የሚገኙ ደረጃቸውን የጠበቁ መጠኖች")}
+                          </h4>
+                          <div className="space-y-2 text-xs">
+                            <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                              <span className="font-mono font-bold">2400x600 mm</span>
+                              <span className="text-slate-500 font-medium">30.5 kg • {t("Heavy Main Wall", "ከባድ የዎል")}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                              <span className="font-mono font-bold">1200x600 mm</span>
+                              <span className="text-slate-500 font-medium">15.2 kg • {t("Standard Modular", "መደበኛ ዎል")}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                              <span className="font-mono font-bold">1200x450 mm</span>
+                              <span className="text-slate-500 font-medium">11.4 kg • {t("Infill Adjustment", "መሙያ ፓነል")}</span>
+                            </div>
+                            <div className="flex justify-between items-center bg-white p-2 rounded-lg border border-slate-100">
+                              <span className="font-mono font-bold">200x200x1200 mm</span>
+                              <span className="text-slate-500 font-medium">14.0 kg • {t("Corner Column", "የማዕዘን ፓነል")}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Hardware & Fastening profile */}
+                        <div className="border border-slate-100 rounded-xl p-3.5 space-y-3 bg-slate-50">
+                          <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+                            {t("Automatic Accessory Packing Rules", "የማያያዣዎች ማሸጊያ መመሪያዎች")}
+                          </h4>
+                          <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4 font-medium">
+                            <li>{t("8 High-Tensile Wedge Pin/Wedge pairs allocated per module joint.", "በእያንዳንዱ ፓነል መገጣጠሚያ 8 ከፍተኛ ጥንካሬ ፒኖችና ዊጆች ይመደባሉ።")}</li>
+                            <li>{t("3 Reusable heavy-duty wall ties calculated per 2.4m wall section.", "ለእያንዳንዱ 2.4 ሜትር ከፍታ 3 የዎል ታይ ማያያዣዎች ይታሰባሉ።")}</li>
+                            <li>{t("Crane lifting load factor set at maximum 1,000kg physical capacity per bundle crate.", "ለደህንነት ሲባል የአንድ ጥቅል የክሬን መጫን አቅም በ1,000 ኪ.ግ የተገደበ ነው።")}</li>
+                            <li>{t("Minimum joints solver optimization prioritizes largest stable sizes.", "ትንሽ ብክነትን ለመፍጠር ትልልቅ ፓነሎች ቅድሚያ ይሰጣቸዋል።")}</li>
+                          </ul>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 flex items-center justify-end space-x-3 border-t border-slate-100">
+                      <button
+                        onClick={handleRunOptimization}
+                        className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-6 py-3 rounded-xl shadow transition-all flex items-center space-x-2"
+                      >
+                        <RefreshCw size={14} />
+                        <span>{t("Solve Modular Layout", "የፓነል አቀማመጥን አስላ")}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Optimization Results Output */}
+                {optResults && (
+                  <div className="space-y-6">
+                    
+                    {/* Performance Indicators */}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      
+                      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                        <div className="p-3 bg-blue-50 rounded-xl text-blue-600">
+                          <TrendingUp size={20} />
+                        </div>
+                        <div>
+                          <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{t("Coverage Fit Score", "የመገጣጠም ትክክለኛነት")}</p>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-lg font-bold text-slate-900">{optResults.fitFactor}%</span>
+                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">
+                              {t("Optimal", "ፍጹም")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                        <div className="p-3 bg-indigo-50 rounded-xl text-indigo-600">
+                          <Layers size={20} />
+                        </div>
+                        <div>
+                          <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{t("Total Modules Out", "ጠቅላላ የፓነሎች ብዛት")}</p>
+                          <span className="text-lg font-bold text-slate-900">
+                            {optResults.quantities.wall2400 + optResults.quantities.wall1200 + optResults.quantities.fillers + optResults.quantities.corners} {t("Units", "ዩኒቶች")}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                        <div className="p-3 bg-amber-50 rounded-xl text-amber-600">
+                          <AlertCircle size={20} />
+                        </div>
+                        <div>
+                          <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{t("Joint Leakage Risk", "የሲሚንቶ ፈሳሽ ፍሳሽ ስጋት")}</p>
+                          <span className="text-lg font-bold text-slate-900">{optResults.jointLeakageRisk}</span>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex items-center space-x-4">
+                        <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600">
+                          <CheckCircle size={20} />
+                        </div>
+                        <div>
+                          <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{t("Total Transport Weight", "ጠቅላላ የጭነት ክብደት")}</p>
+                          <span className="text-lg font-bold text-slate-900">
+                            {optResults.totalWeightKg.toLocaleString()} kg
+                          </span>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    {/* SVG Layout Visualizer Card */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-155 shadow-sm space-y-4">
+                      <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                        <div>
+                          <h3 className="font-bold text-sm text-slate-900">
+                            {t("Formwork Assembly Wall Layout Visualizer", "የፎርምወርቅ ፓነል መገጣጠሚያ ግድግዳ አቀማመጥ")}
+                          </h3>
+                          <p className="text-slate-400 text-[11px] font-medium">
+                            {t(
+                              `Structural 2D stack representation for ${optResults.targetLength}m length x ${optResults.targetHeight}m height. View panel distribution.`,
+                              `የ ${optResults.targetLength}ሜትር ርዝመት እና ${optResults.targetHeight}ሜትር ከፍታ ላለው ግድግዳ የተገጣጠሙ የፓነል አቀማመጥ ካርታ።`
+                            )}
+                          </p>
+                        </div>
+                        {/* Legend */}
+                        <div className="flex items-center space-x-3 text-[10px] font-semibold text-slate-600">
+                          <div className="flex items-center space-x-1">
+                            <span className="w-3 h-3 bg-slate-900 rounded inline-block"></span>
+                            <span>2400x600</span>
+                          </div>
+                          <div className="flex items-center space-x-1">
+                            <span className="w-3 h-3 bg-blue-600 rounded inline-block"></span>
+                            <span>1200x600</span>
+                          </div>
+                          {optResults.quantities.fillers > 0 && (
+                            <div className="flex items-center space-x-1">
+                              <span className="w-3 h-3 bg-emerald-500 rounded inline-block"></span>
+                              <span>1200x450 (Filler)</span>
+                            </div>
+                          )}
+                          <div className="flex items-center space-x-1">
+                            <span className="w-3 h-3 bg-indigo-500 rounded inline-block"></span>
+                            <span>{t("Corners", "ማዕዘኖች")}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cool SVG Canvas */}
+                      <div className="w-full bg-slate-950 p-4 rounded-xl flex items-center justify-center overflow-x-auto">
+                        <svg
+                          width="100%"
+                          height="180"
+                          viewBox="0 0 800 180"
+                          className="min-w-[600px]"
+                        >
+                          {/* Grid lines */}
+                          <line x1="0" y1="140" x2="800" y2="140" stroke="#334155" strokeWidth="1" strokeDasharray="3 3" />
+                          <line x1="0" y1="50" x2="800" y2="50" stroke="#334155" strokeWidth="1" strokeDasharray="3 3" />
+                          
+                          {/* Corner joint left */}
+                          <rect x="10" y="20" width="30" height="140" rx="2" fill="#6366f1" opacity="0.85" stroke="#1e1b4b" strokeWidth="1" />
+                          <text x="25" y="95" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle" transform="rotate(-90 25 95)">L-Corner</text>
+                          
+                          {/* Modular stack of panels */}
+                          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((val) => {
+                            const startX = 50 + (val * 65);
+                            return (
+                              <g key={val}>
+                                {/* Bottom panel (2400x600) */}
+                                <rect x={startX} y="60" width="60" height="100" rx="3" fill="#0f172a" stroke="#475569" strokeWidth="1.5" />
+                                <text x={startX + 30} y="115" fill="white" fontSize="8" fontWeight="bold" textAnchor="middle">2400x600</text>
+                                
+                                {/* Top panel (1200x600) */}
+                                <rect x={startX} y="20" width="60" height="40" rx="3" fill="#2563eb" stroke="#3b82f6" strokeWidth="1.5" />
+                                <text x={startX + 30} y="45" fill="white" fontSize="8" fontWeight="bold" textAnchor="middle">1200x600</text>
+                              </g>
+                            );
+                          })}
+
+                          {/* Extra fill panel to adjust fractional remainder */}
+                          {optResults.quantities.fillers > 0 && (
+                            <g>
+                              <rect x="705" y="20" width="45" height="140" rx="3" fill="#10b981" stroke="#059669" strokeWidth="1.5" />
+                              <text x="727.5" y="95" fill="white" fontSize="8" fontWeight="bold" textAnchor="middle" transform="rotate(-90 727.5 95)">1200x450</text>
+                            </g>
+                          )}
+
+                          {/* Corner joint right */}
+                          <rect x="760" y="20" width="30" height="140" rx="2" fill="#6366f1" opacity="0.85" stroke="#1e1b4b" strokeWidth="1" />
+                          <text x="775" y="95" fill="white" fontSize="9" fontWeight="bold" textAnchor="middle" transform="rotate(-90 775 95)">R-Corner</text>
+                        </svg>
+                      </div>
+                      <p className="text-center text-[10px] text-slate-400 italic">
+                        {t(
+                          "Note: Real-world assembly uses staggered vertical layout joints to distribute tensile stress and avoid thermal shrinkage leaks.",
+                          "ማሳሰቢያ፡ እውነተኛው ስብስብ ውጥረትን ለመቀነስ እና ፈሳሽ መፍሰስን ለመከላከል የፓነሎችን መገጣጠሚያዎች በማፈራረቅ ይሰራል።"
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Suggested heavy crates bundles breakdown */}
+                    <div className="space-y-4">
+                      <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">
+                        {t("3. Optimized Crane Assembly Bundle Packages", "3. የተመቻቹ የክሬን ጥቅሎች እና ማሸጊያዎች")}
+                      </h3>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {optResults.bundles.map((bundle: any, index: number) => (
+                          <div key={index} className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between space-y-4">
+                            
+                            {/* Card Top */}
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between">
+                                <div className="space-y-1">
+                                  <span className="bg-slate-100 text-slate-800 text-[9px] font-mono font-bold px-2 py-0.5 rounded">
+                                    {bundle.id}
+                                  </span>
+                                  <h4 className="font-bold text-xs text-slate-900">{bundle.name}</h4>
+                                </div>
+                                <span className="bg-blue-50 text-blue-700 text-[10px] font-bold px-2 py-1 rounded-lg">
+                                  {bundle.weightKg} kg
+                                </span>
+                              </div>
+                              <p className="text-slate-500 text-[10px] font-semibold">{bundle.type}</p>
+                              
+                              {/* Bundle Composition details */}
+                              <div className="border-t border-slate-100 pt-2 text-[11px] space-y-1 text-slate-700">
+                                {bundle.composition.map((comp: any, cidx: number) => (
+                                  <div key={cidx} className="flex justify-between items-center font-mono">
+                                    <span>• {comp.item}</span>
+                                    <span className="font-bold text-slate-900">x{comp.qty}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Card Bottom / Barcode and Instructions */}
+                            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
+                              <div className="text-[9px] text-slate-500 font-semibold">
+                                <p>🛠️ {bundle.handling}</p>
+                                <p className="text-emerald-600 font-bold">🔒 {bundle.safetyRating}</p>
+                              </div>
+                              {/* Virtual CSS Barcode/Tag */}
+                              <div className="flex flex-col items-end space-y-1 shrink-0">
+                                <div className="flex space-x-0.5 items-center bg-slate-50 p-1.5 rounded border border-slate-150">
+                                  <div className="w-[1.5px] h-6 bg-slate-900"></div>
+                                  <div className="w-[3px] h-6 bg-slate-900"></div>
+                                  <div className="w-[1px] h-6 bg-slate-900"></div>
+                                  <div className="w-[2px] h-6 bg-slate-900"></div>
+                                  <div className="w-[1px] h-6 bg-slate-900"></div>
+                                  <div className="w-[4px] h-6 bg-slate-900"></div>
+                                  <div className="w-[2.5px] h-6 bg-slate-900"></div>
+                                  <div className="w-[1.5px] h-6 bg-slate-900"></div>
+                                </div>
+                                <span className="text-[8px] font-mono text-slate-400 font-bold tracking-wider">{bundle.id.split("-").pop()}</span>
+                              </div>
+                            </div>
+
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Live Database Allocation Segment */}
+                    <div className="bg-slate-50 p-6 rounded-2xl border border-slate-150 flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="space-y-1.5">
+                        <h3 className="font-bold text-sm text-slate-900">
+                          {t("Instantly Register Bundles to ERP Inventory", "ጥቅሎችን ወደ መደበኛው ክምችት ያስገቡ")}
+                        </h3>
+                        <p className="text-slate-500 text-xs max-w-2xl">
+                          {t(
+                            `Generate unique aluminum panel serial codes, associate them with ${optResults.location} (${optResults.zone}), register the packing bundle numbers, and record the physical assets in the permanent cloud registry.`,
+                            `ለእያንዳንዱ ፓነል መለያ ቁጥር በመስጠት፣ ከቦታው ጋር በማያያዝ እና በጥቅል ቁጥር በመመደብ ወደ ድርጅቱ መረጃ ቋት ያስገቡ።`
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="flex space-x-3 shrink-0">
+                        {optAllocationSuccess ? (
+                          <div className="bg-emerald-100 border border-emerald-200 text-emerald-800 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-2">
+                            <CheckCircle size={14} />
+                            <span>{t("Successfully Allocated!", "በተሳካ ሁኔታ ተመዝግቧል!")}</span>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={handleAllocateBundles}
+                            disabled={optIsAllocating}
+                            className={`bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-6 py-3 rounded-xl shadow transition-all flex items-center space-x-2 ${
+                              optIsAllocating ? "opacity-75 cursor-not-allowed" : ""
+                            }`}
+                          >
+                            {optIsAllocating ? (
+                              <>
+                                <RefreshCw className="animate-spin" size={14} />
+                                <span>{t("Allocating Assets...", "እያስመዘገበ ነው...")}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Plus size={14} />
+                                <span>{t("Allocate & Provision", "መዝግብ እና ፍጠር")}</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Step-by-Step Assembly Walkthrough */}
+                    <div className="bg-white p-6 rounded-2xl border border-slate-150 shadow-sm space-y-4">
+                      <h3 className="font-bold text-sm text-slate-900 border-b border-slate-100 pb-2">
+                        {t("4. Site Setup Sequential Assembly Guide", "4. በሳይት ላይ ደረጃ በደረጃ የመገጣጠም መመሪያ")}
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                        {[
+                          { step: 1, title: t("Baseline Track Setup", "የመሰረት ግንኙነት"), desc: t("Align kicker wall corners using baseline pins and adjust layout levels.", "የታችኛውን ክፍል ደረጃውን በማስተካከል መሬት ላይ መቆለፊያዎችን መትከል።") },
+                          { step: 2, title: t("Install Corner Joints", "ማዕዘኖችን መትከል"), desc: t("Erect internal corner modules (L-Shape panels) from corner bundle crates.", "የውስጥ ማዕዘን ፓነሎችን ከማዕዘን ጥቅል ውስጥ ወስዶ መትከል።") },
+                          { step: 3, title: t("Standard Panel Lock", "መደበኛ ፓነል መቆለፍ"), desc: t("Assemble W24 (2.4m) panels vertically, securing locks with wedge pin bolts.", "የ2.4ሜትር ዋና የዎል ፓነሎችን ወደ ላይ በማቆም በዊጅ ፒኖች መቆለፍ።") },
+                          { step: 4, title: t("Wall Tie Insertion", "የዎል ታይ ማጠናከሪያ"), desc: t("Insert PVC spacer tubes and pass heavy steel tie pins to secure opposing sides.", "የዎል ታይ ማያያዣዎችን በማስገባት የተቃራኒ ጎን ፓነሎችን በጥንካሬ ማያያዝ።") }
+                        ].map((stepObj) => (
+                          <div 
+                            key={stepObj.step}
+                            onClick={() => setOptCurrentStep(stepObj.step - 1)}
+                            className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                              optCurrentStep === stepObj.step - 1
+                                ? "bg-slate-900 border-slate-900 text-white shadow-sm"
+                                : "bg-slate-50 border-slate-150 text-slate-700 hover:bg-slate-100"
+                            }`}
+                          >
+                            <div className="flex justify-between items-center mb-2">
+                              <span className={`text-[10px] font-bold uppercase ${optCurrentStep === stepObj.step - 1 ? "text-blue-400" : "text-slate-400"}`}>
+                                {t(`Step 0${stepObj.step}`, `ደረጃ 0${stepObj.step}`)}
+                              </span>
+                              {optCurrentStep === stepObj.step - 1 && <span className="w-1.5 h-1.5 bg-blue-400 rounded-full"></span>}
+                            </div>
+                            <h4 className="font-bold text-xs mb-1">{stepObj.title}</h4>
+                            <p className={`text-[11px] leading-relaxed ${optCurrentStep === stepObj.step - 1 ? "text-slate-300" : "text-slate-500"}`}>
+                              {stepObj.desc}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                  </div>
+                )}
 
               </div>
             )}
@@ -1570,7 +2372,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                     >
                       {/* High-integrity physical QR label layout box */}
                       <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300 space-y-3 relative overflow-hidden">
-                        <div className="absolute top-2 right-2 text-[8px] font-mono text-slate-400 border border-slate-200 px-1 rounded bg-white">OVID RFID READY</div>
+                        <div className="absolute top-2 right-2 text-[8px] font-mono text-slate-400 border border-slate-200 px-1 rounded bg-white">Digital Construction ERP RFID READY</div>
                         
                         <div className="flex items-center space-x-2.5">
                           <QrCode size={40} className="text-slate-900" />
@@ -1776,8 +2578,8 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                     onChange={e => setNewPanelLocation(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
                   >
-                    <option value="OVID Bole Heights">OVID Bole Heights</option>
-                    <option value="OVID Saris Block B">OVID Saris Block B</option>
+                    <option value="Digital Bole Heights">Digital Bole Heights</option>
+                    <option value="Digital Saris Block B">Digital Saris Block B</option>
                     <option value="Central Warehouse">Central Warehouse</option>
                   </select>
                 </div>
@@ -1863,8 +2665,8 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   onChange={e => setMoveDestination(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
                 >
-                  <option value="OVID Bole Heights">OVID Bole Heights</option>
-                  <option value="OVID Saris Block B">OVID Saris Block B</option>
+                  <option value="Digital Bole Heights">Digital Bole Heights</option>
+                  <option value="Digital Saris Block B">Digital Saris Block B</option>
                   <option value="Central Warehouse">Central Warehouse</option>
                   <option value="Maintenance / Welding Scrap Yard">Maintenance / Welding Scrap Yard</option>
                 </select>
@@ -2082,7 +2884,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
               
               <div className="flex items-center justify-between">
                 <div>
-                  <span className="text-[10px] uppercase tracking-widest text-red-600 font-bold block">OVID GROUP</span>
+                  <span className="text-[10px] uppercase tracking-widest text-red-600 font-bold block">Digital Construction ERP GROUP</span>
                   <span className="text-[8px] font-semibold text-slate-500 block">ALUMINUM FORMWORK LOGISTICS</span>
                 </div>
                 <QrCode size={40} className="text-slate-900" />

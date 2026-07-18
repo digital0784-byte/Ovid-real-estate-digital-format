@@ -26,7 +26,7 @@ export const DailyProgress: React.FC<DailyProgressProps> = ({
   t
 }) => {
   // New Log Form State
-  const [building, setBuilding] = useState("OVID Bole Heights");
+  const [building, setBuilding] = useState("Digital Bole Heights");
   const [floor, setFloor] = useState(4);
   const [zone, setZone] = useState("Zone A");
   const [installed, setInstalled] = useState(45);
@@ -108,8 +108,8 @@ export const DailyProgress: React.FC<DailyProgressProps> = ({
                   onChange={e => setBuilding(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 outline-none"
                 >
-                  <option value="OVID Bole Heights">OVID Bole Heights</option>
-                  <option value="OVID Saris Block B">OVID Saris Block B</option>
+                  <option value="Digital Bole Heights">Digital Bole Heights</option>
+                  <option value="Digital Saris Block B">Digital Saris Block B</option>
                 </select>
               </div>
 
@@ -292,7 +292,7 @@ export const DailyProgress: React.FC<DailyProgressProps> = ({
           <div className="border-t border-slate-800 pt-4 text-[11px] text-slate-400 space-y-1 bg-slate-950 p-3 rounded-xl">
             <div className="flex justify-between">
               <span>Primary Site:</span>
-              <span className="font-bold text-white">OVID Bole Heights</span>
+              <span className="font-bold text-white">Digital Bole Heights</span>
             </div>
             <div className="flex justify-between">
               <span>Duty Engineer:</span>

@@ -100,7 +100,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
   const lang = isAmharic ? "am" : "en";
   const dict: Record<string, Record<string, string>> = {
     en: {
-      title: "OVID Construction Finance ERP",
+      title: "Digital Construction ERP Finance ERP",
       subtitle: "Enterprise Budget, Cost Control, and Executive Financial Ledger System",
       overallSummary: "Financial Health Summary",
       projectCost: "Project Cost",
@@ -153,7 +153,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
       savedAlert: "Financial record saved successfully!"
     },
     am: {
-      title: "የኦቪድ ግንባታ ፋይናንስ ኢአርፒ (ERP)",
+      title: "የዲጂታል ኮንስትራክሽን ERP ግንባታ ፋይናንስ ኢአርፒ (ERP)",
       subtitle: "የኩባንያው በጀት፣ የወጪ ቁጥጥር እና የቦርድ የፋይናንስ መግለጫ መከታተያ",
       overallSummary: "የፋይናንስ አጠቃላይ እይታ",
       projectCost: "አጠቃላይ የግንባታ ወጪ",
@@ -230,7 +230,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
     { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Crane Leases Ltd", description: "Monthly crawler crane & hoist rental - Bole Heights site", project: "Bole Heights Phase I" },
     { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Partners", description: "Consultant verification inspection milestone signoff fee", project: "Bole Heights Phase I" },
     { id: "EXP-05", category: "Material", amount: 8000000, date: "2026-07-11", vendor: "Mugher Cement", description: "Pre-mix concrete bulk purchase C30 compressive strength", project: "Bole Heights Phase I" },
-    { id: "EXP-06", category: "Labor", amount: 4500000, date: "2026-07-12", vendor: "OVID Payroll Account", description: "Site engineering staff salaries and overtime disbursements", project: "Bole Heights Phase I" },
+    { id: "EXP-06", category: "Labor", amount: 4500000, date: "2026-07-12", vendor: "Digital Construction ERP Payroll Account", description: "Site engineering staff salaries and overtime disbursements", project: "Bole Heights Phase I" },
     { id: "EXP-07", category: "Equipment", amount: 6500000, date: "2026-07-13", vendor: "National Excavations", description: "Excavator machinery mobilization and hydraulic system overhaul", project: "Bole Heights Phase I" }
   ]);
 
@@ -650,7 +650,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
             <div className="p-4 bg-slate-950 rounded-2xl border border-red-500/20 flex items-center space-x-3">
               <Zap className="text-amber-500 animate-bounce" size={20} />
               <div className="text-xs">
-                <span className="font-bold text-white mr-2">OVID Financial Intelligence Engine AI Recommendation:</span>
+                <span className="font-bold text-white mr-2">Digital Construction ERP Financial Intelligence Engine AI Recommendation:</span>
                 <span className="text-slate-300">
                   {isAmharic
                     ? "የማቴሪያል ወጪ ከተመደበው በጀት 82% ደርሷል። ወጪዎችን ለመቀነስ የአሉሚኒየም ፎርምወርክ መለዋወጫዎችን ከአገር ውስጥ አቅራቢዎች በቅናሽ ዋጋ ለማግኘት ይሞክሩ።"
@@ -1327,12 +1327,12 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
             {/* Generated Document Stage */}
             <div className="bg-white text-slate-900 rounded-3xl p-8 border border-slate-200/90 shadow-xl max-w-4xl mx-auto space-y-6 relative overflow-hidden" id="printed-report-node">
               
-              {/* OVID Letterhead */}
+              {/* Digital Construction ERP Letterhead */}
               <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5">
                 <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-950 uppercase">OVID GROUP</h3>
+                  <h3 className="text-lg font-black tracking-tight text-slate-950 uppercase">Digital Construction ERP GROUP</h3>
                   <p className="text-[10px] font-black tracking-widest text-red-600 uppercase">Construction & Real Estate Finance Core</p>
-                  <p className="text-[9px] text-slate-500 mt-1">OVID Tower, Bole Road, Addis Ababa, Ethiopia | +251 11 661 2233</p>
+                  <p className="text-[9px] text-slate-500 mt-1">Digital Construction ERP Tower, Bole Road, Addis Ababa, Ethiopia | +251 11 661 2233</p>
                 </div>
                 <div className="text-right text-[10px] font-mono text-slate-500">
                   <div>DATE: 2026-07-15</div>
@@ -1386,7 +1386,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
                       </div>
                       <div className="grid grid-cols-3 p-2 border-b border-slate-100">
                         <span>Engineering salaries</span>
-                        <span>OVID Payroll</span>
+                        <span>Digital Construction ERP Payroll</span>
                         <span className="text-right text-red-600">- 4,500,000</span>
                       </div>
                       <div className="grid grid-cols-3 p-2">
@@ -1479,7 +1479,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
               <div className="grid grid-cols-2 gap-8 pt-8 border-t border-slate-200/90 text-[10px] text-slate-500">
                 <div>
                   <div className="border-t border-slate-400 w-36 pt-1 text-slate-900 font-bold uppercase">Audited By</div>
-                  <div>Finance Auditor OVID Group</div>
+                  <div>Finance Auditor Digital Construction ERP Group</div>
                   <div>Nuriye Ahmed Adem</div>
                 </div>
                 <div className="text-right flex flex-col items-end">
@@ -1502,7 +1502,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
                   className="rounded border-slate-700 bg-slate-900 text-red-600 focus:ring-red-500"
                 />
                 <label htmlFor="approve-audit" className="text-slate-300 font-semibold cursor-pointer">
-                  {isAmharic ? "ሂሳብ መዝገቡ በኦዲት መረጋገጡን አረጋግጣለሁ" : "I certify that this ledger report complies with OVID auditing guidelines"}
+                  {isAmharic ? "ሂሳብ መዝገቡ በኦዲት መረጋገጡን አረጋግጣለሁ" : "I certify that this ledger report complies with Digital Construction ERP auditing guidelines"}
                 </label>
               </div>
 
@@ -1510,7 +1510,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
                 <button
                   onClick={() => {
                     setSimulatedPrint(true);
-                    onLogAction?.("Generate Report", `Compiled and printed official OVID financial report: ${selectedReportType}`);
+                    onLogAction?.("Generate Report", `Compiled and printed official Digital Construction ERP financial report: ${selectedReportType}`);
                     setTimeout(() => setSimulatedPrint(false), 2000);
                   }}
                   disabled={!auditApproved}

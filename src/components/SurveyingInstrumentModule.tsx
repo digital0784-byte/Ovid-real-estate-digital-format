@@ -200,31 +200,31 @@ const INITIAL_EQUIPMENT: SurveyEquipment[] = [
 const INITIAL_CONTROL_POINTS: ControlPoint[] = [
   {
     id: "CP-BOLE-01",
-    project: "OVID Bole Heights",
+    project: "Digital Bole Heights",
     eastingX: 472911.205,
     northingY: 994200.412,
     elevationZ: 2315.420,
     gpsCoordinates: "9.0124° N, 38.7845° E",
-    benchmarkRef: "BM-OVID-H1",
+    benchmarkRef: "BM-Digital Construction ERP-H1",
     accuracyLevel: "High-Precision (1st Order)",
     surveyDate: "2026-01-10",
     surveyEngineer: "Surv. Abel Tesfaye"
   },
   {
     id: "CP-BOLE-02",
-    project: "OVID Bole Heights",
+    project: "Digital Bole Heights",
     eastingX: 472985.618,
     northingY: 994215.118,
     elevationZ: 2314.980,
     gpsCoordinates: "9.0125° N, 38.7852° E",
-    benchmarkRef: "BM-OVID-H2",
+    benchmarkRef: "BM-Digital Construction ERP-H2",
     accuracyLevel: "High-Precision (1st Order)",
     surveyDate: "2026-01-11",
     surveyEngineer: "Surv. Abel Tesfaye"
   },
   {
     id: "CP-AYAT-01",
-    project: "OVID Ayat East Block T2",
+    project: "Digital Construction ERP Ayat East Block T2",
     eastingX: 481200.550,
     northingY: 991400.992,
     elevationZ: 2402.110,
@@ -238,7 +238,7 @@ const INITIAL_CONTROL_POINTS: ControlPoint[] = [
 
 const INITIAL_STAGES: ProjectStageOverview[] = [
   {
-    project: "OVID Bole Heights",
+    project: "Digital Bole Heights",
     building: "Tower Block A",
     activeFloor: 4,
     status: "Ready for Concrete",
@@ -254,7 +254,7 @@ const INITIAL_STAGES: ProjectStageOverview[] = [
     }
   },
   {
-    project: "OVID Bole Heights",
+    project: "Digital Bole Heights",
     building: "Tower Block A",
     activeFloor: 5,
     status: "Waiting for Survey",
@@ -270,7 +270,7 @@ const INITIAL_STAGES: ProjectStageOverview[] = [
     }
   },
   {
-    project: "OVID Ayat East Block T2",
+    project: "Digital Construction ERP Ayat East Block T2",
     building: "Block T2",
     activeFloor: 2,
     status: "Ready for Formwork",
@@ -358,7 +358,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
   const [panelLocationInput, setPanelLocationInput] = useState<string>("Tower A Floor 4");
 
   const [progressSummary, setProgressSummary] = useState<ProgressSummary>(INITIAL_PROGRESS);
-  const [selectedProject, setSelectedProject] = useState<string>("OVID Bole Heights");
+  const [selectedProject, setSelectedProject] = useState<string>("Digital Bole Heights");
 
   // --- NEW SURVEY REVIEW & PANEL APPROVAL STATE ---
   const [selectedBuilding, setSelectedBuilding] = useState("Tower Block A");
@@ -386,7 +386,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
     {
       id: "AUD-SURV-101",
       timestamp: "2026-07-08 14:00",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Tower Block A",
       floor: 4,
       zone: "Zone A - West Wing",
@@ -399,7 +399,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
     {
       id: "AUD-SURV-100",
       timestamp: "2026-07-08 11:15",
-      project: "OVID Bole Heights",
+      project: "Digital Bole Heights",
       building: "Tower Block A",
       floor: 4,
       zone: "Zone A - West Wing",
@@ -417,17 +417,17 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
     supervisor: { status: "Approved" | "Pending" | "Rejected"; comment: string; user: string; time: string };
     siteEngineer: { status: "Approved" | "Pending" | "Rejected"; comment: string; user: string; time: string };
   }>>({
-    "OVID Bole Heights_Tower Block A_4_Zone A - West Wing": {
+    "Digital Bole Heights_Tower Block A_4_Zone A - West Wing": {
       teamLeader: { status: "Approved", comment: "Scaffold and tools ready, crew briefed on panels.", user: "TL. Chala Kebede", time: "2026-07-08 09:30" },
       supervisor: { status: "Approved", comment: "Field conditions verified, vertical bracing solid.", user: "Sup. Almaz Tekle", time: "2026-07-08 11:15" },
       siteEngineer: { status: "Approved", comment: "Final CAD alignment check matches ±3mm. Approved for assembly.", user: "Eng. Melaku Zewdu", time: "2026-07-08 14:00" }
     },
-    "OVID Bole Heights_Tower Block A_5_Zone B - Elevator Shaft": {
+    "Digital Bole Heights_Tower Block A_5_Zone B - Elevator Shaft": {
       teamLeader: { status: "Pending", comment: "", user: "TL. Chala Kebede", time: "" },
       supervisor: { status: "Pending", comment: "", user: "Sup. Almaz Tekle", time: "" },
       siteEngineer: { status: "Pending", comment: "", user: "Eng. Melaku Zewdu", time: "" }
     },
-    "OVID Ayat East Block T2_Block T2_2_Zone C - Staircase Core": {
+    "Digital Construction ERP Ayat East Block T2_Block T2_2_Zone C - Staircase Core": {
       teamLeader: { status: "Approved", comment: "Slab ready, tools prepped.", user: "TL. Chala Kebede", time: "2026-07-09 08:00" },
       supervisor: { status: "Pending", comment: "Checking alignment controls today.", user: "Sup. Almaz Tekle", time: "" },
       siteEngineer: { status: "Pending", comment: "", user: "Eng. Melaku Zewdu", time: "" }
@@ -436,7 +436,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
 
   // Interactive alignment checklists for each zone
   const [zoneAlignmentChecks, setZoneAlignmentChecks] = useState<Record<string, Record<string, { status: "PASSED" | "EXCEEDED" | "PENDING"; deviation: number }>>>({
-    "OVID Bole Heights_Tower Block A_4_Zone A - West Wing": {
+    "Digital Bole Heights_Tower Block A_4_Zone A - West Wing": {
       gridLine: { status: "PASSED", deviation: 1.8 },
       axisLine: { status: "PASSED", deviation: 2.1 },
       controlPoints: { status: "PASSED", deviation: 1.5 },
@@ -450,7 +450,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
       elevatorCore: { status: "PASSED", deviation: 3.5 },
       stairCore: { status: "PASSED", deviation: 2.1 }
     },
-    "OVID Bole Heights_Tower Block A_5_Zone B - Elevator Shaft": {
+    "Digital Bole Heights_Tower Block A_5_Zone B - Elevator Shaft": {
       gridLine: { status: "PASSED", deviation: 2.2 },
       axisLine: { status: "PASSED", deviation: 2.8 },
       controlPoints: { status: "PASSED", deviation: 1.9 },
@@ -464,7 +464,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
       elevatorCore: { status: "EXCEEDED", deviation: 8.6 },
       stairCore: { status: "PASSED", deviation: 3.0 }
     },
-    "OVID Ayat East Block T2_Block T2_2_Zone C - Staircase Core": {
+    "Digital Construction ERP Ayat East Block T2_Block T2_2_Zone C - Staircase Core": {
       gridLine: { status: "PASSED", deviation: 2.0 },
       axisLine: { status: "PASSED", deviation: 1.9 },
       controlPoints: { status: "PASSED", deviation: 1.2 },
@@ -482,7 +482,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
 
   // Real-time Cloud Sync Simulated States
   const [isSyncing, setIsSyncing] = useState(false);
-  const [syncStatusMsg, setSyncStatusMsg] = useState("Connected to OVID Geodetic Network — Satellite lock solid");
+  const [syncStatusMsg, setSyncStatusMsg] = useState("Connected to Digital Construction ERP Geodetic Network — Satellite lock solid");
 
   // Equipment Form States
   const [newEqName, setNewEqName] = useState("");
@@ -678,7 +678,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
             <div className="flex items-center space-x-2">
               <Compass size={16} className="text-red-500 animate-spin-slow" />
               <p className="text-[11px] font-black uppercase tracking-wider text-slate-200">
-                {isAmharic ? "OVID የሰርቬይንግ እና ኮንክሪት መቆጣጠሪያ ሞጁል" : "OVID SURVEY & CONSTRUCTION INST. CONTROL"}
+                {isAmharic ? "Digital Construction ERP የሰርቬይንግ እና ኮንክሪት መቆጣጠሪያ ሞጁል" : "Digital Construction ERP SURVEY & CONSTRUCTION INST. CONTROL"}
               </p>
             </div>
             <p className="text-xs text-slate-400 font-mono">
@@ -693,8 +693,8 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
             onChange={(e) => setSelectedProject(e.target.value)}
             className="text-[11px] bg-slate-950 border border-slate-800 rounded-lg py-1.5 px-3 text-slate-200 font-bold focus:outline-none focus:border-red-500"
           >
-            <option value="OVID Bole Heights">OVID Bole Heights</option>
-            <option value="OVID Ayat East Block T2">OVID Ayat East Block T2</option>
+            <option value="Digital Bole Heights">Digital Bole Heights</option>
+            <option value="Digital Construction ERP Ayat East Block T2">Digital Construction ERP Ayat East Block T2</option>
           </select>
 
           <span className="text-[10px] bg-slate-950 border border-slate-800 px-3 py-1.5 rounded-lg text-slate-300 font-mono font-bold tracking-wider">
@@ -984,7 +984,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                 {/* Report Live Simulated Preview Frame */}
                 <div className="bg-slate-950 text-slate-300 p-5 rounded-xl border border-slate-800 font-mono text-[11px] space-y-4">
                   <div className="flex justify-between border-b border-slate-800 pb-2 text-[10px] text-slate-400">
-                    <span>OVID ERP REPORT MODULE v3.4</span>
+                    <span>Digital Construction ERP ERP REPORT MODULE v3.4</span>
                     <span>TIMESTAMP: 2026-07-08 23:50 UTC</span>
                   </div>
 
@@ -1201,7 +1201,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                     </h3>
                     <p className="text-[10px] text-slate-400">Primary reference control points for current and future scans</p>
                   </div>
-                  <span className="text-[10px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded font-bold font-mono">OVID REF</span>
+                  <span className="text-[10px] bg-red-500/10 text-red-600 px-2 py-0.5 rounded font-bold font-mono">Digital Construction ERP REF</span>
                 </div>
 
                 {/* CP Cards */}
@@ -1670,7 +1670,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                     <Sparkles size={18} className="text-red-500 animate-pulse shrink-0" />
                     <div>
                       <h3 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                        🤖 {isAmharic ? "OVID AI የግንባታ ረዳት" : "OVID AI Construction Assistant Core"}
+                        🤖 {isAmharic ? "Digital Construction ERP AI የግንባታ ረዳት" : "Digital Construction ERP AI Construction Assistant Core"}
                       </h3>
                       <p className="text-[10px] text-slate-400">Predictive insights from site sensors & schedule feeds</p>
                     </div>
@@ -1828,7 +1828,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                     </div>
 
                     <div className="p-3 bg-white rounded-lg border border-slate-200 text-[10px] text-slate-400 font-mono text-center">
-                      🔐 DIGITAL KEY: SHA-256 Verified on Central OVID Ledger.
+                      🔐 DIGITAL KEY: SHA-256 Verified on Central Digital Construction ERP Ledger.
                     </div>
                   </div>
 
@@ -1913,7 +1913,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                       onChange={(e) => {
                         const proj = e.target.value;
                         setSelectedProject(proj);
-                        if (proj === "OVID Ayat East Block T2") {
+                        if (proj === "Digital Construction ERP Ayat East Block T2") {
                           setSelectedBuilding("Block T2");
                           setSelectedFloor(2);
                           setSelectedZone("Zone C - Staircase Core");
@@ -1925,8 +1925,8 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                       }}
                       className="w-full border border-slate-200 rounded-lg p-2 font-bold bg-slate-50 focus:outline-none focus:border-red-500 animate-none"
                     >
-                      <option value="OVID Bole Heights">OVID Bole Heights</option>
-                      <option value="OVID Ayat East Block T2">OVID Ayat East Block T2</option>
+                      <option value="Digital Bole Heights">Digital Bole Heights</option>
+                      <option value="Digital Construction ERP Ayat East Block T2">Digital Construction ERP Ayat East Block T2</option>
                     </select>
                   </div>
 
@@ -1937,7 +1937,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                       onChange={(e) => setSelectedBuilding(e.target.value)}
                       className="w-full border border-slate-200 rounded-lg p-2 font-bold bg-slate-50 focus:outline-none"
                     >
-                      {selectedProject === "OVID Bole Heights" ? (
+                      {selectedProject === "Digital Bole Heights" ? (
                         <option value="Tower Block A">Tower Block A</option>
                       ) : (
                         <option value="Block T2">Block T2</option>
@@ -1962,7 +1962,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                       }}
                       className="w-full border border-slate-200 rounded-lg p-2 font-mono font-bold bg-slate-50 focus:outline-none"
                     >
-                      {selectedProject === "OVID Bole Heights" ? (
+                      {selectedProject === "Digital Bole Heights" ? (
                         <>
                           <option value={4}>Floor 4 (Active)</option>
                           <option value={5}>Floor 5 (Pending)</option>
@@ -1991,8 +1991,8 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
               {/* Dynamic computed parameters */}
               {(() => {
                 const currentKey = `${selectedProject}_${selectedBuilding}_${selectedFloor}_${selectedZone}`;
-                const currentChecklist = (zoneAlignmentChecks[currentKey] || zoneAlignmentChecks["OVID Bole Heights_Tower Block A_4_Zone A - West Wing"]) as Record<string, { status: string; deviation: number }>;
-                const currentApproval = (zoneApprovals[currentKey] || zoneApprovals["OVID Bole Heights_Tower Block A_4_Zone A - West Wing"]) as {
+                const currentChecklist = (zoneAlignmentChecks[currentKey] || zoneAlignmentChecks["Digital Bole Heights_Tower Block A_4_Zone A - West Wing"]) as Record<string, { status: string; deviation: number }>;
+                const currentApproval = (zoneApprovals[currentKey] || zoneApprovals["Digital Bole Heights_Tower Block A_4_Zone A - West Wing"]) as {
                   teamLeader: { status: "Approved" | "Pending" | "Rejected"; comment: string; user: string; time: string };
                   supervisor: { status: "Approved" | "Pending" | "Rejected"; comment: string; user: string; time: string };
                   siteEngineer: { status: "Approved" | "Pending" | "Rejected"; comment: string; user: string; time: string };
@@ -2359,7 +2359,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                                 ]);
 
                                 setPanelApprovalComment("");
-                                alert(`${activeReviewerRole} Signoff granted! Central OVID Sync Complete.`);
+                                alert(`${activeReviewerRole} Signoff granted! Central Digital Construction ERP Sync Complete.`);
                                 if (onLogAction) {
                                   onLogAction("Survey Verification Approved", `${activeReviewerRole} authorized Panel Installation for ${selectedZone}`);
                                 }

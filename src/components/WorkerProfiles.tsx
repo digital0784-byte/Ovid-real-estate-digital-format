@@ -21,9 +21,11 @@ import {
   Contact, 
   AlertTriangle,
   IdCard,
-  Trash2
+  Trash2,
+  Compass,
+  MapPin
 } from "lucide-react";
-import { Worker, UserRole } from "../types";
+import { Worker, UserRole, ProjectZone } from "../types";
 
 export const calculateExperience = (joinedDateStr: string, isAmharic: boolean) => {
   if (!joinedDateStr) return isAmharic ? "አልታወቀም" : "Unknown";
@@ -64,6 +66,7 @@ export const calculateExperience = (joinedDateStr: string, isAmharic: boolean) =
 
 interface WorkerProfilesProps {
   workers: Worker[];
+  zones?: ProjectZone[];
   onAddWorker: (worker: Worker) => void;
   onUpdateWorker: (worker: Worker) => void;
   onDeleteWorker: (id: string) => void;
@@ -74,6 +77,7 @@ interface WorkerProfilesProps {
 
 export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
   workers,
+  zones = [],
   onAddWorker,
   onUpdateWorker,
   onDeleteWorker,
@@ -84,6 +88,18 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
   // Check authorization (Super Admin/Head Office and Project Manager are authorized)
   const isAuthorized = useMemo(() => {
     return currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.PROJECT_MANAGER;
+  }, [currentUserRole]);
+
+  // Check if authorized to assign/muddib work zones (Section Head, Supervisor, Team Leader, and higher Admins)
+  const isZoneAssignmentAuthorized = useMemo(() => {
+    return [
+      UserRole.HEAD_OFFICE,
+      UserRole.PROJECT_MANAGER,
+      UserRole.SECTION_HEAD,
+      UserRole.SUPERVISOR,
+      UserRole.TEAM_LEADER,
+      UserRole.SUPER_ADMIN
+    ].includes(currentUserRole);
   }, [currentUserRole]);
 
   // Roster States
@@ -109,14 +125,15 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
     name: "",
     department: "Formwork Assembly",
     trade: "Carpenter",
-    company: "OVID Construction",
+    company: "Digital Construction ERP",
     phoneNumber: "",
     emergencyContact: "",
     skills: "",
     joinedDate: new Date().toISOString().split("T")[0],
     status: "Active" as "Active" | "Inactive",
     photo: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
-    teamId: "T-01"
+    teamId: "T-01",
+    zone: ""
   });
 
   const [formError, setFormError] = useState("");
@@ -199,6 +216,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
       phoneNumber: addForm.phoneNumber.trim() || undefined,
       emergencyContact: addForm.emergencyContact.trim() || undefined,
       skills: addForm.skills.trim() || undefined,
+      zone: addForm.zone || undefined
     };
 
     onAddWorker(newWorker);
@@ -208,18 +226,19 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
     // Reset add form
     const nextIdNum = 100 + workers.length + 2;
     setAddForm({
-      id: `OVID-W-${nextIdNum}`,
+      id: `ERP-W-${nextIdNum}`,
       name: "",
       department: "Formwork Assembly",
       trade: "Carpenter",
-      company: "OVID Construction",
+      company: "Digital Construction ERP",
       phoneNumber: "",
       emergencyContact: "",
       skills: "",
       joinedDate: new Date().toISOString().split("T")[0],
       status: "Active",
       photo: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
-      teamId: "T-01"
+      teamId: "T-01",
+      zone: ""
     });
     setFormError("");
 
@@ -231,7 +250,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
   // Helper to trigger automated placeholder ID
   const suggestNewId = () => {
     const nextIdNum = 100 + workers.length + 1;
-    setAddForm(prev => ({ ...prev, id: `OVID-W-${nextIdNum}` }));
+    setAddForm(prev => ({ ...prev, id: `ERP-W-${nextIdNum}` }));
   };
 
   return (
@@ -570,6 +589,83 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                       </>
                     )}
                   </div>
+                </div>
+              </div>
+
+              {/* WORK ZONE ASSIGNMENT SECTION */}
+              <div id="worker-zone-assignment-card" className="mx-6 mt-4 p-5 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                  <h4 className="font-extrabold uppercase text-[10px] text-slate-500 tracking-wider flex items-center gap-1.5">
+                    <MapPin size={13} className="text-red-600 animate-bounce" />
+                    <span>{isAmharic ? "የስራ ዞን ምደባ" : "Work Zone Assignment"}</span>
+                  </h4>
+                  {isZoneAssignmentAuthorized ? (
+                    <span className="text-[9px] bg-emerald-50 text-emerald-700 border border-emerald-100 px-2 py-0.5 rounded font-black uppercase">
+                      {isAmharic ? "መመደብ ይቻላል" : "Authorized"}
+                    </span>
+                  ) : (
+                    <span className="text-[9px] bg-slate-100 text-slate-500 border border-slate-200 px-2 py-0.5 rounded font-black uppercase">
+                      {isAmharic ? "ለዕይታ ብቻ" : "Read-Only"}
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center text-xs">
+                  <div>
+                    <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                      {isAmharic ? "አሁን ያለበት ዞን" : "Current Assigned Zone"}
+                    </label>
+                    {activeWorker.zone ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 text-red-700 rounded-xl font-bold border border-red-100 font-mono">
+                        <Compass size={13} className="text-red-500" />
+                        <span>{activeWorker.zone}</span>
+                      </div>
+                    ) : (
+                      <div className="text-xs text-slate-400 italic">
+                        {isAmharic ? "ምንም ዞን አልተመደበም" : "No Zone Assigned"}
+                      </div>
+                    )}
+                  </div>
+
+                  {isZoneAssignmentAuthorized ? (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase text-slate-400 block mb-1">
+                        {isAmharic ? "አዲስ ዞን ይመድቡ" : "Assign New Zone"}
+                      </label>
+                      <select
+                        id="zone-assignment-dropdown"
+                        value={activeWorker.zone || ""}
+                        onChange={(e) => {
+                          const newZone = e.target.value;
+                          const updatedWorker = { ...activeWorker, zone: newZone || undefined };
+                          onUpdateWorker(updatedWorker);
+                          if (onLogAction) {
+                            onLogAction(
+                              "Worker Zone Assigned",
+                              `Assigned worker ${activeWorker.name} (${activeWorker.id}) to zone: ${newZone || "None"}`
+                            );
+                          }
+                        }}
+                        className="w-full bg-white border border-slate-300 rounded-xl px-2.5 py-2 font-bold text-slate-800 focus:outline-none focus:border-red-500 cursor-pointer"
+                      >
+                        <option value="">{isAmharic ? "-- ዞን ይምረጡ --" : "-- Select Zone --"}</option>
+                        {zones.map((z) => {
+                          const label = `${z.building} - FL ${z.floor} (${z.zone})`;
+                          return (
+                            <option key={z.id} value={label}>
+                              {label}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+                  ) : (
+                    <div className="text-[10px] text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-100 font-medium leading-relaxed">
+                      {isAmharic 
+                        ? "እያንዳንዱን ሰራተኛ ዞን መመደብ የsection head supervisor and team leader ስራ ነው።" 
+                        : "Assigning worker zones is restricted to Section Heads, Supervisors, and Team Leaders."}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -913,7 +1009,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                       required
                       value={addForm.id}
                       onChange={e => setAddForm({ ...addForm, id: e.target.value })}
-                      placeholder="e.g. OVID-W-111"
+                      placeholder="e.g. ERP-W-111"
                       className="flex-1 bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus:bg-white"
                     />
                     <button
@@ -983,7 +1079,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                     type="text"
                     value={addForm.company}
                     onChange={e => setAddForm({ ...addForm, company: e.target.value })}
-                    placeholder="OVID Construction"
+                    placeholder="Digital Construction ERP"
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus:bg-white"
                   />
                 </div>
@@ -1070,6 +1166,32 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                     <option value="Active">Active</option>
                     <option value="Inactive">Inactive</option>
                   </select>
+                </div>
+
+                {/* ASSIGNED ZONE */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[10px] font-black uppercase text-slate-400 block">
+                    {isAmharic ? "የስራ ዞን ምደባ" : "Assigned Work Zone"}
+                  </label>
+                  <select
+                    value={addForm.zone}
+                    onChange={e => setAddForm({ ...addForm, zone: e.target.value })}
+                    disabled={!isZoneAssignmentAuthorized}
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 cursor-pointer focus:bg-white font-bold text-slate-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="">{isAmharic ? "-- ዞን ይምረጡ (አማራጭ) --" : "-- Select Zone (Optional) --"}</option>
+                    {zones.map(z => {
+                      const label = `${z.building} - FL ${z.floor} (${z.zone})`;
+                      return (
+                        <option key={z.id} value={label}>{label}</option>
+                      );
+                    })}
+                  </select>
+                  {!isZoneAssignmentAuthorized && (
+                    <p className="text-[9px] text-amber-600 mt-1 italic">
+                      {isAmharic ? "እያንዳንዱን ሰራተኛ ዞን መመደብ የsection head supervisor and team leader ስራ ነው።" : "Zone assignment is restricted to section head, supervisor, and team leader."}
+                    </p>
+                  )}
                 </div>
               </div>
 

@@ -74,7 +74,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState(0);
 
-  // Configurable Geofence (OVID Bole Heights)
+  // Configurable Geofence (Digital Bole Heights)
   const [geofenceLat, setGeofenceLat] = useState(9.0049);
   const [geofenceLng, setGeofenceLng] = useState(38.7783);
   const [allowedRadius, setAllowedRadius] = useState(150); // in meters
@@ -93,10 +93,10 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   // ----------------------------------------------------
   const [enrollId, setEnrollId] = useState("");
   const [enrollName, setEnrollName] = useState("");
-  const [enrollCompany, setEnrollCompany] = useState("OVID Construction");
+  const [enrollCompany, setEnrollCompany] = useState("Digital Construction ERP");
   const [enrollDepartment, setEnrollDepartment] = useState("Formwork Assembly");
   const [enrollTrade, setEnrollTrade] = useState("Carpenter");
-  const [enrollBuilding, setEnrollBuilding] = useState("OVID Tower 1");
+  const [enrollBuilding, setEnrollBuilding] = useState("Digital Tower 1");
   const [enrollFloor, setEnrollFloor] = useState(4);
   const [enrollZone, setEnrollZone] = useState("Zone B");
   const [enrollLeader, setEnrollLeader] = useState("Yohannes Bekele");
@@ -114,7 +114,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   useEffect(() => {
     if (!enrollId) {
       const nextIdNum = 100 + workers.length + 1;
-      setEnrollId(`OVID-W-${nextIdNum}`);
+      setEnrollId(`ERP-W-${nextIdNum}`);
     }
   }, [workers, enrollId]);
 
@@ -285,7 +285,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       department: enrollDepartment,
       trade: enrollTrade,
       joinedDate: new Date().toISOString().split("T")[0],
-      assignedProject: "OVID Bole Heights",
+      assignedProject: "Digital Bole Heights",
       building: enrollBuilding,
       floor: enrollFloor,
       zone: enrollZone,
@@ -340,7 +340,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       identifiedWorker = workers.find(w => w.id === simulatedWorkerId);
     } else {
       // In a real kiosk, placing a finger on the sensor matches the fingerprint.
-      // For simulator simplicity, we choose a random worker from enrolled ones if none provided,
+      // For simulator simplicity, we choose a random worker from enrolled ones if none prdigital_construction_erped,
       // but to let users interact, we display quick-tap employee badges on the side.
       const enrolledWorkers = workers.filter(w => w.fingerprint || w.faceRecognitionData);
       if (enrolledWorkers.length === 0) {
@@ -514,7 +514,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
           title: isAmharic ? "የመግቢያ መዛባት (ከግቢ ውጭ)" : "Check-In Blocked (Outside Geofence)",
           message: isAmharic
             ? `የ ${worker.name} የጠዋት መግቢያ ውድቅ ተደርጓል። ሰራተኛው ከፕሮጀክት ወሰን ውጭ በ ${deviation} ሜትር ርቀት ላይ ይገኛል።`
-            : `Geofence Violation: ${worker.name} is ${deviation}m outside OVID site boundary. Attendance rejected.`
+            : `Geofence Violation: ${worker.name} is ${deviation}m outside Digital Construction ERP site boundary. Attendance rejected.`
         });
         if (onLogAction) {
           onLogAction("Kiosk Geofence Rejection", `Worker ${worker.name} attempted outside site check-in (${deviation}m).`);
@@ -546,7 +546,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
         overtime: 0,
         status: status,
         gpsCoordinates: { lat: simLat, lng: simLng },
-        deviceUsed: "OVID-KIOSK-01",
+        deviceUsed: "Digital Construction ERP-KIOSK-01",
         verifiedBy: currentUserRole,
         gpsLocationString: `Bole Heights (${deviation}m)`
       };
@@ -617,7 +617,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
         checkOut: formattedTime,
         workingHours: parseFloat((workingHours + overtime).toFixed(2)),
         overtime,
-        deviceUsed: "OVID-KIOSK-01",
+        deviceUsed: "Digital Construction ERP-KIOSK-01",
         gpsLocationString: `Bole Heights (${deviation}m)`
       };
 
@@ -678,8 +678,8 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   workerName: q.workerName,
                   department: "Formwork Assembly",
                   trade: "Carpenter",
-                  company: "OVID Construction",
-                  building: "OVID Tower 1",
+                  company: "Digital Construction ERP",
+                  building: "Digital Tower 1",
                   floor: 4,
                   zone: "Zone B",
                   date: q.date,
@@ -690,7 +690,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   overtime: 0,
                   status: "Present",
                   gpsCoordinates: q.gpsCoordinates,
-                  deviceUsed: "OVID-KIOSK-01",
+                  deviceUsed: "Digital Construction ERP-KIOSK-01",
                   gpsLocationString: `Bole Heights (${q.deviation}m)`
                 });
               }
@@ -755,7 +755,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
               <span className="text-xs text-slate-400 font-bold">•</span>
               <div className="flex items-center space-x-1.5 text-xs text-slate-300">
                 <Database size={12} className="text-red-400" />
-                <span className="font-mono font-bold">OVID Aluminum Formwork</span>
+                <span className="font-mono font-bold">Digital Construction ERP Aluminum Formwork</span>
               </div>
             </div>
             <h2 className="text-xl font-black tracking-tight mt-1 flex items-center gap-2">
@@ -1388,7 +1388,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   value={enrollId}
                   onChange={e => setEnrollId(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-red-500 focus:outline-none"
-                  placeholder="OVID-W-101"
+                  placeholder="ERP-W-101"
                 />
               </div>
 
@@ -1412,7 +1412,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   onChange={e => setEnrollCompany(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:border-red-500"
                 >
-                  <option value="OVID Construction">OVID Construction</option>
+                  <option value="Digital Construction ERP">Digital Construction ERP</option>
                   <option value="Subcontractor Alpha">Subcontractor Alpha</option>
                   <option value="Subcontractor Beta">Subcontractor Beta</option>
                 </select>
@@ -1445,7 +1445,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                 <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የተመደበበት ፐሮጀክት" : "Assigned Project"}</label>
                 <input 
                   type="text" 
-                  value="OVID Bole Heights"
+                  value="Digital Bole Heights"
                   disabled
                   className="w-full bg-slate-100 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-500"
                 />
@@ -1460,9 +1460,9 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                     onChange={e => setEnrollBuilding(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white"
                   >
-                    <option value="OVID Tower 1">Tower 1</option>
-                    <option value="OVID Tower 2">Tower 2</option>
-                    <option value="OVID Tower 3">Tower 3</option>
+                    <option value="Digital Tower 1">Tower 1</option>
+                    <option value="Digital Construction ERP Tower 2">Tower 2</option>
+                    <option value="Digital Construction ERP Tower 3">Tower 3</option>
                   </select>
                 </div>
                 <div className="space-y-1">

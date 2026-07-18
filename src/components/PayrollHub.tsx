@@ -280,7 +280,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       type: "payroll_ready",
       recipient: "Head Office",
       title: "July 2026 Payroll Calculation Ready",
-      message: "The auto-calculation for OVID site B1 roster is compiled. Review needed.",
+      message: "The auto-calculation for Digital Construction ERP site B1 roster is compiled. Review needed.",
       timestamp: "2026-07-09 08:30 AM",
       read: false
     },
@@ -307,7 +307,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       type: "payslip",
       recipient: "Employee",
       title: "Payslip Available",
-      message: "Payslip for July 2026 is published on the local kiosk and OVID employee hub.",
+      message: "Payslip for July 2026 is published on the local kiosk and Digital Construction ERP employee hub.",
       timestamp: "2026-07-09 11:00 AM",
       read: false
     }
@@ -458,7 +458,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
           <div className="space-y-1">
             <div className="flex items-center space-x-2">
               <span className="bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {isAmharic ? "ኦቪድ ግሩፕ" : "OVID Corporate Smart Pay"}
+                {isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ግሩፕ" : "Digital Construction ERP Corporate Smart Pay"}
               </span>
               <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
                 <Database size={8} /> {isAmharic ? "ከመገኘት ጋር የተገናኘ" : "Linked to Biometric Terminal"}
@@ -691,7 +691,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                   <span>{isAmharic ? "ባንክ ማስተላለፊያ ትዕዛዝ ላክ" : "Disburse via Bank Link API"}</span>
                 </button>
                 <p className="text-[9px] text-slate-500 text-center">
-                  {isAmharic ? "የኦቪድ ባንክ ኤፒአይ (Telebirr/CBE) ዝግጁ ነው" : "Secured with end-to-end 256-bit encryption and audit-logged"}
+                  {isAmharic ? "የዲጂታል ኮንስትራክሽን ERP ባንክ ኤፒአይ (Telebirr/CBE) ዝግጁ ነው" : "Secured with end-to-end 256-bit encryption and audit-logged"}
                 </p>
               </div>
             </div>
@@ -1191,7 +1191,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
 
               <button
                 onClick={() => {
-                  alert("Excel sheets successfully exported to device local folder (OVID-Payroll-Export.xlsx)");
+                  alert("Excel sheets successfully exported to device local folder (Digital Construction ERP-Payroll-Export.xlsx)");
                   addAuditLog("Excel Report Exported", "Downloaded master payroll sheets.");
                 }}
                 className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-all flex items-center space-x-1.5 cursor-pointer"
@@ -1463,7 +1463,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
           <div className="border border-slate-200 rounded-xl p-6 space-y-6 bg-white no-print">
             <div className="text-center space-y-1">
               <Building2 size={24} className="mx-auto text-red-600" />
-              <h4 className="text-sm font-extrabold text-slate-950 uppercase tracking-widest">OVID GROUP REAL ESTATE</h4>
+              <h4 className="text-sm font-extrabold text-slate-950 uppercase tracking-widest">Digital Construction ERP GROUP REAL ESTATE</h4>
               <h5 className="text-xs font-bold text-slate-600">Bole Heights Aluminum Formwork Site B1</h5>
               <p className="text-[10px] text-slate-400">Payroll Calculation Summary Ledger | July 2026</p>
             </div>
@@ -1483,7 +1483,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
               </div>
               <div>
                 <span className="text-slate-400 block uppercase font-bold text-[9px] tracking-wider">Compiled By</span>
-                <span className="font-bold text-slate-800">OVID AI Smart Engine</span>
+                <span className="font-bold text-slate-800">Digital Construction ERP AI Smart Engine</span>
               </div>
             </div>
 

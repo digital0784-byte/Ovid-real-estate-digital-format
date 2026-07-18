@@ -155,7 +155,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
       productivityScore: 96,
       delayWarning: "None. Assembly is highly efficient. Ready for immediate laser calibration inspection.",
       delayWarningAm: "የለም። ስራው እጅግ ቀልጣፋ ነው። ለቀጥተኝነት ሌዘር ፍተሻ ዝግጁ ነው።",
-      cadFile: "OVID-BH-FL04-ZA-STR.dwg",
+      cadFile: "Digital Construction ERP-BH-FL04-ZA-STR.dwg",
       safetyHazards: [
         {
           id: "HZ-1",
@@ -211,7 +211,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
       productivityScore: 68,
       delayWarning: "Warning: Joint offset detected at primary slab-shaft transition. Assembly delayed by 1.8 days due to slow panel carriage.",
       delayWarningAm: "ማስጠንቀቂያ፦ በሊፍት መተላለፊያ መጋጠሚያ ላይ መዛባት ታይቷል። የፓነል ማጓጓዝ በመዘግየቱ 1.8 ቀናት ጠፍተዋል።",
-      cadFile: "OVID-BH-FL04-CORE-ZB.dwg",
+      cadFile: "Digital Construction ERP-BH-FL04-CORE-ZB.dwg",
       safetyHazards: [
         {
           id: "HZ-4",
@@ -267,7 +267,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
       productivityScore: 82,
       delayWarning: "Potential Delay: Prop spacing exceeds 1200mm limit on Axis D grid. Requires reinforcement before concrete weight load.",
       delayWarningAm: "ሊከሰት የሚችል መዘግየት፦ በዘንግ D ላይ የምሰሶዎች ልዩነት ከ1200ሚሜ አልፏል። ኮንክሪት ከመሞላቱ በፊት መጠናከር አለበት።",
-      cadFile: "OVID-BH-FL04-ZC-SHORE.dwg",
+      cadFile: "Digital Construction ERP-BH-FL04-ZC-SHORE.dwg",
       safetyHazards: [
         {
           id: "HZ-7",
@@ -391,7 +391,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
         ],
         lowPerformingWorkers: [
           {
-            workerId: "OVID-W-108",
+            workerId: "ERP-W-108",
             name: "Mekonnen Haile",
             score: 66,
             suggestions: isAmharic
@@ -494,14 +494,14 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
             <div className="flex items-center space-x-1.5">
               <span className="bg-red-600 text-white text-[9px] uppercase tracking-widest font-black px-2.5 py-0.5 rounded-full flex items-center space-x-1 animate-pulse">
                 <Sparkles size={10} />
-                <span>OVID AI Core 3.5</span>
+                <span>Digital Construction ERP AI Core 3.5</span>
               </span>
               <span className="bg-slate-800 text-slate-300 text-[9px] tracking-wider px-2 py-0.5 rounded-full font-mono">
                 Cognitive Real-Time Model
               </span>
             </div>
             <h1 className="text-2xl font-black tracking-tight flex items-center space-x-2">
-              <span>{isAmharic ? "አይአይ ኢንተለጀንስ እና ትንበያ ማዕከል" : "OVID AI Intelligence & Forecasting Hub"}</span>
+              <span>{isAmharic ? "አይአይ ኢንተለጀንስ እና ትንበያ ማዕከል" : "Digital Construction ERP AI Intelligence & Forecasting Hub"}</span>
             </h1>
             <p className="text-slate-300 text-xs max-w-xl leading-relaxed font-medium">
               {isAmharic 
@@ -827,7 +827,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
                 <div className="p-3 bg-red-50/50 border border-red-100 rounded-xl space-y-2 text-xs">
                   <div className="flex justify-between items-center">
                     <span className="font-extrabold text-red-900">{isAmharic ? "ልዩ ስልጠና ማሳሰቢያ" : "Targeted Training Alert"}</span>
-                    <span className="bg-red-200 text-red-800 font-black text-[9px] px-1.5 py-0.5 rounded">OVID-W-108</span>
+                    <span className="bg-red-200 text-red-800 font-black text-[9px] px-1.5 py-0.5 rounded">ERP-W-108</span>
                   </div>
                   <p className="text-slate-600 text-[11px] leading-relaxed">
                     <strong>{predictionData?.lowPerformingWorkers[0]?.name || "Mekonnen Haile"}:</strong> {predictionData?.lowPerformingWorkers[0]?.suggestions || "Needs immediate layout mentoring."}
@@ -1148,7 +1148,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
                   <div className="absolute top-3 left-3 bg-black/60 backdrop-blur-md p-2 rounded-lg text-[9px] text-slate-300 border border-white/5 font-mono">
                     <p className="flex items-center space-x-1 font-bold text-emerald-400">
                       <span className="inline-block w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                      <span>OVID SafetyGuard AI Active</span>
+                      <span>Digital Construction ERP SafetyGuard AI Active</span>
                     </p>
                     <p>Accuracy Probability: 98.4%</p>
                   </div>
