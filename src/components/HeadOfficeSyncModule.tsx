@@ -41,6 +41,7 @@ import {
   ResponsiveContainer
 } from "recharts";
 import { Worker, AttendanceRecord, UserRole, AttendanceMethod, Team } from "../types";
+import { SyncMonitor } from "./SyncMonitor";
 
 interface HeadOfficeSyncModuleProps {
   workers: Worker[];
@@ -861,6 +862,20 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
       {/* TAB CONTENT: 1. DASHBOARD */}
       {activeTab === "dashboard" && (
         <div className="space-y-6">
+          {/* SYNC MONITOR INTEGRATION */}
+          <SyncMonitor 
+            isOnline={isCloudOnline} 
+            isAmharic={isAmharic}
+            onSyncFinished={(recordsCount) => {
+              if (onLogAction) {
+                onLogAction(
+                  "Detailed Online Synchronization Completed", 
+                  `Completed synchronization of offline record packets. Synced ${recordsCount} entries to cloud repository.`
+                );
+              }
+            }}
+          />
+
           {/* MULTI-PROJECT HIERARCHY FILTERS PANEL */}
           <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
             <div className="flex items-center space-x-2 text-slate-700 font-bold text-xs border-b border-slate-100 pb-3">

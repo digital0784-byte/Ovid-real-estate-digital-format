@@ -60,6 +60,7 @@ export interface Project {
   plannedCompletionDate: string;
   status: "Planning" | "In Progress" | "Completed" | "Delayed";
   description: string;
+  zonesPerFloor?: number;
 }
 
 export interface Building {
@@ -161,7 +162,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       startDate: "2025-02-15",
       plannedCompletionDate: "2026-12-30",
       status: "In Progress",
-      description: "Premium high-rise residential complex utilizing pre-engineered aluminum formwork cast in-situ technology. Aiming for 6-day cycle times per floor level."
+      description: "Premium high-rise residential complex utilizing pre-engineered aluminum formwork cast in-situ technology. Aiming for 6-day cycle times per floor level.",
+      zonesPerFloor: 3
     },
     {
       id: "Digital Construction ERP-PRJ-102",
@@ -183,7 +185,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       startDate: "2025-06-01",
       plannedCompletionDate: "2027-04-15",
       status: "In Progress",
-      description: "Mass housing initiative targeting modern residential blocks. Rapid concrete casing utilizing composite aluminum shoring plates."
+      description: "Mass housing initiative targeting modern residential blocks. Rapid concrete casing utilizing composite aluminum shoring plates.",
+      zonesPerFloor: 4
     },
     {
       id: "Digital Construction ERP-PRJ-103",
@@ -205,7 +208,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       startDate: "2026-01-10",
       plannedCompletionDate: "2027-08-01",
       status: "Planning",
-      description: "Urban renewal Smart Block. Formwork panels configured for interlocking shear walls and stairwell core configurations."
+      description: "Urban renewal Smart Block. Formwork panels configured for interlocking shear walls and stairwell core configurations.",
+      zonesPerFloor: 3
     }
   ]);
 
@@ -290,6 +294,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   const [projStart, setProjStart] = useState<string>("");
   const [projEnd, setProjEnd] = useState<string>("");
   const [projDesc, setProjDesc] = useState<string>("");
+  const [projZonesPerFloor, setProjZonesPerFloor] = useState<number>(3);
 
   // 2. Building Form
   const [selectedBldProj, setSelectedBldProj] = useState<string>("Digital Construction ERP-PRJ-101");
@@ -302,6 +307,12 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
   // 3. Floor Form
   const [selectedFloorBld, setSelectedFloorBld] = useState<string>("BLD-101-A");
+  const currentFloorBldProjZones = useMemo(() => {
+    const bld = buildings.find(b => b.id === selectedFloorBld);
+    if (!bld) return 3;
+    const proj = projects.find(p => p.id === bld.projectId);
+    return proj?.zonesPerFloor || 3;
+  }, [selectedFloorBld, buildings, projects]);
   const [flrName, setFlrName] = useState<string>("");
   const [flrNumber, setFlrNumber] = useState<number>(1);
   const [flrElevation, setFlrElevation] = useState<number>(3.2);
@@ -346,6 +357,12 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
   // --- PERMISSIONS CHECKS ---
   const canRegisterAndEdit = currentUserRole === UserRole.HEAD_OFFICE;
+  const canRegisterZone = currentUserRole === UserRole.HEAD_OFFICE ||
+                          currentUserRole === UserRole.SUPER_ADMIN ||
+                          currentUserRole === UserRole.SECTION_HEAD ||
+                          currentUserRole === UserRole.TEAM_LEADER ||
+                          currentUserRole === UserRole.SUPERVISOR ||
+                          currentUserRole === UserRole.PROJECT_MANAGER;
   const canUploadDrawing = currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.SUPERVISOR;
   const canApproveDrawing = currentUserRole === UserRole.HEAD_OFFICE;
   const canUploadDoc = currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.SUPERVISOR || currentUserRole === UserRole.TEAM_LEADER;
@@ -404,7 +421,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       startDate: projStart || new Date().toISOString().split("T")[0],
       plannedCompletionDate: projEnd || "2027-12-31",
       status: "Planning",
-      description: projDesc || "Dynamic rapid housing project."
+      description: projDesc || "Dynamic rapid housing project.",
+      zonesPerFloor: Number(projZonesPerFloor)
     };
 
     setProjects(prev => [newProj, ...prev]);
@@ -419,9 +437,10 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
     setProjStart("");
     setProjEnd("");
     setProjDesc("");
+    setProjZonesPerFloor(3);
 
     if (onLogAction) {
-      onLogAction("Created Project Site", `Registered Digital Construction ERP Project ${newProj.name} (${newId}) with GPS coordinate geofence: ${newProj.lat}, ${newProj.lng}`);
+      onLogAction("Created Project Site", `Registered Digital Construction ERP Project ${newProj.name} (${newId}) with ${newProj.zonesPerFloor} zones per floor. GPS coordinate geofence: ${newProj.lat}, ${newProj.lng}`);
     }
 
     triggerRealTimeSync("CreateProject");
@@ -465,19 +484,41 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       totalArea: Number(flrArea)
     };
 
+    // Auto-generate floor zones based on the project's configured zones count
+    const bld = buildings.find(b => b.id === selectedFloorBld);
+    const proj = bld ? projects.find(p => p.id === bld.projectId) : undefined;
+    const defaultZonesCount = proj?.zonesPerFloor || 3;
+
+    const autoZones: Zone[] = [];
+    for (let i = 0; i < defaultZonesCount; i++) {
+      const zoneLetter = String.fromCharCode(65 + i); // 'A', 'B', 'C', ...
+      autoZones.push({
+        id: `ZN-${newFlr.id.replace("FLR-", "")}-${zoneLetter}`,
+        floorId: newFlr.id,
+        name: `Zone ${zoneLetter} - ${isAmharic ? "በራስ-ሰር የተፈጠረ" : "Auto-generated"}`,
+        area: Math.round(newFlr.totalArea / defaultZonesCount),
+        workSequence: i + 1,
+        assignedTeamLeader: "Yohannes Bekele",
+        assignedGangChief: "Fikru Tolossa",
+        assignedSupervisor: proj?.supervisor || "Kassa Hunegn"
+      });
+    }
+
     setFloors(prev => [...prev, newFlr]);
+    setZones(prev => [...prev, ...autoZones]);
+
     setFlrName("");
     setFlrNumber(flrNumber + 1);
 
     if (onLogAction) {
-      onLogAction("Registered Floor Level", `Added Floor Level ${newFlr.name} to Building ${selectedFloorBld}`);
+      onLogAction("Registered Floor Level", `Added Floor Level ${newFlr.name} to Building ${selectedFloorBld} and automatically mapped ${defaultZonesCount} floor zones.`);
     }
     triggerRealTimeSync("CreateFloor");
   };
 
   const handleCreateZone = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canRegisterAndEdit) return;
+    if (!canRegisterZone) return;
 
     const newZone: Zone = {
       id: `ZN-${selectedZoneFlr.split("-").pop()}-${String.fromCharCode(65 + zones.length)}`,
@@ -796,6 +837,13 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                             <MapPin size={11} className="text-red-500" />
                             <span>{proj.city}</span>
                           </span>
+                          {proj.zonesPerFloor && (
+                            <span className={`px-2 py-0.5 rounded font-black uppercase text-[9px] ${
+                              selectedProjectId === proj.id ? "bg-red-600/30 text-red-200 border border-red-500/30" : "bg-red-50 text-red-600 border border-red-100"
+                            }`}>
+                              {proj.zonesPerFloor} {isAmharic ? "ዞኖች/ፎቅ" : "Zones/Floor"}
+                            </span>
+                          )}
                           <span>Start: {proj.startDate}</span>
                         </div>
                       </div>
@@ -864,6 +912,12 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                       <p className="text-slate-300">Lat: {mapInteractiveLat}° N</p>
                       <p className="text-slate-300">Lng: {mapInteractiveLng}° E</p>
                       <p className="text-slate-400">Geofence Radius: <strong className="text-white">{mapInteractiveRadius}m</strong></p>
+                      {selectedProject.zonesPerFloor && (
+                        <p className="text-red-400">
+                          {isAmharic ? "በፎቅ የሚገኙ ዞኖች: " : "Zones per Floor: "}
+                          <strong className="text-white">{selectedProject.zonesPerFloor}</strong>
+                        </p>
+                      )}
                     </div>
 
                     {/* Simulation logs Overlay */}
@@ -951,39 +1005,63 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                 <form onSubmit={handleCreateProject} className="space-y-6">
                   
                   {/* General Fields Section */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Project Name *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">
+                        {isAmharic ? "የፕሮጀክት ስም *" : "Project Name *"}
+                      </label>
                       <input 
                         type="text" 
                         required
                         value={projName}
                         onChange={(e) => setProjName(e.target.value)}
-                        placeholder="e.g. Digital Construction ERP Ayat East Block C"
+                        placeholder={isAmharic ? "ለምሳሌ ቦሌ ሃይትስ ብሎክ C" : "e.g. Digital Construction ERP Ayat East Block C"}
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Client Name *</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">
+                        {isAmharic ? "የደንበኛ ስም *" : "Client Name *"}
+                      </label>
                       <input 
                         type="text" 
                         required
                         value={projClient}
                         onChange={(e) => setProjClient(e.target.value)}
-                        placeholder="e.g. Digital Construction ERP System"
+                        placeholder={isAmharic ? "ለምሳሌ የቤቶች ልማት ኮርፖሬሽን" : "e.g. Digital Construction ERP System"}
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
                     </div>
 
                     <div>
-                      <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">Contractor Name</label>
+                      <label className="text-[10px] font-black text-slate-500 uppercase block mb-1">
+                        {isAmharic ? "የኮንትራክተር ስም" : "Contractor Name"}
+                      </label>
                       <input 
                         type="text" 
                         value={projContractor}
                         onChange={(e) => setProjContractor(e.target.value)}
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-black text-red-500 uppercase block mb-1">
+                        {isAmharic ? "በአንድ ፎቅ ውስጥ የሚገኙ ዞኖች ብዛት *" : "Zones per Floor *"}
+                      </label>
+                      <input 
+                        type="number" 
+                        required
+                        min="1"
+                        max="10"
+                        value={projZonesPerFloor}
+                        onChange={(e) => setProjZonesPerFloor(Math.max(1, Number(e.target.value)))}
+                        className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-red-200 focus:border-red-500 rounded-lg p-2.5 focus:outline-none"
+                      />
+                      <p className="text-[9px] text-slate-400 mt-0.5">
+                        {isAmharic ? "ይህ ፕሮጀክት በአንድ ፎቅ ውስጥ የሚኖረውን የዞኖች ብዛት ይገልጻል" : "Specifies default concrete-pour zones per floor levels."}
+                      </p>
                     </div>
                   </div>
 
@@ -1293,10 +1371,28 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                     </div>
                   </div>
 
+                  {currentFloorBldProjZones && (
+                    <div className="p-3 bg-red-50 rounded-xl border border-red-100 flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] font-black uppercase text-red-600">
+                          {isAmharic ? "የራስ-ሰር ዞኖች ማስተካከያ" : "Auto-Zone Generator"}
+                        </p>
+                        <p className="text-[9px] text-slate-500">
+                          {isAmharic
+                            ? `ይህንን ፎቅ ሲመዘግቡ ${currentFloorBldProjZones} ዞኖች በራስ-ሰር ይፈጠራሉ።`
+                            : `Creating this floor will auto-generate ${currentFloorBldProjZones} zones.`}
+                        </p>
+                      </div>
+                      <span className="text-xs font-black bg-red-600 text-white px-2.5 py-1 rounded-lg font-mono">
+                        {currentFloorBldProjZones}
+                      </span>
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={!canRegisterAndEdit}
-                    className="w-full bg-slate-900 hover:bg-slate-850 text-white rounded-xl py-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
+                    className="w-full bg-slate-900 hover:bg-slate-850 text-white rounded-xl py-2.5 text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
                   >
                     Register Floor
                   </button>
@@ -1310,6 +1406,17 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                     🔄 3. Cycle Zone Registry
                   </h3>
                   <p className="text-[10px] text-slate-400">Subdivide floors into localized aluminum pouring cycles.</p>
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black uppercase">
+                      {isAmharic ? "ሴክሽን ሄድ" : "Section Head"}
+                    </span>
+                    <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black uppercase">
+                      {isAmharic ? "ቲም ሊደር" : "Team Leader"}
+                    </span>
+                    <span className="text-[8px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black uppercase">
+                      {isAmharic ? "ሱፐርቫይዘር" : "Supervisor"}
+                    </span>
+                  </div>
                 </div>
 
                 <form onSubmit={handleCreateZone} className="space-y-4">
@@ -1398,7 +1505,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
                   <button
                     type="submit"
-                    disabled={!canRegisterAndEdit}
+                    disabled={!canRegisterZone}
                     className="w-full bg-slate-900 hover:bg-slate-850 text-white rounded-xl py-2 text-xs font-black uppercase tracking-wider transition-all cursor-pointer disabled:opacity-50"
                   >
                     Register Zone Segment

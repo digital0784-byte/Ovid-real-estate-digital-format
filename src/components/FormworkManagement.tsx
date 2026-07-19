@@ -113,6 +113,10 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [newPanelZone, setNewPanelZone] = useState("Floor 4 Zone A");
   const [newPanelQuantity, setNewPanelQuantity] = useState(1);
   const [newPanelStatus, setNewPanelStatus] = useState<PanelStatus>(PanelStatus.ACTIVE);
+  const [newPanelWeight, setNewPanelWeight] = useState<number>(14.5);
+  const [newPanelFloor, setNewPanelFloor] = useState<number>(4);
+  const [newPanelBuilding, setNewPanelBuilding] = useState("Block A");
+  const [newPanelPhoto, setNewPanelPhoto] = useState("");
 
   // Move Panel Form
   const [moveDestination, setMoveDestination] = useState("Digital Saris Block B");
@@ -225,7 +229,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
       zone: newPanelZone,
       status: newPanelStatus,
       usageCount: 0,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      weight: Number(newPanelWeight) || 14.5,
+      floor: Number(newPanelFloor) || 4,
+      building: newPanelBuilding || "Block A",
+      photo: newPanelPhoto || "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400"
     };
 
     await DbService.addFormworkPanel(newPanel);
@@ -252,6 +260,10 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
     setNewPanelSerial("");
     setNewPanelBundle("");
     setNewPanelQuantity(1);
+    setNewPanelWeight(14.5);
+    setNewPanelFloor(4);
+    setNewPanelBuilding("Block A");
+    setNewPanelPhoto("");
   };
 
   const handleMovePanel = async (e: React.FormEvent) => {
@@ -1189,12 +1201,27 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                       ) : (
                         filteredPanels.map((panel, idx) => (
                           <tr key={idx} className="hover:bg-slate-50 transition-colors">
-                            <td className="p-3 font-mono font-bold text-slate-900">{panel.id}</td>
+                            <td className="p-3 font-mono font-bold text-slate-900">
+                              <div className="flex items-center space-x-2">
+                                <img 
+                                  src={panel.photo || "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=80&h=80&fit=crop"} 
+                                  alt="Panel preview" 
+                                  className="w-7 h-7 rounded border border-slate-200 object-cover shrink-0"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <span>{panel.id}</span>
+                              </div>
+                            </td>
                             <td className="p-3 font-mono text-slate-600">{panel.serialNumber}</td>
                             <td className="p-3 font-mono">
                               <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[10px] text-slate-600">{panel.bundleNumber}</span>
                             </td>
-                            <td className="p-3 text-slate-600">{panel.size}</td>
+                            <td className="p-3">
+                              <div className="space-y-0.5">
+                                <span className="text-slate-800 font-medium">{panel.size}</span>
+                                <span className="block text-[10px] text-slate-400 font-medium">{panel.weight || 14.5} kg</span>
+                              </div>
+                            </td>
                             <td className="p-3">
                               <span className="font-medium text-slate-800">{panel.type}</span>
                             </td>
@@ -1202,7 +1229,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                             <td className="p-3">
                               <div className="space-y-0.5">
                                 <span className="font-semibold text-slate-900">{panel.location}</span>
-                                <span className="block text-[10px] text-slate-400 font-medium">{panel.zone}</span>
+                                <span className="block text-[10px] text-slate-500 font-medium">{panel.building || "Block A"} - Floor {panel.floor || 4} ({panel.zone})</span>
                               </div>
                             </td>
                             <td className="p-3">
@@ -2411,21 +2438,43 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                         </div>
                       </div>
 
+                      {/* Visual Photo Preview if exists */}
+                      <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50">
+                        <img 
+                          src={scannedPanel.photo || "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=400"} 
+                          alt="Scanned panel visual" 
+                          className="w-full h-28 object-cover"
+                          referrerPolicy="no-referrer"
+                        />
+                      </div>
+
                       {/* Info sheet list */}
                       <div className="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-100">
-                        <div className="flex justify-between py-1 border-b border-slate-200">
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">{t("Active Location:", "አሁን ያለበት ቦታ፡")}</span>
                           <strong className="text-slate-900">{scannedPanel.location}</strong>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-slate-200">
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
+                          <span className="text-slate-500">{t("Building Block:", "ህንፃ / ብሎክ፡")}</span>
+                          <strong className="text-slate-900">{scannedPanel.building || "Block A"}</strong>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
+                          <span className="text-slate-500">{t("Floor level:", "የፎቅ ደረጃ፡")}</span>
+                          <strong className="text-slate-900">Floor {scannedPanel.floor || 4}</strong>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">{t("Layout Zone:", "የስራ ዞን፡")}</span>
                           <strong className="text-slate-900">{scannedPanel.zone}</strong>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-slate-200">
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
+                          <span className="text-slate-500">{t("Weight specifications:", "ክብደት መለኪያ፡")}</span>
+                          <strong className="text-slate-900 font-mono">{scannedPanel.weight || 14.5} kg</strong>
+                        </div>
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">{t("Cycle Pours Count:", "የአጠቃቀም ዑደት፡")}</span>
                           <strong className="text-slate-900 font-mono">{scannedPanel.usageCount} {t("cycles", "ዑደት")}</strong>
                         </div>
-                        <div className="flex justify-between py-1 border-b border-slate-200">
+                        <div className="flex justify-between py-1 border-b border-slate-200/60">
                           <span className="text-slate-500">{t("Asset Condition Status:", "የፓነል የስራ ሁኔታ፡")}</span>
                           <span 
                             className="px-2 py-0.5 rounded text-[10px] font-bold"
@@ -2433,6 +2482,29 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                           >
                             {scannedPanel.status}
                           </span>
+                        </div>
+                      </div>
+
+                      {/* Movement History Logs list */}
+                      <div className="space-y-2">
+                        <h4 className="font-bold text-slate-800 text-[10px] uppercase tracking-wider">{t("Movement History Log", "የዝውውር ታሪክ መዝገብ")}</h4>
+                        <div className="max-h-24 overflow-y-auto space-y-1.5 border border-slate-150 rounded-lg p-2 bg-slate-50 text-[10px]">
+                          {movementLogs.filter(log => log.panelId === scannedPanel.id).length === 0 ? (
+                            <p className="text-slate-400 italic text-center py-2">{t("No movement logged yet.", "ምንም የዝውውር ታሪክ አልተመዘገበም።")}</p>
+                          ) : (
+                            [...movementLogs]
+                              .filter(log => log.panelId === scannedPanel.id)
+                              .reverse()
+                              .map((log, lidx) => (
+                                <div key={lidx} className="border-b border-slate-200/65 pb-1 last:border-0 last:pb-0">
+                                  <div className="flex justify-between font-semibold text-slate-700">
+                                    <span>{log.fromZone} → {log.toZone}</span>
+                                    <span className="font-mono text-[9px] text-slate-400">{new Date(log.timestamp).toLocaleDateString()}</span>
+                                  </div>
+                                  <p className="text-slate-400 text-[9px]">{log.movedBy} {log.notes ? `- ${log.notes}` : ""}</p>
+                                </div>
+                              ))
+                          )}
                         </div>
                       </div>
 
@@ -2605,6 +2677,51 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   <option value={PanelStatus.ACTIVE}>{t("Active (Standby)", "ንቁ (ዝግጁ)")}</option>
                   <option value={PanelStatus.IN_USE}>{t("In Use (Deployed)", "በስራ ላይ ያለ")}</option>
                 </select>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Weight (kg)", "ክብደት (ኪ.ግ)")}</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    required
+                    value={newPanelWeight}
+                    onChange={e => setNewPanelWeight(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Floor Number", "የፎቅ ቁጥር")}</label>
+                  <input
+                    type="number"
+                    required
+                    value={newPanelFloor}
+                    onChange={e => setNewPanelFloor(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Building Block", "ህንፃ / ብሎክ")}</label>
+                  <input
+                    type="text"
+                    required
+                    value={newPanelBuilding}
+                    onChange={e => setNewPanelBuilding(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">{t("Photo Reference URL", "የፎቶ ማስፈንጠሪያ")}</label>
+                <input
+                  type="url"
+                  placeholder="https://..."
+                  value={newPanelPhoto}
+                  onChange={e => setNewPanelPhoto(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                />
               </div>
 
               <div className="pt-2">

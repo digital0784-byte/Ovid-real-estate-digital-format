@@ -563,7 +563,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   }, [aiAnalyses, selectedDailyImage]);
 
   // --- ROLE PERMISSIONS ---
-  const canUploadDrawing = currentUserRole === UserRole.SITE_ENGINEER || currentUserRole === UserRole.PROJECT_MANAGER || currentUserRole === UserRole.HEAD_OFFICE;
+  const canUploadDrawing = currentUserRole === UserRole.SITE_ENGINEER || currentUserRole === UserRole.PROJECT_MANAGER || currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.TEAM_LEADER;
   const canReviewDrawing = currentUserRole === UserRole.SUPERVISOR || currentUserRole === UserRole.PROJECT_MANAGER || currentUserRole === UserRole.HEAD_OFFICE;
   const canApproveDrawing = currentUserRole === UserRole.HEAD_OFFICE;
 

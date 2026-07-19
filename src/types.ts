@@ -297,7 +297,12 @@ export enum PanelType {
   SLAB = "Slab Panel",
   COLUMN = "Column Panel",
   CORNER = "Corner Panel",
-  SPECIAL = "Special Panel"
+  SPECIAL = "Special Panel",
+  SOFFIT = "Soffit Panel",
+  DECK = "Deck Panel",
+  PROP = "Prop Inventory",
+  WALER = "Waler Inventory",
+  ACCESSORY = "Accessories Inventory"
 }
 
 export enum PanelStatus {
@@ -320,6 +325,10 @@ export interface AluminumFormworkPanel {
   status: PanelStatus;
   usageCount: number;
   createdAt: string;
+  weight?: number; // in kg
+  floor?: number;
+  building?: string;
+  photo?: string;
 }
 
 export interface PanelMovementLog {
