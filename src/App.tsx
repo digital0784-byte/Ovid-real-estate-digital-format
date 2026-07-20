@@ -818,31 +818,34 @@ export default function App() {
           </div>
 
           <div className="flex items-center space-x-4">
-            {/* Duty user selector */}
-            <div className="flex items-center space-x-2 bg-slate-50 p-1.5 rounded-xl border border-slate-200">
-              <UserCheck size={14} className="text-red-600 ml-1 shrink-0" />
-              <div className="text-left leading-none">
-                <span className="text-[9px] text-slate-400 block uppercase font-bold tracking-wider">{isAmharic ? "የተጠቃሚ መለያ" : "Active Session Profile"}</span>
-                <select
-                  value={currentUserRole}
-                  onChange={(e) => {
-                    const newRole = e.target.value as UserRole;
-                    setCurrentUserRole(newRole);
-                    logAction("User Switched Session Role", `Switched acting role session to ${newRole}`, newRole);
-                  }}
-                  className="bg-transparent border-none text-xs font-bold font-sans text-slate-700 focus:outline-none focus:ring-0 cursor-pointer pr-1"
-                >
-                  <option value={UserRole.HEAD_OFFICE}>{isAmharic ? "ዋና መስሪያ ቤት (Nuriye Ahmed Adem)" : "Head Office - Nuriye Ahmed Adem"}</option>
-                  <option value={UserRole.PROJECT_MANAGER}>{isAmharic ? "ፕሮጀክት ስራ አስኪያጅ (Eng. Dawit)" : "Project Manager - Eng. Dawit"}</option>
-                  <option value={UserRole.SECTION_HEAD}>{isAmharic ? "የክፍል ኃላፊ (Alemayehu Kebede)" : "Section Head - Alemayehu Kebede"}</option>
-                  <option value={UserRole.SUPERVISOR}>{isAmharic ? "ሱፐርቫይዘር (Kassa Hunegn)" : "Supervisor - Kassa Hunegn"}</option>
-                  <option value={UserRole.SITE_ENGINEER}>{isAmharic ? "ሳይት መሃንዲስ (Sintayehu Alula)" : "Site Engineer - Sintayehu Alula"}</option>
-                  <option value={UserRole.SURVEYOR}>{isAmharic ? "ሰርቬየር (Tadesse Chala)" : "Surveyor - Tadesse Chala"}</option>
-                  <option value={UserRole.TEAM_LEADER}>{isAmharic ? "የስራ ቡድን መሪ (Yohannes Bekele)" : "Team Leader - Yohannes Bekele"}</option>
-                  <option value={UserRole.GANG_CHIEF}>{isAmharic ? "ጋንግ ቺፍ / ፎርማን (Fikru Tolossa)" : "Gang Chief - Fikru Tolossa"}</option>
-                  <option value={UserRole.TIME_KEEPER}>{isAmharic ? "የመገኘት ተቆጣጣሪ (Abebe Girma)" : "Time Keeper - Abebe Girma"}</option>
-                  <option value={UserRole.WORKER}>{isAmharic ? "ሳይት ሰራተኛ (Bekele Tesfaye)" : "Worker - Bekele Tesfaye"}</option>
-                </select>
+            {/* Locked Duty Profile Badge */}
+            <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+              <div className="relative">
+                <UserCheck size={14} className="text-red-600 ml-1 shrink-0" />
+                <div className="absolute -bottom-1 -right-1 bg-red-600 text-white rounded-full p-[2px] border border-white">
+                  <Lock size={6} />
+                </div>
+              </div>
+              <div className="text-left leading-none pr-2">
+                <span className="text-[9px] text-slate-400 block uppercase font-bold tracking-wider flex items-center gap-1">
+                  {isAmharic ? "የተጠቃሚ መለያ (የተቆለፈ)" : "Active Profile (Locked)"}
+                </span>
+                <div className="text-xs font-bold font-sans text-slate-700 mt-0.5">
+                  {currentUserRole === UserRole.HEAD_OFFICE && (isAmharic ? "ዋና መስሪያ ቤት (Nuriye Ahmed Adem)" : "Head Office - Nuriye Ahmed Adem")}
+                  {currentUserRole === UserRole.PROJECT_MANAGER && (isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ (Eng. Dawit)" : "Project Manager - Eng. Dawit")}
+                  {currentUserRole === UserRole.SECTION_HEAD && (isAmharic ? "የክፍል ኃላፊ (Alemayehu Kebede)" : "Section Head - Alemayehu Kebede")}
+                  {currentUserRole === UserRole.SUPERVISOR && (isAmharic ? "ሱፐርቫይዘር (Kassa Hunegn)" : "Supervisor - Kassa Hunegn")}
+                  {currentUserRole === UserRole.SITE_ENGINEER && (isAmharic ? "ሳይት መሃንዲስ (Sintayehu Alula)" : "Site Engineer - Sintayehu Alula")}
+                  {currentUserRole === UserRole.SURVEYOR && (isAmharic ? "ሰርቬየር (Tadesse Chala)" : "Surveyor - Tadesse Chala")}
+                  {currentUserRole === UserRole.TEAM_LEADER && (isAmharic ? "የስራ ቡድን መሪ (Yohannes Bekele)" : "Team Leader - Yohannes Bekele")}
+                  {currentUserRole === UserRole.GANG_CHIEF && (isAmharic ? "ጋንግ ቺፍ / ፎርማን (Fikru Tolossa)" : "Gang Chief - Fikru Tolossa")}
+                  {currentUserRole === UserRole.TIME_KEEPER && (isAmharic ? "የመገኘት ተቆጣጣሪ (Abebe Girma)" : "Time Keeper - Abebe Girma")}
+                  {currentUserRole === UserRole.WORKER && (isAmharic ? "ሳይት ሰራተኛ (Bekele Tesfaye)" : "Worker - Bekele Tesfaye")}
+                  {currentUserRole === UserRole.SUPER_ADMIN && (isAmharic ? "ሱፐር አድሚን (Super Admin)" : "Super Admin")}
+                  {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የመጋዘን ኃላፊ (Store Manager)" : "Store Manager")}
+                  {currentUserRole === UserRole.HR_MANAGER && (isAmharic ? "የሰው ኃይል ኃላፊ (HR Manager)" : "HR Manager")}
+                  {currentUserRole === UserRole.FINANCE_MANAGER && (isAmharic ? "የፋይናንስ ኃላፊ (Finance Manager)" : "Finance Manager")}
+                </div>
               </div>
             </div>
 
