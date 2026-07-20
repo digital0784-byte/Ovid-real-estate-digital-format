@@ -110,7 +110,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                   </td>
                 </tr>
               ) : (
-                filteredLogs.map((log) => {
+                filteredLogs.map((log, index) => {
                   // Role-specific badge styling
                   const roleColors: Record<UserRole, string> = {
                     [UserRole.SUPER_ADMIN]: "bg-violet-50 text-violet-700 border-violet-200",
@@ -130,7 +130,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                   };
 
                   return (
-                    <tr key={log.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={`${log.id}-${index}`} className="hover:bg-slate-50 transition-colors">
                       <td className="py-3 px-4 font-mono text-[10px] font-bold text-slate-500">
                         {log.id}
                       </td>

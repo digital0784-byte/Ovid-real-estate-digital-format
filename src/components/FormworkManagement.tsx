@@ -53,7 +53,9 @@ import {
   PanelType, 
   PanelStatus,
   UserRole,
-  AuditLog
+  AuditLog,
+  ProjectZone,
+  DailyPanelLog
 } from "../types";
 
 interface FormworkManagementProps {
@@ -75,7 +77,9 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [isLoading, setIsLoading] = useState(true);
 
   // --- UI/Interaction States ---
-  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "database" | "movement" | "usage" | "damage_repair" | "missing" | "scanner" | "bundle_calc">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "database" | "movement" | "usage" | "damage_repair" | "missing" | "scanner" | "bundle_calc" | "daily_installation">("dashboard");
+  const [zones, setZones] = useState<ProjectZone[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<DailyPanelLog[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
@@ -132,6 +136,45 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [repairDetails, setRepairDetails] = useState("");
   const [repairCost, setRepairCost] = useState(1200);
 
+  // --- Daily Panel Installation Log States ---
+  const INITIAL_INSTALL_ROWS = [
+    { category: "WALL PANELS", type: "Standard Wall Panel", standardDimensions: "Width: 300–600 mm; Height: 2400 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "WALL PANELS", type: "Narrow Wall Panel", standardDimensions: "Width: 50–250 mm; Height: 2400 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "WALL PANELS", type: "Wall End Panel", standardDimensions: "Project-specific widths", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "WALL PANELS", type: "Wall Tie Sleeve Panel", standardDimensions: "PVC sleeve spacing", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SLAB/DECK PANELS", type: "Slab Panel", standardDimensions: "300×1200 to 600×1200 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SLAB/DECK PANELS", type: "Slab Corner (SC)", standardDimensions: "Height: 125 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SLAB/DECK PANELS", type: "Slab Inner Corner", standardDimensions: "Custom joint angles", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SLAB/DECK PANELS", type: "Slab Outer Corner", standardDimensions: "Custom joint angles", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "BEAM PANELS", type: "Main Beam (MB)", standardDimensions: "Width: 150 mm; Height: 125 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "BEAM PANELS", type: "End Beam (EB)", standardDimensions: "Width: 150 mm; Height: 125 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "BEAM PANELS", type: "Custom Beam Side/Soffit", standardDimensions: "Project-specific size", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "CORNER PANELS", type: "Internal Corner Panel", standardDimensions: "Standard 90° angles", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "CORNER PANELS", type: "External Corner Panel", standardDimensions: "Standard 90° angles", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "CORNER PANELS", type: "L-Shaped Angle", standardDimensions: "4 mm panel; 65 mm frame", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "CORNER PANELS", type: "Roof Corner C-Shape", standardDimensions: "Integrated roof frame", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "KICKER PANELS", type: "Kicker Panel", standardDimensions: "Wall starter heights", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "COLUMN PANELS", type: "Column Formwork Panel", standardDimensions: "150×150 to 600×600 mm", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "OPENING PANELS", type: "Door Opening Panel", standardDimensions: "Custom width × height with reveals", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "OPENING PANELS", type: "Window Opening Panel", standardDimensions: "Custom width × height with reveals", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SPECIALTY PANELS", type: "Staircase Panel", standardDimensions: "Custom tread & riser configurations", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SPECIALTY PANELS", type: "Balcony Panel", standardDimensions: "Custom balcony projection", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SPECIALTY PANELS", type: "Parapet Panel", standardDimensions: "Coping details integrated", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false },
+    { category: "SPECIALTY PANELS", type: "Special Prop Head", standardDimensions: "Support props head joint", customDimensions: "", isCustom: false, quantity: 0, notes: "", isSelected: false }
+  ];
+
+  const [installRows, setInstallRows] = useState(INITIAL_INSTALL_ROWS);
+  const [installDate, setInstallDate] = useState("2026-07-19");
+  const [installReporterName, setInstallReporterName] = useState(currentUserName || "Abebe Kebede");
+  const [installReporterRole, setInstallReporterRole] = useState("Supervisor");
+  const [selectedZoneId, setSelectedZoneId] = useState("");
+
+  // Other Custom Panel Form
+  const [customPanelType, setCustomPanelType] = useState("");
+  const [customPanelCategory, setCustomPanelCategory] = useState("WALL PANELS");
+  const [customPanelDims, setCustomPanelDims] = useState("");
+  const [selectedInstallCategory, setSelectedInstallCategory] = useState("WALL PANELS");
+
   // --- Camera Scan Simulator States ---
   const [scannerActive, setScannerActive] = useState(false);
   const [scannerMessage, setScannerMessage] = useState<string | null>(null);
@@ -151,11 +194,44 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
       const dbMovements = await DbService.getPanelMovementLogs();
       const dbDamages = await DbService.getPanelDamageReports();
       const dbRepairs = await DbService.getPanelRepairRecords();
+      const dbZones = await DbService.getZones();
 
       setPanels(dbPanels);
       setMovementLogs(dbMovements);
       setDamageReports(dbDamages);
       setRepairRecords(dbRepairs);
+      setZones(dbZones);
+      if (dbZones.length > 0) {
+        setSelectedZoneId(dbZones[0].id);
+      }
+
+      // Aggregate daily panel logs from all zones
+      const logs: DailyPanelLog[] = [];
+      dbZones.forEach(z => {
+        if (z.dailyPanelLogs) {
+          z.dailyPanelLogs.forEach(l => {
+            logs.push({
+              ...l,
+              notes: l.notes ? `${z.building} (FL ${z.floor} ${z.zone}): ${l.notes}` : `${z.building} (FL ${z.floor} ${z.zone})`
+            });
+          });
+        }
+      });
+
+      // Load any additional locally stored daily logs
+      const localLogsStr = localStorage.getItem("digital_construction_db_daily_panel_logs");
+      if (localLogsStr) {
+        try {
+          const localLogs = JSON.parse(localLogsStr) as DailyPanelLog[];
+          logs.push(...localLogs);
+        } catch (e) {
+          console.error("Error parsing local daily panel logs", e);
+        }
+      }
+
+      // Sort logs by date descending
+      logs.sort((a, b) => b.date.localeCompare(a.date));
+      setDailyLogs(logs);
     } catch (err) {
       console.error("Error loading formwork data", err);
     } finally {
@@ -166,6 +242,204 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   useEffect(() => {
     loadData();
   }, []);
+
+  // --- Daily Panel Installation Helper & Action Handlers ---
+  const calculateRowArea = (dimensionsStr: string, quantity: number): number => {
+    if (quantity <= 0) return 0;
+    let singleArea = 0.35;
+    try {
+      const numbers = dimensionsStr.replace(/,/g, '').match(/\d+/g);
+      if (numbers && numbers.length >= 2) {
+        const val1 = parseFloat(numbers[0]);
+        const val2 = parseFloat(numbers[1]);
+        if (val1 > 10 && val2 > 10) {
+          singleArea = (val1 / 1000) * (val2 / 1000);
+        } else {
+          singleArea = val1 * val2;
+        }
+      } else if (numbers && numbers.length === 1) {
+        const val = parseFloat(numbers[0]);
+        if (val > 100) {
+          singleArea = (val / 1000) * 2.4;
+        }
+      }
+    } catch (e) {
+      singleArea = 0.35;
+    }
+    if (singleArea < 0.01 || singleArea > 10.0) {
+      singleArea = 0.35;
+    }
+    return Number((singleArea * quantity).toFixed(2));
+  };
+
+  const handleToggleSelect = (index: number) => {
+    setInstallRows(prev => prev.map((row, idx) => {
+      if (idx === index) {
+        const nextSelected = !row.isSelected;
+        return {
+          ...row,
+          isSelected: nextSelected,
+          quantity: nextSelected && row.quantity === 0 ? 1 : row.quantity
+        };
+      }
+      return row;
+    }));
+  };
+
+  const handleQuantityChange = (index: number, val: number) => {
+    setInstallRows(prev => prev.map((row, idx) => {
+      if (idx === index) {
+        const q = Math.max(0, val);
+        return {
+          ...row,
+          quantity: q,
+          isSelected: q > 0
+        };
+      }
+      return row;
+    }));
+  };
+
+  const handleNotesChange = (index: number, notes: string) => {
+    setInstallRows(prev => prev.map((row, idx) => {
+      if (idx === index) {
+        return { ...row, notes };
+      }
+      return row;
+    }));
+  };
+
+  const handleCustomDimensionsChange = (index: number, customDimensions: string) => {
+    setInstallRows(prev => prev.map((row, idx) => {
+      if (idx === index) {
+        return { ...row, customDimensions };
+      }
+      return row;
+    }));
+  };
+
+  const handleAddCustomRow = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customPanelType.trim()) return;
+
+    const newRow = {
+      category: customPanelCategory,
+      type: customPanelType.trim(),
+      standardDimensions: customPanelDims.trim() || "User Specified/Custom Size",
+      customDimensions: "",
+      isCustom: true,
+      quantity: 1,
+      notes: "Custom entry added by user",
+      isSelected: true
+    };
+
+    setInstallRows(prev => [newRow, ...prev]);
+    setCustomPanelType("");
+    setCustomPanelDims("");
+    
+    // Toast-like notification
+    alert(t(
+      `Added custom panel type "${newRow.type}" under ${newRow.category} to selection table.`,
+      `አዲስ ብጁ ፓነል ዓይነት "${newRow.type}" በ${newRow.category} ስር ተጨምሯል::`
+    ));
+  };
+
+  const handleSubmitDailyLogs = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const activeRows = installRows.filter(r => r.isSelected && r.quantity > 0);
+    if (activeRows.length === 0) {
+      alert(t(
+        "Please select at least one panel type and input quantity > 0.",
+        "እባክዎ ቢያንስ አንድ የፓነል አይነት ይምረጡ እና የገጠማ መጠን ያስገቡ::"
+      ));
+      return;
+    }
+
+    try {
+      // Find the selected zone details
+      const zoneObj = zones.find(z => z.id === selectedZoneId);
+      const zoneStr = zoneObj ? `${zoneObj.building} FL ${zoneObj.floor} ${zoneObj.zone}` : "Selected Site Zone";
+
+      const newLogs: DailyPanelLog[] = activeRows.map((row, idx) => {
+        const finalDims = row.customDimensions || row.standardDimensions;
+        const numbers = finalDims.replace(/,/g, '').match(/\d+/g);
+        let len = 1.2;
+        let wid = 0.3;
+        if (numbers && numbers.length >= 2) {
+          const v1 = parseFloat(numbers[0]);
+          const v2 = parseFloat(numbers[1]);
+          len = v1 > 10 ? v1 / 1000 : v1;
+          wid = v2 > 10 ? v2 / 1000 : v2;
+        } else if (numbers && numbers.length === 1) {
+          const v = parseFloat(numbers[0]);
+          len = v > 10 ? v / 1000 : v;
+          wid = 0.3;
+        }
+
+        const qty = row.quantity;
+        const area = calculateRowArea(finalDims, qty);
+
+        return {
+          id: `LOG-P-${Date.now()}-${idx}`,
+          loggedBy: installReporterName,
+          role: installReporterRole,
+          date: installDate,
+          panelType: `${row.category}: ${row.type}`,
+          length: len,
+          width: wid,
+          quantity: qty,
+          calculatedArea: area,
+          notes: row.notes ? `${row.notes} (${zoneStr})` : `Installed at ${zoneStr}`
+        };
+      });
+
+      // Save to local storage daily logs list
+      const localLogsStr = localStorage.getItem("digital_construction_db_daily_panel_logs");
+      let currentLocalLogs: DailyPanelLog[] = [];
+      if (localLogsStr) {
+        try {
+          currentLocalLogs = JSON.parse(localLogsStr);
+        } catch (e) {}
+      }
+      currentLocalLogs.unshift(...newLogs);
+      localStorage.setItem("digital_construction_db_daily_panel_logs", JSON.stringify(currentLocalLogs));
+
+      // Append logs to selected project zone if available
+      if (zoneObj) {
+        const updatedZone = {
+          ...zoneObj,
+          installedPanels: (zoneObj.installedPanels || 0) + newLogs.reduce((acc, curr) => acc + curr.quantity, 0),
+          dailyPanelLogs: [...(zoneObj.dailyPanelLogs || []), ...newLogs]
+        };
+        await DbService.updateZone(updatedZone);
+      }
+
+      // Record Audit Log
+      await DbService.addAuditLog({
+        id: `AUDIT-${Date.now()}`,
+        timestamp: new Date().toISOString(),
+        userId: "ERP-USR-004",
+        userName: installReporterName,
+        role: installReporterRole as any,
+        action: "Daily Panel Installation Submitted",
+        details: `Logged ${newLogs.length} panel types (${newLogs.reduce((acc, curr) => acc + curr.quantity, 0)} pcs, ${newLogs.reduce((acc, curr) => acc + curr.calculatedArea, 0).toFixed(2)} m²) installed at ${zoneStr}`
+      });
+
+      // Reset installation quantities
+      setInstallRows(INITIAL_INSTALL_ROWS);
+      
+      // Reload the data
+      await loadData();
+
+      alert(t(
+        "Daily installation report submitted successfully! Panel inventory metrics, audit logs, and project zone tracking updated.",
+        "የዕለታዊ ፓነል ገጠማ ሪፖርት በተሳካ ሁኔታ ገብቷል! የፓነል ክምችት፣ የኦዲት መዝገብ እና የዞን መረጃዎች ተዘምነዋል።"
+      ));
+    } catch (err) {
+      console.error("Error submitting daily installation logs", err);
+      alert(t("Failed to submit daily log.", "ሪፖርቱን ማስገባት አልተቻለም::"));
+    }
+  };
 
   // --- Scanner Simulator Laser Effect ---
   useEffect(() => {
@@ -843,6 +1117,17 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           }`}
         >
           {t("🔄 Usage Cycles", "🔄 የአጠቃቀም ዑደት")}
+        </button>
+        <button
+          onClick={() => setActiveSubTab("daily_installation")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
+            activeSubTab === "daily_installation"
+              ? "bg-red-600 text-white font-bold animate-pulse"
+              : "bg-red-50 text-red-700 hover:bg-red-100"
+          }`}
+          style={{ animationDuration: "3s" }}
+        >
+          {t("👷 Daily Installation Log", "👷 ዕለታዊ የገጠማ ሪፖርት")}
         </button>
         <button
           onClick={() => setActiveSubTab("damage_repair")}
@@ -2234,6 +2519,421 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
                   </div>
                 )}
+
+              </div>
+            )}
+
+            {/* === DAILY INSTALLATION LOGS TABLE MATRIX === */}
+            {activeSubTab === "daily_installation" && (
+              <div className="space-y-6">
+                
+                {/* Upper Meta-Information & Logging Authorization Form */}
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-6">
+                  
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                        <Activity className="text-red-600" size={16} />
+                        <span>{t("Daily Formwork Installation Log Matrix", "ዕለታዊ የአሉሚኒየም ፎርምወርቅ ገጠማ መዝገብ")}</span>
+                      </h3>
+                      <p className="text-xs text-slate-500">
+                        {t(
+                          "Authorized roles (Section Head, Supervisor, Team Leader, Gang Chief) log newly erected panels. Grid calculates total forming areas automatically.",
+                          "የተፈቀደላቸው ባለሙያዎች (ሴክሽን ሄድ፣ ሱፐርቫይዘር፣ ቲም ሊደር፣ ጋንግ ቺፍ) የተገጠሙትን ፓነሎች እዚህ ይመዘግባሉ። ሰንጠረዡ የፎርሚንግ ስፋትን በራሱ ያሰላል።"
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Role badge indicators */}
+                    <div className="flex items-center space-x-2 shrink-0">
+                      <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mr-1">{t("Authorized Roles:", "የተፈቀዱ ኃላፊነቶች፡")}</span>
+                      <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">Section Head</span>
+                      <span className="text-[10px] bg-blue-50 text-blue-700 px-2 py-0.5 rounded font-bold">Supervisor</span>
+                      <span className="text-[10px] bg-amber-50 text-amber-700 px-2 py-0.5 rounded font-bold">Team Leader</span>
+                      <span className="text-[10px] bg-purple-50 text-purple-700 px-2 py-0.5 rounded font-bold">Gang Chief</span>
+                    </div>
+                  </div>
+
+                  {/* Config settings & Form meta */}
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs">
+                    
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">{t("Reporting Date", "የሪፖርት ቀን")}</label>
+                      <div className="relative">
+                        <Calendar className="absolute left-3 top-2.5 text-slate-400" size={14} />
+                        <input
+                          type="date"
+                          required
+                          value={installDate}
+                          onChange={e => setInstallDate(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-slate-800 outline-none font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">{t("Reporter Name", "የሪፖርተር ስም")}</label>
+                      <div className="relative">
+                        <User className="absolute left-3 top-2.5 text-slate-400" size={14} />
+                        <input
+                          type="text"
+                          required
+                          placeholder={t("Abebe Kebede", "የሪፖርተሩን ስም ያስገቡ")}
+                          value={installReporterName}
+                          onChange={e => setInstallReporterName(e.target.value)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-9 pr-3 py-2 text-slate-800 outline-none font-medium"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">{t("Reporter Role", "የሪፖርተር ኃላፊነት")}</label>
+                      <select
+                        value={installReporterRole}
+                        onChange={e => setInstallReporterRole(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-800 outline-none font-semibold"
+                      >
+                        <option value="Supervisor">{t("Supervisor (ሱፐርቫይዘር)", "Supervisor")}</option>
+                        <option value="Team Leader">{t("Team Leader (ቲም ሊደር)", "Team Leader")}</option>
+                        <option value="Gang Chief">{t("Gang Chief (ጋንግ ቺፍ)", "Gang Chief")}</option>
+                        <option value="Section Head">{t("Section Head (ሴክሽን ሄድ)", "Section Head")}</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block font-semibold text-slate-700 mb-1">{t("Active Project Zone / Floor", "የፕሮጀክት ዞን / ወለል")}</label>
+                      <select
+                        value={selectedZoneId}
+                        onChange={e => setSelectedZoneId(e.target.value)}
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2 text-slate-800 outline-none font-semibold text-blue-800"
+                      >
+                        {zones.map(z => (
+                          <option key={z.id} value={z.id}>
+                            {z.building} • FL {z.floor} ({z.zone})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* Main panel selector grid */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  
+                  {/* LEFT 2 COLUMNS: TABLE MATRIX & SELECTION */}
+                  <div className="lg:col-span-2 bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                    
+                    {/* Category tabs selection pills */}
+                    <div className="space-y-1.5">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t("Select Panel Category to Log", "የፓነል ምድብ ይምረጡ")}</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {Array.from(new Set(installRows.map(r => r.category as string))).map((cat: string) => (
+                          <button
+                            key={cat}
+                            onClick={() => setSelectedInstallCategory(cat)}
+                            className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all ${
+                              selectedInstallCategory === cat
+                                ? "bg-red-600 text-white shadow-sm"
+                                : "bg-slate-50 text-slate-600 hover:bg-slate-100 border border-slate-200/60"
+                            }`}
+                          >
+                            {cat === "WALL PANELS" && t("🧱 Wall Panels", "🧱 የግድግዳ ፓነሎች")}
+                            {cat === "SLAB/DECK PANELS" && t("🥞 Slab/Deck Panels", "🥞 የስላብ ፓነሎች")}
+                            {cat === "BEAM PANELS" && t("🪵 Beam Panels", "🪵 የቢም ፓነሎች")}
+                            {cat === "CORNER PANELS" && t("📐 Corner Panels", "📐 የማዕዘን ፓነሎች")}
+                            {cat === "KICKER PANELS" && t("🪜 Kicker Panels", "🪜 የኪከር ፓነሎች")}
+                            {cat === "COLUMN PANELS" && t("🏛️ Column Panels", "🏛️ የዓምድ ፓነሎች")}
+                            {cat === "OPENING PANELS" && t("🚪 Opening Panels", "🚪 የበር/መስኮት መከፈቻ")}
+                            {cat === "SPECIALTY PANELS" && t("🎖️ Specialty Panels", "🎖️ የልዩ ፓነሎች")}
+                            {!["WALL PANELS", "SLAB/DECK PANELS", "BEAM PANELS", "CORNER PANELS", "KICKER PANELS", "COLUMN PANELS", "OPENING PANELS", "SPECIALTY PANELS"].includes(cat) && cat}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Table of selected category */}
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                      <table className="w-full text-left border-collapse text-xs">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
+                            <th className="p-3 text-center w-12 font-mono">Sel</th>
+                            <th className="p-3">{t("Panel Type Name", "የፓነል ዓይነት ስም")}</th>
+                            <th className="p-3">{t("Dimensions / Specification", "መጠን / መስፈርት")}</th>
+                            <th className="p-3 text-center w-28">{t("Quantity Installed", "የተገጠመ ብዛት")}</th>
+                            <th className="p-3">{t("Additional Notes", "ተጨማሪ ማስታወሻ")}</th>
+                            <th className="p-3 text-right font-mono w-24">Area (m²)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-700">
+                          {installRows
+                            .map((row, realIdx) => ({ row, realIdx }))
+                            .filter(item => item.row.category === selectedInstallCategory)
+                            .map(({ row, realIdx }) => {
+                              const calculatedArea = calculateRowArea(row.customDimensions || row.standardDimensions, row.quantity);
+                              
+                              return (
+                                <tr 
+                                  key={realIdx} 
+                                  className={`hover:bg-slate-50 transition-colors ${row.isSelected ? 'bg-blue-50/25' : ''}`}
+                                >
+                                  {/* Select Checkbox */}
+                                  <td className="p-3 text-center">
+                                    <input
+                                      type="checkbox"
+                                      checked={row.isSelected}
+                                      onChange={() => handleToggleSelect(realIdx)}
+                                      className="w-4 h-4 text-red-600 border-slate-300 rounded focus:ring-red-500 accent-red-600"
+                                    />
+                                  </td>
+
+                                  {/* Panel Name & Badge */}
+                                  <td className="p-3 font-medium">
+                                    <div className="flex flex-col">
+                                      <span className="font-bold text-slate-950">{row.type}</span>
+                                      {row.isCustom && (
+                                        <span className="inline-block bg-orange-100 text-orange-800 text-[9px] px-1.5 py-0.5 rounded font-bold w-max mt-0.5">
+                                          {t("Custom Entry", "ብጁ ግቤት")}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </td>
+
+                                  {/* Dimensions Spec & Custom input */}
+                                  <td className="p-3">
+                                    <div className="space-y-1.5">
+                                      <span className="text-[10px] text-slate-400 block italic">{row.standardDimensions}</span>
+                                      
+                                      {/* Custom dimension override */}
+                                      <input
+                                        type="text"
+                                        placeholder={t("Override dimension (e.g. 450x2400)", "ልዩ መጠን እዚህ ይጻፉ")}
+                                        value={row.customDimensions}
+                                        onChange={e => handleCustomDimensionsChange(realIdx, e.target.value)}
+                                        className="w-full bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[10px] outline-none"
+                                      />
+                                    </div>
+                                  </td>
+
+                                  {/* Quantity installed */}
+                                  <td className="p-3">
+                                    <div className="flex items-center space-x-1 justify-center">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(realIdx, row.quantity - 1)}
+                                        className="bg-slate-100 hover:bg-slate-200 border border-slate-200 w-6 h-6 rounded flex items-center justify-center font-bold text-xs"
+                                      >
+                                        -
+                                      </button>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={row.quantity || ""}
+                                        placeholder="0"
+                                        onChange={e => handleQuantityChange(realIdx, parseInt(e.target.value) || 0)}
+                                        className="w-12 text-center bg-slate-50 border border-slate-200 rounded py-1 font-bold text-xs"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuantityChange(realIdx, row.quantity + 1)}
+                                        className="bg-slate-100 hover:bg-slate-200 border border-slate-200 w-6 h-6 rounded flex items-center justify-center font-bold text-xs"
+                                      >
+                                        +
+                                      </button>
+                                    </div>
+                                  </td>
+
+                                  {/* Notes field */}
+                                  <td className="p-3">
+                                    <input
+                                      type="text"
+                                      placeholder={t("e.g. West alignment, Grid A-4", "ምሳሌ፡ ምዕራብ አሰላለፍ")}
+                                      value={row.notes}
+                                      onChange={e => handleNotesChange(realIdx, e.target.value)}
+                                      className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[11px] outline-none"
+                                    />
+                                  </td>
+
+                                  {/* Real-time area preview */}
+                                  <td className="p-3 text-right font-mono font-bold text-slate-900">
+                                    {calculatedArea > 0 ? `${calculatedArea} m²` : "—"}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                        </tbody>
+                      </table>
+                    </div>
+
+                  </div>
+
+                  {/* RIGHT 1 COLUMN: ADD OTHER PANEL FORM & SUBMIT ENGINE */}
+                  <div className="space-y-6">
+                    
+                    {/* Add Custom Other Panel Card */}
+                    <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200/60 space-y-4">
+                      <div className="space-y-1">
+                        <h4 className="text-xs font-bold text-slate-950 flex items-center space-x-1.5">
+                          <Plus className="text-red-600" size={14} />
+                          <span>{t("Add Other / Custom Panel", "ሌሎች ወይም ብጁ ፓነል ዓይነት ጨምር")}</span>
+                        </h4>
+                        <p className="text-[10px] text-slate-500">
+                          {t("If a panel type is not listed in standard matrix tables, register it custom below.", "በዝርዝሩ ውስጥ የሌለ ፓነል ካጋጠመዎት እዚህ በመጻፍ ወደ ሰንጠረዡ ይጨምሩት።")}
+                        </p>
+                      </div>
+
+                      <form onSubmit={handleAddCustomRow} className="space-y-3 text-xs">
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">{t("Panel Type Name / Spec", "የፓነል ዓይነት ስም / መለያ")}</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="e.g. Specialty Wall Header H200"
+                            value={customPanelType}
+                            onChange={e => setCustomPanelType(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-800 outline-none text-xs"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">{t("Select Category Group", "የፓነሉን ምድብ ይምረጡ")}</label>
+                          <select
+                            value={customPanelCategory}
+                            onChange={e => setCustomPanelCategory(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-800 outline-none font-semibold text-xs"
+                          >
+                            <option value="WALL PANELS">{t("🧱 WALL PANELS", "🧱 WALL PANELS")}</option>
+                            <option value="SLAB/DECK PANELS">{t("🥞 SLAB/DECK PANELS", "🥞 SLAB/DECK PANELS")}</option>
+                            <option value="BEAM PANELS">{t("🪵 BEAM PANELS", "🪵 BEAM PANELS")}</option>
+                            <option value="CORNER PANELS">{t("📐 CORNER PANELS", "📐 CORNER PANELS")}</option>
+                            <option value="KICKER PANELS">{t("🪜 KICKER PANELS", "🪜 KICKER PANELS")}</option>
+                            <option value="COLUMN PANELS">{t("🏛️ COLUMN PANELS", "🏛️ COLUMN PANELS")}</option>
+                            <option value="OPENING PANELS">{t("🚪 OPENING PANELS", "🚪 OPENING PANELS")}</option>
+                            <option value="SPECIALTY PANELS">{t("🎖️ SPECIALTY PANELS", "🎖️ SPECIALTY PANELS")}</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="block text-[11px] font-semibold text-slate-700 mb-1">{t("Standard / Intended Size (Width x Height)", "መደበኛ መጠን (ወርድ x ቁመት)")}</label>
+                          <input
+                            type="text"
+                            placeholder="e.g. 200x1200 mm"
+                            value={customPanelDims}
+                            onChange={e => setCustomPanelDims(e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-2 text-slate-800 outline-none text-xs"
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="w-full bg-red-600 hover:bg-red-700 text-white py-2 rounded-lg font-bold text-xs transition-colors flex items-center justify-center space-x-1"
+                        >
+                          <Plus size={14} />
+                          <span>{t("Add to Selection Matrix", "ወደ ገበታው አስገባ")}</span>
+                        </button>
+                      </form>
+                    </div>
+
+                    {/* Summary Running Total & Submitter Card */}
+                    <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-4 shadow-md">
+                      
+                      <div className="space-y-1">
+                        <span className="text-[10px] text-red-500 tracking-wider font-bold uppercase block">{t("DAILY QUANTITY RUNNING TOTALS", "ዕለታዊ የገጠማ ሪፖርት ድምር")}</span>
+                        <h4 className="text-xs font-bold text-slate-300">{t("Active Session Calculations", "የአሁኑ የገጠማ ስሌት")}</h4>
+                      </div>
+
+                      <div className="divide-y divide-slate-800 text-xs">
+                        
+                        <div className="py-2.5 flex justify-between">
+                          <span className="text-slate-400">{t("Selected Panel Types:", "የተመረጡ ዓይነቶች፡")}</span>
+                          <strong className="text-white font-mono">{installRows.filter(r => r.isSelected && r.quantity > 0).length}</strong>
+                        </div>
+
+                        <div className="py-2.5 flex justify-between">
+                          <span className="text-slate-400">{t("Total Pieces to Log:", "ጠቅላላ የፓነል ቁርጥራጮች፡")}</span>
+                          <strong className="text-red-500 font-mono text-sm">
+                            {installRows.reduce((acc, row) => acc + (row.isSelected ? row.quantity : 0), 0)} {t("pcs", "ፓነሎች")}
+                          </strong>
+                        </div>
+
+                        <div className="py-2.5 flex justify-between">
+                          <span className="text-slate-400">{t("Calculated Forming Area:", "አጠቃላይ የፎርሚንግ ስፋት፡")}</span>
+                          <strong className="text-emerald-400 font-mono text-sm">
+                            {installRows.reduce((acc, row) => {
+                              if (!row.isSelected) return acc;
+                              return acc + calculateRowArea(row.customDimensions || row.standardDimensions, row.quantity);
+                            }, 0).toFixed(2)} m²
+                          </strong>
+                        </div>
+
+                      </div>
+
+                      {/* Submit Trigger Button */}
+                      <button
+                        type="button"
+                        onClick={handleSubmitDailyLogs}
+                        className="w-full bg-red-600 hover:bg-red-500 text-white py-3 rounded-xl font-bold text-xs tracking-wide transition-all shadow-lg shadow-red-900/40 flex items-center justify-center space-x-2"
+                      >
+                        <CheckCircle size={16} />
+                        <span>{t("SUBMIT DAILY INSTALLATION REPORT", "ዕለታዊ የገጠማ ሪፖርት አስገባ")}</span>
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                </div>
+
+                {/* HISTORICAL LOG TRACKER TABLE */}
+                <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+                    <h4 className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                      <FileText className="text-red-600" size={14} />
+                      <span>{t("Historical Formwork Installation Audit Logs", "ቀደም ሲል የገቡ የፓነል ገጠማ መዝገቦች")}</span>
+                    </h4>
+                    <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-bold font-mono">
+                      {dailyLogs.length} {t("Logs", "መዝገቦች")}
+                    </span>
+                  </div>
+
+                  {dailyLogs.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic text-center py-8">{t("No historical installation logs present.", "ምንም የገጠማ ሪፖርት አልተመዘገበም።")}</p>
+                  ) : (
+                    <div className="overflow-x-auto rounded-xl border border-slate-100">
+                      <table className="w-full text-left border-collapse text-[11px]">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-100 text-slate-600 font-semibold">
+                            <th className="p-3">{t("Date", "ቀን")}</th>
+                            <th className="p-3">{t("Logged By (Role)", "መዝጋቢ (ኃላፊነት)")}</th>
+                            <th className="p-3">{t("Panel Specifications", "የፓነል ዝርዝር መግለጫ")}</th>
+                            <th className="p-3 text-center">{t("Quantity", "ብዛት")}</th>
+                            <th className="p-3 text-right">{t("Area (m²)", "ስፋት (m²)")}</th>
+                            <th className="p-3">{t("Project Zone Details / Notes", "የፕሮጀክት ዞን ዝርዝር ማስታወሻ")}</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-700 font-sans">
+                          {dailyLogs.map((log, index) => (
+                            <tr key={index} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-3 font-mono font-bold text-slate-900">{log.date}</td>
+                              <td className="p-3">
+                                <span className="font-bold text-slate-800">{log.loggedBy}</span>
+                                <span className="block text-[10px] text-slate-400 font-medium">{log.role}</span>
+                              </td>
+                              <td className="p-3">
+                                <span className="font-semibold text-slate-900 block">{log.panelType}</span>
+                                <span className="text-[9px] text-slate-500 font-mono">Size: {log.length}m × {log.width}m</span>
+                              </td>
+                              <td className="p-3 text-center font-mono font-bold text-slate-800">{log.quantity} pcs</td>
+                              <td className="p-3 text-right font-mono font-bold text-emerald-600">{log.calculatedArea.toFixed(2)} m²</td>
+                              <td className="p-3 text-slate-500 italic max-w-xs truncate">{log.notes || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
 
               </div>
             )}

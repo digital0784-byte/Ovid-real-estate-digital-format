@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { 
   Camera, 
   Sparkles, 
@@ -21,7 +21,11 @@ import {
   Eye,
   Settings,
   Sliders,
-  HelpCircle
+  HelpCircle,
+  Play,
+  Square,
+  Zap,
+  Video
 } from "lucide-react";
 import { UserRole, ProjectZone } from "../types";
 
@@ -232,6 +236,154 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
 
   // Selected photo for analysis workspace
   const [selectedPhotoId, setSelectedPhotoId] = useState<string>("PHOTO-002");
+
+  // --- AUTOPILOT SITE PHOTOS ---
+  const [isAutoFeedActive, setIsAutoFeedActive] = useState(false);
+  const [autoIntervalSeconds, setAutoIntervalSeconds] = useState(15);
+  const [autoFeedCount, setAutoFeedCount] = useState(0);
+
+  const triggerAutoPhotoInsertion = () => {
+    // Random construction details
+    const buildings = ["Tower 1", "Tower 2", "Block B"];
+    const activities = ["Formwork Assembly", "Alignment Calibration", "Support Bracing", "Steel Fixing"];
+    const zonesList = ["Zone A", "Zone B", "Zone C", "Zone D"];
+    const photographers = [
+      { name: "Yohannes Bekele", role: "Team Leader" },
+      { name: "Fikru Tolossa", role: "Gang Chief" },
+      { name: "Kassa Hunegn", role: "Supervisor" },
+      { name: "Dereje Ayalew", role: "Site Engineer" }
+    ];
+
+    const randomBuilding = buildings[Math.floor(Math.random() * buildings.length)];
+    const randomFloor = Math.floor(Math.random() * 5) + 1;
+    const randomZone = zonesList[Math.floor(Math.random() * zonesList.length)];
+    const randomActivity = activities[Math.floor(Math.random() * activities.length)];
+    const randomPhotographer = photographers[Math.floor(Math.random() * photographers.length)];
+
+    const autoImagePool = [
+      "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1581094288338-2314dddb7ecc?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1503387762-592deb58ef4e?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1531834685032-c34bf0d843da?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&auto=format&fit=crop",
+      "https://images.unsplash.com/photo-1490730141103-6cac27aaab94?w=800&auto=format&fit=crop"
+    ];
+    const randomImgUrl = autoImagePool[Math.floor(Math.random() * autoImagePool.length)];
+
+    const workCompleted = Math.floor(Math.random() * 41) + 60; // 60% to 100%
+    const coverage = Math.min(100, workCompleted + Math.floor(Math.random() * 5));
+    const isPerfect = Math.random() > 0.4;
+    
+    const missingPanels = !isPerfect;
+    const missingNum = missingPanels ? Math.floor(Math.random() * 4) + 1 : 0;
+    const matchesCAD = isPerfect;
+    
+    let alertMsg = isAmharic 
+      ? "ሁሉም የአሉሚኒየም ፎርምወርክ ፓነሎች ከፀደቀው የCAD ዲዛይን ጋር በትክክል ይጣጣማሉ።" 
+      : "All primary panels strictly align with approved CAD schematics.";
+    if (missingPanels) {
+      alertMsg = isAmharic
+        ? `ትኩረት፡ ${missingNum} የአሉሚኒየም ፎርምወርክ ፓነሎች በዞኑ ላይ አልተገጠሙም!`
+        : `Critical warning: ${missingNum} structural formwork panels are completely absent in this zone grid!`;
+    }
+
+    const alignment = isPerfect ? "Pass" : "Review Required";
+    const deviationV = isPerfect ? Number((Math.random() * 1.5 + 0.5).toFixed(1)) : Number((Math.random() * 8 + 3).toFixed(1));
+    const deviationH = isPerfect ? Number((Math.random() * 1.2 + 0.3).toFixed(1)) : Number((Math.random() * 6 + 2).toFixed(1));
+    const defects = isPerfect ? [] : [
+      isAmharic ? "በግድግዳ መጋጠሚያ ላይ ትንሽ መዛባት" : "Slight leaning at wall joint",
+      isAmharic ? "ያልተጠበቁ ተጨማሪ ቁሶች" : "Unsecured locking accessories"
+    ];
+
+    const annotations = isPerfect ? [
+      { x: 30, y: 40, label: "Joint Tightness: 100%", type: "pass" as const },
+      { x: 70, y: 35, label: "Vertical plumb: OK", type: "pass" as const }
+    ] : [
+      { x: 45, y: 60, label: isAmharic ? "የፒን ቁልፎች ይጎድላሉ" : "Missing Pin Wedges", type: "fail" as const },
+      { x: 80, y: 50, label: isAmharic ? `መዛባት ${deviationV} ሚሜ` : `Vertical deviation ${deviationV}mm`, type: "warn" as const }
+    ];
+
+    const newPhotoId = `PHOTO-AUTO-${Date.now().toString().slice(-4)}`;
+    const newPhoto: SitePhoto = {
+      id: newPhotoId,
+      project: "Bole Heights Phase 1",
+      building: randomBuilding,
+      floor: randomFloor,
+      zone: randomZone,
+      date: new Date().toISOString().split("T")[0],
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      gpsLocation: { 
+        lat: 9.0045 + (Math.random() - 0.5) * 0.002, 
+        lng: 38.7780 + (Math.random() - 0.5) * 0.002, 
+        alt: 2320 
+      },
+      photographer: randomPhotographer.name,
+      photographerRole: randomPhotographer.role,
+      workActivity: randomActivity,
+      imageUrl: randomImgUrl,
+      progressAnalysis: {
+        workCompletedPercent: workCompleted,
+        remainingPercent: 100 - workCompleted,
+        panelCoveragePercent: coverage,
+        targetComparison: workCompleted >= 85 ? "Ahead" : "Behind",
+        scheduleVarianceDays: workCompleted >= 85 ? -1 : 1
+      },
+      panelVerification: {
+        layoutMatchesApprovedCAD: matchesCAD,
+        expectedPanelTypesInstalled: true,
+        missingPanelsDetected: missingPanels,
+        missingCount: missingNum,
+        inconsistenciesDetected: !matchesCAD,
+        inspectorAlertMessage: alertMsg
+      },
+      alignmentAssessment: {
+        alignmentStatus: alignment,
+        verticalDeviationMm: deviationV,
+        horizontalDeviationMm: deviationH,
+        gapsDetected: missingPanels || !isPerfect,
+        visibleDefects: defects,
+        confidenceScore: Math.floor(Math.random() * 8) + 91,
+        annotations: annotations
+      },
+      readinessChecklist: {
+        requiredPanelsInstalled: !missingPanels,
+        requiredAccessoriesInstalled: isPerfect,
+        alignmentInspectionCompleted: alignment === "Pass",
+        bracingInspectionCompleted: isPerfect,
+        safetyInspectionCompleted: true,
+        qualityInspectionCompleted: alignment === "Pass",
+        supervisorApproval: false,
+        engineerApproval: false
+      }
+    };
+
+    setPhotos(prev => [newPhoto, ...prev]);
+    setSelectedPhotoId(newPhotoId);
+    setAutoFeedCount(prev => prev + 1);
+
+    if (onLogAction) {
+      onLogAction(
+        isAmharic ? "አውቶማቲክ የሳይት ፎቶ አስገባ" : "Autopilot Photo Generated",
+        `[Auto-Feed] Generated photo ${newPhotoId} for ${randomBuilding} FL ${randomFloor} ${randomZone}. AI estimated progress: ${workCompleted}%.`
+      );
+    }
+  };
+
+  useEffect(() => {
+    let intervalId: any;
+    if (isAutoFeedActive) {
+      intervalId = setInterval(() => {
+        triggerAutoPhotoInsertion();
+      }, autoIntervalSeconds * 1000);
+    }
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isAutoFeedActive, autoIntervalSeconds]);
 
   // Form State for uploading new photo
   const [uploadProject, setUploadProject] = useState("Bole Heights Phase 1");
@@ -704,6 +856,110 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
                 </p>
               </div>
             )}
+          </div>
+
+          {/* Autopilot site photo generator */}
+          <div className="bg-slate-900 text-white rounded-2xl border border-slate-800 shadow-xl p-5 space-y-4">
+            <div className="border-b border-slate-800 pb-3 flex justify-between items-center">
+              <div className="space-y-0.5">
+                <h3 className="text-xs font-black uppercase tracking-wider text-red-500 flex items-center space-x-1.5">
+                  <Video size={14} className="animate-pulse" />
+                  <span>{isAmharic ? "አውቶማቲክ የአይአይ ፎቶ ማስገቢያ" : "AI Autopilot Photo Feed"}</span>
+                </h3>
+                <p className="text-[10px] text-slate-400">
+                  {isAmharic 
+                    ? "የድሮን ወይም የሳይት CCTV ካሜራ ፎቶዎችን በራስ-ሰር ማስገቢያ ማሽን"
+                    : "Simulate automated camera & drone feed integrations."}
+                </p>
+              </div>
+              {isAutoFeedActive && (
+                <span className="flex h-2 w-2 relative">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-3 text-xs">
+              {/* Option 1: Instant Single Auto-Photo Generator */}
+              <button
+                type="button"
+                onClick={triggerAutoPhotoInsertion}
+                className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-extrabold rounded-lg uppercase tracking-wider flex items-center justify-center space-x-2 cursor-pointer transition-colors"
+              >
+                <Zap size={13} />
+                <span>{isAmharic ? "አሁን አውቶማቲክ ፎቶ አስገባ" : "Insert Auto-Photo Now"}</span>
+              </button>
+
+              <div className="relative flex py-2 items-center">
+                <div className="flex-grow border-t border-slate-800"></div>
+                <span className="flex-shrink mx-3 text-[9px] text-slate-500 font-bold uppercase">{isAmharic ? "ወይም ቀጣይነት ያለው ፍሰት" : "Or Continuous Stream"}</span>
+                <div className="flex-grow border-t border-slate-800"></div>
+              </div>
+
+              {/* Option 2: Continuous Toggle and interval selector */}
+              <div className="p-3 bg-slate-950 rounded-xl border border-slate-800/80 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-[10px] text-slate-400 uppercase tracking-wider">
+                    {isAmharic ? "ቀጣይነት ያለው ፎቶ ፍሰት" : "Continuous Photo Stream"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAutoFeedActive(!isAutoFeedActive);
+                      if (onLogAction) {
+                        onLogAction(
+                          !isAutoFeedActive ? "Autopilot Stream Started" : "Autopilot Stream Paused",
+                          !isAutoFeedActive 
+                            ? `Started continuous site camera photo streaming at ${autoIntervalSeconds}s interval.` 
+                            : "Paused continuous site camera photo streaming."
+                        );
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase flex items-center space-x-1 cursor-pointer transition-colors ${
+                      isAutoFeedActive 
+                        ? "bg-red-600 text-white hover:bg-red-700" 
+                        : "bg-slate-800 text-slate-300 hover:bg-slate-700"
+                    }`}
+                  >
+                    {isAutoFeedActive ? (
+                      <>
+                        <Square size={10} fill="currentColor" />
+                        <span>{isAmharic ? "አቁም" : "Stop"}</span>
+                      </>
+                    ) : (
+                      <>
+                        <Play size={10} fill="currentColor" />
+                        <span>{isAmharic ? "ጀምር" : "Start"}</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[10px] text-slate-400 font-bold">
+                    <span>{isAmharic ? "የማስገቢያ ፍጥነት (ሰከንድ)" : "Feed Interval"}</span>
+                    <span className="font-mono text-red-400">{autoIntervalSeconds}s</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="5"
+                    max="60"
+                    step="5"
+                    value={autoIntervalSeconds}
+                    onChange={(e) => setAutoIntervalSeconds(Number(e.target.value))}
+                    disabled={isAutoFeedActive}
+                    className="w-full accent-red-600 cursor-pointer h-1 bg-slate-800 rounded-lg appearance-none disabled:opacity-50"
+                  />
+                </div>
+
+                {/* Micro Stats info */}
+                <div className="flex justify-between items-center text-[9px] text-slate-500 pt-1 border-t border-slate-900">
+                  <span>{isAmharic ? "የገቡ ፎቶዎች ብዛት:" : "Auto-Generated Photos:"}</span>
+                  <span className="font-mono text-slate-300 font-black">{autoFeedCount}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* 2. Historic Photo Log Feed */}

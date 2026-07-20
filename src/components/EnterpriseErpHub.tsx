@@ -860,7 +860,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     if (wf.autoNotify) {
       const channelText = "Channels: Push Notification, SMS dispatched to " + stages[0];
       const newNotif = {
-        id: `NOT-${Date.now().toString().slice(-4)}`,
+        id: `NOT-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
         type: "Workflow Initiated",
         title: wf.name + " Initiated",
         text: `Approval level 1 requested for: "${simTriggerDetails}". ${channelText}`,
@@ -880,7 +880,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       if (!approve) {
         onLogAction("Workflow Disapproved", `${req.workflowName} rejected by current level assignee.`);
         const rejectNotif = {
-          id: `NOT-${Date.now().toString().slice(-4)}`,
+          id: `NOT-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
           type: "Workflow Rejected",
           title: req.workflowName + " Rejected",
           text: `Request ${req.id} was disapproved and returned to initiator by ${req.levels[req.currentLevel] || "Assignee"}.`,
@@ -898,7 +898,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       onLogAction("Workflow Approved Level", `Approved stage ${nextLevel} of ${req.maxLevel} for ${req.workflowName}`);
       
       const appNotif = {
-        id: `NOT-${Date.now().toString().slice(-4)}`,
+        id: `NOT-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
         type: isCompleted ? "Workflow Approved" : "Workflow Stage Approved",
         title: isCompleted ? req.workflowName + " Completed" : req.workflowName + " Level Approved",
         text: isCompleted 
@@ -934,12 +934,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
         return copy;
       } else {
         return [...prev, {
-          id: `MAT-${Date.now().toString().slice(-2)}`,
+          id: `MAT-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
           name: newMatItem.name,
           code: `ACC-${newMatItem.name.substring(0, 3).toUpperCase()}`,
           qty: Math.max(0, newMatItem.qty),
           minQty: newMatItem.minQty,
-          bundleId: `BUN-CUST-${Date.now().toString().slice(-2)}`,
+          bundleId: `BUN-CUST-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
           cleaning: "Clean",
           repair: "Ready"
         }];
@@ -997,7 +997,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       const updatedLogs = [desc, ...prev.reschedulingLog];
       
       const newNotif = {
-        id: `NOT-${Date.now().toString().slice(-4)}`,
+        id: `NOT-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
         type: "AI Rescheduled Workflows",
         title: "AI Autopilot Rescheduled Plan",
         text: desc.substring(0, 120) + "...",
@@ -1025,7 +1025,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     e.preventDefault();
     if (!newPrItem.item) return;
     const newPr = {
-      id: `PR-${Date.now().toString().slice(-3)}`,
+      id: `PR-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
       item: newPrItem.item,
       qty: newPrItem.qty || "100 Pcs",
       cost: newPrItem.cost || "ETB 50,000",
@@ -1043,7 +1043,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     e.preventDefault();
     if (!newHseReport.topic) return;
     const newHse = {
-      id: `HSE-${Date.now().toString().slice(-3)}`,
+      id: `HSE-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
       type: newHseReport.type,
       topic: newHseReport.topic,
       attendees: newHseReport.type.includes("Meeting") ? 30 : 0,
@@ -1088,13 +1088,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   const handleAddTruck = (e: React.FormEvent) => {
     e.preventDefault();
     const trk = {
-      id: `CON-TRK-${Date.now().toString().slice(-2)}`,
+      id: `CON-TRK-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
       project: "Bole Heights B1",
       volume: newTruck.volume || "8 m³",
       supplier: newTruck.supplier,
       arrival: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       slump: newTruck.slump || "120mm",
-      cubeCode: `CUBE-C30-${Date.now().toString().slice(-2)}`,
+      cubeCode: `CUBE-C30-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
       status: newTruck.status,
       cureDays: 0
     };
@@ -2304,7 +2304,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 e.preventDefault();
                 if (!newQc.checklist) return;
                 const entry = {
-                  id: `QC-${Date.now().toString().slice(-3)}`,
+                  id: `QC-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   type: newQc.type,
                   zone: newQc.zone,
                   checklist: newQc.checklist,
@@ -2561,7 +2561,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   onClick={() => {
                     if (!newDocName) return;
                     setDocuments([...documents, {
-                      id: `DOC-${Date.now().toString().slice(-3)}`,
+                      id: `DOC-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                       name: newDocName,
                       type: "Technical Submittal",
                       ver: "v1.0",
@@ -3046,7 +3046,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 e.preventDefault();
                 if (!newDiaryEntry.activities) return;
                 const newLog = {
-                  id: `SD-${Date.now().toString().slice(-4)}`,
+                  id: `SD-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   date: new Date().toISOString().split('T')[0],
                   weather: newDiaryEntry.weather,
                   attendance: "65 Workers Registered, 0 Late (Auto-pulled from Biometrics)",
@@ -3202,7 +3202,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <form onSubmit={(e) => {
                 e.preventDefault();
                 const newP = {
-                  id: `PER-${Date.now().toString().slice(-3)}`,
+                  id: `PER-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   type: newPermit.type,
                   zone: newPermit.zone,
                   requestedBy: `${newPermit.requestedBy} (Formwork Unit)`,
@@ -3334,9 +3334,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (!newAsset.name) return;
-                const finalCode = newAsset.code || `QR-GEN-${Date.now().toString().slice(-4)}`;
+                const finalCode = newAsset.code || `QR-GEN-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
                 const newAs = {
-                  id: `AST-${Date.now().toString().slice(-3)}`,
+                  id: `AST-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   code: finalCode,
                   name: newAsset.name,
                   category: newAsset.category,
@@ -3466,7 +3466,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 e.preventDefault();
                 if (!newMaintItem.type) return;
                 const newM = {
-                  id: `MNT-${Date.now().toString().slice(-3)}`,
+                  id: `MNT-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   asset: newMaintItem.asset,
                   type: newMaintItem.type,
                   dueDate: newMaintItem.dueDate,
@@ -3807,7 +3807,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 e.preventDefault();
                 if (!newTraining.employee) return;
                 const newT = {
-                  id: `TRN-${Date.now().toString().slice(-3)}`,
+                  id: `TRN-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   employee: newTraining.employee,
                   course: newTraining.course,
                   certDate: new Date().toISOString().split('T')[0],
@@ -3905,7 +3905,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 e.preventDefault();
                 if (!newProject.name) return;
                 const newP = {
-                  id: `PRJ-${Date.now().toString().slice(-3)}`,
+                  id: `PRJ-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                   company: newProject.company,
                   name: newProject.name,
                   towers: newProject.towers,

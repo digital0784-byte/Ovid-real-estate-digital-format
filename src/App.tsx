@@ -566,7 +566,7 @@ export default function App() {
   // Audit log generator helper
   const logAction = (action: string, details: string, customizedRole?: UserRole) => {
     const activeRole = customizedRole || currentUserRole;
-    const logId = `AUD-${Date.now().toString().slice(-4)}`;
+    const logId = `AUD-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
     const newLog: AuditLog = {
       id: logId,
       timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
