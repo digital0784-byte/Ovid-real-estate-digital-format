@@ -48,8 +48,12 @@ function decryptPayload(ciphertext: string, ivHex: string, tagHex: string) {
   }
 }
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const _filename = typeof import.meta !== "undefined" && import.meta.url
+  ? fileURLToPath(import.meta.url)
+  : (typeof __filename !== "undefined" ? __filename : "");
+const _dirname = typeof __dirname !== "undefined"
+  ? __dirname
+  : (path && _filename ? path.dirname(_filename) : "");
 
 async function startServer() {
   const app = express();
