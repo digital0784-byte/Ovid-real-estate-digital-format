@@ -27,7 +27,8 @@ import {
   Cpu,
   Zap,
   Server,
-  TrendingUp
+  TrendingUp,
+  UserPlus
 } from "lucide-react";
 import {
   AreaChart,
@@ -40,7 +41,7 @@ import {
   Tooltip,
   ResponsiveContainer
 } from "recharts";
-import { Worker, AttendanceRecord, UserRole, AttendanceMethod, Team } from "../types";
+import { Worker, AttendanceRecord, UserRole, AttendanceMethod, Team, SystemNotification } from "../types";
 import { SyncMonitor } from "./SyncMonitor";
 
 interface HeadOfficeSyncModuleProps {
@@ -51,6 +52,7 @@ interface HeadOfficeSyncModuleProps {
   isAmharic: boolean;
   currentUserRole: UserRole;
   onLogAction?: (action: string, details: string) => void;
+  systemNotifications?: SystemNotification[];
 }
 
 interface SimulatedDevice {
@@ -64,7 +66,7 @@ interface SimulatedDevice {
 
 interface SmartNotification {
   id: string;
-  type: "checkin" | "checkout" | "absent" | "late" | "overtime_limit" | "verification_fail" | "outside_geofence";
+  type: "checkin" | "checkout" | "absent" | "late" | "overtime_limit" | "verification_fail" | "outside_geofence" | "new_registrant";
   titleEn: string;
   titleAm: string;
   messageEn: string;
@@ -106,8 +108,37 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   onAddAttendance,
   isAmharic,
   currentUserRole,
-  onLogAction
+  onLogAction,
+  systemNotifications
 }) => {
+  // Sync systemNotifications prop into smart notifications list
+  useEffect(() => {
+    if (!systemNotifications) return;
+    
+    setNotifications((prev) => {
+      const prevIds = new Set(prev.map(n => n.id));
+      
+      const newMapped: SmartNotification[] = systemNotifications
+        .filter(sys => !prevIds.has(sys.id))
+        .map(sys => {
+          const isNewReg = sys.type === "New Registrant";
+          return {
+            id: sys.id,
+            type: isNewReg ? "new_registrant" : "late",
+            titleEn: sys.title,
+            titleAm: sys.title,
+            messageEn: sys.message,
+            messageAm: sys.message,
+            timestamp: new Date(sys.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            isRead: sys.read
+          };
+        });
+        
+      if (newMapped.length === 0) return prev;
+      return [...newMapped, ...prev];
+    });
+  }, [systemNotifications]);
+
   // Connection and Live Sync States
   const [isCloudOnline, setIsCloudOnline] = useState<boolean>(true);
   const [activeDevice, setActiveDevice] = useState<string>("all");
@@ -1984,12 +2015,14 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                 className={`p-4 rounded-xl border flex items-start space-x-3.5 transition-colors relative ${
                   notif.isRead 
                     ? "bg-slate-50/50 border-slate-100 text-slate-600" 
-                    : "bg-red-50/30 border-red-100 text-slate-900 font-medium"
+                    : notif.type === "new_registrant"
+                      ? "bg-emerald-50/30 border-emerald-100 text-slate-900 font-medium"
+                      : "bg-red-50/30 border-red-100 text-slate-900 font-medium"
                 }`}
               >
                 {/* Alert Indicator circle */}
                 {!notif.isRead && (
-                  <span className="absolute left-1.5 top-1.5 w-2 h-2 rounded-full bg-red-600"></span>
+                  <span className={`absolute left-1.5 top-1.5 w-2 h-2 rounded-full ${notif.type === 'new_registrant' ? 'bg-emerald-500' : 'bg-red-600'}`}></span>
                 )}
 
                 <div className={`p-2 rounded-lg shrink-0 ${
@@ -1997,10 +2030,13 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                   notif.type === "verification_fail" ? "bg-red-100 text-red-700" :
                   notif.type === "late" ? "bg-amber-100 text-amber-700" :
                   notif.type === "overtime_limit" ? "bg-indigo-100 text-indigo-700" :
+                  notif.type === "new_registrant" ? "bg-emerald-100 text-emerald-700" :
                   "bg-emerald-100 text-emerald-700"
                 }`}>
                   {notif.type === "outside_geofence" || notif.type === "verification_fail" ? (
                     <AlertTriangle size={16} />
+                  ) : notif.type === "new_registrant" ? (
+                    <UserPlus size={16} />
                   ) : (
                     <Bell size={16} />
                   )}

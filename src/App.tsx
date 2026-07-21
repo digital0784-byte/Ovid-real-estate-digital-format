@@ -24,7 +24,8 @@ import {
   QualitySnag, 
   QualityLog, 
   UserRole,
-  AuditLog
+  AuditLog,
+  SystemNotification
 } from "./types";
 
 // Component imports
@@ -131,6 +132,7 @@ export default function App() {
     timestamp: string;
   }
   const [toasts, setToasts] = useState<AppToast[]>([]);
+  const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   // Security and Authentication session states
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -310,7 +312,8 @@ export default function App() {
           fetchedSafety,
           fetchedSnags,
           fetchedQuality,
-          fetchedAudit
+          fetchedAudit,
+          fetchedNotifications
         ] = await Promise.all([
           DbService.getWorkers(),
           DbService.getTeams(),
@@ -321,7 +324,8 @@ export default function App() {
           DbService.getSafetyLogs(),
           DbService.getQualitySnags(),
           DbService.getQualityLogs(),
-          DbService.getAuditLogs()
+          DbService.getAuditLogs(),
+          DbService.getNotifications()
         ]);
         if (active) {
           setWorkers(fetchedWorkers);
@@ -334,6 +338,7 @@ export default function App() {
           setQualitySnags(fetchedSnags);
           setQualityLogs(fetchedQuality);
           setAuditLogs(fetchedAudit);
+          setNotifications(fetchedNotifications);
         }
       } catch (e) {
         console.error("Error loading master datasets:", e);
@@ -412,6 +417,39 @@ export default function App() {
       clearInterval(checkInterval);
     };
   }, [isAuthenticated, lastActivity, sessionTimeoutMinutes]);
+
+  // Poll notifications in the background for Admin and Head Office to receive real-time updates
+  React.useEffect(() => {
+    if (!isAuthenticated) return;
+    if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserRole !== UserRole.HEAD_OFFICE) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const fetched = await DbService.getNotifications();
+        setNotifications((prev) => {
+          // Identify any notifications not currently in the state list
+          const prevIds = new Set(prev.map(n => n.id));
+          const newNotifs = fetched.filter(n => !prevIds.has(n.id));
+          
+          if (newNotifs.length > 0) {
+            newNotifs.forEach(notif => {
+              if (notif.type === "New Registrant") {
+                triggerNotificationToast(
+                  "New Registrant",
+                  notif.message
+                );
+              }
+            });
+          }
+          return fetched;
+        });
+      } catch (err) {
+        console.error("Error polling notifications:", err);
+      }
+    }, 8000); // Check every 8 seconds
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated, currentUserRole]);
 
   // Trigger system notification toast for cross-app transmissions
   const triggerNotificationToast = (action: string, details: string) => {
@@ -518,6 +556,16 @@ export default function App() {
       receiverApp = "Biometric Control Hub";
       receiverAppAm = "ባዮሜትሪክ ማዕከል";
       type = "sync";
+    } else if (actLower.includes("registrant") || actLower.includes("new user") || actLower.includes("register")) {
+      titleEn = "New Registrant Registered";
+      titleAm = "አዲስ ተመዝጋቢ በሲስተሙ ላይ ገብቷል";
+      descEn = details;
+      descAm = details;
+      senderApp = "Self-Registration Portal";
+      senderAppAm = "የምዝገባ ማዕከል";
+      receiverApp = "Admin & HQ Consoles";
+      receiverAppAm = "የአስተዳደር እና የዋና መ/ቤት ሰሌዳ";
+      type = "success";
     } else if (actLower.includes("network status") || actLower.includes("online") || actLower.includes("offline")) {
       titleEn = "Network State Synchronized";
       titleAm = "የኔትወርክ ግንኙነት ተስተካክሏል";
@@ -736,9 +784,35 @@ export default function App() {
 
   // Admin roster operations
   const handleAddWorker = async (w: Worker) => {
+    if (workers.some(existing => existing.id === w.id)) return;
+    
     setWorkers((prev) => [...prev, w]);
     await DbService.addWorker(w);
     logAction("Worker Registered", `Added worker ${w.name} (${w.trade}) to department ${w.department}`);
+
+    // Create a system notification so Admin and Head Office can see the new registrant
+    const newNotif: SystemNotification = {
+      id: `NOTIF-REG-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+      type: "New Registrant",
+      title: isAmharic ? `አዲስ ተመዝጋቢ: ${w.name}` : `New Registrant: ${w.name}`,
+      message: isAmharic 
+        ? `አዲስ ሰራተኛ ${w.name} (${w.trade || w.department}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${w.id}`
+        : `New staff member ${w.name} (${w.trade || w.department}) has registered on the system. ID: ${w.id}`,
+      timestamp: new Date().toISOString(),
+      read: false
+    };
+
+    try {
+      await DbService.addNotification(newNotif);
+      setNotifications((prev) => [newNotif, ...prev]);
+      
+      // Also trigger a toast instantly for current user if they are admin/head office
+      if (currentUserRole === UserRole.SUPER_ADMIN || currentUserRole === UserRole.HEAD_OFFICE) {
+        triggerNotificationToast("New Registrant", newNotif.message);
+      }
+    } catch (e) {
+      console.error("Error writing system notification for registrant:", e);
+    }
   };
 
   const handleUpdateWorker = async (updatedWorker: Worker) => {
@@ -767,10 +841,24 @@ export default function App() {
         onLanguageToggle={() => setIsAmharic(!isAmharic)}
         auditLogsCount={auditLogs.length}
         onLoginSuccess={(role, method, loginLog) => {
+          // Instantly unlock and enter the ERP
           setCurrentUserRole(role);
           setIsAuthenticated(true);
           setLoginMetadata(loginLog);
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${role} | Metadata: ${JSON.stringify(loginLog)}`, role);
+
+          // Fetch fresh data in the background without blocking the login transition
+          Promise.all([
+            DbService.getWorkers(),
+            DbService.getAuditLogs(),
+            DbService.getNotifications()
+          ]).then(([fetchedWorkers, fetchedAudit, fetchedNotifications]) => {
+            setWorkers(fetchedWorkers);
+            setAuditLogs(fetchedAudit);
+            setNotifications(fetchedNotifications);
+          }).catch((err) => {
+            console.error("Error refreshing data on login success in background:", err);
+          });
         }}
       />
     );
@@ -1421,6 +1509,7 @@ export default function App() {
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}
+            systemNotifications={notifications}
           />
         )}
 
@@ -1429,9 +1518,7 @@ export default function App() {
             workers={workers} 
             attendance={attendance} 
             onAddAttendance={handleAddAttendance} 
-            onEnrollWorker={(newWorker) => {
-              setWorkers((prev) => [newWorker, ...prev]);
-            }}
+            onEnrollWorker={handleAddWorker}
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}

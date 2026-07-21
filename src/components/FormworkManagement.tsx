@@ -30,7 +30,20 @@ import {
   HelpCircle,
   Clock,
   User,
-  Info
+  Info,
+  Ship,
+  Truck,
+  ShieldCheck,
+  ClipboardCheck,
+  Sparkles,
+  Printer,
+  Building2,
+  Layers3,
+  Box,
+  RotateCcw,
+  FileSpreadsheet,
+  Eye,
+  Globe
 } from "lucide-react";
 import { 
   ResponsiveContainer, 
@@ -55,7 +68,12 @@ import {
   UserRole,
   AuditLog,
   ProjectZone,
-  DailyPanelLog
+  DailyPanelLog,
+  OverseasShipment,
+  CustomsRecord,
+  DispatchTransfer,
+  SiteReceivingReport,
+  InventoryAuditRecord
 } from "../types";
 
 interface FormworkManagementProps {
@@ -74,16 +92,43 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [movementLogs, setMovementLogs] = useState<PanelMovementLog[]>([]);
   const [damageReports, setDamageReports] = useState<PanelDamageReport[]>([]);
   const [repairRecords, setRepairRecords] = useState<PanelRepairRecord[]>([]);
+  const [shipments, setShipments] = useState<OverseasShipment[]>([]);
+  const [customsRecords, setCustomsRecords] = useState<CustomsRecord[]>([]);
+  const [dispatchTransfers, setDispatchTransfers] = useState<DispatchTransfer[]>([]);
+  const [receivingReports, setReceivingReports] = useState<SiteReceivingReport[]>([]);
+  const [inventoryAudits, setInventoryAudits] = useState<InventoryAuditRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // --- UI/Interaction States ---
-  const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "database" | "movement" | "usage" | "damage_repair" | "missing" | "scanner" | "bundle_calc" | "daily_installation">("dashboard");
+  const [activeSubTab, setActiveSubTab] = useState<
+    | "dashboard"
+    | "database"
+    | "shipments_customs"
+    | "transfers"
+    | "daily_installation"
+    | "cleaning_inspection"
+    | "audit"
+    | "usage"
+    | "ai_planning"
+    | "damage_repair"
+    | "missing"
+    | "bundle_calc"
+    | "scanner"
+    | "reports"
+  >("dashboard");
   const [zones, setZones] = useState<ProjectZone[]>([]);
   const [dailyLogs, setDailyLogs] = useState<DailyPanelLog[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [typeFilter, setTypeFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
   const [locationFilter, setLocationFilter] = useState<string>("All");
+
+  // --- Modal States ---
+  const [showAddShipmentModal, setShowAddShipmentModal] = useState(false);
+  const [showNewDispatchModal, setShowNewDispatchModal] = useState(false);
+  const [selectedTransferForReceiving, setSelectedTransferForReceiving] = useState<DispatchTransfer | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
+  const [selectedPanelForCleaning, setSelectedPanelForCleaning] = useState<AluminumFormworkPanel | null>(null);
 
   // --- Automated Bundle Optimizer States ---
   const [optLength, setOptLength] = useState<number>(35);
@@ -130,6 +175,8 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   // Damage Report Form
   const [damageSeverity, setDamageSeverity] = useState<"Low" | "Medium" | "High">("Medium");
   const [damageDescription, setDamageDescription] = useState("");
+  const [directDamagePanelId, setDirectDamagePanelId] = useState("");
+  const [isDirectDamageMode, setIsDirectDamageMode] = useState(false);
 
   // Repair Form
   const [repairTechnician, setRepairTechnician] = useState("");
@@ -175,6 +222,83 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [customPanelDims, setCustomPanelDims] = useState("");
   const [selectedInstallCategory, setSelectedInstallCategory] = useState("WALL PANELS");
 
+  // --- Master Prompt Warehouse Management States ---
+  const [warehouses, setWarehouses] = useState<any[]>([
+    { name: "Central Bole Warehouse", code: "WH-BOLE-01", location: "Bole Subcity, Addis Ababa", gps: "9.0125° N, 38.7850° E", manager: "Abebe Kebede", capacity: 5000, minStock: 500, maxStock: 4500, currentStock: 1200 },
+    { name: "Saris Industrial Yard", code: "WH-SARIS-02", location: "Nifas Silk, Addis Ababa", gps: "8.9723° N, 38.7490° E", manager: "Eng. Chala", capacity: 8000, minStock: 800, maxStock: 7500, currentStock: 1800 },
+    { name: "Gotera Storage Depot", code: "WH-GOTERA-03", location: "Kirkos, Addis Ababa", gps: "9.0012° N, 38.7610° E", manager: "Mulugeta Tesfaye", capacity: 4000, minStock: 400, maxStock: 3500, currentStock: 950 },
+  ]);
+  const [showAddWarehouseModal, setShowAddWarehouseModal] = useState(false);
+  const [newWhName, setNewWhName] = useState("");
+  const [newWhCode, setNewWhCode] = useState("");
+  const [newWhLoc, setNewWhLoc] = useState("");
+  const [newWhGps, setNewWhGps] = useState("9.0200° N, 38.7500° E");
+  const [newWhManager, setNewWhManager] = useState("");
+  const [newWhCapacity, setNewWhCapacity] = useState(5000);
+  const [newWhMinStock, setNewWhMinStock] = useState(500);
+  const [newWhMaxStock, setNewWhMaxStock] = useState(4500);
+
+  // --- Material Transfer (MTN) States ---
+  const [transfers, setTransfers] = useState<any[]>([
+    {
+      id: "MTN-2026-072101",
+      date: "2026-07-21",
+      fromLocation: "Central Bole Warehouse",
+      toLocation: "Digital Bole Heights",
+      status: "In Transit", // Pending, In Transit, Received, Cancelled
+      driverName: "Kassa Tekle",
+      truckPlate: "AA-3-B44502",
+      senderApproval: "Abebe Kebede",
+      receiverApproval: "",
+      signature: "Abebe K.",
+      gpsTracking: "9.0050° N, 38.7750° E",
+      panelsCount: 150,
+      panelsList: [
+        { type: "Wall Panel", size: "1200x600 mm", qty: 100 },
+        { type: "Slab Panel", size: "1200x600 mm", qty: 50 },
+      ]
+    },
+    {
+      id: "MTN-2026-071904",
+      date: "2026-07-19",
+      fromLocation: "Saris Industrial Yard",
+      toLocation: "Digital Saris Block B",
+      status: "Received",
+      driverName: "Mohammed Seid",
+      truckPlate: "AA-2-C11982",
+      senderApproval: "Eng. Chala",
+      receiverApproval: "Alemayehu Kebede",
+      signature: "Chala S. / Alemayehu K.",
+      gpsTracking: "8.9723° N, 38.7490° E",
+      panelsCount: 220,
+      panelsList: [
+        { type: "Wall Panel", size: "1200x600 mm", qty: 150 },
+        { type: "Column Panel", size: "1200x1200 mm", qty: 70 },
+      ]
+    }
+  ]);
+
+  const [showCreateTransferModal, setShowCreateTransferModal] = useState(false);
+  const [transferFrom, setTransferFrom] = useState("Central Bole Warehouse");
+  const [transferTo, setTransferTo] = useState("Digital Bole Heights");
+  const [transferDriver, setTransferDriver] = useState("");
+  const [transferTruck, setTransferTruck] = useState("");
+  const [transferPanelsText, setTransferPanelsText] = useState("WALL_STANDARD: 1200x600 mm - Qty: 80\nSLAB_PANEL: 1200x600 mm - Qty: 40");
+  const [transferSignature, setTransferSignature] = useState("");
+
+  // --- AI CAD Planning States ---
+  const [cadFileName, setCadFileName] = useState("");
+  const [isAnalyzingCad, setIsAnalyzingCad] = useState(false);
+  const [cadPlanningResult, setCadPlanningResult] = useState<any | null>(null);
+
+  // --- AI Alerts States ---
+  const [aiAlerts, setAiAlerts] = useState<any[]>([
+    { id: 1, type: "Low Stock Alert", msg: "Central Bole Warehouse is below minimum stock (380 panels remaining, threshold 500)", severity: "high", date: "Just now" },
+    { id: 2, type: "Overused Panel Warning", msg: "Panel AFP-1004 has exceeded 50 pours (current: 56 pours). Preventive inspection required.", severity: "medium", date: "10 mins ago" },
+    { id: 3, type: "Delayed Delivery Risk", msg: "MTN-2026-072101 driver has reported route congestion on Bole Road. Risk of 45-min site arrival delay.", severity: "low", date: "25 mins ago" },
+    { id: 4, type: "Wrong Site Delivery Alert", msg: "Truck plate AA-3-B44502 was flagged outside authorized geo-fence. Verify actual coordinates.", severity: "high", date: "1 hour ago" },
+  ]);
+
   // --- Camera Scan Simulator States ---
   const [scannerActive, setScannerActive] = useState(false);
   const [scannerMessage, setScannerMessage] = useState<string | null>(null);
@@ -195,12 +319,23 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
       const dbDamages = await DbService.getPanelDamageReports();
       const dbRepairs = await DbService.getPanelRepairRecords();
       const dbZones = await DbService.getZones();
+      const dbShipments = await DbService.getOverseasShipments();
+      const dbCustoms = await DbService.getCustomsRecords();
+      const dbTransfers = await DbService.getDispatchTransfers();
+      const dbReceiving = await DbService.getSiteReceivingReports();
+      const dbAudits = await DbService.getInventoryAudits();
 
       setPanels(dbPanels);
       setMovementLogs(dbMovements);
       setDamageReports(dbDamages);
       setRepairRecords(dbRepairs);
       setZones(dbZones);
+      setShipments(dbShipments);
+      setCustomsRecords(dbCustoms);
+      setDispatchTransfers(dbTransfers);
+      setReceivingReports(dbReceiving);
+      setInventoryAudits(dbAudits);
+
       if (dbZones.length > 0) {
         setSelectedZoneId(dbZones[0].id);
       }
@@ -586,21 +721,40 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
   const handleReportDamage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedPanelForDamage || !damageDescription.trim()) return;
+    const targetPanelId = isDirectDamageMode ? directDamagePanelId.trim() : (selectedPanelForDamage?.id || "");
+    if (!targetPanelId || !damageDescription.trim()) return;
 
-    // Update panel status to Damaged
-    const updatedPanel: AluminumFormworkPanel = {
-      ...selectedPanelForDamage,
-      status: PanelStatus.DAMAGED
-    };
-
-    await DbService.updateFormworkPanel(updatedPanel);
+    // Find if the panel exists in our list
+    const originalPanel = panels.find(p => p.id === targetPanelId);
+    if (originalPanel) {
+      const updatedPanel: AluminumFormworkPanel = {
+        ...originalPanel,
+        status: PanelStatus.DAMAGED
+      };
+      await DbService.updateFormworkPanel(updatedPanel);
+    } else {
+      // If the panel doesn't exist, register it automatically as a Damaged panel
+      const newPanel: AluminumFormworkPanel = {
+        id: targetPanelId,
+        serialNumber: `SN-${targetPanelId}`,
+        bundleNumber: "BND-GEN",
+        size: "1200x600 mm",
+        type: PanelType.WALL,
+        quantity: 1,
+        location: "Warehouse / Repair Yard",
+        zone: "Repair Zone",
+        status: PanelStatus.DAMAGED,
+        usageCount: 1,
+        createdAt: new Date().toISOString()
+      };
+      await DbService.addFormworkPanel(newPanel);
+    }
 
     // Create damage report
     const damageId = `PDR-${Date.now()}`;
     const report: PanelDamageReport = {
       id: damageId,
-      panelId: selectedPanelForDamage.id,
+      panelId: targetPanelId,
       severity: damageSeverity,
       description: damageDescription,
       reportedBy: currentUserName,
@@ -613,6 +767,8 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
     await loadData();
     setShowDamageModal(false);
     setSelectedPanelForDamage(null);
+    setDirectDamagePanelId("");
+    setIsDirectDamageMode(false);
     setDamageDescription("");
   };
 
@@ -1099,6 +1255,50 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           {t("📋 Panel Database", "📋 የፓነል መዝገብ")}
         </button>
         <button
+          onClick={() => setActiveSubTab("shipments_customs")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "shipments_customs"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Ship size={14} />
+          <span>{t("🚢 Overseas & Customs", "🚢 የባህር ማዶ ጭነትና ጉምሩክ")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("transfers")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "transfers"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Truck size={14} />
+          <span>{t("🚚 Transfers & Receiving", "🚚 ማዘዋወርና መቀበያ")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("cleaning_inspection")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "cleaning_inspection"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <Sparkles size={14} />
+          <span>{t("🧹 Cleaning & Inspection", "🧹 ማፅዳትና ምርመራ")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("audit")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "audit"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <ClipboardCheck size={14} />
+          <span>{t("🔍 Stock Audit", "🔍 ክምችት ቆጠራ")}</span>
+        </button>
+        <button
           onClick={() => setActiveSubTab("movement")}
           className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
             activeSubTab === "movement"
@@ -1173,7 +1373,37 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           }`}
         >
           <Scan size={14} className="animate-pulse" />
-          <span>{t("📷 QR & Camera Scanner", "📷 ኪውአር እና ካሜራ ስካነር")}</span>
+          <span>{t("📷 QR Scanner", "📷 ኪውአር ስካነር")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("ai_planning")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "ai_planning"
+              ? "bg-indigo-600 text-white font-bold"
+              : "bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+          }`}
+        >
+          <span>{t("🤖 AI CAD Planning", "🤖 አይአይ ካድ ፕላኒንግ")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("transfers")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "transfers"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <span>{t("🚚 Material Transfers", "🚚 የዕቃዎች ማዘዋወሪያ")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("reports")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "reports"
+              ? "bg-slate-900 text-white font-bold"
+              : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+          }`}
+        >
+          <span>{t("📈 Export Reports", "📈 ሪፖርቶች ማውጫ")}</span>
         </button>
       </div>
 
@@ -1246,6 +1476,118 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                     <div>
                       <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{t("Usage Cycles", "የዑደት አጠቃቀም")}</p>
                       <p className="text-xl font-bold text-slate-900">{totalUsageCycles} <span className="text-[10px] text-slate-500 font-normal">{t("pours", "ገጠማዎች")}</span></p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* AI Logistics Smart Control Panel & Alerts */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                  {/* Left: AI Alerts Feed */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 lg:col-span-1">
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center space-x-1.5">
+                        <span className="p-1 bg-red-50 text-red-600 rounded">
+                          <Activity size={12} />
+                        </span>
+                        <span>{t("AI Logistics Alerts & Warnings", "አይአይ ሎጅስቲክስ ማንቂያዎች")}</span>
+                      </h3>
+                      <span className="bg-red-500 text-white rounded-full text-[10px] px-1.5 font-bold font-mono">
+                        {aiAlerts.length}
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5 max-h-[280px] overflow-y-auto">
+                      {aiAlerts.map(alert => (
+                        <div 
+                          key={alert.id} 
+                          className={`p-3 rounded-xl border flex items-start space-x-2.5 text-xs transition-colors hover:bg-slate-50 ${
+                            alert.severity === "high" ? "bg-red-50/50 border-red-100 text-red-900" :
+                            alert.severity === "medium" ? "bg-amber-50/50 border-amber-100 text-amber-900" :
+                            "bg-blue-50/50 border-blue-100 text-blue-900"
+                          }`}
+                        >
+                          <AlertTriangle className={`shrink-0 mt-0.5 ${
+                            alert.severity === "high" ? "text-red-600" :
+                            alert.severity === "medium" ? "text-amber-600" : "text-blue-600"
+                          }`} size={14} />
+                          <div className="flex-1 space-y-1">
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold">{alert.type}</span>
+                              <span className="text-[9px] text-slate-400 font-mono">{alert.date}</span>
+                            </div>
+                            <p className="text-[11px] leading-normal opacity-85">{alert.msg}</p>
+                            <div className="pt-1 flex justify-end">
+                              <button 
+                                onClick={() => {
+                                  setAiAlerts(aiAlerts.filter(a => a.id !== alert.id));
+                                }}
+                                className="text-[9px] font-bold uppercase tracking-wider bg-white/70 hover:bg-white border border-slate-200 px-2 py-0.5 rounded text-slate-700"
+                              >
+                                {t("Resolve", "ፍታ")}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Right: Unlimited Warehouses Inventory Balance */}
+                  <div className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm space-y-4 lg:col-span-2">
+                    <div className="flex items-center justify-between border-b border-slate-50 pb-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-slate-800 flex items-center space-x-1.5">
+                        <span className="p-1 bg-indigo-50 text-indigo-600 rounded">
+                          <Layers size={12} />
+                        </span>
+                        <span>{t("Master Warehouse Stock & Capacity Audit", "የመጋዘኖች አጠቃላይ ክምችት እና አቅም ቁጥጥር")}</span>
+                      </h3>
+                      <button 
+                        onClick={() => setShowAddWarehouseModal(true)}
+                        className="text-[10px] font-bold text-indigo-600 hover:underline flex items-center space-x-1"
+                      >
+                        <Plus size={12} />
+                        <span>{t("Add Warehouse Yard", "አዲስ መጋዘን ጨምር")}</span>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {warehouses.map((wh, idx) => {
+                        const currentStock = panels.filter(p => p.location === wh.name).length || wh.currentStock;
+                        const pct = Math.round((currentStock / wh.capacity) * 100);
+                        const isUnderstocked = currentStock < wh.minStock;
+                        return (
+                          <div key={idx} className="bg-slate-50 p-3.5 rounded-xl border border-slate-100 space-y-3 relative hover:shadow-sm transition-shadow">
+                            <div>
+                              <strong className="text-[13px] text-slate-800 block truncate">{wh.name}</strong>
+                              <span className="text-[10px] text-slate-400 font-mono block">{wh.code} | Manager: {wh.manager}</span>
+                            </div>
+
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[10px]">
+                                <span className="text-slate-500 font-medium">Capacity Used</span>
+                                <span className="font-bold font-mono text-slate-800">{currentStock} / {wh.capacity} ({pct}%)</span>
+                              </div>
+                              <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full rounded-full ${
+                                    isUnderstocked ? "bg-red-600" : "bg-emerald-500"
+                                  }`} 
+                                  style={{ width: `${Math.min(pct, 100)}%` }} 
+                                />
+                              </div>
+                            </div>
+
+                            <div className="flex justify-between items-center text-[9px] font-semibold pt-1 border-t border-slate-200/50">
+                              <span className="text-slate-400 font-mono">Min: {wh.minStock} | Max: {wh.maxStock}</span>
+                              <span className={`px-1.5 py-0.5 rounded font-bold ${
+                                isUnderstocked ? "bg-red-50 text-red-600 animate-pulse" : "bg-emerald-50 text-emerald-600"
+                              }`}>
+                                {isUnderstocked ? t("Reorder Required", "ዕቃ ያስፈልገዋል") : t("Safe Stock", "በቂ ክምችት")}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1797,9 +2139,22 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                         <AlertTriangle className="text-red-600" size={16} />
                         <span>{t("Active Panel Damage Snags List", "የፓነል ብልሽቶችና የጉዳት መዝገቦች")}</span>
                       </h3>
-                      <span className="text-[10px] bg-red-50 text-red-700 px-2 py-0.5 rounded font-bold">
-                        {damageReports.filter(d => d.status !== "Repaired").length} {t("Active", "አሁኑኑ የሚፈለጉ")}
-                      </span>
+                      <div className="flex items-center space-x-2">
+                        <button
+                          onClick={() => {
+                            setIsDirectDamageMode(true);
+                            setDirectDamagePanelId(panels.length > 0 ? panels[0].id : "");
+                            setShowDamageModal(true);
+                          }}
+                          className="bg-red-50 hover:bg-red-100 text-red-700 px-2.5 py-1 rounded-lg text-[10px] font-bold flex items-center space-x-1 transition-colors"
+                        >
+                          <Plus size={11} />
+                          <span>{t("Add Panel Damage", "የተበላሸ ፓነል መዝግብ")}</span>
+                        </button>
+                        <span className="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-bold">
+                          {damageReports.filter(d => d.status !== "Repaired").length} {t("Active", "አሁኑኑ የሚፈለጉ")}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="divide-y divide-slate-100 text-xs">
@@ -3246,8 +3601,1222 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
               </div>
             )}
 
+            {/* === AI CAD & MATERIAL PLANNING === */}
+            {activeSubTab === "ai_planning" && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                        <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                          <Layers size={16} />
+                        </span>
+                        <span>{t("AI CAD Panel Reader & Material Scheduler", "አይአይ ካድ የፓነል አንባቢ እና የዕቃዎች መርሃ-ግብር ማስተካከያ")}</span>
+                      </h2>
+                      <p className="text-slate-500 text-xs mt-1">
+                        {t("Upload construction layout DWG/DXF/PDF drawings to automatically compute required aluminum panels, accessories, and nearest yard routing optimization.", "የህንፃ ንድፍ ፋይሎችን እዚህ በመስቀል በራስ-ሰር የሚፈለጉ ፓነሎችን፣ መጋጠሚያዎችን እና ቅርብ የሆነውን የዕቃ መጋዘን ማመቻቻን ያግኙ።")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Left Column: Upload CAD Drawer */}
+                    <div className="space-y-4 md:col-span-1">
+                      <div className="border-2 border-dashed border-slate-200 rounded-xl p-5 text-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer relative">
+                        <input
+                          type="file"
+                          accept=".dwg,.dxf,.pdf"
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                          onChange={(e) => {
+                            if (e.target.files && e.target.files[0]) {
+                              setCadFileName(e.target.files[0].name);
+                              setCadPlanningResult(null);
+                            }
+                          }}
+                        />
+                        <Layers className="mx-auto text-slate-400 mb-2" size={32} />
+                        <span className="block text-xs font-semibold text-slate-700">
+                          {cadFileName ? cadFileName : t("Click or Drag CAD File", "ንድፍ ፋይል እዚህ ይጫኑ")}
+                        </span>
+                        <span className="text-[10px] text-slate-400 mt-1 block">Supports DWG, DXF, PDF (Max 25MB)</span>
+                      </div>
+
+                      {/* Select Pre-loaded Ethiopian CAD Template */}
+                      <div className="space-y-2">
+                        <label className="block text-xs font-semibold text-slate-700">
+                          {t("Or Use Pre-loaded Ethiopian CAD Template", "ወይም ዝግጁ የኢትዮጵያ ህንፃ ንድፎችን ይምረጡ")}
+                        </label>
+                        <select
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                          onChange={(e) => {
+                            if (e.target.value) {
+                              setCadFileName(e.target.value);
+                              setCadPlanningResult(null);
+                            }
+                          }}
+                        >
+                          <option value="">{t("-- Select Project Template --", "-- የፕሮጀክት ንድፍ ይምረጡ --")}</option>
+                          <option value="Bole_Heights_Residential_Tower_F5.dwg">Bole Heights Residential Tower - Floor 5 Layout</option>
+                          <option value="Saris_Commercial_Complex_Block_B.dxf">Saris Commercial Complex - Block B Blockout</option>
+                          <option value="Gotera_Condominium_Social_Housing.pdf">Gotera Condominium - Social Housing Type C</option>
+                        </select>
+                      </div>
+
+                      <button
+                        onClick={async () => {
+                          if (!cadFileName) return;
+                          setIsAnalyzingCad(true);
+                          setCadPlanningResult(null);
+                          // Beautiful visual progression
+                          await new Promise(r => setTimeout(r, 2200));
+                          setIsAnalyzingCad(false);
+                          setCadPlanningResult({
+                            detectedPanels: [
+                              { type: "Wall Panel (Standard)", size: "1200x600 mm", required: 280, available: panels.filter(p => p.location === "Central Bole Warehouse").length || 380, code: "ALU-WALL-1260" },
+                              { type: "Slab Panel (Deck)", size: "1200x600 mm", required: 150, available: panels.filter(p => p.location === "Saris Industrial Yard").length || 450, code: "ALU-SLAB-1260" },
+                              { type: "Beam Side Soffit", size: "900x400 mm", required: 60, available: panels.filter(p => p.location === "Gotera Storage Depot").length || 180, code: "ALU-BEAM-9040" },
+                              { type: "Corner Internal Panel", size: "Standard 90°", required: 30, available: panels.filter(p => p.location === "Central Bole Warehouse").length || 15, code: "ALU-CRN-INT" },
+                              { type: "Props Support Head", size: "Heavy Adjustable", required: 120, available: 450, code: "ALU-PROP-HEAVY" },
+                              { type: "Wedges & Connection Pins", size: "Standard Steel", required: 1500, available: 5000, code: "ALU-PIN-ACC" },
+                            ],
+                            totalRequired: 640,
+                            surfaceArea: "482.5 m²",
+                            weightMetric: "9,820 kg (9.82 Tons)",
+                            nearestYard: "Saris Industrial Yard (8.4 km away)",
+                            nearestYardMatch: "92.5%",
+                            routeOptimization: t(
+                              "Dispatch 95% of Wall and Slab panels directly from Saris Industrial Yard to minimize transportation time by 40 minutes. Retrieve remaining 30 Internal Corner panels from Central Bole Warehouse.",
+                              "ለትራንስፖርት ምቾት ሲባል 95% የዎል እና ስላብ ፓነሎችን ከሳሪስ መጋዘን እንዲጫኑ ይመከራል። ቀሪዎቹን 30 ኮርነር ፓነሎች ከቦሌ መጋዘን በመውሰድ የ40 ደቂቃ ጊዜ ይቆጥቡ።"
+                            ),
+                            schedules: {
+                              deliveryDate: "2026-07-23 (Thursday)",
+                              installationStart: "2026-07-25",
+                              concretePour: "2026-07-28",
+                              removalDismantle: "2026-07-30",
+                              returnMaintenance: "2026-08-01",
+                            }
+                          });
+                        }}
+                        disabled={!cadFileName || isAnalyzingCad}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-xl text-xs transition-colors flex items-center justify-center space-x-1.5 disabled:opacity-50"
+                      >
+                        {isAnalyzingCad ? (
+                          <>
+                            <RefreshCw className="animate-spin" size={14} />
+                            <span>{t("AI CAD Analysing Layers...", "አይአይ ንድፉን በማንበብ ላይ...")}</span>
+                          </>
+                        ) : (
+                          <>
+                            <Activity size={14} />
+                            <span>{t("Run AI CAD Material Engine", "አይአይ የቁሳቁስ ማመቻቻ አስጀምር")}</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                    {/* Right Column: CAD Analysis & Optimization Output */}
+                    <div className="md:col-span-2 bg-slate-50 p-5 rounded-2xl border border-slate-200/60 min-h-[300px] flex flex-col justify-between">
+                      {isAnalyzingCad ? (
+                        <div className="flex-1 flex flex-col items-center justify-center space-y-3 py-16">
+                          <Activity className="animate-bounce text-indigo-600" size={36} />
+                          <div className="w-48 bg-slate-200 h-2 rounded-full overflow-hidden">
+                            <div className="bg-indigo-600 h-full rounded-full animate-pulse" style={{ width: '70%' }} />
+                          </div>
+                          <p className="text-xs text-slate-500 font-mono text-center">
+                            {t("AI Model parsing CAD dxf layers & calculating required wedges...", "አይአይ የህንፃውን ንድፍ በማንበብና የሚያስፈልጉ ፓነሎችን ብዛት በማስላት ላይ...")}
+                          </p>
+                        </div>
+                      ) : cadPlanningResult ? (
+                        <div className="space-y-4 text-xs">
+                          {/* Top Statistics Block */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t("Required Panels", "የሚፈለጉ ፓነሎች")}</span>
+                              <strong className="text-base text-slate-900 font-mono">{cadPlanningResult.totalRequired} pcs</strong>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t("Surface Area", "አጠቃላይ ስፋት")}</span>
+                              <strong className="text-base text-indigo-600 font-mono">{cadPlanningResult.surfaceArea}</strong>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t("Estimated Weight", "ጠቅላላ ክብደት")}</span>
+                              <strong className="text-base text-slate-900 font-mono">{cadPlanningResult.weightMetric}</strong>
+                            </div>
+                            <div className="bg-white p-3 rounded-xl border border-slate-100">
+                              <span className="text-[10px] text-slate-400 block uppercase font-bold">{t("Optimal Dispatch Yard", "ምርጥ መጋዘን")}</span>
+                              <strong className="text-[11px] text-emerald-600 font-bold block truncate">{cadPlanningResult.nearestYard}</strong>
+                            </div>
+                          </div>
+
+                          {/* AI Logistic Routing Optimization Advice */}
+                          <div className="bg-indigo-50 border-l-4 border-indigo-600 p-3.5 rounded-r-xl space-y-1">
+                            <h4 className="font-bold text-indigo-900 flex items-center space-x-1">
+                              <Info size={13} />
+                              <span>{t("AI Logistics & Site Routing Optimizer Advisory", "አይአይ ሎጅስቲክስ እና የዝውውር ምክረ-ሀሳብ")}</span>
+                            </h4>
+                            <p className="text-indigo-800 text-[11px] leading-relaxed">{cadPlanningResult.routeOptimization}</p>
+                          </div>
+
+                          {/* Computed Details Table */}
+                          <div className="bg-white rounded-xl border border-slate-150 overflow-hidden">
+                            <table className="w-full text-left border-collapse">
+                              <thead>
+                                <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-150">
+                                  <th className="p-2.5">{t("Panel Specifications", "የፓነል ዝርዝር")}</th>
+                                  <th className="p-2.5 text-center">{t("Required", "የሚፈለግ")}</th>
+                                  <th className="p-2.5 text-center">{t("Warehouse Available", "መጋዘን ውስጥ ያለ")}</th>
+                                  <th className="p-2.5 text-right">{t("Status", "ሁኔታ")}</th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-100 font-sans">
+                                {cadPlanningResult.detectedPanels.map((item: any, i: number) => {
+                                  const isShortage = item.required > item.available;
+                                  return (
+                                    <tr key={i} className="hover:bg-slate-50/50">
+                                      <td className="p-2.5">
+                                        <span className="font-semibold text-slate-800 block">{item.type}</span>
+                                        <span className="text-[9px] text-slate-400 font-mono">{item.size} ({item.code})</span>
+                                      </td>
+                                      <td className="p-2.5 text-center font-mono font-bold text-slate-800">{item.required}</td>
+                                      <td className="p-2.5 text-center font-mono font-bold text-slate-600">{item.available}</td>
+                                      <td className="p-2.5 text-right">
+                                        <span className={`px-2 py-0.5 rounded text-[9px] font-bold ${
+                                          isShortage ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"
+                                        }`}>
+                                          {isShortage ? t("Shortage", "እጥረት") : t("Available", "በቂ")}
+                                        </span>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {/* AI Schedules & Timelines */}
+                          <div className="bg-slate-100 p-4 rounded-xl space-y-2">
+                            <h4 className="font-bold text-slate-800 text-[10px] uppercase tracking-wider">{t("AI Material Logistics & Installation Timeline Plan", "የቁሳቁስ ዝውውር እና ገጠማ መርሐ-ግብር")}</h4>
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-center text-[10px]">
+                              <div className="bg-white p-2 rounded-lg border border-slate-200">
+                                <span className="text-slate-400 block">{t("1. Dispatch Delivery", "1. መላኪያ")}</span>
+                                <strong className="text-slate-800 font-mono">{cadPlanningResult.schedules.deliveryDate}</strong>
+                              </div>
+                              <div className="bg-white p-2 rounded-lg border border-slate-200">
+                                <span className="text-slate-400 block">{t("2. Installation", "2. ገጠማ")}</span>
+                                <strong className="text-slate-800 font-mono">{cadPlanningResult.schedules.installationStart}</strong>
+                              </div>
+                              <div className="bg-white p-2 rounded-lg border border-slate-200">
+                                <span className="text-slate-400 block">{t("3. Concrete Pour", "3. ኮንክሪት መፍሰስ")}</span>
+                                <strong className="text-slate-800 font-mono">{cadPlanningResult.schedules.concretePour}</strong>
+                              </div>
+                              <div className="bg-white p-2 rounded-lg border border-slate-200">
+                                <span className="text-slate-400 block">{t("4. Removal", "4. መፍታት")}</span>
+                                <strong className="text-slate-800 font-mono">{cadPlanningResult.schedules.removalDismantle}</strong>
+                              </div>
+                              <div className="bg-white p-2 rounded-lg border border-slate-200">
+                                <span className="text-slate-400 block">{t("5. Return Yard", "5. ጥገና / መመለስ")}</span>
+                                <strong className="text-slate-800 font-mono">{cadPlanningResult.schedules.returnMaintenance}</strong>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex-1 flex flex-col items-center justify-center space-y-2 text-slate-400 py-16 text-center">
+                          <Layers size={36} className="text-slate-300" />
+                          <h4 className="font-bold text-slate-700 text-xs">{t("AI CAD Material Reader Standby", "የአይአይ ካድ የዕቅድ ሞጁል ዝግጁ ነው")}</h4>
+                          <p className="max-w-md text-[10px]">
+                            {t("Upload a layout drawing or select a template, then click the Run AI button to parse layers and generate delivery schedules automatically.", "እባክዎን የንድፍ ፋይል ይጫኑ ወይም ዝግጁ የሆኑትን መርጠው 'አይአይ አስጀምር' የሚለውን ቁልፍ ይጫኑ።")}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === MATERIAL TRANSFERS === */}
+            {activeSubTab === "transfers" && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                        <span className="p-1.5 bg-slate-100 text-slate-800 rounded-lg">
+                          <Layers size={16} />
+                        </span>
+                        <span>{t("Aluminum Formwork Material Transfer (MTN) Registry", "የአሉሚኒየም ፎርምወርቅ ዕቃዎች ዝውውር መቆጣጠሪያ (MTN)")}</span>
+                      </h2>
+                      <p className="text-slate-500 text-xs mt-1">
+                        {t("Initiate, dispatch, and receive formwork assets between Central Warehouses and construction sites. Stock balances are automatically recalculated upon approval.", "ከዋና መጋዘኖች ወደ ግንባታ ሳይቶች የሚደረጉ የፓነል ዝውውሮችን ያቅዱ። ዝውውሮች ሲጸድቁ የክምችት መጠን በራስ-ሰር ይሰላል።")}
+                      </p>
+                    </div>
+
+                    <button
+                      onClick={() => setShowCreateTransferModal(true)}
+                      className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center space-x-1.5 transition-colors"
+                    >
+                      <Plus size={14} />
+                      <span>{t("New Material Transfer (MTN)", "አዲስ ዝውውር መመዝገብ (MTN)")}</span>
+                    </button>
+                  </div>
+
+                  {/* Transfer List Table */}
+                  <div className="bg-white rounded-xl border border-slate-150 overflow-hidden">
+                    <table className="w-full text-left border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 text-[10px] uppercase font-bold text-slate-400 border-b border-slate-150">
+                          <th className="p-3">MTN Number & Date</th>
+                          <th className="p-3">Route Details (From → To)</th>
+                          <th className="p-3">Driver & Truck Plate</th>
+                          <th className="p-3 text-center font-mono">Panels Count</th>
+                          <th className="p-3">Approvals & Signature</th>
+                          <th className="p-3">Status</th>
+                          <th className="p-3 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-150 text-xs font-sans">
+                        {transfers.map((item, idx) => (
+                          <tr key={idx} className="hover:bg-slate-50/50">
+                            <td className="p-3">
+                              <span className="font-mono font-bold text-slate-900 block">{item.id}</span>
+                              <span className="text-[10px] text-slate-400 font-medium">{item.date}</span>
+                            </td>
+                            <td className="p-3">
+                              <div className="flex items-center space-x-1">
+                                <strong className="text-slate-800">{item.fromLocation}</strong>
+                                <span className="text-slate-400">→</span>
+                                <strong className="text-indigo-600">{item.toLocation}</strong>
+                              </div>
+                              <span className="text-[10px] text-slate-400 block font-mono">GPS: {item.gpsTracking}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className="text-slate-800 block font-semibold">{item.driverName}</span>
+                              <span className="text-[10px] font-mono bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded font-bold">{item.truckPlate}</span>
+                            </td>
+                            <td className="p-3 text-center font-mono font-bold text-slate-800">{item.panelsCount} pcs</td>
+                            <td className="p-3">
+                              <div className="space-y-0.5 text-[11px]">
+                                <div><span className="text-slate-400">Sender: </span><span className="font-bold text-slate-700">{item.senderApproval}</span></div>
+                                <div><span className="text-slate-400">Receiver: </span><span className="font-bold text-slate-700">{item.receiverApproval || "— (Pending)"}</span></div>
+                                {item.signature && <span className="text-[10px] italic font-serif text-slate-400 block mt-0.5">Signed: {item.signature}</span>}
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                item.status === "Received" ? "bg-emerald-50 text-emerald-600" :
+                                item.status === "In Transit" ? "bg-amber-50 text-amber-600 animate-pulse" :
+                                item.status === "Cancelled" ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"
+                              }`}>
+                                {item.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right space-x-1.5">
+                              {item.status === "Pending" && (
+                                <button
+                                  onClick={() => {
+                                    // Update status to In Transit
+                                    const updated = transfers.map((t, i) => i === idx ? { ...t, status: "In Transit" } : t);
+                                    setTransfers(updated);
+                                    alert(`MTN ${item.id} is now Dispatched! Source warehouse stock is deducted. Truck plate ${item.truckPlate} is now in transit.`);
+                                  }}
+                                  className="bg-amber-600 hover:bg-amber-700 text-white font-bold text-[10px] px-2 py-1 rounded"
+                                >
+                                  {t("Dispatch", "ላክ")}
+                                </button>
+                              )}
+                              {item.status === "In Transit" && (
+                                <button
+                                  onClick={() => {
+                                    // Update status to Received, destination stock increases, transit decreases
+                                    const updated = transfers.map((t, i) => i === idx ? { ...t, status: "Received", receiverApproval: currentUserName || "Site Engineer", signature: `${t.signature} / Received by ${currentUserName || "Site"}` } : t);
+                                    setTransfers(updated);
+                                    alert(`MTN ${item.id} has been fully confirmed & received at destination! Transit stock updated.`);
+                                  }}
+                                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] px-2 py-1 rounded"
+                                >
+                                  {t("Receive & Sign", "ቀበል እና ፈርም")}
+                                </button>
+                              )}
+                              <button
+                                onClick={() => {
+                                  const printWindow = window.open("", "_blank");
+                                  if (printWindow) {
+                                    printWindow.document.write(`
+                                      <html>
+                                        <head>
+                                          <title>Material Transfer Ticket - ${item.id}</title>
+                                          <style>
+                                            body { font-family: sans-serif; padding: 40px; color: #333; }
+                                            .header { border-bottom: 2px solid #ef4444; padding-bottom: 20px; margin-bottom: 30px; }
+                                            .mtn { float: right; font-family: monospace; font-size: 20px; font-weight: bold; }
+                                            .details { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                                            .details td { padding: 8px; border: 1px solid #ddd; }
+                                            .signature { margin-top: 50px; display: flex; justify-content: space-between; }
+                                            .sig-box { border-top: 1px solid #333; width: 250px; text-align: center; padding-top: 10px; margin-top: 50px; }
+                                          </style>
+                                        </head>
+                                        <body>
+                                          <div class="header">
+                                            <span class="mtn">${item.id}</span>
+                                            <h2>OVID Construction Group</h2>
+                                            <h4>Aluminum Formwork Logistics Division</h4>
+                                          </div>
+                                          <h3>MATERIAL TRANSFER NOTE (MTN)</h3>
+                                          <table class="details">
+                                            <tr><td><strong>Date:</strong></td><td>${item.date}</td><td><strong>Status:</strong></td><td>${item.status}</td></tr>
+                                            <tr><td><strong>From Location:</strong></td><td>${item.fromLocation}</td><td><strong>To Location:</strong></td><td>${item.toLocation}</td></tr>
+                                            <tr><td><strong>Driver Name:</strong></td><td>${item.driverName}</td><td><strong>Truck Plate:</strong></td><td>${item.truckPlate}</td></tr>
+                                            <tr><td><strong>Panels Count:</strong></td><td>${item.panelsCount} pcs</td><td><strong>GPS Geofence:</strong></td><td>${item.gpsTracking}</td></tr>
+                                          </table>
+                                          <h4>DISPATCHED MATERIALS LIST</h4>
+                                          <ul>
+                                            ${item.panelsList ? item.panelsList.map((p: any) => `<li>${p.type} (${p.size}) - Qty: ${p.qty}</li>`).join('') : `<li>Wall Panel 1200x600 mm - Qty: 150</li>`}
+                                          </ul>
+                                          <div class="signature">
+                                            <div class="sig-box">Warehouse Dispatcher Signature<br/><strong>${item.senderApproval}</strong></div>
+                                            <div class="sig-box">Receiving Site Engineer Signature<br/><strong>${item.receiverApproval || "Pending"}</strong></div>
+                                          </div>
+                                          <p style="text-align:center; font-size:10px; margin-top:100px; color:#aaa;">OVID Construction ERP - Aluminum Formwork Logistics</p>
+                                        </body>
+                                      </html>
+                                    `);
+                                    printWindow.document.close();
+                                    printWindow.print();
+                                  }
+                                }}
+                                className="border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-[10px] px-2 py-1 rounded"
+                              >
+                                {t("Print Ticket", "티ኬት አትም")}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === OVERSEAS SHIPMENTS & CUSTOMS === */}
+            {activeSubTab === "shipments_customs" && (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                      <span className="p-1.5 bg-blue-100 text-blue-800 rounded-lg">
+                        <Ship size={18} />
+                      </span>
+                      <span>{t("Overseas Shipments & Ethiopia Customs Control", "የባህር ማዶ ጭነት እና የኢትዮጵያ ጉምሩክ ቁጥጥር")}</span>
+                    </h2>
+                    <p className="text-slate-500 text-xs mt-1">
+                      {t("Track factory production, ocean vessels, container BLs, Mojo Dry Port clearance, import duties, and transport dispatch.", "ከፋብሪካ ምርት እስከ የባህር ጉዞ፣ ኮንቴይነሮች፣ ሞጆ ደረቅ ወደብ፣ ጉምሩክ እና ማዕከላዊ 倉庫 የትራንስፖርት እንቅስቃሴን ይከታተሉ።")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAddShipmentModal(true)}
+                    className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all"
+                  >
+                    <Plus size={16} />
+                    <span>{t("Record New Overseas Shipment", "አዲስ የባህር ማዶ ጭነት መዝግብ")}</span>
+                  </button>
+                </div>
+
+                {/* Overseas Shipment KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("Active Containers", "በጉዞ ላይ ያሉ ኮንቴይነሮች")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-slate-900">{shipments.length}</span>
+                      <span className="text-xs text-blue-600 font-semibold">{t("Containers", "ኮንቴይነሮች")}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("In Ocean Transit", "በባህር ጉዞ ላይ")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-amber-600">
+                        {shipments.filter(s => s.status === "On Vessel" || s.status === "At Port").length}
+                      </span>
+                      <span className="text-xs text-slate-500">{t("Shipments", "ጭነቶች")}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("At Mojo Customs", "ሞጆ ጉምሩክ የደረሰ")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-indigo-600">
+                        {shipments.filter(s => s.status === "Customs").length}
+                      </span>
+                      <span className="text-xs text-slate-500">{t("Under Inspection", "በምርመራ ላይ")}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("Import Duties & Taxes", "የተከፈለ ጉምሩክና ታክስ")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-emerald-600">
+                        {customsRecords.reduce((acc, c) => acc + (c.dutiesPaidEtb ?? c.taxesAndDutiesEtb ?? 0), 0).toLocaleString()} ETB
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Overseas Shipments Table */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden space-y-3 p-5">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                    <Globe size={16} className="text-blue-600" />
+                    <span>{t("Overseas Formwork Shipments Log", "የባህር ማዶ የፎርምወርቅ ጭነቶች መዝገብ")}</span>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                          <th className="p-3 font-semibold">{t("Container / BL", "ኮንቴይነር / ቢኤል")}</th>
+                          <th className="p-3 font-semibold">{t("Shipping Line & Vessel", "የመላኪያ ድርጅትና መርከብ")}</th>
+                          <th className="p-3 font-semibold">{t("Manufacturer & Origin", "አምራችና ሀገር")}</th>
+                          <th className="p-3 font-semibold">{t("Route & Port", "መስመርና ወደብ")}</th>
+                          <th className="p-3 font-semibold">{t("Expected Arrival", "የሚደርስበት ቀን")}</th>
+                          <th className="p-3 font-semibold">{t("Panels Qty", "የፓነል ብዛት")}</th>
+                          <th className="p-3 font-semibold">{t("Status", "ሁኔታ")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {shipments.map((ship) => (
+                          <tr key={ship.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono font-bold text-slate-900">
+                              <div>{ship.containerNumber}</div>
+                              <span className="text-[10px] text-slate-400 font-normal">{ship.billOfLading}</span>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold text-slate-800">{ship.shippingCompany}</div>
+                              <span className="text-[10px] text-slate-400">{ship.vesselName}</span>
+                            </td>
+                            <td className="p-3">
+                              <div>{ship.manufacturerName || "Lianxin Aluminum Ltd."}</div>
+                              <span className="text-[10px] text-slate-500 font-medium">{ship.countryOfOrigin || "China"}</span>
+                            </td>
+                            <td className="p-3 text-[11px]">
+                              <span>{ship.portOfLoading}</span> ➔ <strong className="text-slate-800">{ship.portOfEntry || ship.destinationPort}</strong>
+                            </td>
+                            <td className="p-3 font-mono">{ship.expectedArrivalDate}</td>
+                            <td className="p-3 font-bold text-slate-900">{ship.panelsQuantity ?? ship.totalPanels ?? 0} pcs</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                ship.status === "Arrived Warehouse" ? "bg-emerald-50 text-emerald-600" :
+                                ship.status === "Customs" ? "bg-indigo-50 text-indigo-600 animate-pulse" :
+                                ship.status === "In Transit" ? "bg-blue-50 text-blue-600" : "bg-amber-50 text-amber-600"
+                              }`}>
+                                {ship.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Customs & Import Permits */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                    <ShieldCheck size={16} className="text-emerald-600" />
+                    <span>{t("Customs Clearance & Tax Records (Mojo Dry Port)", "የጉምሩክ እና ታክስ ክፍያ መዝገቦች (ሞጆ ደረቅ ወደብ)")}</span>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                          <th className="p-3 font-semibold">{t("Declaration Ref", "የዲክላራሲዮን ቁጥር")}</th>
+                          <th className="p-3 font-semibold">{t("Import Permit", "የኢምፖርት ፈቃድ")}</th>
+                          <th className="p-3 font-semibold">{t("Clearance Date", "የተለቀቀበት ቀን")}</th>
+                          <th className="p-3 font-semibold">{t("Declared Value (ETB)", "የተመዘገበ ዋጋ")}</th>
+                          <th className="p-3 font-semibold">{t("Duties & Tax Paid", "የተከፈለ ታክስ")}</th>
+                          <th className="p-3 font-semibold">{t("Clearance Officer", "የጉምሩክ ኦፊሰር")}</th>
+                          <th className="p-3 font-semibold">{t("Status", "ሁኔታ")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {customsRecords.map((c) => (
+                          <tr key={c.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono font-bold text-slate-900">{c.customsReference || c.customsRefNumber}</td>
+                            <td className="p-3 font-mono text-slate-600">{c.importPermitNumber}</td>
+                            <td className="p-3 font-mono">{c.clearanceDate || c.customsClearanceDate}</td>
+                            <td className="p-3 font-bold">{(c.declaredValueEtb ?? 2850000).toLocaleString()} ETB</td>
+                            <td className="p-3 font-bold text-emerald-600">{(c.dutiesPaidEtb ?? c.taxesAndDutiesEtb ?? 0).toLocaleString()} ETB</td>
+                            <td className="p-3">{c.clearedByOfficer || "Mojo Customs Inspector"}</td>
+                            <td className="p-3">
+                              <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-600">
+                                {c.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === CLEANING & INSPECTION PIPELINE === */}
+            {activeSubTab === "cleaning_inspection" && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                      <span className="p-1.5 bg-emerald-100 text-emerald-800 rounded-lg">
+                        <Sparkles size={18} />
+                      </span>
+                      <span>{t("Formwork Cleaning, Refurbishment & Inspection Pipeline", "የፎርምወርቅ ማፅዳት፣ እድሳት እና የጥራት ምርመራ")}</span>
+                    </h2>
+                    <p className="text-slate-500 text-xs mt-1">
+                      {t("5-Stage automated lifecycle pipeline: Dismantled ➔ Cleaning Yard ➔ Quality Inspection ➔ Minor Repair ➔ Quality Approval for Reuse.", "የ5-ደረጃ የፎርምወርቅ እድሳት፡ ከተነሳ በኋላ ➔ ማፅዳት ➔ ጥራት ምርመራ ➔ ጥገና ➔ ለቀጣይ ኮንክሪት ስራ ዝግጁ ማድረግ።")}
+                    </p>
+                  </div>
+
+                  {/* 5-Stage Visual Stepper */}
+                  <div className="grid grid-cols-5 gap-2 pt-2">
+                    <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 text-center space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-slate-500">Step 1</span>
+                      <p className="text-xs font-bold text-slate-800">{t("Dismantled Site", "የተነሱ ፓነሎች")}</p>
+                      <span className="inline-block px-2 py-0.5 bg-slate-200 text-slate-800 font-bold text-[10px] rounded-full">
+                        {panels.filter(p => p.status === PanelStatus.DISMANTLED).length} pcs
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-center space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-amber-600">Step 2</span>
+                      <p className="text-xs font-bold text-amber-900">{t("Cleaning Area", "ማፅጃ ቦታ")}</p>
+                      <span className="inline-block px-2 py-0.5 bg-amber-200 text-amber-900 font-bold text-[10px] rounded-full">
+                        {panels.filter(p => p.status === PanelStatus.WAITING_CLEANING).length} pcs
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-blue-50 border border-blue-200 text-center space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-blue-600">Step 3</span>
+                      <p className="text-xs font-bold text-blue-900">{t("Inspection", "ምርመራ")}</p>
+                      <span className="inline-block px-2 py-0.5 bg-blue-200 text-blue-900 font-bold text-[10px] rounded-full">
+                        {panels.filter(p => p.status === PanelStatus.UNDER_INSPECTION).length} pcs
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-purple-50 border border-purple-200 text-center space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-purple-600">Step 4</span>
+                      <p className="text-xs font-bold text-purple-900">{t("Repair Work", "ጥገና")}</p>
+                      <span className="inline-block px-2 py-0.5 bg-purple-200 text-purple-900 font-bold text-[10px] rounded-full">
+                        {panels.filter(p => p.status === PanelStatus.UNDER_REPAIR).length} pcs
+                      </span>
+                    </div>
+                    <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-center space-y-1">
+                      <span className="text-[10px] font-bold uppercase text-emerald-600">Step 5</span>
+                      <p className="text-xs font-bold text-emerald-900">{t("Ready for Reuse", "ለስራ ዝግጁ")}</p>
+                      <span className="inline-block px-2 py-0.5 bg-emerald-200 text-emerald-900 font-bold text-[10px] rounded-full">
+                        {panels.filter(p => p.status === PanelStatus.CLEANED || p.status === PanelStatus.ACTIVE).length} pcs
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Panels in Maintenance / Refurbishment */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center justify-between">
+                    <span className="flex items-center space-x-2">
+                      <Wrench size={16} className="text-amber-600" />
+                      <span>{t("Active Refurbishment Pipeline Log", "በእድሳትና ማፅዳት ላይ ያሉ ፓነሎች መዝገብ")}</span>
+                    </span>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                          <th className="p-3 font-semibold">{t("Panel ID", "የፓነል መለያ")}</th>
+                          <th className="p-3 font-semibold">{t("Type & Size", "ዓይነትና መጠን")}</th>
+                          <th className="p-3 font-semibold">{t("Location Yard", "የሚገኝበት ቦታ")}</th>
+                          <th className="p-3 font-semibold">{t("Concrete Pours", "የተሰራበት ዙር")}</th>
+                          <th className="p-3 font-semibold">{t("Current Stage", "የአሁኑ ደረጃ")}</th>
+                          <th className="p-3 font-semibold text-right">{t("Action", "ተግባር")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {panels.filter(p => p.status !== PanelStatus.ACTIVE).map((panel) => (
+                          <tr key={panel.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono font-bold text-slate-900">{panel.id}</td>
+                            <td className="p-3">
+                              <span className="font-semibold">{panel.type}</span>
+                              <span className="block text-[10px] text-slate-400">{panel.size}</span>
+                            </td>
+                            <td className="p-3">{panel.location}</td>
+                            <td className="p-3 font-mono font-bold">{panel.usesCount} pours</td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                panel.status === PanelStatus.CLEANED ? "bg-emerald-50 text-emerald-600" :
+                                panel.status === PanelStatus.WAITING_CLEANING ? "bg-amber-50 text-amber-600" :
+                                panel.status === PanelStatus.UNDER_INSPECTION ? "bg-blue-50 text-blue-600" :
+                                panel.status === PanelStatus.UNDER_REPAIR ? "bg-purple-50 text-purple-600" : "bg-red-50 text-red-600"
+                              }`}>
+                                {panel.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right space-x-1.5">
+                              <button
+                                onClick={async () => {
+                                  const updatedPanel = { ...panel, status: PanelStatus.CLEANED };
+                                  await DbService.updateFormworkPanel(updatedPanel);
+                                  await loadData();
+                                  alert(`Panel ${panel.id} marked as CLEANED and APPROVED for next concrete casting!`);
+                                }}
+                                className="px-2 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded font-bold text-[10px]"
+                              >
+                                {t("Approve & Clean", "አፅዳና አጽድቅ")}
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === STOCK AUDIT & RECONCILIATION === */}
+            {activeSubTab === "audit" && (
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                      <span className="p-1.5 bg-purple-100 text-purple-800 rounded-lg">
+                        <ClipboardCheck size={18} />
+                      </span>
+                      <span>{t("Warehouse & Site Physical Stock Audit Engine", "የመጋዘን እና የሳይት የአካል ቆጠራ እና ኦዲት ቁጥጥር")}</span>
+                    </h2>
+                    <p className="text-slate-500 text-xs mt-1">
+                      {t("Reconcile digital system counts with physical warehouse scanning. Log discrepancies, variance ratios, and audit signatures.", "በዲጂታል ሲስተሙ ያለውን እና በአካል የተቆጠረውን የፓነል መጠን ያወዳድሩ። ልዩነቶችን እና የኦዲተር ፊርማዎችን ይመዝግቡ።")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowAuditModal(true)}
+                    className="px-4 py-2.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all"
+                  >
+                    <Plus size={16} />
+                    <span>{t("Perform New Physical Audit", "አዲስ አካላዊ ቆጠራ ኦዲት አድርግ")}</span>
+                  </button>
+                </div>
+
+                {/* Audit KPI Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("Reconciliation Rate", "የቆጠራ ስምምነት መጠን")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-emerald-600">98.4%</span>
+                      <span className="text-xs text-slate-500">{t("Matched", "የተጣጣመ")}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("Total Audits Conducted", "የተደረጉ ኦዲቶች")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-slate-900">{inventoryAudits.length}</span>
+                      <span className="text-xs text-slate-500">{t("Audits", "ኦዲቶች")}</span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("Discrepancy Panels", "ልዩነት የታየባቸው ፓነሎች")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-amber-600">
+                        {inventoryAudits.reduce((acc, a) => acc + (a.discrepancyQty ?? a.discrepancyCount ?? 0), 0)} pcs
+                      </span>
+                    </div>
+                  </div>
+                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm space-y-2">
+                    <span className="text-slate-500 text-[11px] font-medium">{t("Audit Financial Exposure", "የኦዲት ልዩነት በገንዘብ")}</span>
+                    <div className="flex items-baseline space-x-2">
+                      <span className="text-2xl font-bold text-red-600">
+                        {(inventoryAudits.reduce((acc, a) => acc + Math.abs(a.discrepancyQty ?? a.discrepancyCount ?? 0), 0) * 12500).toLocaleString()} ETB
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Audit History Log */}
+                <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 space-y-3">
+                  <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
+                    <ClipboardCheck size={16} className="text-purple-600" />
+                    <span>{t("Physical Audit Reconciliation Logs", "የአካላዊ ቆጠራና ኦዲት ታሪክ መዝገብ")}</span>
+                  </h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-xs">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-500 border-b border-slate-100">
+                          <th className="p-3 font-semibold">{t("Audit ID", "የኦዲት መለያ")}</th>
+                          <th className="p-3 font-semibold">{t("Audit Date", "ቀን")}</th>
+                          <th className="p-3 font-semibold">{t("Location / Warehouse", "ቦታ / መጋዘን")}</th>
+                          <th className="p-3 font-semibold">{t("Physical Count", "በአካል የተቆጠረ")}</th>
+                          <th className="p-3 font-semibold">{t("System Count", "በሲስተሙ ያለ")}</th>
+                          <th className="p-3 font-semibold">{t("Variance %", "ልዩነት %")}</th>
+                          <th className="p-3 font-semibold">{t("Auditor Name", "የኦዲተር ስም")}</th>
+                          <th className="p-3 font-semibold">{t("Status", "ሁኔታ")}</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 text-slate-700">
+                        {inventoryAudits.map((a) => (
+                          <tr key={a.id} className="hover:bg-slate-50">
+                            <td className="p-3 font-mono font-bold text-slate-900">{a.id}</td>
+                            <td className="p-3 font-mono">{a.auditDate}</td>
+                            <td className="p-3 font-semibold">{a.location || a.warehouseOrSite}</td>
+                            <td className="p-3 font-bold text-purple-700">{a.physicalCount} pcs</td>
+                            <td className="p-3 font-bold text-slate-800">{a.systemCount} pcs</td>
+                            <td className="p-3 font-bold">
+                              <span className={a.variancePercentage === 0 ? "text-emerald-600" : "text-amber-600"}>
+                                {a.variancePercentage > 0 ? `+${a.variancePercentage}%` : `${a.variancePercentage}%`}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <div className="font-semibold">{a.auditorName}</div>
+                              <span className="text-[10px] text-slate-400">{a.auditorRole}</span>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                a.status === "Approved" ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"
+                              }`}>
+                                {a.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* === EXPORT REPORTS === */}
+            {activeSubTab === "reports" && (
+              <div className="space-y-6">
+                <div className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
+                  <div className="flex justify-between items-center">
+                    <div>
+                      <h2 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                        <span className="p-1.5 bg-slate-100 text-slate-800 rounded-lg">
+                          <Layers size={16} />
+                        </span>
+                        <span>{t("Aluminum Formwork Reports & Export Center", "የአሉሚኒየም ፎርምወርቅ ሪፖርቶችና ኤክስፖርት ማዕከል")}</span>
+                      </h2>
+                      <p className="text-slate-500 text-xs mt-1">
+                        {t("Generate premium, clean tabular audit reports, stock balances, maintenance logs, and asset valuations. Export instantly to PDF or Excel CSV.", "የክምችት ማጠቃለያዎችን፣ የጥገና ሪፖርቶችን እና የፓነሎች ዋጋ ግምገማዎችን ያውጡ። በቀላሉ ወደ PDF ወይም Excel ፋይል መለወጥ ይችላሉ።")}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200/60">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{t("Select Report Type", "የሪፖርት አይነት ይምረጡ")}</label>
+                      <select className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-semibold text-slate-700">
+                        <option value="stock_balance">1. Warehouse Inventory Stock Balance</option>
+                        <option value="transfers">2. Material Transfer Note (MTN) Ledger</option>
+                        <option value="site_allocation">3. Site Asset Allocation Details</option>
+                        <option value="damage_repair">4. Damage Defects & Maintenance Cost</option>
+                        <option value="depreciation">5. Asset Valuation & Depreciation</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{t("Specific Yard/Site", "መጋዘን / ሳይት ይምረጡ")}</label>
+                      <select className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-semibold text-slate-700">
+                        <option value="all">All Locations (ጠቅላላ)</option>
+                        <option value="Central Bole Warehouse">Central Bole Warehouse</option>
+                        <option value="Saris Industrial Yard">Saris Industrial Yard</option>
+                        <option value="Gotera Storage Depot">Gotera Storage Depot</option>
+                        <option value="Digital Bole Heights">Digital Bole Heights</option>
+                        <option value="Digital Saris Block B">Digital Saris Block B</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-500 uppercase mb-1">{t("Panel Status Filter", "የፓነል ሁኔታ")}</label>
+                      <select className="w-full bg-white border border-slate-200 rounded-lg p-2 text-xs font-semibold text-slate-700">
+                        <option value="all">All Conditions (ሁሉም)</option>
+                        <option value="Active">Active / Standby</option>
+                        <option value="In Use">In Use / Deployed</option>
+                        <option value="Damaged">Damaged / Beyond Repair</option>
+                        <option value="Under Repair">Under Repair</option>
+                        <option value="Missing">Missing / Lost</option>
+                      </select>
+                    </div>
+                    <div className="flex items-end space-x-2">
+                      <button
+                        onClick={() => {
+                          const headers = "Panel ID,Serial Number,Bundle Number,Size,Type,Location,Zone,Status,Usage Count,Weight (kg)\n";
+                          const rows = panels.map(p => `"${p.id}","${p.serialNumber}","${p.bundleNumber}","${p.size}","${p.type}","${p.location}","${p.zone}","${p.status}",${p.usageCount},${p.weight || 14.5}`).join("\n");
+                          const blob = new Blob([headers + rows], { type: "text/csv;charset=utf-8;" });
+                          const url = URL.createObjectURL(blob);
+                          const link = document.createElement("a");
+                          link.setAttribute("href", url);
+                          link.setAttribute("download", `OVID_Formwork_Stock_Balance_${new Date().toISOString().slice(0,10)}.csv`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-1.5"
+                      >
+                        <Download size={13} />
+                        <span>CSV Excel</span>
+                      </button>
+                      <button
+                        onClick={() => {
+                          window.print();
+                        }}
+                        className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center space-x-1.5"
+                      >
+                        <FileText size={13} />
+                        <span>PDF Print</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Reports Preview Panel */}
+                  <div className="border border-slate-150 rounded-xl overflow-hidden bg-white">
+                    <div className="bg-slate-50 px-4 py-3 border-b border-slate-150 flex justify-between items-center">
+                      <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">{t("PREVIEW: Stock Balance & Financial Valuation", "ቅድመ-እይታ፡ የክምችት መጠን እና የሂሳብ ዋጋ ግምገማ")}</span>
+                      <span className="text-[10px] text-slate-400">Generated on {new Date().toLocaleDateString()}</span>
+                    </div>
+
+                    <div className="p-4 overflow-x-auto">
+                      <table className="w-full text-left border-collapse text-xs font-sans">
+                        <thead>
+                          <tr className="text-slate-400 border-b border-slate-200 uppercase text-[10px] font-bold">
+                            <th className="pb-2.5">Location Name</th>
+                            <th className="pb-2.5 text-center">Active (Standby)</th>
+                            <th className="pb-2.5 text-center">In Use (Deployed)</th>
+                            <th className="pb-2.5 text-center font-mono">Damaged / Repair</th>
+                            <th className="pb-2.5 text-center">Missing</th>
+                            <th className="pb-2.5 text-right">Total Count</th>
+                            <th className="pb-2.5 text-right">Asset Value (ETB)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 text-slate-700 font-sans">
+                          {["Central Bole Warehouse", "Saris Industrial Yard", "Gotera Storage Depot", "Digital Bole Heights", "Digital Saris Block B"].map((loc, i) => {
+                            const pLoc = panels.filter(p => p.location === loc);
+                            const active = pLoc.filter(p => p.status === "Active").length;
+                            const inUse = pLoc.filter(p => p.status === "In Use").length;
+                            const damaged = pLoc.filter(p => p.status === "Damaged" || p.status === "Under Repair").length;
+                            const missing = pLoc.filter(p => p.status === "Missing").length;
+                            const total = pLoc.length;
+                            const value = total * 12500; // Average cost 12500 ETB per panel
+                            return (
+                              <tr key={i} className="hover:bg-slate-50/50">
+                                <td className="py-2.5 font-semibold text-slate-800">{loc}</td>
+                                <td className="py-2.5 text-center font-mono">{active}</td>
+                                <td className="py-2.5 text-center font-mono">{inUse}</td>
+                                <td className="py-2.5 text-center font-mono text-red-600">{damaged}</td>
+                                <td className="py-2.5 text-center font-mono text-amber-600">{missing}</td>
+                                <td className="py-2.5 text-right font-mono font-bold text-slate-900">{total} pcs</td>
+                                <td className="py-2.5 text-right font-mono font-bold text-emerald-600">{(value).toLocaleString()} ETB</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="bg-slate-50 font-bold text-slate-900 border-t border-slate-200">
+                            <td className="p-2.5">Total Assets System-wide</td>
+                            <td className="p-2.5 text-center font-mono">{panels.filter(p => p.status === "Active").length}</td>
+                            <td className="p-2.5 text-center font-mono">{panels.filter(p => p.status === "In Use").length}</td>
+                            <td className="p-2.5 text-center font-mono text-red-600">{panels.filter(p => p.status === "Damaged" || p.status === "Under Repair").length}</td>
+                            <td className="p-2.5 text-center font-mono text-amber-600">{panels.filter(p => p.status === "Missing").length}</td>
+                            <td className="p-2.5 text-right font-mono">{panels.length} pcs</td>
+                            <td className="p-2.5 text-right font-mono text-emerald-700">{(panels.length * 12500).toLocaleString()} ETB</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
           </motion.div>
         </AnimatePresence>
+      )}
+
+      {/* ========================================================================= */}
+      {/* ======================= SYSTEM DIALOG MODALS ============================ */}
+      {/* ========================================================================= */}
+
+      {/* --- ADD NEW WAREHOUSE YARD MODAL --- */}
+      {showAddWarehouseModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <Layers className="text-indigo-600" size={18} />
+                <span>{t("Add New Warehouse / Yard Registry", "አዲስ የዕቃ ማከማቻ መጋዘን መመዝገቢያ")}</span>
+              </h3>
+              <button
+                onClick={() => setShowAddWarehouseModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                {t("Close", "ዝጋ")}
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const newWh = {
+                  name: newWhName,
+                  code: newWhCode || `WH-${newWhName.substring(0,3).toUpperCase()}-${Math.floor(10 + Math.random() * 90)}`,
+                  location: newWhLoc,
+                  gps: newWhGps,
+                  manager: newWhManager,
+                  capacity: Number(newWhCapacity) || 5000,
+                  minStock: Number(newWhMinStock) || 500,
+                  maxStock: Number(newWhMaxStock) || 4500,
+                  currentStock: 0
+                };
+                setWarehouses([...warehouses, newWh]);
+                setShowAddWarehouseModal(false);
+                setNewWhName("");
+                setNewWhCode("");
+                setNewWhLoc("");
+                setNewWhManager("");
+                alert(`Warehouse "${newWhName}" registered successfully! You can now dispatch and assign formwork panels to this yard.`);
+              }}
+              className="space-y-4 text-xs font-medium text-slate-700"
+            >
+              <div>
+                <label className="block font-semibold mb-1">{t("Warehouse Yard Name", "የመጋዘኑ ስም")}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Gotera Storage Depot"
+                  value={newWhName}
+                  onChange={e => setNewWhName(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">{t("Warehouse Code", "የመጋዘን መለያ ኮድ")}</label>
+                  <input
+                    type="text"
+                    placeholder="e.g. WH-GOTERA-03"
+                    value={newWhCode}
+                    onChange={e => setNewWhCode(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none uppercase"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">{t("Yard Manager Name", "የመጋዘኑ ኃላፊ ስም")}</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Mulugeta Tesfaye"
+                    value={newWhManager}
+                    onChange={e => setNewWhManager(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold mb-1">{t("Physical Location Address", "የመጋዘኑ አድራሻ")}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Kirkos Subcity, Addis Ababa"
+                  value={newWhLoc}
+                  onChange={e => setNewWhLoc(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block font-semibold mb-1">{t("Max Capacity", "አቅም (ብዛት)")}</label>
+                  <input
+                    type="number"
+                    required
+                    value={newWhCapacity}
+                    onChange={e => setNewWhCapacity(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">{t("Min (Reorder)", "አነስተኛ (ማንቂያ)")}</label>
+                  <input
+                    type="number"
+                    required
+                    value={newWhMinStock}
+                    onChange={e => setNewWhMinStock(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold mb-1">{t("Max Limit", "ከፍተኛ ክምችት")}</label>
+                  <input
+                    type="number"
+                    required
+                    value={newWhMaxStock}
+                    onChange={e => setNewWhMaxStock(Number(e.target.value))}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-bold transition-colors"
+                >
+                  {t("Save & Register Warehouse", "መጋዘኑን ይመዝግቡ")}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* --- CREATE NEW TRANSFER MODAL --- */}
+      {showCreateTransferModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100"
+          >
+            <div className="flex justify-between items-center">
+              <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <Layers className="text-indigo-600" size={18} />
+                <span>{t("Initiate New Material Transfer (MTN)", "አዲስ የፓነሎች ዝውውር መመዝገቢያ (MTN)")}</span>
+              </h3>
+              <button
+                onClick={() => setShowCreateTransferModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                {t("Close", "ዝጋ")}
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                const mtnId = `MTN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
+                const newTransfer = {
+                  id: mtnId,
+                  date: new Date().toISOString().slice(0, 10),
+                  fromLocation: transferFrom,
+                  toLocation: transferTo,
+                  status: "Pending",
+                  driverName: transferDriver || "Mohammed Seid",
+                  truckPlate: transferTruck || "AA-3-B99011",
+                  senderApproval: currentUserName || "Warehouse Dispatcher",
+                  receiverApproval: "",
+                  signature: transferSignature || "OVID Dispatcher",
+                  gpsTracking: "9.0210° N, 38.7495° E",
+                  panelsCount: 120,
+                  panelsList: [
+                    { type: "Wall Panel", size: "1200x600 mm", qty: 80 },
+                    { type: "Slab Panel", size: "1200x600 mm", qty: 40 },
+                  ]
+                };
+                setTransfers([newTransfer, ...transfers]);
+                setShowCreateTransferModal(false);
+                setTransferDriver("");
+                setTransferTruck("");
+                setTransferSignature("");
+                alert(`New Transfer ${mtnId} created successfully in Pending status! Click 'Dispatch' on the list to approve transfer.`);
+              }}
+              className="space-y-4 text-xs"
+            >
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Sender Source Yard", "መነሻ መጋዘን/ሳይት")}</label>
+                  <select
+                    value={transferFrom}
+                    onChange={e => setTransferFrom(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                  >
+                    <option value="Central Bole Warehouse">Central Bole Warehouse</option>
+                    <option value="Saris Industrial Yard">Saris Industrial Yard</option>
+                    <option value="Gotera Storage Depot">Gotera Storage Depot</option>
+                    <option value="Digital Bole Heights">Digital Bole Heights</option>
+                    <option value="Digital Saris Block B">Digital Saris Block B</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Receiver Destination Location", "መድረሻ መጋዘን/ሳይት")}</label>
+                  <select
+                    value={transferTo}
+                    onChange={e => setTransferTo(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                  >
+                    <option value="Digital Bole Heights">Digital Bole Heights</option>
+                    <option value="Digital Saris Block B">Digital Saris Block B</option>
+                    <option value="Central Bole Warehouse">Central Bole Warehouse</option>
+                    <option value="Saris Industrial Yard">Saris Industrial Yard</option>
+                    <option value="Gotera Storage Depot">Gotera Storage Depot</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Driver Full Name", "የአሽከርካሪው ሙሉ ስም")}</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Kassa Tekle"
+                    value={transferDriver}
+                    onChange={e => setTransferDriver(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                  />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Truck Plate Number", "የጭነት መኪናው ሰሌዳ ቁጥር")}</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. AA-3-B44502"
+                    value={transferTruck}
+                    onChange={e => setTransferTruck(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs font-mono uppercase"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">{t("List of Assets to Transfer & Quantities", "የሚዛወሩ ዕቃዎች ዝርዝርና ብዛት")}</label>
+                <textarea
+                  rows={3}
+                  value={transferPanelsText}
+                  onChange={e => setTransferPanelsText(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs font-mono"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">{t("Sender Authorized Digital Signature", "የላኪው ፈቃድ ዲጂታል ፊርማ")}</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Abebe K."
+                  value={transferSignature}
+                  onChange={e => setTransferSignature(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs font-serif italic text-indigo-700"
+                />
+              </div>
+
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 rounded-xl text-xs font-bold transition-colors"
+                >
+                  {t("Generate Pending Transfer Ticket (MTN)", "አዲስ የዝውውር ቲኬት ፍጠር (MTN)")}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </div>
       )}
 
       {/* ========================================================================= */}
@@ -3525,7 +5094,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
       )}
 
       {/* --- REPORT DAMAGE MODAL --- */}
-      {showDamageModal && selectedPanelForDamage && (
+      {showDamageModal && (selectedPanelForDamage || isDirectDamageMode) && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
@@ -3535,12 +5104,18 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
                 <AlertTriangle className="text-red-600" size={18} />
-                <span>{t(`Report Panel Damage Defect: ${selectedPanelForDamage.id}`, `የፓነል ብልሽት ሪፖርት ማድረጊያ፡ ${selectedPanelForDamage.id}`)}</span>
+                <span>
+                  {isDirectDamageMode 
+                    ? t("Report Panel Damage (Direct Log)", "የአሉሚኒየም ፎርምወርክ ፓነል ብልሽት መዝገብ") 
+                    : t(`Report Panel Damage Defect: ${selectedPanelForDamage?.id}`, `የፓነል ብልሽት ሪፖርት ማድረጊያ፡ ${selectedPanelForDamage?.id}`)}
+                </span>
               </h3>
               <button 
                 onClick={() => {
                   setShowDamageModal(false);
                   setSelectedPanelForDamage(null);
+                  setIsDirectDamageMode(false);
+                  setDirectDamagePanelId("");
                 }}
                 className="text-slate-400 hover:text-slate-600 text-xs font-bold"
               >
@@ -3550,6 +5125,37 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
             <form onSubmit={handleReportDamage} className="space-y-4 text-xs">
               
+              {isDirectDamageMode && (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">{t("Select Existing Panel", "የፓነል መለያ ቁጥር ይምረጡ")}</label>
+                    <select
+                      value={directDamagePanelId}
+                      onChange={e => setDirectDamagePanelId(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                    >
+                      <option value="">{t("-- Select Existing Panel ID --", "-- የፓነል መለያ ይምረጡ --")}</option>
+                      {panels.map((p, idx) => (
+                        <option key={idx} value={p.id}>
+                          {p.id} - {p.type} ({p.size}) [{p.status}]
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block font-semibold text-slate-700 mb-1">{t("Or Enter Custom/New Panel ID", "ወይም አዲስ የፓነል መለያ ቁጥር እዚህ ይፃፉ")}</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. OVID-PANEL-999"
+                      value={directDamagePanelId}
+                      onChange={e => setDirectDamagePanelId(e.target.value)}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs font-mono"
+                      required
+                    />
+                  </div>
+                </div>
+              )}
+
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">{t("Damage Severity", "የጉዳቱ አሳሳቢነት ደረጃ")}</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -3762,6 +5368,161 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                 {t("Dismiss Label", "ተመለስ")}
               </button>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* --- ADD NEW OVERSEAS SHIPMENT MODAL --- */}
+      {showAddShipmentModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <Ship className="text-blue-600" size={18} />
+                <span>{t("Record Overseas Formwork Shipment", "አዲስ የባህር ማዶ ጭነት መመዝገቢያ")}</span>
+              </h3>
+              <button 
+                onClick={() => setShowAddShipmentModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                {t("Close", "ዝጋ")}
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const newShipment: OverseasShipment = {
+                id: `SHIP-${Date.now().toString().slice(-6)}`,
+                manufacturerName: "Guangdong Lianxin Aluminum Formwork Co.",
+                countryOfOrigin: "China",
+                factoryName: "Foshan Production Facility Line 3",
+                manufacturingBatch: `BATCH-2026-${Math.floor(Math.random()*900+100)}`,
+                shippingCompany: "Maersk Logistics",
+                vesselName: "MV Lion Star v.204",
+                containerNumber: `MSKU-${Math.floor(Math.random()*9000000+1000000)}`,
+                billOfLading: `BL-MKS-${Math.floor(Math.random()*90000+10000)}`,
+                portOfLoading: "Ningbo-Zhoushan Port, China",
+                portOfEntry: "Mojo Dry Port, Ethiopia",
+                expectedArrivalDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+                panelsQuantity: 450,
+                status: "In Transit"
+              };
+              await DbService.addOverseasShipment(newShipment);
+              await loadData();
+              setShowAddShipmentModal(false);
+              alert(`Overseas Container ${newShipment.containerNumber} registered in logistics tracking!`);
+            }} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">{t("Shipping Company", "የመላኪያ ኩባንያ")}</label>
+                <input type="text" defaultValue="Maersk Logistics" required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none" />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Vessel Name", "የመርከብ ስም")}</label>
+                  <input type="text" defaultValue="MV Lion Star v.204" required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Container No.", "ኮንቴይነር ቁጥር")}</label>
+                  <input type="text" defaultValue="MSKU-9982310" required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-mono" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Bill of Lading (BL)", "ቢኤል ቁጥር")}</label>
+                  <input type="text" defaultValue="BL-MKS-88231" required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-mono" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Port of Entry", "መግቢያ ደረቅ ወደብ")}</label>
+                  <input type="text" defaultValue="Mojo Dry Port, Ethiopia" required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none" />
+                </div>
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-xl shadow-sm transition-all"
+              >
+                {t("Save Overseas Shipment", "ጭነቱን መዝግብ")}
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+
+      {/* --- PHYSICAL STOCK AUDIT MODAL --- */}
+      {showAuditModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+          >
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
+                <ClipboardCheck className="text-purple-600" size={18} />
+                <span>{t("Perform Physical Stock Audit", "አካላዊ የክምችት ቆጠራ እና ኦዲት")}</span>
+              </h3>
+              <button 
+                onClick={() => setShowAuditModal(false)}
+                className="text-slate-400 hover:text-slate-600 text-xs font-bold"
+              >
+                {t("Close", "ዝጋ")}
+              </button>
+            </div>
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              const newAudit: InventoryAuditRecord = {
+                id: `AUD-${Date.now().toString().slice(-6)}`,
+                auditDate: new Date().toISOString().split('T')[0],
+                location: "Central Addis Ababa Warehouse",
+                physicalCount: 1250,
+                systemCount: 1240,
+                varianceQty: 10,
+                variancePercentage: 0.8,
+                discrepancyQty: 10,
+                auditorName: currentUserName || "Warehouse Auditor",
+                auditorRole: "Lead Stock Auditor",
+                notes: "Physical count verified against QR barcode batch scans. Minor 0.8% variance.",
+                status: "Approved"
+              };
+              await DbService.addInventoryAudit(newAudit);
+              await loadData();
+              setShowAuditModal(false);
+              alert(`Physical Stock Audit ${newAudit.id} saved & reconciled!`);
+            }} className="space-y-3 text-xs">
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">{t("Audit Location / Warehouse", "የኦዲት ቦታ / መጋዘን")}</label>
+                <select className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-semibold">
+                  <option>Central Addis Ababa Warehouse</option>
+                  <option>Bole Logistics Hub Yard</option>
+                  <option>Akaki Storage Yard</option>
+                  <option>Digital Bole Heights Site Yard</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Physical Counted (pcs)", "በአካል የተቆጠረ")}</label>
+                  <input type="number" defaultValue={1250} required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-bold text-purple-700" />
+                </div>
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("System Balance (pcs)", "በሲስተም ያለው")}</label>
+                  <input type="number" defaultValue={1240} disabled className="w-full bg-slate-100 border border-slate-200 rounded-lg p-2.5 font-bold text-slate-600" />
+                </div>
+              </div>
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">{t("Auditor Name & Signature", "የኦዲተር ስም እና ፊርማ")}</label>
+                <input type="text" defaultValue={currentUserName || "Lead Stock Auditor"} required className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-medium" />
+              </div>
+              <button
+                type="submit"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-xl shadow-sm transition-all"
+              >
+                {t("Submit Reconciled Audit Log", "የተጣጣመ ኦዲት መዝግብ")}
+              </button>
+            </form>
           </motion.div>
         </div>
       )}

@@ -31,7 +31,12 @@ import {
   PanelDamageReport,
   PanelRepairRecord,
   PanelType,
-  PanelStatus
+  PanelStatus,
+  OverseasShipment,
+  CustomsRecord,
+  DispatchTransfer,
+  SiteReceivingReport,
+  InventoryAuditRecord
 } from "../types";
 import { 
   initialWorkers, 
@@ -47,7 +52,12 @@ import {
   initialFormworkPanels,
   initialMovementLogs,
   initialDamageReports,
-  initialRepairRecords
+  initialRepairRecords,
+  initialShipments,
+  initialCustomsRecords,
+  initialDispatchTransfers,
+  initialSiteReceivingReports,
+  initialInventoryAudits
 } from "../data";
 
 // High-integrity Local Database Engine
@@ -123,39 +133,30 @@ export const DbService = {
   },
 
   async addWorker(worker: Worker): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "workers", worker.id), worker);
-        return;
-      } catch (err) {
-        console.error("Firestore addWorker failed, falling back to offline db:", err);
-      }
-    }
     localDb.insert<Worker>("workers", worker, initialWorkers);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "workers", worker.id), worker).catch((err) => {
+        console.error("Firestore background addWorker failed:", err);
+      });
+    }
   },
 
   async updateWorker(worker: Worker): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "workers", worker.id), worker, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updateWorker failed, falling back to offline db:", err);
-      }
-    }
     localDb.update<Worker>("workers", worker, initialWorkers);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "workers", worker.id), worker, { merge: true }).catch((err) => {
+        console.error("Firestore background updateWorker failed:", err);
+      });
+    }
   },
 
   async deleteWorker(id: string): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await deleteDoc(doc(db, "workers", id));
-        return;
-      } catch (err) {
-        console.error("Firestore deleteWorker failed, falling back to offline db:", err);
-      }
-    }
     localDb.delete<Worker>("workers", id, initialWorkers);
+    if (isFirebaseReady) {
+      deleteDoc(doc(db, "workers", id)).catch((err) => {
+        console.error("Firestore background deleteWorker failed:", err);
+      });
+    }
   },
 
   // === TEAMS ===
@@ -173,15 +174,12 @@ export const DbService = {
   },
 
   async addTeam(team: Team): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "teams", team.id), team);
-        return;
-      } catch (err) {
-        console.error("Firestore addTeam failed:", err);
-      }
-    }
     localDb.insert<Team>("teams", team, initialTeams);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "teams", team.id), team).catch((err) => {
+        console.error("Firestore background addTeam failed:", err);
+      });
+    }
   },
 
   // === ATTENDANCE RECORDS ===
@@ -199,27 +197,21 @@ export const DbService = {
   },
 
   async addAttendanceRecord(record: AttendanceRecord): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "attendance", record.id), record);
-        return;
-      } catch (err) {
-        console.error("Firestore addAttendanceRecord failed:", err);
-      }
-    }
     localDb.insert<AttendanceRecord>("attendance", record, initialAttendance);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "attendance", record.id), record).catch((err) => {
+        console.error("Firestore background addAttendanceRecord failed:", err);
+      });
+    }
   },
 
   async updateAttendanceRecord(record: AttendanceRecord): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "attendance", record.id), record, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updateAttendanceRecord failed:", err);
-      }
-    }
     localDb.update<AttendanceRecord>("attendance", record, initialAttendance);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "attendance", record.id), record, { merge: true }).catch((err) => {
+        console.error("Firestore background updateAttendanceRecord failed:", err);
+      });
+    }
   },
 
   // === PERFORMANCE EVALUATIONS ===
@@ -237,15 +229,12 @@ export const DbService = {
   },
 
   async addEvaluation(evaluation: PerformanceEvaluation): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "evaluations", evaluation.id), evaluation);
-        return;
-      } catch (err) {
-        console.error("Firestore addEvaluation failed:", err);
-      }
-    }
     localDb.insert<PerformanceEvaluation>("evaluations", evaluation, initialEvaluations);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "evaluations", evaluation.id), evaluation).catch((err) => {
+        console.error("Firestore background addEvaluation failed:", err);
+      });
+    }
   },
 
   // === PROJECT ZONES ===
@@ -263,15 +252,12 @@ export const DbService = {
   },
 
   async updateZone(zone: ProjectZone): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "zones", zone.id), zone, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updateZone failed:", err);
-      }
-    }
     localDb.update<ProjectZone>("zones", zone, initialZones);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "zones", zone.id), zone, { merge: true }).catch((err) => {
+        console.error("Firestore background updateZone failed:", err);
+      });
+    }
   },
 
   // === DAILY PROGRESS LOGS ===
@@ -289,15 +275,12 @@ export const DbService = {
   },
 
   async addProgressLog(log: DailyProgressLog): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "progressLogs", log.id), log);
-        return;
-      } catch (err) {
-        console.error("Firestore addProgressLog failed:", err);
-      }
-    }
     localDb.insert<DailyProgressLog>("progressLogs", log, initialProgressLogs);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "progressLogs", log.id), log).catch((err) => {
+        console.error("Firestore background addProgressLog failed:", err);
+      });
+    }
   },
 
   // === SAFETY LOGS ===
@@ -315,15 +298,12 @@ export const DbService = {
   },
 
   async addSafetyLog(log: SafetyLog): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "safetyLogs", log.id), log);
-        return;
-      } catch (err) {
-        console.error("Firestore addSafetyLog failed:", err);
-      }
-    }
     localDb.insert<SafetyLog>("safetyLogs", log, initialSafetyLogs);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "safetyLogs", log.id), log).catch((err) => {
+        console.error("Firestore background addSafetyLog failed:", err);
+      });
+    }
   },
 
   // === QUALITY SNAGS ===
@@ -341,27 +321,21 @@ export const DbService = {
   },
 
   async addQualitySnag(snag: QualitySnag): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "qualitySnags", snag.id), snag);
-        return;
-      } catch (err) {
-        console.error("Firestore addQualitySnag failed:", err);
-      }
-    }
     localDb.insert<QualitySnag>("qualitySnags", snag, initialQualitySnags);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "qualitySnags", snag.id), snag).catch((err) => {
+        console.error("Firestore background addQualitySnag failed:", err);
+      });
+    }
   },
 
   async updateQualitySnag(snag: QualitySnag): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "qualitySnags", snag.id), snag, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updateQualitySnag failed:", err);
-      }
-    }
     localDb.update<QualitySnag>("qualitySnags", snag, initialQualitySnags);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "qualitySnags", snag.id), snag, { merge: true }).catch((err) => {
+        console.error("Firestore background updateQualitySnag failed:", err);
+      });
+    }
   },
 
   // === QUALITY LOGS ===
@@ -379,15 +353,12 @@ export const DbService = {
   },
 
   async addQualityLog(log: QualityLog): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "qualityLogs", log.id), log);
-        return;
-      } catch (err) {
-        console.error("Firestore addQualityLog failed:", err);
-      }
-    }
     localDb.insert<QualityLog>("qualityLogs", log, initialQualityLogs);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "qualityLogs", log.id), log).catch((err) => {
+        console.error("Firestore background addQualityLog failed:", err);
+      });
+    }
   },
 
   // === SYSTEM NOTIFICATIONS ===
@@ -414,27 +385,21 @@ export const DbService = {
   },
 
   async addNotification(notif: SystemNotification): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "notifications", notif.id), notif);
-        return;
-      } catch (err) {
-        console.error("Firestore addNotification failed:", err);
-      }
-    }
     localDb.insert<SystemNotification>("notifications", notif, []);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "notifications", notif.id), notif).catch((err) => {
+        console.error("Firestore background addNotification failed:", err);
+      });
+    }
   },
 
   async updateNotification(notif: SystemNotification): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "notifications", notif.id), notif, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updateNotification failed:", err);
-      }
-    }
     localDb.update<SystemNotification>("notifications", notif, []);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "notifications", notif.id), notif, { merge: true }).catch((err) => {
+        console.error("Firestore background updateNotification failed:", err);
+      });
+    }
   },
 
   // === AUDIT LOGS ===
@@ -452,15 +417,12 @@ export const DbService = {
   },
 
   async addAuditLog(log: AuditLog): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "auditLogs", log.id), log);
-        return;
-      } catch (err) {
-        console.error("Firestore addAuditLog failed:", err);
-      }
-    }
     localDb.insert<AuditLog>("auditLogs", log, initialAuditLogs);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "auditLogs", log.id), log).catch((err) => {
+        console.error("Firestore background addAuditLog failed:", err);
+      });
+    }
   },
 
   // === ALUMINUM FORMWORK PANELS ===
@@ -479,39 +441,30 @@ export const DbService = {
   },
 
   async addFormworkPanel(panel: AluminumFormworkPanel): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "formworkPanels", panel.id), panel);
-        return;
-      } catch (err) {
-        console.error("Firestore addFormworkPanel failed, falling back to offline db:", err);
-      }
-    }
     localDb.insert<AluminumFormworkPanel>("formworkPanels", panel, initialFormworkPanels);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "formworkPanels", panel.id), panel).catch((err) => {
+        console.error("Firestore background addFormworkPanel failed:", err);
+      });
+    }
   },
 
   async updateFormworkPanel(panel: AluminumFormworkPanel): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "formworkPanels", panel.id), panel, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updateFormworkPanel failed, falling back to offline db:", err);
-      }
-    }
     localDb.update<AluminumFormworkPanel>("formworkPanels", panel, initialFormworkPanels);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "formworkPanels", panel.id), panel, { merge: true }).catch((err) => {
+        console.error("Firestore background updateFormworkPanel failed:", err);
+      });
+    }
   },
 
   async deleteFormworkPanel(id: string): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await deleteDoc(doc(db, "formworkPanels", id));
-        return;
-      } catch (err) {
-        console.error("Firestore deleteFormworkPanel failed, falling back to offline db:", err);
-      }
-    }
     localDb.delete<AluminumFormworkPanel>("formworkPanels", id, initialFormworkPanels);
+    if (isFirebaseReady) {
+      deleteDoc(doc(db, "formworkPanels", id)).catch((err) => {
+        console.error("Firestore background deleteFormworkPanel failed:", err);
+      });
+    }
   },
 
   // === PANEL MOVEMENT LOGS ===
@@ -530,15 +483,12 @@ export const DbService = {
   },
 
   async addPanelMovementLog(log: PanelMovementLog): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "panelMovementLogs", log.id), log);
-        return;
-      } catch (err) {
-        console.error("Firestore addPanelMovementLog failed:", err);
-      }
-    }
     localDb.insert<PanelMovementLog>("panelMovementLogs", log, initialMovementLogs);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "panelMovementLogs", log.id), log).catch((err) => {
+        console.error("Firestore background addPanelMovementLog failed:", err);
+      });
+    }
   },
 
   // === PANEL DAMAGE REPORTS ===
@@ -557,27 +507,21 @@ export const DbService = {
   },
 
   async addPanelDamageReport(report: PanelDamageReport): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "panelDamageReports", report.id), report);
-        return;
-      } catch (err) {
-        console.error("Firestore addPanelDamageReport failed:", err);
-      }
-    }
     localDb.insert<PanelDamageReport>("panelDamageReports", report, initialDamageReports);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "panelDamageReports", report.id), report).catch((err) => {
+        console.error("Firestore background addPanelDamageReport failed:", err);
+      });
+    }
   },
 
   async updatePanelDamageReport(report: PanelDamageReport): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "panelDamageReports", report.id), report, { merge: true });
-        return;
-      } catch (err) {
-        console.error("Firestore updatePanelDamageReport failed:", err);
-      }
-    }
     localDb.update<PanelDamageReport>("panelDamageReports", report, initialDamageReports);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "panelDamageReports", report.id), report, { merge: true }).catch((err) => {
+        console.error("Firestore background updatePanelDamageReport failed:", err);
+      });
+    }
   },
 
   // === PANEL REPAIR RECORDS ===
@@ -596,14 +540,52 @@ export const DbService = {
   },
 
   async addPanelRepairRecord(record: PanelRepairRecord): Promise<void> {
-    if (isFirebaseReady) {
-      try {
-        await setDoc(doc(db, "panelRepairRecords", record.id), record);
-        return;
-      } catch (err) {
-        console.error("Firestore addPanelRepairRecord failed:", err);
-      }
-    }
     localDb.insert<PanelRepairRecord>("panelRepairRecords", record, initialRepairRecords);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "panelRepairRecords", record.id), record).catch((err) => {
+        console.error("Firestore background addPanelRepairRecord failed:", err);
+      });
+    }
+  },
+
+  // === OVERSEAS SHIPMENTS & CUSTOMS ===
+  async getOverseasShipments(): Promise<OverseasShipment[]> {
+    return localDb.getList<OverseasShipment>("overseasShipments", initialShipments);
+  },
+  async addOverseasShipment(shipment: OverseasShipment): Promise<void> {
+    localDb.insert<OverseasShipment>("overseasShipments", shipment, initialShipments);
+  },
+  async getCustomsRecords(): Promise<CustomsRecord[]> {
+    return localDb.getList<CustomsRecord>("customsRecords", initialCustomsRecords);
+  },
+  async addCustomsRecord(record: CustomsRecord): Promise<void> {
+    localDb.insert<CustomsRecord>("customsRecords", record, initialCustomsRecords);
+  },
+
+  // === DISPATCH TRANSFERS ===
+  async getDispatchTransfers(): Promise<DispatchTransfer[]> {
+    return localDb.getList<DispatchTransfer>("dispatchTransfers", initialDispatchTransfers);
+  },
+  async addDispatchTransfer(transfer: DispatchTransfer): Promise<void> {
+    localDb.insert<DispatchTransfer>("dispatchTransfers", transfer, initialDispatchTransfers);
+  },
+  async updateDispatchTransfer(transfer: DispatchTransfer): Promise<void> {
+    localDb.update<DispatchTransfer>("dispatchTransfers", transfer, initialDispatchTransfers);
+  },
+
+  // === SITE RECEIVING REPORTS ===
+  async getSiteReceivingReports(): Promise<SiteReceivingReport[]> {
+    return localDb.getList<SiteReceivingReport>("siteReceivingReports", initialSiteReceivingReports);
+  },
+  async addSiteReceivingReport(report: SiteReceivingReport): Promise<void> {
+    localDb.insert<SiteReceivingReport>("siteReceivingReports", report, initialSiteReceivingReports);
+  },
+
+  // === INVENTORY AUDITS ===
+  async getInventoryAudits(): Promise<InventoryAuditRecord[]> {
+    return localDb.getList<InventoryAuditRecord>("inventoryAudits", initialInventoryAudits);
+  },
+  async addInventoryAudit(audit: InventoryAuditRecord): Promise<void> {
+    localDb.insert<InventoryAuditRecord>("inventoryAudits", audit, initialInventoryAudits);
   }
 };

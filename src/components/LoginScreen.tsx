@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserRole, Worker } from "../types";
+import { UserRole, Worker, SystemNotification, AuditLog } from "../types";
 import { DbService } from "../services/db";
 import { 
   Shield, 
@@ -177,6 +177,15 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     setErrorMessage("");
     setSuccessMessage("");
 
+    if (!privacyAccepted) {
+      setErrorMessage(
+        isAmharic
+          ? "እባክዎ መጀመሪያ የግል ደህንነት እና የውስጥ ደንብ መመሪያውን ይቀበሉ።"
+          : "You must accept the Privacy Policy before accessing the ERP."
+      );
+      return;
+    }
+
     if (!regName.trim()) {
       setErrorMessage(isAmharic ? "እባክዎ ሙሉ ስም ያስገቡ" : "Please enter your full name");
       return;
@@ -211,6 +220,31 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       };
 
       await DbService.addWorker(newWorker);
+
+      // Create a system notification so Admin and Head Office can see the new registrant
+      const newNotif: SystemNotification = {
+        id: `NOTIF-REG-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        type: "New Registrant",
+        title: isAmharic ? `አዲስ ተመዝጋቢ: ${regName.trim()}` : `New Registrant: ${regName.trim()}`,
+        message: isAmharic 
+          ? `አዲስ ሰራተኛ ${regName.trim()} (${regRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`
+          : `New staff member ${regName.trim()} (${regRole}) has registered on the system. ID: ${fullEmpId}`,
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+      await DbService.addNotification(newNotif).catch(e => console.error("Error writing system notification for registrant:", e));
+
+      // Also generate an audit log record for self-registration
+      const newAuditLog: AuditLog = {
+        id: `AUD-REG-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
+        timestamp: new Date().toISOString(),
+        userId: fullEmpId,
+        userName: regName.trim(),
+        role: regRole,
+        action: "User Self-Registration",
+        details: `Successfully registered profile as role: ${regRole}. Assigned ID: ${fullEmpId}. GPS: 9.0272° N, 38.7483° E (Bole Heights Site)`
+      };
+      await DbService.addAuditLog(newAuditLog).catch(e => console.error("Error creating registration audit log:", e));
 
       setSuccessMessage(
         isAmharic

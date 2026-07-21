@@ -274,7 +274,7 @@ export interface QualityLog {
 
 export interface SystemNotification {
   id: string;
-  type: "Late Worker" | "Absent Worker" | "Zone Delay" | "Inspection Due" | "Concrete Due" | "Target Missed" | "Safety Alert";
+  type: "Late Worker" | "Absent Worker" | "Zone Delay" | "Inspection Due" | "Concrete Due" | "Target Missed" | "Safety Alert" | "New Registrant";
   title: string;
   message: string;
   timestamp: string;
@@ -306,11 +306,19 @@ export enum PanelType {
 }
 
 export enum PanelStatus {
+  NEW = "New Panel",
   ACTIVE = "Active",
-  IN_USE = "In Use",
+  IN_USE = "Installed / In Use",
+  DISMANTLED = "Dismantled",
+  WAITING_CLEANING = "Waiting Cleaning",
+  CLEANED = "Cleaned",
+  UNDER_INSPECTION = "Under Inspection",
   DAMAGED = "Damaged",
   UNDER_REPAIR = "Under Repair",
-  MISSING = "Missing"
+  RESERVED = "Reserved",
+  IN_TRANSIT = "In Transit",
+  MISSING = "Missing",
+  SCRAPPED = "Scrapped"
 }
 
 export interface AluminumFormworkPanel {
@@ -326,20 +334,60 @@ export interface AluminumFormworkPanel {
   usageCount: number;
   createdAt: string;
   weight?: number; // in kg
+  surfaceArea?: number; // in m2
   floor?: number;
   building?: string;
   photo?: string;
+  
+  // Manufacturer & Purchase Metadata
+  manufacturerName?: string;
+  countryOfOrigin?: string;
+  factoryAddress?: string;
+  manufacturingBatch?: string;
+  mfgDate?: string;
+  certificateNumber?: string;
+  warrantyInfo?: string;
+  purchaseDate?: string;
+  supplier?: string;
+  rfidTag?: string;
+  barcode?: string;
+  qrCode?: string;
+  
+  // Warehouse Storage Location
+  warehouseLocation?: string; // Block A - Rack 04 - Shelf B
+  warehouseName?: string;
+  
+  // Service Life Tracking
+  firstUseDate?: string;
+  projectsUsedCount?: number;
+  castingCyclesCount?: number;
+  totalServiceDays?: number;
+  totalWorkingHours?: number;
+  remainingUsefulLifePercent?: number; // 0-100%
+  maintenanceCount?: number;
+  totalRepairCost?: number;
+  
+  // Site Assignment & Supervisor
+  responsibleSupervisor?: string;
+  responsibleTeam?: string;
+  gpsCoordinates?: { lat: number; lng: number };
 }
 
 export interface PanelMovementLog {
   id: string;
   panelId: string;
+  dispatchNumber?: string;
+  transferNumber?: string;
   fromLocation: string;
   fromZone: string;
   toLocation: string;
   toZone: string;
   timestamp: string;
   movedBy: string;
+  driverName?: string;
+  truckPlate?: string;
+  digitalSignature?: string;
+  gpsLocation?: string;
   notes?: string;
 }
 
@@ -351,6 +399,10 @@ export interface PanelDamageReport {
   reportedBy: string;
   reportedDate: string;
   status: "Reported" | "In Repair" | "Repaired" | "Scrapped";
+  photoUrl?: string;
+  building?: string;
+  floor?: number;
+  zone?: string;
 }
 
 export interface PanelRepairRecord {
@@ -361,5 +413,104 @@ export interface PanelRepairRecord {
   repairDetails: string;
   cost: number;
   repairDate: string;
+  approvedBy?: string;
+}
+
+export interface OverseasShipment {
+  id: string;
+  manufacturerName?: string;
+  countryOfOrigin?: string;
+  factoryName?: string;
+  manufacturingBatch?: string;
+  shippingCompany: string;
+  vesselName: string;
+  containerNumber: string;
+  billOfLading: string;
+  portOfLoading: string;
+  destinationPort?: string;
+  portOfEntry?: string;
+  expectedArrivalDate: string;
+  status: "At Factory" | "At Port" | "On Vessel" | "Customs" | "In Transit" | "Arrived Warehouse";
+  liveGpsLocation?: string;
+  totalPanels?: number;
+  panelsQuantity?: number;
+  totalWeightTons?: number;
+}
+
+export interface CustomsRecord {
+  id: string;
+  shipmentId?: string;
+  arrivalDate?: string;
+  clearanceDate?: string;
+  portOfEntry: string;
+  customsClearanceDate?: string;
+  customsRefNumber?: string;
+  customsReference?: string;
+  importPermitNumber: string;
+  taxesAndDutiesEtb?: number;
+  declaredValueEtb?: number;
+  dutiesPaidEtb?: number;
+  clearedByOfficer?: string;
+  releaseDate?: string;
+  status: "Pending" | "Cleared" | "Released";
+}
+
+export interface DispatchTransfer {
+  id: string;
+  dispatchNumber: string;
+  transferNumber: string;
+  fromWarehouse: string;
+  destinationSite: string;
+  destinationBuilding: string;
+  destinationZone: string;
+  dispatchDate: string;
+  truckPlate: string;
+  driverName: string;
+  driverPhone: string;
+  dispatcherName: string;
+  panelCount: number;
+  totalWeightKg: number;
+  qrCode: string;
+  barcode: string;
+  status: "Dispatched" | "In Transit" | "Received" | "Delayed";
+  driverSignature?: string;
+  gpsLocation?: string;
+  estimatedArrival?: string;
+}
+
+export interface SiteReceivingReport {
+  id: string;
+  transferId: string;
+  dispatchNumber: string;
+  receivingSite: string;
+  building: string;
+  floor: number;
+  zone: string;
+  receivedBy: string;
+  receivedRole: string; // e.g. Section Head, Supervisor, Team Leader
+  receivingDate: string;
+  verifiedPanelsCount: number;
+  discrepanciesCount: number;
+  notes?: string;
+  receivingPhotoUrl?: string;
+  digitalSignatureUrl?: string;
+  gpsCoordinates?: { lat: number; lng: number };
+}
+
+export interface InventoryAuditRecord {
+  id: string;
+  auditDate: string;
+  warehouseOrSite?: string;
+  location?: string;
+  auditorName: string;
+  auditorRole: string;
+  systemCount: number;
+  physicalCount: number;
+  discrepancyCount?: number;
+  discrepancyQty?: number;
+  varianceQty?: number;
+  variancePercentage: number;
+  notes: string;
+  status: "Reconciled" | "Discrepancy Flagged" | "Pending Review" | "Approved";
 }
 

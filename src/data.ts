@@ -17,7 +17,12 @@ import {
   PanelDamageReport,
   PanelRepairRecord,
   PanelType,
-  PanelStatus
+  PanelStatus,
+  OverseasShipment,
+  CustomsRecord,
+  DispatchTransfer,
+  SiteReceivingReport,
+  InventoryAuditRecord
 } from "./types";
 
 // Seed Workers
@@ -596,6 +601,139 @@ export const initialRepairRecords: PanelRepairRecord[] = [
     repairDetails: "Re-welded frame corners with high-strength aluminum alloy and ground flat",
     cost: 1500,
     repairDate: "2025-06-15"
+  }
+];
+
+export const initialShipments: OverseasShipment[] = [
+  {
+    id: "SHP-2026-001",
+    shippingCompany: "Maersk Line Ethiopia",
+    vesselName: "MV Lion Star v.204",
+    containerNumber: "MSKU-9982310",
+    billOfLading: "BL-MKS-88231",
+    portOfLoading: "Ningbo-Zhoushan Port, China",
+    destinationPort: "Djibouti Port / Mojo Dry Port",
+    expectedArrivalDate: "2026-08-05",
+    status: "On Vessel",
+    liveGpsLocation: "Red Sea (12.89° N, 43.12° E)",
+    totalPanels: 420,
+    totalWeightTons: 18.5
+  },
+  {
+    id: "SHP-2026-002",
+    shippingCompany: "MSC Mediterranean Shipping",
+    vesselName: "MSC Oscar v.88",
+    containerNumber: "MEDU-4412093",
+    billOfLading: "BL-MSC-90112",
+    portOfLoading: "Jebel Ali Port, UAE",
+    destinationPort: "Mojo Dry Port, Ethiopia",
+    expectedArrivalDate: "2026-07-28",
+    status: "Customs",
+    liveGpsLocation: "Mojo Dry Port Customs Terminal B",
+    totalPanels: 250,
+    totalWeightTons: 11.2
+  }
+];
+
+export const initialCustomsRecords: CustomsRecord[] = [
+  {
+    id: "CST-2026-101",
+    shipmentId: "SHP-2026-002",
+    arrivalDate: "2026-07-20",
+    portOfEntry: "Mojo Dry Port",
+    customsClearanceDate: "2026-07-21",
+    clearanceDate: "2026-07-21",
+    customsRefNumber: "ETH-CUST-884021",
+    customsReference: "ETH-CUST-884021",
+    importPermitNumber: "IMP-2026-9910",
+    taxesAndDutiesEtb: 385000,
+    declaredValueEtb: 2850000,
+    dutiesPaidEtb: 385000,
+    clearedByOfficer: "Abebe Demissie (Customs Inspector)",
+    releaseDate: "2026-07-22",
+    status: "Cleared"
+  }
+];
+
+export const initialDispatchTransfers: DispatchTransfer[] = [
+  {
+    id: "DSP-2026-001",
+    dispatchNumber: "DSP-8801",
+    transferNumber: "MTN-2026-072101",
+    fromWarehouse: "Central Addis Ababa Warehouse",
+    destinationSite: "Digital Bole Heights",
+    destinationBuilding: "Block A",
+    destinationZone: "Floor 5 Zone A",
+    dispatchDate: "2026-07-21T08:30:00Z",
+    truckPlate: "ET-AA-3-B44502",
+    driverName: "Abebe Kebede",
+    driverPhone: "+251 911 223344",
+    dispatcherName: "Solomon Tadesse (Logistics Officer)",
+    panelCount: 85,
+    totalWeightKg: 1250,
+    qrCode: "QR-DSP-8801",
+    barcode: "88019920102",
+    status: "In Transit",
+    driverSignature: "Abebe K.",
+    gpsLocation: "Bole Road near Dembel City Center (En Route)",
+    estimatedArrival: "2026-07-21T09:45:00Z"
+  },
+  {
+    id: "DSP-2026-002",
+    dispatchNumber: "DSP-8802",
+    transferNumber: "MTN-2026-072002",
+    fromWarehouse: "Akaki Storage Yard",
+    destinationSite: "Digital Saris Block B",
+    destinationBuilding: "Block B",
+    destinationZone: "Floor 2 Zone B",
+    dispatchDate: "2026-07-20T10:00:00Z",
+    truckPlate: "ET-AA-3-A99201",
+    driverName: "Getachew Zewde",
+    driverPhone: "+251 922 884400",
+    dispatcherName: "Solomon Tadesse",
+    panelCount: 120,
+    totalWeightKg: 1800,
+    qrCode: "QR-DSP-8802",
+    barcode: "88029920103",
+    status: "Received",
+    driverSignature: "G. Zewde",
+    gpsLocation: "Digital Saris Site Gate 1"
+  }
+];
+
+export const initialSiteReceivingReports: SiteReceivingReport[] = [
+  {
+    id: "REC-2026-001",
+    transferId: "DSP-2026-002",
+    dispatchNumber: "DSP-8802",
+    receivingSite: "Digital Saris Block B",
+    building: "Block B",
+    floor: 2,
+    zone: "Zone B",
+    receivedBy: "Eng. Mulugeta Worku",
+    receivedRole: "Section Head",
+    receivingDate: "2026-07-20T11:30:00Z",
+    verifiedPanelsCount: 120,
+    discrepanciesCount: 0,
+    notes: "All 120 wall panels received in good condition with QR codes scanned.",
+    digitalSignatureUrl: "Mulugeta W.",
+    gpsCoordinates: { lat: 8.9806, lng: 38.7578 }
+  }
+];
+
+export const initialInventoryAudits: InventoryAuditRecord[] = [
+  {
+    id: "AUD-2026-07",
+    auditDate: "2026-07-15",
+    warehouseOrSite: "Central Addis Ababa Warehouse",
+    auditorName: "Teshale Bogale",
+    auditorRole: "Senior Internal Auditor",
+    systemCount: 1250,
+    physicalCount: 1248,
+    discrepancyCount: -2,
+    variancePercentage: -0.16,
+    notes: "Minor 2-panel discrepancy logged during quarterly physical audit. Investigation pending.",
+    status: "Discrepancy Flagged"
   }
 ];
 
