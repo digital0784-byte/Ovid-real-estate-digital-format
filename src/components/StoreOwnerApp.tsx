@@ -194,6 +194,116 @@ export interface StoreAuditRecord {
   status: "Balanced" | "Discrepancy Detected" | "Resolved";
 }
 
+export interface SitePanelBreakdown {
+  id: string;
+  siteName: string;
+  panelType: string;
+  dimensions: string;
+  totalAllocated: number;
+  installedCount: number;
+  inStoreCount: number;
+  damagedCount: number;
+  inTransitCount: number;
+  missingCount: number;
+  conditionScore: number;
+  lastReportDate: string;
+  lastReporter: string;
+}
+
+export interface DailyMaterialRequisition {
+  id: string;
+  date: string;
+  siteName: string;
+  blockNumber: string;
+  floorNumber: string;
+  workType: "Wall" | "Slab" | "Beam" | "Column";
+  gangChiefName: string;
+  teamLeaderName: string;
+  sectionHeadName: string;
+  supervisorName: string;
+  status: "Draft" | "Pending Approval" | "Approved" | "Issued" | "Returned";
+  pinsQty: number;
+  wedgesQty: number;
+  tieRodsQty: number;
+  conduitsQty: number;
+  blocksQty: number;
+  floorItemsQty: number;
+  requestedAt: string;
+  approvedBy: string;
+  issuedBy: string;
+  notes: string;
+}
+
+export interface DailyReturnReport {
+  id: string;
+  requisitionId: string;
+  date: string;
+  siteName: string;
+  blockNumber: string;
+  floorNumber: string;
+  gangChiefName: string;
+  siteStoreOwnerName: string;
+  status: "Pending Return" | "Fully Returned" | "With Loss" | "With Damage";
+  pinsReturned: number;
+  pinsLost: number;
+  pinsDamaged: number;
+  wedgesReturned: number;
+  wedgesLost: number;
+  wedgesDamaged: number;
+  tieRodsReturned: number;
+  tieRodsLost: number;
+  tieRodsDamaged: number;
+  conduitsReturned: number;
+  conduitsLost: number;
+  conduitsDamaged: number;
+  damageDescription: string;
+  photoUploaded: boolean;
+  photoUrl?: string;
+  gangChiefSigned: boolean;
+  storeOwnerSigned: boolean;
+  returnedAt: string;
+}
+
+export interface DailyConsolidatedReport {
+  id: string;
+  date: string;
+  siteName: string;
+  projectName: string;
+  siteStoreOwner: string;
+  totalRequisitions: number;
+  totalReturns: number;
+  totalItemsIssued: number;
+  totalItemsReturned: number;
+  totalItemsLost: number;
+  totalItemsDamaged: number;
+  totalLossValueETB: number;
+  totalDamageValueETB: number;
+  sentToWarehouseAt: string;
+  sentToHeadOfficeAt: string;
+  syncStatus: "Auto-Synced to HQ & Warehouse" | "Sync Pending";
+  materialSummaries: Array<{
+    materialName: string;
+    openingStock: number;
+    received: number;
+    issued: number;
+    returned: number;
+    lost: number;
+    damaged: number;
+    closingStock: number;
+    unit: string;
+  }>;
+  blockSummaries: Array<{
+    blockNumber: string;
+    pinsIssued: number;
+    pinsLost: number;
+    wedgesIssued: number;
+    wedgesLost: number;
+    tieRodsIssued: number;
+    tieRodsLost: number;
+    blocksUsed: number;
+  }>;
+}
+
 interface StoreOwnerAppProps {
   isAmharic: boolean;
   currentUserRole?: UserRole;
@@ -216,7 +326,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     }
   }, [initialMode]);
 
-  // Navigation State across 15 Master Modules
+  // Navigation State across Master Modules
   const [activeTab, setActiveTab] = useState<
     | "warehouse-dashboard"
     | "dashboard"
@@ -224,6 +334,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     | "issue"
     | "returns"
     | "formwork-tracking"
+    | "site-panel-breakdown"
+    | "morning-requisitions"
+    | "evening-returns"
+    | "daily-auto-reports"
     | "inventory"
     | "audit"
     | "requests"
@@ -562,6 +676,37 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     }
   ]);
 
+  const [supplierSchedules, setSupplierSchedules] = useState<SupplierDeliverySchedule[]>([
+    {
+      id: "SUP-2026-401",
+      poNumber: "PO-2026-8801",
+      supplierName: "Meso Metal & Aluminum Mfg PLC",
+      materialName: "Aluminum Formwork Accessories (Pins & Wedges)",
+      quantity: 5000,
+      unit: "Sets",
+      expectedArrival: "Today 15:30",
+      deliveryBay: "Central Yard Bay B",
+      contactPerson: "Ato Tadesse",
+      phone: "+251-911-334455",
+      status: "En Route",
+      gatePassCode: "GP-SUP-401"
+    },
+    {
+      id: "SUP-2026-402",
+      poNumber: "PO-2026-8802",
+      supplierName: "Derba MIDROC Cement PLC",
+      materialName: "OPC 42.5N Cement Bags",
+      quantity: 600,
+      unit: "Bags",
+      expectedArrival: "Today 16:30",
+      deliveryBay: "Central Yard Bay A",
+      contactPerson: "Ato Yonas",
+      phone: "+251-912-556677",
+      status: "Scheduled",
+      gatePassCode: "GP-SUP-402"
+    }
+  ]);
+
   const [interSiteTransfers, setInterSiteTransfers] = useState<InterSiteTransferVoucher[]>([
     {
       id: "TRF-2026-001",
@@ -624,62 +769,335 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     }
   ]);
 
-  const [supplierSchedules, setSupplierSchedules] = useState<SupplierDeliverySchedule[]>([
+  // CROSS-SITE FORMWORK PANEL & ACCESSORIES BREAKDOWN STATE
+  const [sitePanelBreakdowns, setSitePanelBreakdowns] = useState<SitePanelBreakdown[]>([
     {
-      id: "SUP-2026-401",
-      poNumber: "PO-2026-8801",
-      supplierName: "Dangote Cement Factory",
-      materialName: "OPC 42.5N Cement Bags",
-      quantity: 1000,
-      unit: "Bags",
-      expectedArrival: "Today 14:30",
-      deliveryBay: "Central Yard Bay A",
-      contactPerson: "Ato Berhanu (Logistics Mgr)",
-      phone: "+251-911-554433",
-      status: "En Route",
-      gatePassCode: "GP-SUP-401"
+      id: "SPB-001",
+      siteName: "Bole Heights Phase I",
+      panelType: "Standard Wall Panel 1200x600",
+      dimensions: "1200mm x 600mm",
+      totalAllocated: 450,
+      installedCount: 320,
+      inStoreCount: 110,
+      damagedCount: 12,
+      inTransitCount: 0,
+      missingCount: 8,
+      conditionScore: 95.5,
+      lastReportDate: "2026-07-22 08:30",
+      lastReporter: "Alemayehu Kebede (Section Head)"
     },
     {
-      id: "SUP-2026-402",
-      poNumber: "PO-2026-8802",
-      supplierName: "East Steel Industry PLC",
-      materialName: "High Tensile Steel Rebar 16mm",
-      quantity: 40,
-      unit: "Tons",
-      expectedArrival: "Today 15:15",
-      deliveryBay: "Central Yard Bay C (Rebar)",
-      contactPerson: "Woizero Bethlehem (Sales)",
-      phone: "+251-912-667788",
-      status: "Scheduled",
-      gatePassCode: "GP-SUP-402"
+      id: "SPB-002",
+      siteName: "Bole Heights Phase I",
+      panelType: "Column Panel 1200x400",
+      dimensions: "1200mm x 400mm",
+      totalAllocated: 280,
+      installedCount: 210,
+      inStoreCount: 62,
+      damagedCount: 5,
+      inTransitCount: 0,
+      missingCount: 3,
+      conditionScore: 96.8,
+      lastReportDate: "2026-07-22 08:30",
+      lastReporter: "Fikru Tolossa (Gang Chief)"
     },
     {
-      id: "SUP-2026-403",
-      poNumber: "PO-2026-8803",
-      supplierName: "Mugher Cement Factory",
-      materialName: "PPC Masonry Cement Bags",
-      quantity: 800,
-      unit: "Bags",
-      expectedArrival: "Today 11:00",
-      deliveryBay: "Central Yard Bay B",
-      contactPerson: "Ato Yared (Dispatch)",
-      phone: "+251-913-112233",
-      status: "Inspected & Received",
-      gatePassCode: "GP-SUP-403"
+      id: "SPB-003",
+      siteName: "Kazanchis Financial Tower",
+      panelType: "Standard Wall Panel 1200x600",
+      dimensions: "1200mm x 600mm",
+      totalAllocated: 600,
+      installedCount: 480,
+      inStoreCount: 95,
+      damagedCount: 15,
+      inTransitCount: 0,
+      missingCount: 10,
+      conditionScore: 94.2,
+      lastReportDate: "2026-07-22 09:15",
+      lastReporter: "Kassa Hunegn (Supervisor)"
     },
     {
-      id: "SUP-2026-404",
-      poNumber: "PO-2026-8804",
-      supplierName: "Formwork Tech International",
-      materialName: "Aluminum Corner Elements & Wedge Pins",
-      quantity: 50,
-      unit: "Boxes",
-      expectedArrival: "Tomorrow 09:30",
-      deliveryBay: "Central Store Vault 1",
-      contactPerson: "Ato Solomon (Import Agent)",
-      phone: "+251-911-009988",
-      status: "Scheduled",
-      gatePassCode: "GP-SUP-404"
+      id: "SPB-004",
+      siteName: "Kazanchis Financial Tower",
+      panelType: "Deck Panel 1200x600",
+      dimensions: "1200mm x 600mm",
+      totalAllocated: 520,
+      installedCount: 400,
+      inStoreCount: 100,
+      damagedCount: 12,
+      inTransitCount: 0,
+      missingCount: 8,
+      conditionScore: 95.0,
+      lastReportDate: "2026-07-22 09:15",
+      lastReporter: "Yohannes Bekele (Team Leader)"
+    },
+    {
+      id: "SPB-005",
+      siteName: "Gotera Interchange Project",
+      panelType: "Standard Wall Panel 1200x600",
+      dimensions: "1200mm x 600mm",
+      totalAllocated: 380,
+      installedCount: 260,
+      inStoreCount: 90,
+      damagedCount: 18,
+      inTransitCount: 10,
+      missingCount: 2,
+      conditionScore: 92.8,
+      lastReportDate: "2026-07-21 17:00",
+      lastReporter: "Birhanu Tesfa (Gang Chief)"
+    },
+    {
+      id: "SPB-006",
+      siteName: "CMC Residential Complex",
+      panelType: "Inner Corner Profile 1200x150",
+      dimensions: "1200mm x 150mm",
+      totalAllocated: 200,
+      installedCount: 150,
+      inStoreCount: 42,
+      damagedCount: 6,
+      inTransitCount: 0,
+      missingCount: 2,
+      conditionScore: 96.0,
+      lastReportDate: "2026-07-21 16:45",
+      lastReporter: "Chala Bekele (Gang Chief)"
+    },
+    {
+      id: "SPB-007",
+      siteName: "Kilinto Industrial Zone",
+      panelType: "Alignment Pin & Wedge Sets",
+      dimensions: "16mm Heavy Duty",
+      totalAllocated: 1500,
+      installedCount: 1100,
+      inStoreCount: 320,
+      damagedCount: 45,
+      inTransitCount: 0,
+      missingCount: 35,
+      conditionScore: 91.5,
+      lastReportDate: "2026-07-21 18:00",
+      lastReporter: "Abebe Kebede (Site Store Owner)"
+    }
+  ]);
+
+  const [sitePanelFilterSite, setSitePanelFilterSite] = useState<string>("ALL");
+  const [sitePanelFilterType, setSitePanelFilterType] = useState<string>("ALL");
+
+  // DAILY MATERIAL REQUISITION STATE (Morning Requisitions)
+  const [dailyRequisitions, setDailyRequisitions] = useState<DailyMaterialRequisition[]>([
+    {
+      id: "REQ-20260722-001",
+      date: "2026-07-22",
+      siteName: "Bole Heights Phase I",
+      blockNumber: "Block A",
+      floorNumber: "Floor 4",
+      workType: "Wall",
+      gangChiefName: "Fikru Tolossa",
+      teamLeaderName: "Yohannes Bekele",
+      sectionHeadName: "Alemayehu Kebede",
+      supervisorName: "Kassa Hunegn",
+      status: "Approved",
+      pinsQty: 150,
+      wedgesQty: 250,
+      tieRodsQty: 80,
+      conduitsQty: 40,
+      blocksQty: 300,
+      floorItemsQty: 30,
+      requestedAt: "06:15 AM",
+      approvedBy: "Eng. Kassa Hunegn (Supervisor)",
+      issuedBy: "Abebe Storekeeper",
+      notes: "High priority wall formwork erection for Zone 2 concrete pouring"
+    },
+    {
+      id: "REQ-20260722-002",
+      date: "2026-07-22",
+      siteName: "Kazanchis Financial Tower",
+      blockNumber: "Block 1",
+      floorNumber: "Floor 8",
+      workType: "Slab",
+      gangChiefName: "Chala Bekele",
+      teamLeaderName: "Tiruneh Girma",
+      sectionHeadName: "Getachew Worku",
+      supervisorName: "Mulugeta Tadesse",
+      status: "Pending Approval",
+      pinsQty: 200,
+      wedgesQty: 350,
+      tieRodsQty: 120,
+      conduitsQty: 60,
+      blocksQty: 0,
+      floorItemsQty: 50,
+      requestedAt: "06:45 AM",
+      approvedBy: "Awaiting Section Head & Supervisor Approval",
+      issuedBy: "Pending",
+      notes: "Slab formwork decking & prop bracing"
+    }
+  ]);
+
+  const [showNewRequisitionModal, setShowNewRequisitionModal] = useState(false);
+  const [newReqForm, setNewReqForm] = useState({
+    siteName: "Bole Heights Phase I",
+    blockNumber: "Block A",
+    floorNumber: "Floor 4",
+    workType: "Wall" as "Wall" | "Slab" | "Beam" | "Column",
+    gangChiefName: "Fikru Tolossa",
+    teamLeaderName: "Yohannes Bekele",
+    sectionHeadName: "Alemayehu Kebede",
+    supervisorName: "Kassa Hunegn",
+    pinsQty: 100,
+    wedgesQty: 150,
+    tieRodsQty: 50,
+    conduitsQty: 30,
+    blocksQty: 200,
+    floorItemsQty: 20,
+    notes: "Morning shift material dispatch"
+  });
+
+  // EVENING DISMANTLING & RETURN REPORT STATE
+  const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([
+    {
+      id: "RET-20260721-001",
+      requisitionId: "REQ-20260721-098",
+      date: "2026-07-21",
+      siteName: "Bole Heights Phase I",
+      blockNumber: "Block A",
+      floorNumber: "Floor 3",
+      gangChiefName: "Fikru Tolossa",
+      siteStoreOwnerName: "Abebe Storekeeper",
+      status: "With Damage",
+      pinsReturned: 142,
+      pinsLost: 5,
+      pinsDamaged: 3,
+      wedgesReturned: 240,
+      wedgesLost: 8,
+      wedgesDamaged: 2,
+      tieRodsReturned: 75,
+      tieRodsLost: 3,
+      tieRodsDamaged: 2,
+      conduitsReturned: 38,
+      conduitsLost: 1,
+      conduitsDamaged: 1,
+      damageDescription: "2 Tie rods bent during wedge pin removal. 3 pins head mushroomed.",
+      photoUploaded: true,
+      gangChiefSigned: true,
+      storeOwnerSigned: true,
+      returnedAt: "05:45 PM"
+    }
+  ]);
+
+  const [showNewReturnModal, setShowNewReturnModal] = useState(false);
+  const [newReturnForm, setNewReturnForm] = useState({
+    requisitionId: "REQ-20260722-001",
+    siteName: "Bole Heights Phase I",
+    blockNumber: "Block A",
+    floorNumber: "Floor 4",
+    gangChiefName: "Fikru Tolossa",
+    siteStoreOwnerName: "Abebe Storekeeper",
+    pinsReturned: 145, pinsLost: 3, pinsDamaged: 2,
+    wedgesReturned: 242, wedgesLost: 5, wedgesDamaged: 3,
+    tieRodsReturned: 76, tieRodsLost: 2, tieRodsDamaged: 2,
+    conduitsReturned: 39, conduitsLost: 1, conduitsDamaged: 0,
+    damageDescription: "Minor thread damage on 2 tie rods.",
+    photoUploaded: true
+  });
+
+  // Requisition & Return Form aliases & Submit Handlers
+  const reqForm = newReqForm;
+  const setReqForm = setNewReqForm;
+  const returnForm = newReturnForm;
+  const setReturnForm = setNewReturnForm;
+
+  const handleCreateRequisition = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newReq: DailyMaterialRequisition = {
+      id: `REQ-${new Date().toISOString().substring(0, 10).replace(/-/g, "")}-${Math.floor(100 + Math.random() * 900)}`,
+      date: new Date().toISOString().substring(0, 10),
+      siteName: newReqForm.siteName,
+      blockNumber: newReqForm.blockNumber,
+      floorNumber: newReqForm.floorNumber,
+      workType: newReqForm.workType,
+      gangChiefName: newReqForm.gangChiefName,
+      teamLeaderName: newReqForm.teamLeaderName,
+      sectionHeadName: newReqForm.sectionHeadName,
+      supervisorName: newReqForm.supervisorName,
+      status: "Pending Approval",
+      pinsQty: newReqForm.pinsQty,
+      wedgesQty: newReqForm.wedgesQty,
+      tieRodsQty: newReqForm.tieRodsQty,
+      conduitsQty: newReqForm.conduitsQty,
+      blocksQty: newReqForm.blocksQty,
+      floorItemsQty: newReqForm.floorItemsQty,
+      requestedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      approvedBy: "Pending Supervisor",
+      issuedBy: "Pending Storekeeper",
+      notes: newReqForm.notes
+    };
+    setDailyRequisitions(prev => [newReq, ...prev]);
+    setShowNewRequisitionModal(false);
+    onLogAction?.("Morning Requisition Created", `Submitted morning requisition ${newReq.id} for ${newReq.blockNumber} ${newReq.floorNumber}`);
+  };
+
+  const handleCreateReturn = (e: React.FormEvent) => {
+    e.preventDefault();
+    const newRet: DailyReturnReport = {
+      id: `RET-${new Date().toISOString().substring(0, 10).replace(/-/g, "")}-${Math.floor(100 + Math.random() * 900)}`,
+      requisitionId: newReturnForm.requisitionId,
+      date: new Date().toISOString().substring(0, 10),
+      siteName: newReturnForm.siteName,
+      blockNumber: newReturnForm.blockNumber,
+      floorNumber: newReturnForm.floorNumber,
+      gangChiefName: newReturnForm.gangChiefName,
+      siteStoreOwnerName: newReturnForm.siteStoreOwnerName,
+      status: (newReturnForm.pinsLost > 0 || newReturnForm.pinsDamaged > 0) ? "With Damage" : "Fully Returned",
+      pinsReturned: newReturnForm.pinsReturned,
+      pinsLost: newReturnForm.pinsLost,
+      pinsDamaged: newReturnForm.pinsDamaged,
+      wedgesReturned: newReturnForm.wedgesReturned,
+      wedgesLost: newReturnForm.wedgesLost,
+      wedgesDamaged: newReturnForm.wedgesDamaged,
+      tieRodsReturned: newReturnForm.tieRodsReturned,
+      tieRodsLost: newReturnForm.tieRodsLost,
+      tieRodsDamaged: newReturnForm.tieRodsDamaged,
+      conduitsReturned: newReturnForm.conduitsReturned,
+      conduitsLost: newReturnForm.conduitsLost,
+      conduitsDamaged: newReturnForm.conduitsDamaged,
+      damageDescription: newReturnForm.damageDescription,
+      photoUploaded: newReturnForm.photoUploaded,
+      gangChiefSigned: true,
+      storeOwnerSigned: true,
+      returnedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+    setDailyReturnReports(prev => [newRet, ...prev]);
+    setShowNewReturnModal(false);
+    onLogAction?.("Evening Return Audit Logged", `Logged dismantling return audit ${newRet.id} for requisition ${newRet.requisitionId}`);
+  };
+
+  // DAILY CONSOLIDATED AUTO-REPORTS STATE (Transmitted live to Warehouse & HQ)
+  const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([
+    {
+      id: "DCR-20260721-BOLE",
+      date: "2026-07-21",
+      siteName: "Bole Heights Phase I",
+      projectName: "Commercial Tower & Apartments",
+      siteStoreOwner: "Abebe Storekeeper",
+      totalRequisitions: 8,
+      totalReturns: 8,
+      totalItemsIssued: 1450,
+      totalItemsReturned: 1395,
+      totalItemsLost: 35,
+      totalItemsDamaged: 20,
+      totalLossValueETB: 14500,
+      totalDamageValueETB: 8200,
+      sentToWarehouseAt: "2026-07-21 18:30",
+      sentToHeadOfficeAt: "2026-07-21 18:30",
+      syncStatus: "Auto-Synced to HQ & Warehouse",
+      materialSummaries: [
+        { materialName: "Pins (ፒን 16mm)", openingStock: 500, received: 200, issued: 150, returned: 142, lost: 5, damaged: 3, closingStock: 490, unit: "Pcs" },
+        { materialName: "Wedges (ዌጅ Standard)", openingStock: 800, received: 300, issued: 250, returned: 240, lost: 8, damaged: 2, closingStock: 840, unit: "Pcs" },
+        { materialName: "Tie Rods (ታይሮድ 1.5m)", openingStock: 200, received: 100, issued: 80, returned: 75, lost: 3, damaged: 2, closingStock: 215, unit: "Pcs" },
+        { materialName: "Conduits (ኮንድት PVC)", openingStock: 150, received: 50, issued: 40, returned: 38, lost: 1, damaged: 1, closingStock: 159, unit: "Pcs" }
+      ],
+      blockSummaries: [
+        { blockNumber: "Block A", pinsIssued: 80, pinsLost: 3, wedgesIssued: 130, wedgesLost: 4, tieRodsIssued: 45, tieRodsLost: 2, blocksUsed: 150 },
+        { blockNumber: "Block B", pinsIssued: 70, pinsLost: 2, wedgesIssued: 120, wedgesLost: 4, tieRodsIssued: 35, tieRodsLost: 1, blocksUsed: 150 }
+      ]
     }
   ]);
 
@@ -1144,11 +1562,15 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         </div>
       )}
 
-      {/* TABS TOP NAVIGATION (15 MASTER MODULES) */}
+      {/* TABS TOP NAVIGATION */}
       <div className="flex flex-wrap border-b border-slate-800 gap-1 overflow-x-auto pb-1">
         {[
           { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ" : "Warehouse Dashboard", icon: Building2 },
           { id: "dashboard", label: isAmharic ? "ዳሽቦርድ" : "Store Dashboard", icon: Layers },
+          { id: "site-panel-breakdown", label: isAmharic ? "በየሳይቱ ያሉ የፓነል ዝርዝሮች" : "Cross-Site Panel Breakdown", icon: Box },
+          { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃዎች ጥያቄ" : "Morning Requisitions", icon: FileText },
+          { id: "evening-returns", label: isAmharic ? "የማታ ዘገባ & መመለሻ" : "Evening Dismantling Returns", icon: RotateCcw },
+          { id: "daily-auto-reports", label: isAmharic ? "የሳይት እለታዊ ሪፖርት (HQ Sync)" : "Daily Site Reports (HQ Sync)", icon: BarChart3 },
           { id: "receiving", label: isAmharic ? "እቃዎች መቀበያ" : "Receiving", icon: Truck },
           { id: "issue", label: isAmharic ? "እቃዎች ማስረከቢያ" : "Issue", icon: ArrowRightLeft },
           { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Returns", icon: RotateCcw },
@@ -1680,7 +2102,500 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           </div>
         )}
 
-        {/* 2. MATERIAL RECEIVING MODULE */}
+        {/* 1. CROSS-SITE FORMWORK PANEL & ACCESSORIES BREAKDOWN */}
+        {activeTab === "site-panel-breakdown" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                  <Box className="text-amber-400" size={20} />
+                  <span>{isAmharic ? "በየሳይቱ ያሉ የፓነል አይነቶች እና ዝርዝሮች (Cross-Site Live Status)" : "Cross-Site Formwork Panel & Accessories Breakdown"}</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "ከሳይት በሚላከው እለታዊ ሪፖርት መሰረት በየሳይቱ ያሉትን የፓነል አይነቶች፣ መጠኖች፣ የተገጠሙ፣ በስቶር ያሉ፣ የተጎዱ እና የጠፉ አውቶሜቲክ ማሳያ" 
+                    : "Automatically updated panel types, specifications, allocated, installed, in-store, and damaged inventory across all sites"}
+                </p>
+              </div>
+
+              {/* Filters */}
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={sitePanelFilterSite}
+                  onChange={(e) => setSitePanelFilterSite(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-white text-xs rounded-xl px-3 py-2 font-mono focus:outline-none focus:border-amber-500"
+                >
+                  <option value="ALL">{isAmharic ? "ሁሉንም ሳይቶች" : "All Construction Sites"}</option>
+                  <option value="Bole Heights Phase I">Bole Heights Phase I</option>
+                  <option value="Kazanchis Financial Tower">Kazanchis Financial Tower</option>
+                  <option value="Gotera Interchange Project">Gotera Interchange Project</option>
+                  <option value="CMC Residential Complex">CMC Residential Complex</option>
+                  <option value="Kilinto Industrial Zone">Kilinto Industrial Zone</option>
+                </select>
+
+                <select
+                  value={sitePanelFilterType}
+                  onChange={(e) => setSitePanelFilterType(e.target.value)}
+                  className="bg-slate-900 border border-slate-800 text-white text-xs rounded-xl px-3 py-2 font-mono focus:outline-none focus:border-amber-500"
+                >
+                  <option value="ALL">{isAmharic ? "ሁሉንም የፓነል አይነቶች" : "All Panel & Accessory Types"}</option>
+                  <option value="Standard Wall Panel">Standard Wall Panels</option>
+                  <option value="Column Panel">Column Panels</option>
+                  <option value="Deck Panel">Deck Panels</option>
+                  <option value="Corner Profile">Corner Profiles</option>
+                  <option value="Alignment Pin">Alignment Pins & Wedges</option>
+                </select>
+              </div>
+            </div>
+
+            {/* CROSS-SITE SUMMARY CARDS */}
+            <div className="grid grid-cols-2 md:grid-cols-6 gap-3 font-mono text-xs">
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Total Allocated</span>
+                <span className="text-base font-black text-white mt-1 block">
+                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.totalAllocated, 0).toLocaleString()} Pcs
+                </span>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Installed On-Site</span>
+                <span className="text-base font-black text-emerald-400 mt-1 block">
+                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.installedCount, 0).toLocaleString()} Pcs
+                </span>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">In Site Store</span>
+                <span className="text-base font-black text-cyan-400 mt-1 block">
+                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.inStoreCount, 0).toLocaleString()} Pcs
+                </span>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Damaged / Repair</span>
+                <span className="text-base font-black text-amber-400 mt-1 block">
+                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.damagedCount, 0).toLocaleString()} Pcs
+                </span>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">In Transit</span>
+                <span className="text-base font-black text-indigo-400 mt-1 block">
+                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.inTransitCount, 0).toLocaleString()} Pcs
+                </span>
+              </div>
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Missing / Lost</span>
+                <span className="text-base font-black text-rose-400 mt-1 block">
+                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.missingCount, 0).toLocaleString()} Pcs
+                </span>
+              </div>
+            </div>
+
+            {/* BREAKDOWN TABLE */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <span className="text-xs font-black uppercase text-white tracking-wider">
+                  {isAmharic ? "በየሳይቱ ያሉ የፓነሎች ዝርዝር ማጠቃለያ" : "Detailed Site-by-Site Panel Inventory Matrix"}
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800 flex items-center space-x-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>Auto-Synced from Site Daily Reports</span>
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="p-4">Site Name</th>
+                      <th className="p-4">Panel / Accessory Type</th>
+                      <th className="p-4">Dimensions</th>
+                      <th className="p-4 text-center">Allocated</th>
+                      <th className="p-4 text-center">Installed</th>
+                      <th className="p-4 text-center">In Store</th>
+                      <th className="p-4 text-center">Damaged</th>
+                      <th className="p-4 text-center">Missing</th>
+                      <th className="p-4 text-center">Condition</th>
+                      <th className="p-4">Last Reported</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                    {sitePanelBreakdowns
+                      .filter(item => sitePanelFilterSite === "ALL" || item.siteName === sitePanelFilterSite)
+                      .filter(item => sitePanelFilterType === "ALL" || item.panelType.toLowerCase().includes(sitePanelFilterType.toLowerCase()))
+                      .map(item => (
+                        <tr key={item.id} className="hover:bg-slate-900/40 text-slate-200">
+                          <td className="p-4 font-sans font-bold text-white flex items-center space-x-1.5">
+                            <Building2 size={13} className="text-amber-400" />
+                            <span>{item.siteName}</span>
+                          </td>
+                          <td className="p-4 font-sans font-semibold text-cyan-300">{item.panelType}</td>
+                          <td className="p-4 text-slate-400">{item.dimensions}</td>
+                          <td className="p-4 text-center font-bold text-white">{item.totalAllocated}</td>
+                          <td className="p-4 text-center font-bold text-emerald-400">{item.installedCount}</td>
+                          <td className="p-4 text-center font-bold text-cyan-400">{item.inStoreCount}</td>
+                          <td className="p-4 text-center font-bold text-amber-400">{item.damagedCount}</td>
+                          <td className="p-4 text-center font-bold text-rose-400">{item.missingCount}</td>
+                          <td className="p-4 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              item.conditionScore >= 95 ? "bg-emerald-950 text-emerald-400" :
+                              item.conditionScore >= 90 ? "bg-cyan-950 text-cyan-400" :
+                              "bg-amber-950 text-amber-400"
+                            }`}>
+                              {item.conditionScore}%
+                            </span>
+                          </td>
+                          <td className="p-4 text-[10px] text-slate-400 font-sans">
+                            <div className="font-bold text-slate-300">{item.lastReporter}</div>
+                            <div className="text-[9px] text-slate-500 font-mono">{item.lastReportDate}</div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 2. MORNING MATERIAL REQUISITION MODULE */}
+        {activeTab === "morning-requisitions" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                  <FileText className="text-emerald-400" size={20} />
+                  <span>{isAmharic ? "የጠዋት እቃዎች ጥያቄ (Daily Morning Requisitions)" : "Daily Morning Material Requisition Flow"}</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "የቡድን መሪ (Gang Chief) ጥያቄ → ቡድን መሪ (Team Leader) → የሴክሽን መሪ (Section Head) → ሱፐርቫይዘር (Supervisor) → ስቶር አቃቤ" 
+                    : "6:00 AM Material Requisition Workflow: Gang Chief -> Team Leader -> Section Head -> Supervisor -> Site Store Owner"}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowNewRequisitionModal(true)}
+                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 cursor-pointer shadow-md"
+              >
+                <Plus size={14} />
+                <span>{isAmharic ? "አዲስ የጠዋት ጥያቄ አስገባ" : "New Morning Requisition"}</span>
+              </button>
+            </div>
+
+            {/* REQUISITION REGISTER TABLE */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <span className="text-xs font-black uppercase text-white tracking-wider">
+                  {isAmharic ? "የዛሬ የጠዋት የእቃዎች ጥያቄዎች ዝርዝር" : "Today's Requisition Workflow Register"}
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  Total Requisitions: {dailyRequisitions.length}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="p-4">Requisition ID</th>
+                      <th className="p-4">Block & Floor</th>
+                      <th className="p-4">Work Type</th>
+                      <th className="p-4">Gang Chief & Approver</th>
+                      <th className="p-4">Accessories & Items Requested</th>
+                      <th className="p-4 text-center">Status</th>
+                      <th className="p-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                    {dailyRequisitions.map(req => (
+                      <tr key={req.id} className="hover:bg-slate-900/40 text-slate-200">
+                        <td className="p-4 font-bold text-amber-400">
+                          <div>{req.id}</div>
+                          <div className="text-[10px] text-slate-500 font-sans">{req.requestedAt}</div>
+                        </td>
+                        <td className="p-4 font-sans font-bold text-white">
+                          <div>{req.siteName}</div>
+                          <div className="text-[11px] text-cyan-400 font-mono">{req.blockNumber} • {req.floorNumber}</div>
+                        </td>
+                        <td className="p-4 font-sans">
+                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-bold text-purple-300">
+                            {req.workType}
+                          </span>
+                        </td>
+                        <td className="p-4 font-sans text-xs">
+                          <div className="font-bold text-white">{req.gangChiefName} (Gang Chief)</div>
+                          <div className="text-[10px] text-slate-400">Approver: {req.approvedBy}</div>
+                        </td>
+                        <td className="p-4 font-mono text-[11px]">
+                          <div className="grid grid-cols-2 gap-x-3 text-slate-300">
+                            <span>Pins (ፒን): <strong className="text-amber-400">{req.pinsQty}</strong></span>
+                            <span>Wedges (ዌጅ): <strong className="text-amber-400">{req.wedgesQty}</strong></span>
+                            <span>Tie Rods (ታይሮድ): <strong className="text-cyan-400">{req.tieRodsQty}</strong></span>
+                            <span>Conduits (ኮንድት): <strong className="text-cyan-400">{req.conduitsQty}</strong></span>
+                            <span>Blocks (ብሎክ): <strong className="text-emerald-400">{req.blocksQty}</strong></span>
+                            <span>Floor Items: <strong className="text-indigo-400">{req.floorItemsQty}</strong></span>
+                          </div>
+                        </td>
+                        <td className="p-4 text-center">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
+                            req.status === "Approved" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" :
+                            req.status === "Issued" ? "bg-cyan-950 text-cyan-400 border border-cyan-800" :
+                            "bg-amber-950 text-amber-400 border border-amber-800"
+                          }`}>
+                            {req.status}
+                          </span>
+                        </td>
+                        <td className="p-4 text-right">
+                          {req.status === "Pending Approval" && (
+                            <button
+                              onClick={() => {
+                                setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { ...r, status: "Approved", approvedBy: "Eng. Kassa Hunegn (Supervisor)" } : r));
+                                onLogAction?.("Requisition Approved", `Approved morning requisition ${req.id} for ${req.blockNumber} ${req.floorNumber}`);
+                              }}
+                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                            >
+                              Approve
+                            </button>
+                          )}
+                          {req.status === "Approved" && (
+                            <button
+                              onClick={() => {
+                                setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { ...r, status: "Issued", issuedBy: "Abebe Storekeeper" } : r));
+                                onLogAction?.("Requisition Issued", `Issued materials for requisition ${req.id} via QR scan`);
+                              }}
+                              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                            >
+                              Issue Materials
+                            </button>
+                          )}
+                          {req.status === "Issued" && (
+                            <span className="text-[10px] text-slate-500 font-mono">Issued by Store</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 3. EVENING DISMANTLING & RETURN REPORT MODULE */}
+        {activeTab === "evening-returns" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                  <RotateCcw className="text-purple-400" size={20} />
+                  <span>{isAmharic ? "የማታ ዘገባ & እቃዎች መመለሻ (Evening Dismantling & Return Logs)" : "Daily Dismantling & Return Reporting"}</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "ከምሽቱ 11፡00 ሰአት የቡድን መሪዎች የተፈቱ እና የተመለሱ፣ የጠፉ እና የተጎዱ እቃዎችን ማስመዝገቢያ" 
+                    : "5:00 PM Dismantling Return: Report returned, lost, and damaged accessories with photo proof and digital signatures"}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setShowNewReturnModal(true)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 cursor-pointer shadow-md"
+              >
+                <Plus size={14} />
+                <span>{isAmharic ? "አዲስ የማታ ዘገባ አስገባ" : "New Evening Return Log"}</span>
+              </button>
+            </div>
+
+            {/* RETURN REGISTER TABLE */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <span className="text-xs font-black uppercase text-white tracking-wider">
+                  {isAmharic ? "የማታ የመለሱ እቃዎች እና የጉዳት/ኪሳራ ዘገባዎች" : "Evening Dismantling Return Register"}
+                </span>
+                <span className="text-[10px] font-mono text-purple-400">
+                  Return Audits Logged: {dailyReturnReports.length}
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="p-4">Return ID</th>
+                      <th className="p-4">Requisition Ref</th>
+                      <th className="p-4">Block & Floor</th>
+                      <th className="p-4">Returned Items</th>
+                      <th className="p-4">Lost Items</th>
+                      <th className="p-4">Damaged Items</th>
+                      <th className="p-4">Photo Evidence & Signatures</th>
+                      <th className="p-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                    {dailyReturnReports.map(ret => (
+                      <tr key={ret.id} className="hover:bg-slate-900/40 text-slate-200">
+                        <td className="p-4 font-bold text-purple-400">
+                          <div>{ret.id}</div>
+                          <div className="text-[10px] text-slate-500 font-sans">{ret.returnedAt}</div>
+                        </td>
+                        <td className="p-4 font-mono text-slate-400">{ret.requisitionId}</td>
+                        <td className="p-4 font-sans font-bold text-white">
+                          <div>{ret.siteName}</div>
+                          <div className="text-[11px] text-cyan-400 font-mono">{ret.blockNumber} • {ret.floorNumber}</div>
+                        </td>
+                        <td className="p-4 text-emerald-400 font-mono text-[11px]">
+                          <div>Pins: {ret.pinsReturned}</div>
+                          <div>Wedges: {ret.wedgesReturned}</div>
+                          <div>Tie Rods: {ret.tieRodsReturned}</div>
+                        </td>
+                        <td className="p-4 text-rose-400 font-mono text-[11px] font-bold">
+                          <div>Pins: {ret.pinsLost}</div>
+                          <div>Wedges: {ret.wedgesLost}</div>
+                          <div>Tie Rods: {ret.tieRodsLost}</div>
+                        </td>
+                        <td className="p-4 text-amber-400 font-mono text-[11px] font-bold">
+                          <div>Pins: {ret.pinsDamaged}</div>
+                          <div>Wedges: {ret.wedgesDamaged}</div>
+                          <div>Tie Rods: {ret.tieRodsDamaged}</div>
+                        </td>
+                        <td className="p-4 font-sans text-[10px]">
+                          <div className="flex items-center space-x-1.5 text-emerald-400 font-bold">
+                            <CheckCircle2 size={12} />
+                            <span>Gang Chief Signed</span>
+                          </div>
+                          <div className="flex items-center space-x-1.5 text-cyan-400 font-bold">
+                            <CheckCircle2 size={12} />
+                            <span>Storekeeper Verified</span>
+                          </div>
+                          {ret.photoUploaded && (
+                            <div className="text-amber-300 underline cursor-pointer mt-0.5">View Damage Photo</div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase bg-amber-950 text-amber-400 border border-amber-800">
+                            {ret.status}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 4. DAILY AUTOMATED SITE CONSOLIDATED REPORTS MODULE */}
+        {activeTab === "daily-auto-reports" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                  <BarChart3 className="text-cyan-400" size={20} />
+                  <span>{isAmharic ? "የሳይት እለታዊ ማጠቃለያ ሪፖርት (Automatic HQ Transmit)" : "Automated Site Daily Consolidated Reports"}</span>
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "በየቀኑ ከምሽቱ 12፡00 ሰአት አውቶሜቲክ ተዘጋጅቶ ለዋና መጋዘን ስራ አስኪያጅ እና ለዋና መስሪያ ቤት (Head Office) የሚላክ ሪፖርት" 
+                    : "Auto-generated daily reports sent directly to Warehouse Manager & Head Office with material flow, loss values, and block breakdowns"}
+                </p>
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => alert("Daily Site Consolidated Report exported as PDF!")}
+                  className="px-3.5 py-2 bg-rose-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <Printer size={14} />
+                  <span>Export PDF</span>
+                </button>
+                <button
+                  onClick={() => alert("Daily Site Consolidated Report exported as Excel!")}
+                  className="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                >
+                  <FileSpreadsheet size={14} />
+                  <span>Export Excel</span>
+                </button>
+              </div>
+            </div>
+
+            {/* CONSOLIDATED REPORT CARDS */}
+            {dailyConsolidatedReports.map(dcr => (
+              <div key={dcr.id} className="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-4">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-2 border-b border-slate-800 pb-3">
+                  <div>
+                    <span className="text-[10px] font-mono text-cyan-400 uppercase font-bold block">{dcr.id} • {dcr.date}</span>
+                    <h3 className="text-base font-black text-white">{dcr.siteName} — {dcr.projectName}</h3>
+                    <p className="text-xs text-slate-400">Site Storekeeper: {dcr.siteStoreOwner}</p>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    <span className="px-3 py-1 bg-emerald-950 border border-emerald-800 text-emerald-400 text-xs font-mono font-bold rounded-full flex items-center space-x-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span>{dcr.syncStatus}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* METRICS ROW */}
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono text-xs">
+                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Total Items Issued</span>
+                    <span className="text-sm font-black text-white mt-1 block">{dcr.totalItemsIssued} Pcs</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Items Returned</span>
+                    <span className="text-sm font-black text-emerald-400 mt-1 block">{dcr.totalItemsReturned} Pcs</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Items Lost</span>
+                    <span className="text-sm font-black text-rose-400 mt-1 block">{dcr.totalItemsLost} Pcs</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Loss Financial Value</span>
+                    <span className="text-sm font-black text-amber-400 mt-1 block">ETB {dcr.totalLossValueETB.toLocaleString()}</span>
+                  </div>
+                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                    <span className="text-[10px] text-slate-500 uppercase font-bold block">Transmitted To HQ</span>
+                    <span className="text-[10px] text-slate-300 mt-1 block font-sans">{dcr.sentToHeadOfficeAt}</span>
+                  </div>
+                </div>
+
+                {/* MATERIAL FLOW SUMMARY TABLE */}
+                <div className="border border-slate-800 rounded-xl overflow-hidden">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                        <th className="p-3">Material Category</th>
+                        <th className="p-3 text-center">Opening</th>
+                        <th className="p-3 text-center">Received</th>
+                        <th className="p-3 text-center">Issued</th>
+                        <th className="p-3 text-center">Returned</th>
+                        <th className="p-3 text-center">Lost</th>
+                        <th className="p-3 text-center">Damaged</th>
+                        <th className="p-3 text-center">Closing Stock</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                      {dcr.materialSummaries.map((mat, idx) => (
+                        <tr key={idx} className="hover:bg-slate-900/40 text-slate-200">
+                          <td className="p-3 font-sans font-bold text-white">{mat.materialName}</td>
+                          <td className="p-3 text-center text-slate-400">{mat.openingStock}</td>
+                          <td className="p-3 text-center text-emerald-400">{mat.received}</td>
+                          <td className="p-3 text-center text-amber-400">{mat.issued}</td>
+                          <td className="p-3 text-center text-cyan-400">{mat.returned}</td>
+                          <td className="p-3 text-center text-rose-400 font-bold">{mat.lost}</td>
+                          <td className="p-3 text-center text-amber-300 font-bold">{mat.damaged}</td>
+                          <td className="p-3 text-center text-white font-bold">{mat.closingStock}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* 5. MATERIAL RECEIVING MODULE */}
         {activeTab === "receiving" && (
           <div className="space-y-6 animate-fadeIn">
             <div className="flex justify-between items-center">
@@ -2881,6 +3796,315 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   className="px-5 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-bold cursor-pointer"
                 >
                   Save Schedule
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW MORNING REQUISITION MODAL */}
+      {showNewRequisitionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 animate-scaleUp text-slate-100">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-black uppercase text-white flex items-center space-x-2">
+                <FileText size={18} className="text-emerald-400" />
+                <span>{isAmharic ? "አዲስ የጠዋት የእቃዎች ጥያቄ መሙያ" : "6:00 AM Morning Requisition Form"}</span>
+              </h3>
+              <button onClick={() => setShowNewRequisitionModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateRequisition} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Construction Site</label>
+                  <select
+                    value={reqForm.siteName}
+                    onChange={e => setReqForm({ ...reqForm, siteName: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono"
+                  >
+                    <option value="Bole Heights Phase I">Bole Heights Phase I</option>
+                    <option value="Kazanchis Financial Tower">Kazanchis Financial Tower</option>
+                    <option value="Gotera Interchange Project">Gotera Interchange Project</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Block & Floor</label>
+                  <div className="grid grid-cols-2 gap-1 mt-1">
+                    <input
+                      type="text"
+                      placeholder="Block"
+                      required
+                      value={reqForm.blockNumber}
+                      onChange={e => setReqForm({ ...reqForm, blockNumber: e.target.value })}
+                      className="bg-slate-950 border border-slate-800 text-white rounded-xl px-2 py-2 focus:outline-none focus:border-emerald-500"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Floor"
+                      required
+                      value={reqForm.floorNumber}
+                      onChange={e => setReqForm({ ...reqForm, floorNumber: e.target.value })}
+                      className="bg-slate-950 border border-slate-800 text-white rounded-xl px-2 py-2 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Work Type</label>
+                  <select
+                    value={reqForm.workType}
+                    onChange={e => setReqForm({ ...reqForm, workType: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Wall Erection">Wall Erection (የግድግዳ ፎርምወርክ)</option>
+                    <option value="Decking / Slab">Decking / Slab (የስላብ ፎርምወርክ)</option>
+                    <option value="Column Casting">Column Casting (የአምድ ፎርምወርክ)</option>
+                    <option value="Beam Assembly">Beam Assembly (የቢም ፎርምወርክ)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Gang Chief Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={reqForm.gangChiefName}
+                    onChange={e => setReqForm({ ...reqForm, gangChiefName: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              {/* QUANTITIES */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[10px] font-black uppercase text-amber-400 block">Formwork Accessories Requested</span>
+                <div className="grid grid-cols-3 gap-2 font-mono">
+                  <div>
+                    <label className="text-[9px] text-slate-400 block">Pins (ፒን)</label>
+                    <input
+                      type="number"
+                      required
+                      value={reqForm.pinsQty}
+                      onChange={e => setReqForm({ ...reqForm, pinsQty: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block">Wedges (ዌጅ)</label>
+                    <input
+                      type="number"
+                      required
+                      value={reqForm.wedgesQty}
+                      onChange={e => setReqForm({ ...reqForm, wedgesQty: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block">Tie Rods (ታይሮድ)</label>
+                    <input
+                      type="number"
+                      required
+                      value={reqForm.tieRodsQty}
+                      onChange={e => setReqForm({ ...reqForm, tieRodsQty: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block">PVC Conduits</label>
+                    <input
+                      type="number"
+                      required
+                      value={reqForm.conduitsQty}
+                      onChange={e => setReqForm({ ...reqForm, conduitsQty: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block">Concrete Blocks</label>
+                    <input
+                      type="number"
+                      required
+                      value={reqForm.blocksQty}
+                      onChange={e => setReqForm({ ...reqForm, blocksQty: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-slate-400 block">Floor Panels</label>
+                    <input
+                      type="number"
+                      required
+                      value={reqForm.floorItemsQty}
+                      onChange={e => setReqForm({ ...reqForm, floorItemsQty: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewRequisitionModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Submit Requisition
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* NEW EVENING RETURN LOG MODAL */}
+      {showNewReturnModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 animate-scaleUp text-slate-100">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-black uppercase text-white flex items-center space-x-2">
+                <RotateCcw size={18} className="text-purple-400" />
+                <span>{isAmharic ? "5:00 PM የማታ ዘገባ & እቃዎች መመለሻ" : "5:00 PM Dismantling Return Audit Log"}</span>
+              </h3>
+              <button onClick={() => setShowNewReturnModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateReturn} className="space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Select Requisition Reference</label>
+                  <select
+                    value={returnForm.requisitionId}
+                    onChange={e => setReturnForm({ ...returnForm, requisitionId: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-purple-500 font-mono"
+                  >
+                    {dailyRequisitions.map(r => (
+                      <option key={r.id} value={r.id}>{r.id} ({r.blockNumber}-{r.floorNumber})</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Gang Chief Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={returnForm.gangChiefName}
+                    onChange={e => setReturnForm({ ...returnForm, gangChiefName: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              {/* RETURNED & LOST QUANTITIES */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[10px] font-black uppercase text-purple-400 block">Dismantled Accessories Audit</span>
+                <div className="grid grid-cols-3 gap-2 font-mono text-[10px]">
+                  <div>
+                    <label className="text-[9px] text-emerald-400 font-bold block">Pins Returned</label>
+                    <input
+                      type="number"
+                      required
+                      value={returnForm.pinsReturned}
+                      onChange={e => setReturnForm({ ...returnForm, pinsReturned: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-rose-400 font-bold block">Pins Lost</label>
+                    <input
+                      type="number"
+                      required
+                      value={returnForm.pinsLost}
+                      onChange={e => setReturnForm({ ...returnForm, pinsLost: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-amber-400 font-bold block">Pins Damaged</label>
+                    <input
+                      type="number"
+                      required
+                      value={returnForm.pinsDamaged}
+                      onChange={e => setReturnForm({ ...returnForm, pinsDamaged: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[9px] text-emerald-400 font-bold block">Wedges Returned</label>
+                    <input
+                      type="number"
+                      required
+                      value={returnForm.wedgesReturned}
+                      onChange={e => setReturnForm({ ...returnForm, wedgesReturned: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-rose-400 font-bold block">Wedges Lost</label>
+                    <input
+                      type="number"
+                      required
+                      value={returnForm.wedgesLost}
+                      onChange={e => setReturnForm({ ...returnForm, wedgesLost: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[9px] text-amber-400 font-bold block">Wedges Damaged</label>
+                    <input
+                      type="number"
+                      required
+                      value={returnForm.wedgesDamaged}
+                      onChange={e => setReturnForm({ ...returnForm, wedgesDamaged: Number(e.target.value) })}
+                      className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* PHOTO UPLOAD & SIGNATURE VERIFICATION */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex justify-between items-center">
+                <div className="flex items-center space-x-2">
+                  <Camera size={16} className="text-amber-400" />
+                  <span className="text-[10px] text-slate-300 font-sans">Damage / Loss Photo Proof</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setReturnForm({ ...returnForm, photoUploaded: !returnForm.photoUploaded })}
+                  className={`px-3 py-1 rounded-lg text-[10px] font-bold cursor-pointer ${
+                    returnForm.photoUploaded ? "bg-emerald-900 text-emerald-300 border border-emerald-700" : "bg-slate-800 text-slate-400"
+                  }`}
+                >
+                  {returnForm.photoUploaded ? "Photo Attached ✓" : "Attach Photo"}
+                </button>
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewReturnModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  Submit Return Audit Log
                 </button>
               </div>
             </form>
