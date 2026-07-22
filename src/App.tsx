@@ -57,6 +57,7 @@ import { FormworkManagement } from "./components/FormworkManagement";
 import { MobileAppsHub } from "./components/MobileAppsHub";
 import { LaunchReadinessHub } from "./components/LaunchReadinessHub";
 import { SubcontractorPortal } from "./components/SubcontractorPortal";
+import { StoreOwnerApp } from "./components/StoreOwnerApp";
 
 // Lucide Icons
 import { 
@@ -93,7 +94,8 @@ import {
   DollarSign,
   Smartphone,
   Rocket,
-  Briefcase
+  Briefcase,
+  Store
 } from "lucide-react";
 
 export default function App() {
@@ -275,20 +277,21 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.SUPER_ADMIN]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.HR_MANAGER]: ["dashboard", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal"]
+    [UserRole.SUPER_ADMIN]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.HR_MANAGER]: ["dashboard", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"]
   };
 
   const t = (key: string): string => {
@@ -626,7 +629,9 @@ export default function App() {
               activeRole === UserRole.SURVEYOR ? "SR-01" :
               activeRole === UserRole.TIME_KEEPER ? "TK-01" :
               activeRole === UserRole.TEAM_LEADER ? "TL-01" :
-              activeRole === UserRole.GANG_CHIEF ? "GC-01" : "W-101",
+              activeRole === UserRole.GANG_CHIEF ? "GC-01" :
+              activeRole === UserRole.WAREHOUSE_MANAGER ? "WM-01" :
+              activeRole === UserRole.STORE_MANAGER ? "SM-01" : "W-101",
       userName: activeRole === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem (Head Office Admin)" :
                 activeRole === UserRole.PROJECT_MANAGER ? "Eng. Dawit (Project Manager)" :
                 activeRole === UserRole.SECTION_HEAD ? "Alemayehu Kebede (Section Head)" :
@@ -635,7 +640,9 @@ export default function App() {
                 activeRole === UserRole.SURVEYOR ? "Tadesse Chala (Surveyor)" :
                 activeRole === UserRole.TIME_KEEPER ? "Abebe Girma (Time Keeper)" :
                 activeRole === UserRole.TEAM_LEADER ? "Yohannes Bekele (Team Leader)" :
-                activeRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" : "Bekele Tesfaye (Worker)",
+                activeRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" :
+                activeRole === UserRole.WAREHOUSE_MANAGER ? "Mulugeta Assefa (Warehouse Manager)" :
+                activeRole === UserRole.STORE_MANAGER ? "Abebe Worku (Store Manager)" : "Bekele Tesfaye (Worker)",
       role: activeRole,
       action,
       details
@@ -930,7 +937,8 @@ export default function App() {
                   {currentUserRole === UserRole.TIME_KEEPER && (isAmharic ? "የመገኘት ተቆጣጣሪ (Abebe Girma)" : "Time Keeper - Abebe Girma")}
                   {currentUserRole === UserRole.WORKER && (isAmharic ? "ሳይት ሰራተኛ (Bekele Tesfaye)" : "Worker - Bekele Tesfaye")}
                   {currentUserRole === UserRole.SUPER_ADMIN && (isAmharic ? "ሱፐር አድሚን (Super Admin)" : "Super Admin")}
-                  {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የመጋዘን ኃላፊ (Store Manager)" : "Store Manager")}
+                  {currentUserRole === UserRole.WAREHOUSE_MANAGER && (isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Mulugeta Assefa)" : "Warehouse Manager - Mulugeta Assefa")}
+                  {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የሳይት ስቶር አቃቤ (Store Manager)" : "Store Manager")}
                   {currentUserRole === UserRole.HR_MANAGER && (isAmharic ? "የሰው ኃይል ኃላፊ (HR Manager)" : "HR Manager")}
                   {currentUserRole === UserRole.FINANCE_MANAGER && (isAmharic ? "የፋይናንስ ኃላፊ (Finance Manager)" : "Finance Manager")}
                 </div>
@@ -1314,6 +1322,32 @@ export default function App() {
               </button>
             )}
 
+            {/* Warehouse Manager App Tab */}
+            {tabPermissions[currentUserRole]?.includes("warehouseManagerApp") && (
+              <button
+                onClick={() => setActiveTab("warehouseManagerApp")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-amber-400 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "warehouseManagerApp" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Building2 size={15} className="text-amber-400 animate-pulse" />
+                <span>{isAmharic ? "የመጋዘን አስተዳዳሪ መተግበሪያ" : "Warehouse Manager App"}</span>
+              </button>
+            )}
+
+            {/* Store Owner App Tab */}
+            {tabPermissions[currentUserRole]?.includes("storeOwnerApp") && (
+              <button
+                onClick={() => setActiveTab("storeOwnerApp")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-amber-500 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "storeOwnerApp" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Store size={15} className="text-amber-500" />
+                <span>{isAmharic ? "የሳይት ስቶር አቃቤ መተግበሪያ" : "Site Store Owner App"}</span>
+              </button>
+            )}
+
             {/* Security & Settings Tab */}
             {tabPermissions[currentUserRole]?.includes("securitySettings") && (
               <button
@@ -1558,7 +1592,9 @@ export default function App() {
               currentUserRole === UserRole.SURVEYOR ? "Tadesse Chala (Surveyor)" :
               currentUserRole === UserRole.TIME_KEEPER ? "Abebe Girma (Time Keeper)" :
               currentUserRole === UserRole.TEAM_LEADER ? "Yohannes Bekele (Team Leader)" :
-              currentUserRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" : "Bekele Tesfaye (Worker)"
+              currentUserRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" :
+              currentUserRole === UserRole.WAREHOUSE_MANAGER ? "Mulugeta Assefa (Warehouse Manager)" :
+              currentUserRole === UserRole.STORE_MANAGER ? "Abebe Worku (Store Manager)" : "Bekele Tesfaye (Worker)"
             }
           />
         )}
@@ -1641,6 +1677,7 @@ export default function App() {
             workers={workers}
             teams={teams}
             onAddSnag={(newSnag) => setQualitySnags(prev => [newSnag, ...prev])}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
           />
         )}
 
@@ -1676,6 +1713,24 @@ export default function App() {
             auditLogs={auditLogs}
             sessionTimeoutMinutes={sessionTimeoutMinutes}
             onChangeSessionTimeout={(mins) => setSessionTimeoutMinutes(mins)}
+          />
+        )}
+
+        {activeTab === "warehouseManagerApp" && tabPermissions[currentUserRole]?.includes("warehouseManagerApp") && (
+          <StoreOwnerApp
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            initialMode="warehouse_manager"
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "storeOwnerApp" && tabPermissions[currentUserRole]?.includes("storeOwnerApp") && (
+          <StoreOwnerApp
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            initialMode="store_owner"
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
       </main>

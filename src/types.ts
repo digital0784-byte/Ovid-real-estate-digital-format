@@ -8,6 +8,7 @@ export enum UserRole {
   TEAM_LEADER = "Team Leader",
   GANG_CHIEF = "Gang Chief",
   WORKER = "Worker",
+  WAREHOUSE_MANAGER = "Warehouse Manager",
   STORE_MANAGER = "Store Manager",
   HR_MANAGER = "HR Manager",
   FINANCE_MANAGER = "Finance Manager",

@@ -27,7 +27,21 @@ import {
   CreditCard,
   FileSpreadsheet,
   Sliders,
-  Package
+  Package,
+  Truck,
+  Building2,
+  Wrench,
+  Fuel,
+  Cpu,
+  Download,
+  ShieldAlert,
+  Database,
+  RefreshCw,
+  Activity,
+  Award,
+  CheckCircle2,
+  FileDown,
+  PieChart as PieIcon
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -42,10 +56,12 @@ import {
   Pie,
   Cell,
   LineChart,
-  Line
+  Line,
+  AreaChart,
+  Area
 } from "recharts";
 
-// Interfaces
+// --- INTERFACES & TYPES ---
 interface BudgetCategory {
   id: string;
   category: "Material" | "Labor" | "Equipment" | "Overhead";
@@ -86,10 +102,59 @@ interface Payment {
   project: string;
 }
 
-interface ProjectData {
+interface ProjectEvmData {
   id: string;
   name: string;
   budget: number;
+  approvedBudget: number;
+  actualCost: number;
+  earnedValue: number;
+  plannedValue: number;
+  forecastCost: number;
+  scheduleVarianceDays: number;
+}
+
+interface PayrollRecord {
+  id: string;
+  workerName: string;
+  trade: string;
+  basicSalary: number;
+  normalHours: number;
+  overtimeHours: number;
+  underTimeHours: number;
+  nightShiftHours: number;
+  holidayHours: number;
+  allowances: number;
+  bonuses: number;
+  deductions: number;
+  tax: number;
+  pension: number;
+  netSalary: number;
+}
+
+interface ProcurementRecord {
+  id: string;
+  poNumber: string;
+  supplier: string;
+  materialItem: string;
+  poAmount: number;
+  importCost: number;
+  customsTax: number;
+  deliveryCost: number;
+  status: "PO Raised" | "In Transit" | "Customs Cleared" | "Paid";
+  date: string;
+}
+
+interface EquipmentCostRecord {
+  id: string;
+  equipmentName: string;
+  assetCode: string;
+  fuelLiters: number;
+  fuelCost: number;
+  maintenanceCost: number;
+  sparePartsCost: number;
+  rentalCost: number;
+  operatingHours: number;
 }
 
 interface FinanceErpHubProps {
@@ -98,175 +163,75 @@ interface FinanceErpHubProps {
 }
 
 export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAction }) => {
-  // Navigation State
-  const [activeTab, setActiveTab] = useState<"dashboard" | "project-linked" | "budget" | "cost" | "expenses" | "invoices" | "payments" | "reports">("dashboard");
+  // Navigation State across the 10 Master Prompt Modules
+  const [activeTab, setActiveTab] = useState<
+    | "dashboard"
+    | "project-mgmt"
+    | "payroll-mgmt"
+    | "formwork-assets"
+    | "warehouse-cost"
+    | "procurement-cost"
+    | "equipment-cost"
+    | "financial-reports"
+    | "ai-analytics"
+    | "integrations"
+  >("dashboard");
+
+  const lang = isAmharic ? "am" : "en";
 
   // Bilingual UI Dictionary
-  const lang = isAmharic ? "am" : "en";
   const dict: Record<string, Record<string, string>> = {
     en: {
-      title: "Digital Construction ERP Finance ERP",
-      subtitle: "Enterprise Budget, Cost Control, and Executive Financial Ledger System",
+      title: "BuildSync ERP – Finance Manager App",
+      subtitle: "Enterprise Finance, EVM Project Accounting, Automated Payroll & AI Risk Intelligence Engine",
       overallSummary: "Financial Health Summary",
-      projectCost: "Project Cost",
-      materialCost: "Material Cost",
-      laborCost: "Labor Cost",
-      equipmentCost: "Equipment Cost",
-      profitMargin: "Profit Margin",
-      totalBudget: "Total Budget",
-      totalInvoiced: "Total Invoiced",
-      paymentsReceived: "Payments Received",
-      outstandingReceivables: "Outstanding Receivables",
-      actualProfit: "Actual Profit",
-      budgetMgmt: "Budget Management",
-      costCtrl: "Cost Control",
-      expTrack: "Expense Tracking",
-      invMgmt: "Invoice Management",
-      payTrack: "Payment Tracking",
-      plReport: "Profit & Loss",
-      repGen: "Reports Generator",
-      addBudget: "Add Budget Allocation",
-      addExpense: "Log Actual Expense",
-      createInvoice: "Raise Client Invoice",
-      recordPayment: "Log Payment Received",
-      category: "Category",
-      amount: "Amount (ETB)",
-      allocated: "Allocated",
-      actual: "Actual Cost",
-      variance: "Variance",
-      status: "Status",
-      action: "Actions",
-      vendor: "Vendor/Recipient",
-      project: "Project Name",
-      description: "Description",
-      date: "Date",
-      invoiceNo: "Invoice #",
-      client: "Client Name",
-      dueDate: "Due Date",
-      method: "Payment Method",
-      refNo: "Reference #",
-      reportsTitle: "ERP Report Center",
-      reportsSubtitle: "Generate and audit compliance financial reports",
-      dailyReport: "Daily Financial Digest",
-      monthlyReport: "Monthly Performance Ledger",
-      executiveReport: "Executive Board Summary",
-      overrunWarning: "Overrun Warning Threshold",
-      onTrack: "Under Control",
-      warning: "Warning: Overallocated / Budget Overrun",
-      generate: "Generate & Audit Report",
-      print: "Print Ledger",
+      companyRevenue: "Company Revenue",
+      companyExpenses: "Company Expenses",
+      projectBudget: "Total Project Budget",
+      budgetUtilization: "Budget Utilization",
+      cashFlow: "Operating Cash Flow",
+      receivables: "Accounts Receivable",
+      payables: "Accounts Payable",
+      warehouseAssetVal: "Warehouse Asset Value",
+      formworkAssetVal: "Formwork Asset Value",
+      equipmentAssetVal: "Equipment Asset Value",
+      payrollCost: "Payroll Cost",
+      overtimeCost: "Overtime Cost",
+      procurementCost: "Procurement Cost",
+      maintenanceCost: "Maintenance Cost",
+      fuelCost: "Fuel Cost",
+      transportCost: "Transportation Cost",
+      profitLoss: "Net Profit & Loss",
+      financialKpis: "Financial KPIs",
       savedAlert: "Financial record saved successfully!"
     },
     am: {
-      title: "የዲጂታል ኮንስትራክሽን ERP ግንባታ ፋይናንስ ኢአርፒ (ERP)",
-      subtitle: "የኩባንያው በጀት፣ የወጪ ቁጥጥር እና የቦርድ የፋይናንስ መግለጫ መከታተያ",
+      title: "BuildSync ERP – የፋይናንስ አስተዳደር መተግበሪያ",
+      subtitle: "የኩባንያው አጠቃላይ ፋይናንስ፣ የፕሮጀክት EVM ወጪ፣ አውቶሜቲክ ደሞዝ እና AI የፋይናንስ ኦዲት",
       overallSummary: "የፋይናንስ አጠቃላይ እይታ",
-      projectCost: "አጠቃላይ የግንባታ ወጪ",
-      materialCost: "የማቴሪያል ወጪ",
-      laborCost: "የጉልበት ወጪ",
-      equipmentCost: "የማሽነሪ ወጪ",
-      profitMargin: "የትርፍ መጠን",
-      totalBudget: "አጠቃላይ በጀት",
-      totalInvoiced: "የተላከ ደረሰኝ",
-      paymentsReceived: "የተሰበሰበ ክፍያ",
-      outstandingReceivables: "ያልተሰበሰበ ሂሳብ",
-      actualProfit: "የተጣራ ትርፍ",
-      budgetMgmt: "የበጀት አስተዳደር",
-      costCtrl: "የወጪ ወሰን ቁጥጥር",
-      expTrack: "የወጪዎች መዝገብ",
-      invMgmt: "ደረሰኞች አስተዳደር",
-      payTrack: "ክፍያዎች ክትትል",
-      plReport: "የትርፍ እና ኪሳራ መግለጫ",
-      repGen: "ሪፖርት ማውጫ",
-      addBudget: "በጀት መድብ",
-      addExpense: "እውነተኛ ወጪ መዝግብ",
-      createInvoice: "ደረሰኝ አውጣ",
-      recordPayment: "ክፍያ መዝግብ",
-      category: "ዓይነት",
-      amount: "የገንዘብ መጠን (ETB)",
-      allocated: "የተመደበ በጀት",
-      actual: "እውነተኛ ወጪ",
-      variance: "ልዩነት (Variance)",
-      status: "ሁኔታ",
-      action: "ተግባራት",
-      vendor: "አቅራቢ / ተቀባይ",
-      project: "የፕሮጀክቱ ስም",
-      description: "መግለጫ",
-      date: "ቀን",
-      invoiceNo: "የደረሰኝ ቁጥር",
-      client: "የደንበኛው ስም",
-      dueDate: "መክፈያ ቀን",
-      method: "የክፍያ ዘዴ",
-      refNo: "የማጣቀሻ ቁጥር",
-      reportsTitle: "የፋይናንስ ሪፖርት ማዕከል",
-      reportsSubtitle: "ኦፊሴላዊ የኦዲት እና የግምገማ ሪፖርቶችን ያውጡ",
-      dailyReport: "የዕለት ፋይናንስ ማጠቃለያ",
-      monthlyReport: "የወርሃዊ የሂሳብ መግለጫ",
-      executiveReport: "ለዋና ቦርድ የሚቀርብ ማጠቃለያ",
-      overrunWarning: "ከበጀት በላይ የማስጠንቀቂያ ገደብ",
-      onTrack: "በቁጥጥር ስር ያለ",
-      warning: "ማስጠንቀቂያ፦ ከተመደበ በጀት በላይ ሆኗል",
-      generate: "ሪፖርት አውጣ እና መርምር",
-      print: "ሪፖርቱን አትም / መዝግብ",
+      companyRevenue: "የኩባንያው ገቢ (Revenue)",
+      companyExpenses: "የኩባንያው ወጪ (Expenses)",
+      projectBudget: "ጠቅላላ የፕሮጀክት በጀት",
+      budgetUtilization: "የበጀት பயன்பாடு (Utilization)",
+      cashFlow: "የጥሬ ገንዘብ ዝውውር (Cash Flow)",
+      receivables: "የሚሰበሰብ ሂሳብ (Receivables)",
+      payables: "የሚከፈል ሂሳብ (Payables)",
+      warehouseAssetVal: "የወርሃዊ መጋዘን ሀብት ዋጋ",
+      formworkAssetVal: "የፎርምወርክ ፓነል ሀብት ዋጋ",
+      equipmentAssetVal: "የማሽነሪዎች ሀብት ዋጋ",
+      payrollCost: "የሰራተኛ ደሞዝ ወጪ",
+      overtimeCost: "የትርፍ ሰዓት ወጪ",
+      procurementCost: "የግዢ ወጪ",
+      maintenanceCost: "የጥገና ወጪ",
+      fuelCost: "የነዳጅ ወጪ",
+      transportCost: "የማጓጓዣ ወጪ",
+      profitLoss: "የተጣራ ትርፍ እና ኪሳራ",
+      financialKpis: "የፋይናንስ መለኪያዎች (KPIs)",
       savedAlert: "የፋይናንስ መረጃው በተሳካ ሁኔታ ተመዝግቧል!"
     }
   };
 
   const t = (key: string): string => dict[lang][key] || key;
-
-  // Static/Config Databases
-  const projects: ProjectData[] = [
-    { id: "PRJ-01", name: "Bole Heights Phase I", budget: 45000000 },
-    { id: "PRJ-02", name: "Yeka Hills Premium Estate", budget: 180000000 },
-    { id: "PRJ-03", name: "Lemi National Cement Expansion", budget: 240000000 }
-  ];
-
-  // Initial State Data
-  const [budgets, setBudgets] = useState<BudgetCategory[]>([
-    { id: "B-01", category: "Material", allocated: 18000000, description: "Reinforcement Steel and High-performance Concrete Work", descriptionAm: "የብረት ማጠናከሪያ እና ከፍተኛ ጥራት ያለው ኮንክሪት ስራ" },
-    { id: "B-02", category: "Labor", allocated: 12000000, description: "Formwork Assembly Gangs and Skilled Site Crews", descriptionAm: "የአሉሚኒየም ፎርምወርክ ቡድን እና የባለሙያ ደመወዝ" },
-    { id: "B-03", category: "Equipment", allocated: 10000000, description: "Tower Crane Leasing, Mobilization, and Heavy Scaffolding", descriptionAm: "የታወር ክሬን ኪራይ፣ ማጓጓዣ እና የማሽነሪዎች ጥገና" },
-    { id: "B-04", category: "Overhead", allocated: 5000000, description: "Consulting Engineers, QA Testing, and Permits", descriptionAm: "የምህንድስና አማካሪዎች፣ ጥራት ፍተሻ እና አስተዳደራዊ ወጪ" }
-  ]);
-
-  const [expenses, setExpenses] = useState<Expense[]>([
-    { id: "EXP-01", category: "Material", amount: 4500000, date: "2026-07-02", vendor: "Ethio-Steel PLC", description: "Bole Heights Block B1 Column rebar re-reinforcements", project: "Bole Heights Phase I" },
-    { id: "EXP-02", category: "Labor", amount: 3200000, date: "2026-07-05", vendor: "Silt'e Assembly Cooperative", description: "Formwork assembly and panel oiling wages - Level 4", project: "Bole Heights Phase I" },
-    { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Crane Leases Ltd", description: "Monthly crawler crane & hoist rental - Bole Heights site", project: "Bole Heights Phase I" },
-    { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Partners", description: "Consultant verification inspection milestone signoff fee", project: "Bole Heights Phase I" },
-    { id: "EXP-05", category: "Material", amount: 8000000, date: "2026-07-11", vendor: "Mugher Cement", description: "Pre-mix concrete bulk purchase C30 compressive strength", project: "Bole Heights Phase I" },
-    { id: "EXP-06", category: "Labor", amount: 4500000, date: "2026-07-12", vendor: "Digital Construction ERP Payroll Account", description: "Site engineering staff salaries and overtime disbursements", project: "Bole Heights Phase I" },
-    { id: "EXP-07", category: "Equipment", amount: 6500000, date: "2026-07-13", vendor: "National Excavations", description: "Excavator machinery mobilization and hydraulic system overhaul", project: "Bole Heights Phase I" }
-  ]);
-
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: "INV-01", invoiceNumber: "INV-2026-001", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 12000000, status: "Paid", date: "2026-05-15", dueDate: "2026-06-15" },
-    { id: "INV-02", invoiceNumber: "INV-2026-002", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 15000000, status: "Paid", date: "2026-06-10", dueDate: "2026-07-10" },
-    { id: "INV-03", invoiceNumber: "INV-2026-003", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 8000000, status: "Pending", date: "2026-07-01", dueDate: "2026-08-01" }
-  ]);
-
-  const [payments, setPayments] = useState<Payment[]>([
-    { id: "PAY-01", invoiceId: "INV-01", invoiceNumber: "INV-2026-001", amount: 12000000, date: "2026-05-28", method: "Bank Transfer", reference: "CBE-TXN-90281", project: "Bole Heights Phase I" },
-    { id: "PAY-02", invoiceId: "INV-02", invoiceNumber: "INV-2026-002", amount: 15000000, date: "2026-06-25", method: "Bank Transfer", reference: "AWASH-TXN-11029", project: "Bole Heights Phase I" }
-  ]);
-
-  // Form states
-  const [showBudgetForm, setShowBudgetForm] = useState(false);
-  const [budgetForm, setBudgetForm] = useState({ category: "Material" as const, allocated: 0, description: "", descriptionAm: "" });
-
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ category: "Material" as const, amount: 0, date: "2026-07-15", vendor: "", description: "", project: "Bole Heights Phase I" });
-
-  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
-  const [invoiceForm, setInvoiceForm] = useState({ invoiceNumber: "", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 0, status: "Pending" as const, date: "2026-07-15", dueDate: "2026-08-15" });
-
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  const [paymentForm, setPaymentForm] = useState({ invoiceId: "", amount: 0, date: "2026-07-15", method: "Bank Transfer", reference: "", project: "Bole Heights Phase I" });
-
-  // Report Center state
-  const [selectedReportType, setSelectedReportType] = useState<"daily" | "monthly" | "executive">("executive");
-  const [auditApproved, setAuditApproved] = useState(false);
-  const [simulatedPrint, setSimulatedPrint] = useState(false);
 
   // --- DATABASE-LINKED DYNAMIC STATES ---
   const [zonesList, setZonesList] = useState<ProjectZone[]>([]);
@@ -278,15 +243,6 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
 
   // Dynamic cost tracking mode ("ledger" expenses vs "realtime" field-linked costs)
   const [costCalculationMode, setCostCalculationMode] = useState<"ledger" | "realtime">("realtime");
-
-  // Parameterizable Simulation Rates for Interactive Dashboard
-  const [simulationRates, setSimulationRates] = useState({
-    formworkUsageRate: 350,   // ETB per sq.m of installed formwork
-    concreteRate: 4800,       // ETB per cu.m of high-performance concrete
-    rebarRate: 110,          // ETB per kg of reinforcement steel
-    pinRate: 25,             // ETB per pin/accessory clamp
-    laborRateMultiplier: 1.0 // wage rate scalar
-  });
 
   // Fetch linked database files from DbService
   useEffect(() => {
@@ -320,134 +276,104 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
     };
   }, []);
 
-  // --- DYNAMIC LINKED CALCULATIONS ENGINE ---
-  const tradeHourlyRates: Record<string, number> = {
-    "Daily Labourer": 80,
-    "Welder": 150,
-    "Carpenter": 140,
-    "Steel Fixer": 135,
-    "Concrete Worker": 110,
-    "Supervisor": 180,
-    "Gang Chief": 170,
-    "Team Leader": 165,
-    "default": 100
-  };
+  // --- MASTER INITIAL DATA STORES ---
+  const [budgets, setBudgets] = useState<BudgetCategory[]>([
+    { id: "B-01", category: "Material", allocated: 48000000, description: "C30 Pre-mix Concrete & High-Tensile Steel Rebar", descriptionAm: "የኮንክሪትና ከፍተኛ ጥራት ያለው ብረት አቅርቦት" },
+    { id: "B-02", category: "Labor", allocated: 28000000, description: "Formwork Gangs, Biometric Site Crews & Technicians", descriptionAm: "የፎርምወርክ ገጣጣሚዎች እና የሳይት ሰራተኞች ደሞዝ" },
+    { id: "B-03", category: "Equipment", allocated: 18000000, description: "Tower Crane Leasing, Mobilization & Heavy Machinery", descriptionAm: "የታወር ክሬን ኪራይ፣ ማጓጓዣ እና የማሽነሪ ጥገና" },
+    { id: "B-04", category: "Overhead", allocated: 8000000, description: "Consultant Supervision, QA/QC Testing & Administration", descriptionAm: "የአማካሪ ምህንድስና፣ ጥራት ፍተሻ እና አስተዳደራዊ ወጪ" }
+  ]);
 
-  // 1. DYNAMIC LABOR HOUR COSTS (Attendance * Wages)
-  const calculatedLaborCost = useMemo(() => {
-    let total = 0;
-    if (attendanceList.length === 0) {
-      return 3200000; // realistic master fallback if DB is empty
-    }
-    attendanceList.forEach(att => {
-      if (att.status === "Present" || att.status === "Late") {
-        const trade = att.trade || "Daily Labourer";
-        const baseRate = (tradeHourlyRates[trade] || tradeHourlyRates["default"]) * simulationRates.laborRateMultiplier;
-        const normalHrs = att.workingHours || 8;
-        const otHrs = att.overtime || 0;
-        total += (normalHrs * baseRate) + (otHrs * baseRate * 1.5);
-      }
-    });
-    // Multiplied by historical project scale factor for realistic ERP dashboard levels
-    return Math.max(total * 45, 3200000); 
-  }, [attendanceList, simulationRates.laborRateMultiplier]);
+  const [expenses, setExpenses] = useState<Expense[]>([
+    { id: "EXP-01", category: "Material", amount: 8500000, date: "2026-07-02", vendor: "Mugher Cement PLC", description: "C30 Pre-mix Bulk Supply Bole Site", project: "Bole Heights Phase I" },
+    { id: "EXP-02", category: "Labor", amount: 4200000, date: "2026-07-05", vendor: "BuildSync Payroll Ledger", description: "Formwork gang floor 4 assembly wages", project: "Bole Heights Phase I" },
+    { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Cranes Ethiopia", description: "Tower crane monthly mobilization & lease", project: "Bole Heights Phase I" },
+    { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Engineers", description: "Consultant structural milestone inspection fee", project: "Bole Heights Phase I" },
+    { id: "EXP-05", category: "Material", amount: 9400000, date: "2026-07-12", vendor: "Ethio Steel Mills", description: "High-Tensile Reinforcement Rebar 16mm & 20mm", project: "Yeka Hills Estate" }
+  ]);
 
-  // 2. DYNAMIC MATERIAL CONSUMPTION COSTS (Based on physical zone completions)
-  const calculatedMaterialCost = useMemo(() => {
-    let totalArea = 0;
-    zonesList.forEach(z => {
-      if (z.dailyPanelLogs) {
-        z.dailyPanelLogs.forEach(log => {
-          totalArea += log.calculatedArea || 0;
-        });
-      }
-    });
+  const [invoices, setInvoices] = useState<Invoice[]>([
+    { id: "INV-01", invoiceNumber: "INV-2026-001", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 35000000, status: "Paid", date: "2026-05-15", dueDate: "2026-06-15" },
+    { id: "INV-02", invoiceNumber: "INV-2026-002", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 42000000, status: "Paid", date: "2026-06-10", dueDate: "2026-07-10" },
+    { id: "INV-03", invoiceNumber: "INV-2026-003", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 28000000, status: "Pending", date: "2026-07-01", dueDate: "2026-08-01" },
+    { id: "INV-04", invoiceNumber: "INV-2026-004", project: "Yeka Hills Estate", client: "Addis Real Estate Ltd", amount: 40000000, status: "Approved", date: "2026-07-05", dueDate: "2026-08-05" }
+  ]);
 
-    if (totalArea === 0) {
-      totalArea = 1850; // default seed area representing existing zones
-    }
+  const [payments, setPayments] = useState<Payment[]>([
+    { id: "PAY-01", invoiceId: "INV-01", invoiceNumber: "INV-2026-001", amount: 35000000, date: "2026-05-28", method: "Bank Transfer", reference: "CBE-TXN-90281", project: "Bole Heights Phase I" },
+    { id: "PAY-02", invoiceId: "INV-02", invoiceNumber: "INV-2026-002", amount: 42000000, date: "2026-06-25", method: "Bank Transfer", reference: "AWASH-TXN-11029", project: "Bole Heights Phase I" }
+  ]);
 
-    // Concrete: 0.15 m³ of high-performance concrete required per m² of formwork area
-    const concreteVolume = totalArea * 0.15;
-    // Rebar: 18 kg of reinforcement steel required per m² of formwork area
-    const rebarWeight = totalArea * 18;
-    // Pins/Accessories: 4 pcs per m²
-    const pinCount = totalArea * 4;
+  // Project EVM List
+  const [projectsEvm, setProjectsEvm] = useState<ProjectEvmData[]>([
+    { id: "PRJ-01", name: "Bole Heights Phase I", budget: 65000000, approvedBudget: 65000000, actualCost: 38500000, earnedValue: 41200000, plannedValue: 40000000, forecastCost: 61800000, scheduleVarianceDays: -3 },
+    { id: "PRJ-02", name: "Yeka Hills Premium Estate", budget: 120000000, approvedBudget: 120000000, actualCost: 52000000, earnedValue: 54500000, plannedValue: 55000000, forecastCost: 114500000, scheduleVarianceDays: 0 },
+    { id: "PRJ-03", name: "Lemi National Cement Expansion", budget: 180000000, approvedBudget: 180000000, actualCost: 28000000, earnedValue: 27100000, plannedValue: 30000000, forecastCost: 186000000, scheduleVarianceDays: -8 }
+  ]);
 
-    const concreteCost = concreteVolume * simulationRates.concreteRate;
-    const rebarCost = rebarWeight * simulationRates.rebarRate;
-    const pinCost = pinCount * simulationRates.pinRate;
+  // Procurement Records
+  const [procurements, setProcurements] = useState<ProcurementRecord[]>([
+    { id: "PROC-01", poNumber: "PO-2026-881", supplier: "Lianxin Aluminum Ltd (China)", materialItem: "6061-T6 Aluminum Panels 1200x600", poAmount: 18500000, importCost: 1450000, customsTax: 2850000, deliveryCost: 650000, status: "Customs Cleared", date: "2026-07-01" },
+    { id: "PROC-02", poNumber: "PO-2026-882", supplier: "Mugher Cement Factory", materialItem: "Bulk Cement Type I (C30 Grade)", poAmount: 12000000, importCost: 0, customsTax: 0, deliveryCost: 420000, status: "Paid", date: "2026-07-08" },
+    { id: "PROC-03", poNumber: "PO-2026-883", supplier: "Ethio Steel Mills", materialItem: "Deformed Steel Bar 16mm High Tensile", poAmount: 15400000, importCost: 0, customsTax: 0, deliveryCost: 380000, status: "In Transit", date: "2026-07-14" }
+  ]);
 
-    return concreteCost + rebarCost + pinCost;
-  }, [zonesList, simulationRates.concreteRate, simulationRates.rebarRate, simulationRates.pinRate]);
+  // Equipment Cost Records
+  const [equipments, setEquipments] = useState<EquipmentCostRecord[]>([
+    { id: "EQ-01", equipmentName: "Potain Tower Crane MC235", assetCode: "TC-01", fuelLiters: 1850, fuelCost: 185000, maintenanceCost: 340000, sparePartsCost: 120000, rentalCost: 1800000, operatingHours: 210 },
+    { id: "EQ-02", equipmentName: "Putzmeister Concrete Pump Truck 36m", assetCode: "CP-02", fuelLiters: 2400, fuelCost: 240000, maintenanceCost: 280000, sparePartsCost: 95000, rentalCost: 1200000, operatingHours: 185 },
+    { id: "EQ-03", equipmentName: "CAT Excavator 330D Heavy Duty", assetCode: "EX-03", fuelLiters: 3100, fuelCost: 310000, maintenanceCost: 450000, sparePartsCost: 210000, rentalCost: 1400000, operatingHours: 240 }
+  ]);
 
-  // 3. DYNAMIC ALUMINUM FORMWORK LEASE & REPAIR COSTS
-  const calculatedFormworkCost = useMemo(() => {
-    let totalArea = 0;
-    zonesList.forEach(z => {
-      if (z.dailyPanelLogs) {
-        z.dailyPanelLogs.forEach(log => {
-          totalArea += log.calculatedArea || 0;
-        });
-      }
-    });
+  // --- AUTOMATED MASTER COMPUTATIONS ---
+  const companyRevenue = useMemo(() => invoices.reduce((sum, i) => sum + i.amount, 0), [invoices]);
+  const companyExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
+  const totalProjectBudget = useMemo(() => budgets.reduce((sum, b) => sum + b.allocated, 0), [budgets]);
+  const budgetUtilization = useMemo(() => totalProjectBudget > 0 ? (companyExpenses / totalProjectBudget) * 100 : 0, [companyExpenses, totalProjectBudget]);
+  
+  const accountsReceivable = useMemo(() => {
+    const paidSum = payments.reduce((sum, p) => sum + p.amount, 0);
+    return companyRevenue - paidSum;
+  }, [companyRevenue, payments]);
 
-    if (totalArea === 0) {
-      totalArea = 1850;
-    }
+  const accountsPayable = useMemo(() => {
+    return procurements.filter(p => p.status !== "Paid").reduce((sum, p) => sum + p.poAmount + p.customsTax + p.deliveryCost, 0);
+  }, [procurements]);
 
-    // Standard usage amortization cost based on actual physical square meters installed
-    const usageAmortization = totalArea * simulationRates.formworkUsageRate;
-    // Actual structural repairs logged in physical repair ledger database
-    const repairSum = repairRecordsList.reduce((sum, rec) => sum + (rec.cost || 0), 0);
+  // Asset Values
+  const warehouseAssetVal = 42500000;
+  const formworkAssetVal = useMemo(() => {
+    const totalPanels = formworkPanelsList.length || 850;
+    return totalPanels * 12500; // 12,500 ETB average asset replacement value per panel
+  }, [formworkPanelsList]);
+  const equipmentAssetVal = 55000000;
 
-    return usageAmortization + (repairSum || 45000);
-  }, [zonesList, repairRecordsList, simulationRates.formworkUsageRate]);
+  // Breakdown Costs
+  const payrollCost = 18400000;
+  const overtimeCost = 3200000;
+  const procurementCost = useMemo(() => procurements.reduce((sum, p) => sum + p.poAmount + p.importCost + p.customsTax + p.deliveryCost, 0), [procurements]);
+  const maintenanceCost = useMemo(() => equipments.reduce((sum, e) => sum + e.maintenanceCost + e.sparePartsCost, 0) + repairRecordsList.reduce((sum, r) => sum + (r.cost || 0), 0), [equipments, repairRecordsList]);
+  const fuelCost = useMemo(() => equipments.reduce((sum, e) => sum + e.fuelCost, 0), [equipments]);
+  const transportCost = useMemo(() => procurements.reduce((sum, p) => sum + p.deliveryCost, 0) + 1200000, [procurements]);
 
-  // --- AUTOMATED MASTER LEDGER INTEGRATION ---
-  const materialCost = useMemo(() => {
-    if (costCalculationMode === "ledger") {
-      return expenses.filter(e => e.category === "Material").reduce((sum, e) => sum + e.amount, 0);
-    } else {
-      return calculatedMaterialCost;
-    }
-  }, [costCalculationMode, expenses, calculatedMaterialCost]);
+  const netProfitVal = companyRevenue - companyExpenses;
+  const grossProfitMargin = companyRevenue > 0 ? (netProfitVal / companyRevenue) * 100 : 0;
 
-  const laborCost = useMemo(() => {
-    if (costCalculationMode === "ledger") {
-      return expenses.filter(e => e.category === "Labor").reduce((sum, e) => sum + e.amount, 0);
-    } else {
-      return calculatedLaborCost;
-    }
-  }, [costCalculationMode, expenses, calculatedLaborCost]);
+  // Report Center State
+  const [selectedReportType, setSelectedReportType] = useState<"income" | "balance" | "cashflow" | "payroll" | "asset" | "procurement">("income");
+  const [auditApproved, setAuditApproved] = useState(false);
+  const [simulatedPrint, setSimulatedPrint] = useState(false);
 
-  const equipmentCost = useMemo(() => {
-    return expenses.filter(e => e.category === "Equipment").reduce((sum, e) => sum + e.amount, 0);
-  }, [expenses]);
+  // Form Modals Toggles
+  const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [budgetForm, setBudgetForm] = useState({ category: "Material" as const, allocated: 0, description: "", descriptionAm: "" });
 
-  const overheadCost = useMemo(() => {
-    if (costCalculationMode === "ledger") {
-      return expenses.filter(e => e.category === "Overhead").reduce((sum, e) => sum + e.amount, 0);
-    } else {
-      // In realtime mode, we represent overhead and physical formwork usage/repairs as structural amortizations
-      return expenses.filter(e => e.category === "Overhead").reduce((sum, e) => sum + e.amount, 0) + calculatedFormworkCost;
-    }
-  }, [costCalculationMode, expenses, calculatedFormworkCost]);
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [expenseForm, setExpenseForm] = useState({ category: "Material" as const, amount: 0, date: "2026-07-21", vendor: "", description: "", project: "Bole Heights Phase I" });
 
-  const totalProjectCost = useMemo(() => {
-    return materialCost + laborCost + equipmentCost + overheadCost;
-  }, [materialCost, laborCost, equipmentCost, overheadCost]);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invoiceForm, setInvoiceForm] = useState({ invoiceNumber: "", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 0, status: "Pending" as const, date: "2026-07-21", dueDate: "2026-08-21" });
 
-  const totalAllocatedBudget = useMemo(() => budgets.reduce((sum, b) => sum + b.allocated, 0), [budgets]);
-
-  const totalInvoicedAmount = useMemo(() => invoices.reduce((sum, i) => sum + i.amount, 0), [invoices]);
-  const totalPaymentsReceived = useMemo(() => payments.reduce((sum, p) => sum + p.amount, 0), [payments]);
-  const outstandingReceivables = useMemo(() => totalInvoicedAmount - totalPaymentsReceived, [totalInvoicedAmount, totalPaymentsReceived]);
-
-  const actualProfitVal = useMemo(() => totalInvoicedAmount - totalProjectCost, [totalInvoicedAmount, totalProjectCost]);
-  const profitMarginPercent = useMemo(() => totalInvoicedAmount > 0 ? (actualProfitVal / totalInvoicedAmount) * 100 : 0, [actualProfitVal, totalInvoicedAmount]);
-
-  // Handle addition callbacks
   const handleAddBudget = (e: React.FormEvent) => {
     e.preventDefault();
     const newAlloc: BudgetCategory = {
@@ -495,164 +421,67 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
     onLogAction?.("Generate Invoice", `Created invoice ${newInv.invoiceNumber} for ETB ${newInv.amount}`);
   };
 
-  const handleAddPayment = (e: React.FormEvent) => {
-    e.preventDefault();
-    const selectedInv = invoices.find(inv => inv.id === paymentForm.invoiceId);
-    const newPay: Payment = {
-      id: `PAY-${Date.now()}`,
-      invoiceId: paymentForm.invoiceId,
-      invoiceNumber: selectedInv ? selectedInv.invoiceNumber : "N/A",
-      amount: Number(paymentForm.amount),
-      date: paymentForm.date,
-      method: paymentForm.method,
-      reference: paymentForm.reference,
-      project: paymentForm.project
-    };
-    setPayments(prev => [newPay, ...prev]);
-
-    // Update parent invoice status if fully paid or near paid
-    if (selectedInv) {
-      const sumPaidForThisInv = payments.filter(p => p.invoiceId === paymentForm.invoiceId).reduce((sum, p) => sum + p.amount, 0) + newPay.amount;
-      if (sumPaidForThisInv >= selectedInv.amount) {
-        setInvoices(prev => prev.map(inv => inv.id === selectedInv.id ? { ...inv, status: "Paid" as const } : inv));
-      }
-    }
-
-    setShowPaymentForm(false);
-    onLogAction?.("Track Payment", `Logged payment reference ${newPay.reference} of ETB ${newPay.amount}`);
-  };
-
-  // Recharts preparation data
-  const comparisonData = useMemo(() => {
-    return budgets.map(b => {
-      let spent = 0;
-      if (costCalculationMode === "ledger") {
-        spent = expenses.filter(e => e.category === b.category).reduce((sum, e) => sum + e.amount, 0);
-      } else {
-        if (b.category === "Labor") {
-          spent = calculatedLaborCost;
-        } else if (b.category === "Material") {
-          spent = calculatedMaterialCost;
-        } else if (b.category === "Overhead") {
-          spent = expenses.filter(e => e.category === "Overhead").reduce((sum, e) => sum + e.amount, 0) + calculatedFormworkCost;
-        } else {
-          spent = expenses.filter(e => e.category === b.category).reduce((sum, e) => sum + e.amount, 0);
-        }
-      }
-      return {
-        name: b.category,
-        Budget: b.allocated,
-        Actual: spent,
-        Variance: b.allocated - spent
-      };
-    });
-  }, [budgets, expenses, costCalculationMode, calculatedLaborCost, calculatedMaterialCost, calculatedFormworkCost]);
-
-  const categoryShareData = useMemo(() => {
-    return [
-      { name: isAmharic ? "ማቴሪያል (Material)" : "Material", value: materialCost, color: "#3b82f6" },
-      { name: isAmharic ? "ጉልበት (Labor)" : "Labor", value: laborCost, color: "#ef4444" },
-      { name: isAmharic ? "ማሽነሪ (Equipment)" : "Equipment", value: equipmentCost, color: "#f59e0b" },
-      { name: isAmharic ? "አስተዳደር (Overhead)" : "Overhead", value: overheadCost, color: "#10b981" }
-    ].filter(item => item.value > 0);
-  }, [materialCost, laborCost, equipmentCost, overheadCost, isAmharic]);
-
-  const timelineData = useMemo(() => {
-    // Group expenses by date, sort them
-    const groups: Record<string, number> = {};
-    expenses.forEach(e => {
-      groups[e.date] = (groups[e.date] || 0) + e.amount;
-    });
-    return Object.keys(groups).sort().map(d => ({
-      date: d,
-      "Daily Cost": groups[d]
-    })).slice(-8); // take last 8 days
-  }, [expenses]);
-
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-slate-100 shadow-2xl max-w-7xl mx-auto space-y-8" id="finance-erp-root">
-      {/* ERP Header */}
+      
+      {/* HEADER BAR */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
-        <div>
-          <div className="flex items-center space-x-3">
-            <div className="p-3 bg-red-600 rounded-2xl shadow-lg shadow-red-500/20 text-white">
-              <DollarSign size={24} className="animate-pulse" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-black tracking-tight text-white">{t("title")}</h1>
-              <p className="text-xs text-slate-400 mt-1">{t("subtitle")}</p>
-            </div>
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-red-600 rounded-2xl shadow-lg shadow-red-500/20 text-white">
+            <DollarSign size={26} className="animate-pulse" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-white">{t("title")}</h1>
+            <p className="text-xs text-slate-400 mt-1">{t("subtitle")}</p>
           </div>
         </div>
 
-        {/* Top Mini-Metrics */}
+        {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Calculation Mode Toggle */}
-          <div className="bg-slate-950 p-1 rounded-xl border border-slate-800 flex items-center space-x-1.5">
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider px-2.5">
-              {isAmharic ? "የወጪ ስሌት ዘዴ፦" : "Cost Mode:"}
+          <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center space-x-2">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <button
-              onClick={() => {
-                setCostCalculationMode("ledger");
-                onLogAction?.("Switch Cost Mode", "Changed cost calculation basis to standard book vouchers (ledger)");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer ${
-                costCalculationMode === "ledger" ? "bg-slate-800 text-slate-100 border border-slate-700" : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              {isAmharic ? "መዝገብ (Ledger)" : "Voucher Ledger"}
-            </button>
-            <button
-              onClick={() => {
-                setCostCalculationMode("realtime");
-                onLogAction?.("Switch Cost Mode", "Changed cost calculation basis to physical site-linked metrics");
-              }}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer flex items-center space-x-1 ${
-                costCalculationMode === "realtime" ? "bg-red-600 text-white border border-red-500" : "text-slate-500 hover:text-slate-300"
-              }`}
-            >
-              <Zap size={11} className={costCalculationMode === "realtime" ? "text-white" : ""} />
-              <span>{isAmharic ? "ቀጥታ ሳይት (Real-time)" : "Field Connected"}</span>
-            </button>
+            <span className="text-[10px] font-mono font-bold text-slate-300 uppercase">
+              {isAmharic ? "Firebase ሪል-ታይም ተገናኝቷል" : "Firebase Cloud Real-time Synced"}
+            </span>
           </div>
 
           <button
-            onClick={() => {
-              setActiveTab("reports");
-              setSelectedReportType("executive");
-            }}
-            className="px-4 py-2 bg-gradient-to-r from-red-600 to-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition-all"
+            onClick={() => setActiveTab("financial-reports")}
+            className="px-4 py-2 bg-gradient-to-r from-red-600 to-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
           >
-            <FileText size={14} />
-            <span>{isAmharic ? "የቦርድ ሪፖርት ማመንጫ" : "Executive Report Center"}</span>
+            <Printer size={14} />
+            <span>{isAmharic ? "የፋይናንስ ሪፖርት ማውጫ" : "Reports Center"}</span>
           </button>
         </div>
       </div>
 
-      {/* Navigation Sub-Tabs */}
-      <div className="flex flex-wrap border-b border-slate-800 gap-2">
+      {/* TOP NAVIGATION TABS (10 MASTER MODULES) */}
+      <div className="flex flex-wrap border-b border-slate-800 gap-1.5">
         {[
-          { id: "dashboard", label: isAmharic ? "አጠቃላይ ማጠቃለያ" : "Overall Summary", icon: Layers },
-          { id: "project-linked", label: isAmharic ? "ቀጥታ ሳይት ወጪ" : "Linked Site Costs", icon: Zap },
-          { id: "budget", label: t("budgetMgmt"), icon: Briefcase },
-          { id: "cost", label: t("costCtrl"), icon: AlertCircle },
-          { id: "expenses", label: t("expTrack"), icon: FileSpreadsheet },
-          { id: "invoices", label: t("invMgmt"), icon: FileText },
-          { id: "payments", label: t("payTrack"), icon: CreditCard },
-          { id: "reports", label: t("repGen"), icon: BarChart3 }
+          { id: "dashboard", label: isAmharic ? "አጠቃላይ ዳሽቦርድ" : "Dashboard", icon: Layers },
+          { id: "project-mgmt", label: isAmharic ? "የፕሮጀክት EVM ወጪ" : "Project EVM", icon: Briefcase },
+          { id: "payroll-mgmt", label: isAmharic ? "የደሞዝ አስተዳደር" : "Payroll System", icon: Users },
+          { id: "formwork-assets", label: isAmharic ? "የፎርምወርክ ሀብት" : "Formwork Accounting", icon: Package },
+          { id: "warehouse-cost", label: isAmharic ? "የመጋዘን ወጪ" : "Warehouse Cost", icon: Building2 },
+          { id: "procurement-cost", label: isAmharic ? "የግዢና ጉምሩክ ወጪ" : "Procurement Cost", icon: CreditCard },
+          { id: "equipment-cost", label: isAmharic ? "የማሽነሪና ነዳጅ ወጪ" : "Equipment & Fuel", icon: Truck },
+          { id: "financial-reports", label: isAmharic ? "የፋይናንስ ሪፖርቶች" : "Financial Reports", icon: BarChart3 },
+          { id: "ai-analytics", label: isAmharic ? "AI የፋይናንስ ትንበያ" : "AI Analytics", icon: Cpu },
+          { id: "integrations", label: isAmharic ? "የስርዓት ትስስር" : "ERP Sync Matrix", icon: RefreshCw }
         ].map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
           return (
             <button
               key={tab.id}
-              onClick={() => {
-                setActiveTab(tab.id as any);
-                setSimulatedPrint(false);
-              }}
-              className={`px-4 py-3 flex items-center space-x-2 text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
-                active ? "text-red-500 border-red-500 bg-slate-800/40" : "text-slate-400 border-transparent hover:text-white hover:bg-slate-800/10"
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`px-3.5 py-2.5 flex items-center space-x-1.5 text-[11px] font-extrabold uppercase tracking-wider rounded-t-xl transition cursor-pointer ${
+                active
+                  ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
+                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
               <Icon size={14} />
@@ -662,880 +491,369 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
         })}
       </div>
 
-      {/* CORE AUTOMATED CALCULATIONS KPI BAR */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-        {/* Total Project Cost */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-inner">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-widest">{t("projectCost")}</span>
-            <TrendingDown className="text-red-500" size={16} />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl font-mono font-black text-white">ETB {totalProjectCost.toLocaleString()}</span>
-            <div className="text-[10px] text-slate-500 mt-1">
-              {isAmharic ? "ከጠቅላላ በጀት " : "Allocated Budget: "}
-              <span className="font-semibold text-slate-300">ETB {totalAllocatedBudget.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Material Cost */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-inner">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-widest">{t("materialCost")}</span>
-            <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl font-mono font-black text-blue-400">ETB {materialCost.toLocaleString()}</span>
-            <div className="text-[10px] text-slate-500 mt-1">
-              {isAmharic ? "ጠቅላላ የሲሚንቶና የብረት ወጪ" : "Concrete, steel & panel re-orders"}
-            </div>
-          </div>
-        </div>
-
-        {/* Labor Cost */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-inner">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-widest">{t("laborCost")}</span>
-            <div className="w-2.5 h-2.5 rounded-full bg-red-500" />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl font-mono font-black text-red-400">ETB {laborCost.toLocaleString()}</span>
-            <div className="text-[10px] text-slate-500 mt-1">
-              {isAmharic ? "የፎርምወርክ መገጣጠም ማካካሻ" : "Skilled assembly crew disbursements"}
-            </div>
-          </div>
-        </div>
-
-        {/* Equipment Cost */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-inner">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-widest">{t("equipmentCost")}</span>
-            <div className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-          </div>
-          <div className="mt-2">
-            <span className="text-xl font-mono font-black text-amber-500">ETB {equipmentCost.toLocaleString()}</span>
-            <div className="text-[10px] text-slate-500 mt-1">
-              {isAmharic ? "የታወር ክሬንና ከባድ ማሽነሪ ኪራይ" : "Heavy crane logistics & hoist leases"}
-            </div>
-          </div>
-        </div>
-
-        {/* Profit Margin */}
-        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col justify-between shadow-inner">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="text-[11px] font-black uppercase tracking-widest">{t("profitMargin")}</span>
-            <Percent className="text-emerald-500 animate-pulse" size={16} />
-          </div>
-          <div className="mt-2">
-            <span className={`text-xl font-mono font-black ${profitMarginPercent >= 15 ? "text-emerald-400" : "text-amber-500"}`}>
-              {profitMarginPercent.toFixed(2)}%
-            </span>
-            <div className="text-[10px] text-slate-500 mt-1">
-              {isAmharic ? "የተጣራ ትርፍ፦ " : "Net Value: "}
-              <span className="font-semibold text-emerald-500">ETB {actualProfitVal.toLocaleString()}</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* VIEWPORT CONTROLLER */}
+      {/* VIEWPORT ROUTER */}
       <div className="transition-all duration-300">
-        
-        {/* TAB 1: OVERALL DASHBOARD & VISUALIZATIONS */}
+
+        {/* 1. EXECUTIVE DASHBOARD MODULE */}
         {activeTab === "dashboard" && (
-          <div className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Left Column: Cost Comparison Chart */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 lg:col-span-2 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-white">
-                    {isAmharic ? "በጀት ከእውነተኛ ወጪ ማነፃፀሪያ" : "Budget Allocation vs Actual Cost"}
-                  </h3>
-                  <div className="flex items-center space-x-3 text-[10px]">
-                    <span className="flex items-center space-x-1">
-                      <span className="w-2.5 h-2.5 rounded-xs bg-blue-500 inline-block" />
-                      <span className="text-slate-400">{isAmharic ? "የተመደበ በጀት" : "Allocated Budget"}</span>
-                    </span>
-                    <span className="flex items-center space-x-1">
-                      <span className="w-2.5 h-2.5 rounded-xs bg-amber-500 inline-block" />
-                      <span className="text-slate-400">{isAmharic ? "እውነተኛ ወጪ" : "Actual Cost"}</span>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={comparisonData} margin={{ top: 10, right: 10, left: 10, bottom: 5 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="name" stroke="#64748b" fontSize={11} />
-                      <YAxis stroke="#64748b" fontSize={10} tickFormatter={(v) => `${(v / 1000000).toFixed(1)}M`} />
-                      <Tooltip
-                        contentStyle={{ backgroundColor: "#020617", border: "1px solid #334155" }}
-                        labelStyle={{ color: "#ffffff", fontWeight: "bold" }}
-                      />
-                      <Bar dataKey="Budget" fill="#3b82f6" radius={[4, 4, 0, 0]} />
-                      <Bar dataKey="Actual" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Right Column: Cost Breakdown Pie Share */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 flex flex-col justify-between">
-                <div className="space-y-1">
-                  <h3 className="text-sm font-black uppercase tracking-wider text-white">
-                    {isAmharic ? "የወጪዎች ድርሻ ማጠቃለያ" : "Cost Breakdown Share"}
-                  </h3>
-                  <p className="text-[11px] text-slate-400">
-                    {isAmharic ? "ያለፉት ወጪዎች ምድብ መቶኛ ድርሻ" : "Percentage distribution of active construction ledger cost items"}
-                  </p>
-                </div>
-
-                <div className="h-44 my-2 flex items-center justify-center">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={categoryShareData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={75}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {categoryShareData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: "#020617", border: "1px solid #334155" }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-[11px] border-t border-slate-800 pt-3">
-                  {categoryShareData.map((item, idx) => (
-                    <div key={idx} className="flex items-center space-x-2">
-                      <span className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: item.color }} />
-                      <span className="text-slate-400 truncate max-w-[100px]">{item.name}</span>
-                      <span className="font-mono font-bold text-white ml-auto">
-                        {((item.value / totalProjectCost) * 100).toFixed(0)}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-            </div>
-
-            {/* Sub-grid of project statistics & warnings */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                <span className="text-[10px] font-bold tracking-widest text-slate-400 block uppercase">{t("totalBudget")}</span>
-                <span className="text-lg font-mono font-black text-white mt-1 block">ETB {totalAllocatedBudget.toLocaleString()}</span>
-                <p className="text-[10px] text-slate-500 mt-1">{isAmharic ? "ከተመደበው አጠቃላይ የመንግስት ፈንድ" : "From federal housing master grant fund allocation"}</p>
-              </div>
-
-              <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                <span className="text-[10px] font-bold tracking-widest text-slate-400 block uppercase">{t("totalInvoiced")}</span>
-                <span className="text-lg font-mono font-black text-white mt-1 block">ETB {totalInvoicedAmount.toLocaleString()}</span>
-                <p className="text-[10px] text-slate-500 mt-1">{isAmharic ? "ለተቆጣጣሪው የቀረበ የተፈረመበት ዋጋ" : "Total client-signed invoice certificates"}</p>
-              </div>
-
-              <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                <span className="text-[10px] font-bold tracking-widest text-slate-400 block uppercase">{t("paymentsReceived")}</span>
-                <span className="text-lg font-mono font-black text-emerald-400 mt-1 block">ETB {totalPaymentsReceived.toLocaleString()}</span>
-                <p className="text-[10px] text-slate-500 mt-1">{isAmharic ? "በኢትዮጵያ ንግድ ባንክ ገቢ የተደረገ" : "Fully cleared in Commercial Bank accounts"}</p>
-              </div>
-
-              <div className="bg-slate-950/40 p-4 rounded-xl border border-slate-800">
-                <span className="text-[10px] font-bold tracking-widest text-slate-400 block uppercase">{t("outstandingReceivables")}</span>
-                <span className="text-lg font-mono font-black text-amber-500 mt-1 block">ETB {outstandingReceivables.toLocaleString()}</span>
-                <p className="text-[10px] text-slate-500 mt-1">{isAmharic ? "የላቀ የአካውንት ተቀባይ መዝገብ" : "Pending certificate of milestone 3 payment"}</p>
-              </div>
-
-            </div>
-
-            {/* Bottom Alert/AI Insight */}
-            <div className="p-4 bg-slate-950 rounded-2xl border border-red-500/20 flex items-center space-x-3">
-              <Zap className="text-amber-500 animate-bounce" size={20} />
-              <div className="text-xs">
-                <span className="font-bold text-white mr-2">Digital Construction ERP Financial Intelligence Engine AI Recommendation:</span>
-                <span className="text-slate-300">
-                  {isAmharic
-                    ? "የማቴሪያል ወጪ ከተመደበው በጀት 82% ደርሷል። ወጪዎችን ለመቀነስ የአሉሚኒየም ፎርምወርክ መለዋወጫዎችን ከአገር ውስጥ አቅራቢዎች በቅናሽ ዋጋ ለማግኘት ይሞክሩ።"
-                    : "Material cost allocation has reached 82% of assigned budget. Implement localized scrap metal panel recycling to offset the ETB 90,000 variance gap in Floor 4 columns."
-                  }
-                </span>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* TAB: LINKED SITE COSTS (DYNAMIC FIELD INTEGRATION) */}
-        {activeTab === "project-linked" && (
           <div className="space-y-6 animate-fadeIn">
-            {/* Header / Intro */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
-                  <Zap className="text-red-500" size={20} />
-                  <span>{isAmharic ? "ከሳይት ጋር የተገናኙ የቀጥታ ግንባታ ወጪዎች" : "Linked Field Construction Costs"}</span>
-                </h2>
-                <p className="text-xs text-slate-400">
-                  {isAmharic 
-                    ? "ከዞኖች የአሉሚኒየም ፎርምወርክ መዝገብ፣ ከሰራተኛ ባዮሜትሪክስ መገኘት እና ቁሳቁስ ጋር በቀጥታ የተገናኘ የወጪ ማስያ" 
-                    : "Live bottom-up financial audit directly querying physical zones, labor attendance, and structural formwork activity"}
-                </p>
-              </div>
-
-              {/* Status Badge */}
-              <div className="flex items-center space-x-2 bg-slate-950 px-4 py-2 rounded-xl border border-slate-800">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                </span>
-                <span className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider">
-                  {isAmharic ? "ቀጥታ ግንኙነት አለ" : "Active Database Pipelines Linked"}
-                </span>
-              </div>
-            </div>
-
-            {/* Main Interactive Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            {/* Top Metric Cards Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               
-              {/* Left Side: Dynamic Parameters & Rates Sliders */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800/80 space-y-5 lg:col-span-1">
-                <div className="border-b border-slate-800 pb-3">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center space-x-1.5">
-                    <Sliders size={14} className="text-red-500" />
-                    <span>{isAmharic ? "የዋጋ ግምገማ መለኪያዎች" : "Interactive Unit Rates"}</span>
-                  </h3>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
-                    {isAmharic ? "በሳይት የሚከናወኑ ተግባራት አሃዳዊ ዋጋዎችን በመቀየር ጠቅላላ ግምትን አስተካክል" : "Tune individual material and production rates to re-simulate real-time field budgets"}
-                  </p>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-widest">{t("companyRevenue")}</span>
+                  <TrendingUp className="text-emerald-400" size={16} />
                 </div>
-
-                {/* Slider 1: Formwork Usage Rate */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">{isAmharic ? "የፎርምወርክ አጠቃቀም (በካሬ ሜትር)" : "Formwork Usage Amortization"}</span>
-                    <span className="font-mono font-bold text-slate-200">ETB {simulationRates.formworkUsageRate}/m²</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="150" 
-                    max="800" 
-                    step="10"
-                    value={simulationRates.formworkUsageRate} 
-                    onChange={(e) => setSimulationRates({ ...simulationRates, formworkUsageRate: Number(e.target.value) })}
-                    className="w-full accent-red-600 bg-slate-900 rounded-lg cursor-pointer h-1.5"
-                  />
-                  <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                    <span>ETB 150</span>
-                    <span>ETB 800</span>
-                  </div>
-                </div>
-
-                {/* Slider 2: Concrete Rate */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">{isAmharic ? "የኮንክሪት ዋጋ (በኩቢክ ሜትር)" : "C30 Concrete Supply Rate"}</span>
-                    <span className="font-mono font-bold text-slate-200">ETB {simulationRates.concreteRate}/m³</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="3000" 
-                    max="8000" 
-                    step="100"
-                    value={simulationRates.concreteRate} 
-                    onChange={(e) => setSimulationRates({ ...simulationRates, concreteRate: Number(e.target.value) })}
-                    className="w-full accent-blue-500 bg-slate-900 rounded-lg cursor-pointer h-1.5"
-                  />
-                  <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                    <span>ETB 3,000</span>
-                    <span>ETB 8,000</span>
-                  </div>
-                </div>
-
-                {/* Slider 3: Rebar Steel Rate */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">{isAmharic ? "የብረት ዋጋ (በኪሎግራም)" : "Reinforcement Rebar Rate"}</span>
-                    <span className="font-mono font-bold text-slate-200">ETB {simulationRates.rebarRate}/kg</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="70" 
-                    max="220" 
-                    step="5"
-                    value={simulationRates.rebarRate} 
-                    onChange={(e) => setSimulationRates({ ...simulationRates, rebarRate: Number(e.target.value) })}
-                    className="w-full accent-indigo-500 bg-slate-900 rounded-lg cursor-pointer h-1.5"
-                  />
-                  <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                    <span>ETB 70</span>
-                    <span>ETB 220</span>
-                  </div>
-                </div>
-
-                {/* Slider 4: Accessories Pins Rate */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">{isAmharic ? "የፒንና ዋጅ መለዋወጫ ዋጋ" : "Wedge Pin Accessory Unit"}</span>
-                    <span className="font-mono font-bold text-slate-200">ETB {simulationRates.pinRate}/Pc</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="10" 
-                    max="60" 
-                    step="1"
-                    value={simulationRates.pinRate} 
-                    onChange={(e) => setSimulationRates({ ...simulationRates, pinRate: Number(e.target.value) })}
-                    className="w-full accent-amber-500 bg-slate-900 rounded-lg cursor-pointer h-1.5"
-                  />
-                  <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                    <span>ETB 10</span>
-                    <span>ETB 60</span>
-                  </div>
-                </div>
-
-                {/* Slider 5: Labor Wage Multiplier */}
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-[11px]">
-                    <span className="text-slate-400">{isAmharic ? "የደሞዝ ማባዣ እቅድ" : "Biometric Wage Multiplier"}</span>
-                    <span className="font-mono font-bold text-slate-200">{simulationRates.laborRateMultiplier.toFixed(1)}x wage basis</span>
-                  </div>
-                  <input 
-                    type="range" 
-                    min="0.5" 
-                    max="2.5" 
-                    step="0.1"
-                    value={simulationRates.laborRateMultiplier} 
-                    onChange={(e) => setSimulationRates({ ...simulationRates, laborRateMultiplier: Number(e.target.value) })}
-                    className="w-full accent-emerald-500 bg-slate-900 rounded-lg cursor-pointer h-1.5"
-                  />
-                  <div className="flex justify-between text-[9px] text-slate-500 font-mono">
-                    <span>0.5x (Optimized)</span>
-                    <span>2.5x (Hazardous Shift)</span>
-                  </div>
-                </div>
-
-                <div className="pt-2">
-                  <div className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-[10px] text-slate-400 space-y-1">
-                    <span className="font-bold text-amber-500 block">💡 Field-Driven Financial Model:</span>
-                    <p>These unit rates convert raw counts (hours clocked, square meters set up, active panels repaired) into dynamic, real-time capital allocation estimates.</p>
+                <div className="mt-2">
+                  <span className="text-xl font-mono font-black text-white">ETB {companyRevenue.toLocaleString()}</span>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    {isAmharic ? "የተላኩና የተረጋገጡ ደረሰኞች" : "Invoiced client certificates"}
                   </div>
                 </div>
               </div>
 
-              {/* Right Side: Visualizing the Live Linked Feeds (3 Main Blocks) */}
-              <div className="lg:col-span-2 space-y-6">
-                
-                {/* Visual Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  
-                  {/* Card 1: Live Labor Hours & Payroll Projection */}
-                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="text-[10px] font-black uppercase tracking-widest">{isAmharic ? "ቀጥታ የጉልበት ወጪ" : "Live Labor Hours"}</span>
-                      <Users className="text-emerald-400" size={16} />
-                    </div>
-                    <div className="my-2">
-                      <span className="text-xl font-mono font-black text-white">ETB {calculatedLaborCost.toLocaleString()}</span>
-                      <div className="text-[9px] text-slate-500 mt-1">
-                        {isAmharic ? "የተመዘገቡ ሰራተኞች፦ " : "Clocked Workers: "}
-                        <span className="text-slate-300 font-mono">
-                          {workersList.length} total, {attendanceList.filter(a => a.status === "Present" || a.status === "Late").length} active today
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-[9px] bg-slate-900 p-1.5 rounded text-slate-400 font-mono truncate">
-                      {isAmharic ? "መነሻ ደሞዝ በሰዓት፦ 80 - 180 ETB" : "Avg clock-in normal + OT rate basis"}
-                    </div>
-                  </div>
-
-                  {/* Card 2: Formwork Area & Panel Repairs */}
-                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="text-[10px] font-black uppercase tracking-widest">{isAmharic ? "የፎርምወርክና ጥገና ዋጋ" : "Formwork & Repairs"}</span>
-                      <Layers className="text-blue-400" size={16} />
-                    </div>
-                    <div className="my-2">
-                      <span className="text-xl font-mono font-black text-white">ETB {calculatedFormworkCost.toLocaleString()}</span>
-                      <div className="text-[9px] text-slate-500 mt-1">
-                        {isAmharic ? "የፓነል ጥገናዎች ቁጥር፦ " : "Logged Repairs in DB: "}
-                        <span className="text-slate-300 font-mono">
-                          {repairRecordsList.length} tasks ({repairRecordsList.filter(r => r.repairedBy).length} closed)
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-[9px] bg-slate-900 p-1.5 rounded text-slate-400 font-mono truncate">
-                      {isAmharic ? "አጠቃላይ የአሉሚኒየም ፎርምወርክ ቁጥር፦ " : "Formwork inventory in system: "}
-                      {formworkPanelsList.length} panels
-                    </div>
-                  </div>
-
-                  {/* Card 3: Dynamic Material Volume */}
-                  <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 flex flex-col justify-between">
-                    <div className="flex items-center justify-between text-slate-400">
-                      <span className="text-[10px] font-black uppercase tracking-widest">{isAmharic ? "ቁሳቁስና ኮንክሪት" : "Material Consumption"}</span>
-                      <Package className="text-amber-500" size={16} />
-                    </div>
-                    <div className="my-2">
-                      <span className="text-xl font-mono font-black text-white">ETB {calculatedMaterialCost.toLocaleString()}</span>
-                      <div className="text-[9px] text-slate-500 mt-1">
-                        {isAmharic ? "በዞን ሪፖርት የተገኘ ካሬ ሜትር፦ " : "Total panel surface area in system: "}
-                        <span className="text-slate-300 font-mono">
-                          {zonesList.reduce((sum, z) => sum + (z.dailyPanelLogs?.reduce((s, l) => s + (l.calculatedArea || 0), 0) || 0), 0) || 1850} m²
-                        </span>
-                      </div>
-                    </div>
-                    <div className="text-[9px] bg-slate-900 p-1.5 rounded text-slate-400 font-mono truncate">
-                      {isAmharic ? "የኮንክሪት ግምት፦ 0.15 m³ በካሬ ሜትር" : "Concrete scale: 0.15 m³ / m² basis"}
-                    </div>
-                  </div>
-
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-widest">{t("companyExpenses")}</span>
+                  <TrendingDown className="text-red-400" size={16} />
                 </div>
-
-                {/* Subtab Detailed Table: Zone-by-Zone Linked Materials Costs */}
-                <div className="bg-slate-950 rounded-2xl border border-slate-800 p-5 space-y-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 pb-3">
-                    <div>
-                      <h4 className="text-xs font-black uppercase tracking-widest text-white">
-                        {isAmharic ? "የዞኖች የቀጥታ ግንባታ ዝርዝር ወጪ" : "Zone-Level Live Material Ledger"}
-                      </h4>
-                      <p className="text-[10px] text-slate-500">
-                        {isAmharic ? "ለእያንዳንዱ ዞን የአሉሚኒየም ፎርምወርክ ስፋት የሚሰላ የኮንክሪት፣ የብረትና መጋጠሚያዎች ወጪ" : "Detailed bill of quantities (BOQ) derived automatically from panel counts and user-defined rates"}
-                      </p>
-                    </div>
-                    
-                    {/* Simulator Action */}
-                    <button
-                      onClick={() => {
-                        onLogAction?.("Simulate Material Optimization", "Triggered site materials consumption audit check");
-                        alert(isAmharic ? "የቁሳቁስ አቅርቦት ኦዲት በተሳካ ሁኔታ ተካሂዷል!" : "Site materials consumption audit run against physical formwork coordinates!");
-                      }}
-                      className="px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 text-[10px] uppercase font-black tracking-wider rounded-lg border border-red-900/30 transition cursor-pointer"
-                    >
-                      {isAmharic ? "ኦዲት አሂድ" : "Run Supply Audit"}
-                    </button>
+                <div className="mt-2">
+                  <span className="text-xl font-mono font-black text-red-400">ETB {companyExpenses.toLocaleString()}</span>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    {isAmharic ? "የተመዘገቡ ወጪዎች" : "Logged construction expenditures"}
                   </div>
+                </div>
+              </div>
 
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse text-[11px]">
-                      <thead>
-                        <tr className="border-b border-slate-800 text-slate-500 font-black uppercase tracking-wider">
-                          <th className="py-2.5 px-3">{isAmharic ? "ዞን / ፕሮጀክት ክፍል" : "Zone ID"}</th>
-                          <th className="py-2.5 px-3">{isAmharic ? "የፓነል ስፋት" : "Panel Area"}</th>
-                          <th className="py-2.5 px-3">{isAmharic ? "ኮንክሪት (C30)" : "Concrete (0.15 m³/m²)"}</th>
-                          <th className="py-2.5 px-3">{isAmharic ? "የብረት ማጠናከሪያ" : "Rebar Steel (18 kg/m²)"}</th>
-                          <th className="py-2.5 px-3">{isAmharic ? "ፒኖችና መጋጠሚያዎች" : "Pins (4 pcs/m²)"}</th>
-                          <th className="py-2.5 px-3 text-right">{isAmharic ? "የዞኑ ጠቅላላ ግምት" : "Zone Live Total"}</th>
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-widest">{t("profitLoss")}</span>
+                  <Percent className="text-emerald-400" size={16} />
+                </div>
+                <div className="mt-2">
+                  <span className="text-xl font-mono font-black text-emerald-400">ETB {netProfitVal.toLocaleString()}</span>
+                  <div className="text-[10px] text-slate-500 mt-1">
+                    {isAmharic ? "የትርፍ መጠን፦ " : "Gross Margin: "}
+                    <span className="font-bold text-emerald-400">{grossProfitMargin.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span className="text-[10px] font-black uppercase tracking-widest">{t("budgetUtilization")}</span>
+                  <Zap className="text-amber-400" size={16} />
+                </div>
+                <div className="mt-2">
+                  <span className="text-xl font-mono font-black text-amber-400">{budgetUtilization.toFixed(1)}%</span>
+                  <div className="w-full bg-slate-900 rounded-full h-1.5 mt-2">
+                    <div className="bg-amber-500 h-1.5 rounded-full" style={{ width: `${Math.min(budgetUtilization, 100)}%` }} />
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Asset Values & Liabilities Bar */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="flex justify-between items-center text-xs text-slate-400 font-bold uppercase">
+                  <span>{t("warehouseAssetVal")}</span>
+                  <Building2 size={14} className="text-blue-400" />
+                </div>
+                <span className="text-lg font-mono font-black text-white block mt-2">ETB {warehouseAssetVal.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-500 block mt-1">Stocked materials & raw hardware</span>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="flex justify-between items-center text-xs text-slate-400 font-bold uppercase">
+                  <span>{t("formworkAssetVal")}</span>
+                  <Layers size={14} className="text-emerald-400" />
+                </div>
+                <span className="text-lg font-mono font-black text-emerald-400 block mt-2">ETB {formworkAssetVal.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-500 block mt-1">{formworkPanelsList.length || 850} Aluminum Panels @ 12.5k ETB/pc</span>
+              </div>
+
+              <div className="bg-slate-950 p-4 rounded-xl border border-slate-800">
+                <div className="flex justify-between items-center text-xs text-slate-400 font-bold uppercase">
+                  <span>{t("equipmentAssetVal")}</span>
+                  <Truck size={14} className="text-amber-400" />
+                </div>
+                <span className="text-lg font-mono font-black text-amber-400 block mt-2">ETB {equipmentAssetVal.toLocaleString()}</span>
+                <span className="text-[10px] text-slate-500 block mt-1">Tower cranes, excavators & pumps fleet</span>
+              </div>
+
+            </div>
+
+            {/* Comprehensive Cost Breakdown Grid */}
+            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+              <h3 className="text-xs font-black uppercase tracking-widest text-white flex items-center space-x-2">
+                <Sliders size={14} className="text-red-500" />
+                <span>{isAmharic ? "የወጪዎች ክፍፍል ማጠቃለያ" : "Comprehensive Operational Cost Breakdown"}</span>
+              </h3>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 font-mono text-xs">
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold block">{t("payrollCost")}</span>
+                  <span className="text-sm font-black text-slate-100 mt-1 block">ETB {(payrollCost/1000000).toFixed(2)}M</span>
+                </div>
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold block">{t("overtimeCost")}</span>
+                  <span className="text-sm font-black text-amber-400 mt-1 block">ETB {(overtimeCost/1000000).toFixed(2)}M</span>
+                </div>
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold block">{t("procurementCost")}</span>
+                  <span className="text-sm font-black text-blue-400 mt-1 block">ETB {(procurementCost/1000000).toFixed(2)}M</span>
+                </div>
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold block">{t("maintenanceCost")}</span>
+                  <span className="text-sm font-black text-purple-400 mt-1 block">ETB {(maintenanceCost/1000000).toFixed(2)}M</span>
+                </div>
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold block">{t("fuelCost")}</span>
+                  <span className="text-sm font-black text-emerald-400 mt-1 block">ETB {(fuelCost/1000000).toFixed(2)}M</span>
+                </div>
+                <div className="p-3 bg-slate-900/60 rounded-xl border border-slate-800">
+                  <span className="text-[9px] text-slate-500 uppercase font-bold block">{t("transportCost")}</span>
+                  <span className="text-sm font-black text-slate-300 mt-1 block">ETB {(transportCost/1000000).toFixed(2)}M</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Receivables & Payables */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400">{t("receivables")}</span>
+                  <span className="text-xl font-mono font-black text-amber-400 block mt-1">ETB {accountsReceivable.toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-500">Uncollected client milestone certificates</span>
+                </div>
+                <CreditCard className="text-amber-500" size={28} />
+              </div>
+
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex justify-between items-center">
+                <div>
+                  <span className="text-[10px] font-black uppercase text-slate-400">{t("payables")}</span>
+                  <span className="text-xl font-mono font-black text-red-400 block mt-1">ETB {accountsPayable.toLocaleString()}</span>
+                  <span className="text-[10px] text-slate-500">Outstanding supplier & import duty obligations</span>
+                </div>
+                <FileSpreadsheet className="text-red-400" size={28} />
+              </div>
+            </div>
+
+          </div>
+        )}
+
+        {/* 2. PROJECT FINANCIAL MANAGEMENT (EVM) */}
+        {activeTab === "project-mgmt" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white">Project Financial Management (EVM)</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "Earned Value Management - የፕሮጀክቶች በጀት፣ እውነተኛ ወጪ እና ልዩነት" : "Track CPI, SPI, Cost Variance (CV) & Schedule Variance (SV)"}</p>
+              </div>
+            </div>
+
+            {/* EVM Projects Table */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="p-4">Project Name</th>
+                      <th className="p-4">Approved Budget</th>
+                      <th className="p-4">Actual Cost (AC)</th>
+                      <th className="p-4">Earned Value (EV)</th>
+                      <th className="p-4">Cost Variance (CV)</th>
+                      <th className="p-4">CPI (EV/AC)</th>
+                      <th className="p-4">Forecast Cost</th>
+                      <th className="p-4">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                    {projectsEvm.map(p => {
+                      const cv = p.earnedValue - p.actualCost;
+                      const cpi = p.actualCost > 0 ? p.earnedValue / p.actualCost : 1;
+                      const cpiGood = cpi >= 1.0;
+
+                      return (
+                        <tr key={p.id} className="hover:bg-slate-900/40 text-slate-200">
+                          <td className="p-4 font-sans font-bold text-white">{p.name}</td>
+                          <td className="p-4">ETB {(p.approvedBudget/1000000).toFixed(1)}M</td>
+                          <td className="p-4 font-black text-red-400">ETB {(p.actualCost/1000000).toFixed(1)}M</td>
+                          <td className="p-4 font-black text-emerald-400">ETB {(p.earnedValue/1000000).toFixed(1)}M</td>
+                          <td className={`p-4 font-black ${cv >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                            ETB {(cv/1000000).toFixed(2)}M
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black ${cpiGood ? "bg-emerald-950 text-emerald-400 border border-emerald-900" : "bg-red-950 text-red-400 border border-red-900"}`}>
+                              {cpi.toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-300">ETB {(p.forecastCost/1000000).toFixed(1)}M</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${p.scheduleVarianceDays <= 0 ? "text-emerald-400 bg-emerald-950/40" : "text-amber-400 bg-amber-950/40"}`}>
+                              {p.scheduleVarianceDays <= 0 ? "On Schedule" : `${p.scheduleVarianceDays} Days Delayed`}
+                            </span>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-900">
-                        {zonesList.map((zone) => {
-                          let area = 0;
-                          if (zone.dailyPanelLogs) {
-                            zone.dailyPanelLogs.forEach(log => {
-                              area += log.calculatedArea || 0;
-                            });
-                          }
-                          // Fallback seed sizes per zone for realism if no logs yet
-                          if (area === 0) {
-                            if (zone.id === "Zone A") area = 850;
-                            else if (zone.id === "Zone B") area = 600;
-                            else if (zone.id === "Zone C") area = 400;
-                            else area = 350;
-                          }
-
-                          const concreteVol = area * 0.15;
-                          const rebarWeight = area * 18;
-                          const pinsCount = area * 4;
-
-                          const concreteVal = concreteVol * simulationRates.concreteRate;
-                          const rebarVal = rebarWeight * simulationRates.rebarRate;
-                          const pinsVal = pinsCount * simulationRates.pinRate;
-                          const zoneTotal = concreteVal + rebarVal + pinsVal;
-
-                          return (
-                            <tr key={zone.id} className="hover:bg-slate-900/40 text-slate-300 font-mono transition">
-                              <td className="py-2.5 px-3 font-sans font-bold text-slate-100">{zone.id} ({zone.name})</td>
-                              <td className="py-2.5 px-3">{area.toLocaleString()} m²</td>
-                              <td className="py-2.5 px-3">
-                                <span className="text-blue-400 font-bold">{concreteVol.toFixed(1)} m³</span>
-                                <span className="block text-[9px] text-slate-500">ETB {concreteVal.toLocaleString()}</span>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className="text-indigo-400 font-bold">{rebarWeight.toLocaleString()} kg</span>
-                                <span className="block text-[9px] text-slate-500">ETB {rebarVal.toLocaleString()}</span>
-                              </td>
-                              <td className="py-2.5 px-3">
-                                <span className="text-amber-500 font-bold">{pinsCount.toLocaleString()} Pcs</span>
-                                <span className="block text-[9px] text-slate-500">ETB {pinsVal.toLocaleString()}</span>
-                              </td>
-                              <td className="py-2.5 px-3 text-right font-black text-slate-100">
-                                ETB {Math.round(zoneTotal).toLocaleString()}
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="bg-slate-900/60 p-3 rounded-xl border border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center text-[10px] text-slate-400 gap-2">
-                    <div className="flex items-center space-x-1">
-                      <AlertCircle className="text-amber-500" size={13} />
-                      <span>{isAmharic ? "ያስተውሉ፦ ይህ የቀጥታ ሂሳብ ከዞኑ የመጨረሻ የአሉሚኒየም ፓነል ሪፖርቶች ላይ የተመሰረተ ነው።" : "Automatic bottom-up synthesis uses exact area coefficients."}</span>
-                    </div>
-                    <span className="font-mono text-emerald-400 font-semibold">{isAmharic ? "የቀጥታ ስምምነት ተረጋግጧል" : "Sync Frequency: Real-time Live"}</span>
-                  </div>
-                </div>
-
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: BUDGET MANAGEMENT */}
-        {activeTab === "budget" && (
-          <div className="space-y-6">
+        {/* 3. PAYROLL MANAGEMENT MODULE */}
+        {activeTab === "payroll-mgmt" && (
+          <div className="space-y-6 animate-fadeIn">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-black uppercase text-white">{t("budgetMgmt")}</h2>
-                <p className="text-xs text-slate-400">{isAmharic ? "የግንባታ በጀት ምደባ ማረጋገጫ" : "Configure structural cost ceilings and milestones"}</p>
+                <h2 className="text-lg font-black uppercase text-white">Payroll Management & Attendance Integration</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "ከባዮሜትሪክስ የተገኘ የሰራተኞች ደሞዝ፣ አበል፣ ታክስ እና ፔንሲዮን ስሌት" : "Automated wages based on biometric attendance clock-ins"}</p>
               </div>
-              <button
-                onClick={() => setShowBudgetForm(!showBudgetForm)}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center space-x-2 cursor-pointer hover:bg-red-700 transition"
-              >
-                <Plus size={14} />
-                <span>{t("addBudget")}</span>
-              </button>
             </div>
 
-            {/* Budget Addition Form */}
-            {showBudgetForm && (
-              <form onSubmit={handleAddBudget} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 max-w-xl animate-fadeIn">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-300">{isAmharic ? "አዲስ በጀት መድብ" : "Add Budget Allocation"}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("category")}</label>
-                    <select
-                      value={budgetForm.category}
-                      onChange={(e) => setBudgetForm({ ...budgetForm, category: e.target.value as any })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    >
-                      <option value="Material">Material (ማቴሪያል)</option>
-                      <option value="Labor">Labor (ጉልበት)</option>
-                      <option value="Equipment">Equipment (ማሽነሪ)</option>
-                      <option value="Overhead">Overhead (አስተዳደራዊ)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("amount")}</label>
-                    <input
-                      type="number"
-                      required
-                      value={budgetForm.allocated || ""}
-                      onChange={(e) => setBudgetForm({ ...budgetForm, allocated: Number(e.target.value) })}
-                      placeholder="e.g. 15000000"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{isAmharic ? "መግለጫ (እንግሊዝኛ)" : "Description (English)"}</label>
-                    <input
-                      type="text"
-                      required
-                      value={budgetForm.description}
-                      onChange={(e) => setBudgetForm({ ...budgetForm, description: e.target.value })}
-                      placeholder="e.g. High Tensile Reinforcement Core"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{isAmharic ? "መግለጫ (አማርኛ)" : "Description (Amharic)"}</label>
-                    <input
-                      type="text"
-                      value={budgetForm.descriptionAm}
-                      onChange={(e) => setBudgetForm({ ...budgetForm, descriptionAm: e.target.value })}
-                      placeholder="ምሳሌ፦ የብረት ማጠናከሪያ ስራ"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    />
-                  </div>
-                </div>
-                <div className="flex justify-end space-x-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowBudgetForm(false)}
-                    className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ሰርዝ" : "Cancel"}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "አስቀምጥ" : "Save Allocation"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Budgets Table */}
+            {/* Payroll Table */}
             <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="p-4">{isAmharic ? "የበጀት ኮድ" : "Budget Code"}</th>
-                    <th className="p-4">{t("category")}</th>
-                    <th className="p-4">{t("description")}</th>
-                    <th className="p-4 text-right">{t("amount")}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {budgets.map(b => (
-                    <tr key={b.id} className="hover:bg-slate-900/40 text-slate-200">
-                      <td className="p-4 text-slate-400 font-bold">{b.id}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-wider ${
-                          b.category === "Material" ? "bg-blue-900/40 text-blue-400" :
-                          b.category === "Labor" ? "bg-red-900/40 text-red-400" :
-                          b.category === "Equipment" ? "bg-amber-900/40 text-amber-400" : "bg-emerald-900/40 text-emerald-400"
-                        }`}>
-                          {b.category}
-                        </span>
-                      </td>
-                      <td className="p-4 font-sans text-xs">{isAmharic ? b.descriptionAm : b.description}</td>
-                      <td className="p-4 text-right font-black text-white">ETB {b.allocated.toLocaleString()}</td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="p-3">Worker Name</th>
+                      <th className="p-3">Trade</th>
+                      <th className="p-3">Basic Salary</th>
+                      <th className="p-3">Overtime (1.5x)</th>
+                      <th className="p-3">Allowances</th>
+                      <th className="p-3">Tax (Income)</th>
+                      <th className="p-3">Pension (7%)</th>
+                      <th className="p-3 text-right">Net Salary</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                    {[
+                      { name: "Abebe Bikila", trade: "Formwork Gang Chief", basic: 18500, ot: 3200, allow: 2500, tax: 3800, pension: 1295, net: 19105 },
+                      { name: "Mulugeta Tadesse", trade: "Welder Master", basic: 16000, ot: 2400, allow: 2000, tax: 3100, pension: 1120, net: 16180 },
+                      { name: "Tigist Haile", trade: "Site Engineer", basic: 24000, ot: 1800, allow: 3500, tax: 5600, pension: 1680, net: 22020 },
+                      { name: "Kassaye Belay", trade: "Daily Assembly Craftsman", basic: 9500, ot: 1200, allow: 1000, tax: 1400, pension: 665, net: 9635 }
+                    ].map((w, idx) => (
+                      <tr key={idx} className="hover:bg-slate-900/40 text-slate-200">
+                        <td className="p-3 font-sans font-bold text-white">{w.name}</td>
+                        <td className="p-3 text-slate-400">{w.trade}</td>
+                        <td className="p-3">ETB {w.basic.toLocaleString()}</td>
+                        <td className="p-3 text-amber-400">+ ETB {w.ot.toLocaleString()}</td>
+                        <td className="p-3 text-emerald-400">+ ETB {w.allow.toLocaleString()}</td>
+                        <td className="p-3 text-red-400">- ETB {w.tax.toLocaleString()}</td>
+                        <td className="p-3 text-slate-400">- ETB {w.pension.toLocaleString()}</td>
+                        <td className="p-3 text-right font-black text-emerald-400">ETB {w.net.toLocaleString()}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 3: COST CONTROL */}
-        {activeTab === "cost" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-black uppercase text-white">{t("costCtrl")}</h2>
-              <p className="text-xs text-slate-400">{isAmharic ? "በጀት ከእውነተኛ ወጪ ማነፃፀሪያ እና የቁጥጥር ማስጠንቀቂያ" : "Audit budget limits against active daily field costs in real-time"}</p>
-            </div>
-
-            {/* Warnings Cards Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {budgets.map(b => {
-                const spent = expenses.filter(e => e.category === b.category).reduce((sum, e) => sum + e.amount, 0);
-                const percent = (spent / b.allocated) * 100;
-                const overLimit = spent > b.allocated;
-
-                return (
-                  <div
-                    key={b.id}
-                    className={`p-5 rounded-2xl border flex flex-col justify-between transition-all ${
-                      overLimit ? "bg-red-950/20 border-red-500/50 shadow-lg shadow-red-500/5" : "bg-slate-950 border-slate-800"
-                    }`}
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <span className={`px-2.5 py-1 rounded-md text-[9px] font-black uppercase tracking-widest ${
-                          b.category === "Material" ? "bg-blue-900/40 text-blue-400" :
-                          b.category === "Labor" ? "bg-red-900/40 text-red-400" :
-                          b.category === "Equipment" ? "bg-amber-900/40 text-amber-400" : "bg-emerald-900/40 text-emerald-400"
-                        }`}>
-                          {b.category}
-                        </span>
-                        <h4 className="text-sm font-bold text-white mt-2.5">{isAmharic ? b.descriptionAm : b.description}</h4>
-                      </div>
-
-                      <div className="flex flex-col items-end">
-                        <span className="text-[10px] text-slate-400 uppercase tracking-widest font-black">{t("status")}</span>
-                        <span className={`text-xs font-black uppercase mt-1 flex items-center space-x-1 ${overLimit ? "text-red-500 animate-pulse" : "text-emerald-400"}`}>
-                          {overLimit ? <AlertTriangle size={12} /> : <CheckCircle size={12} />}
-                          <span>{overLimit ? t("warning") : t("onTrack")}</span>
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar */}
-                    <div className="mt-4 space-y-1.5">
-                      <div className="flex justify-between text-[11px] font-mono text-slate-400">
-                        <span>{percent.toFixed(1)}% {isAmharic ? "ጥቅም ላይ ውሏል" : "Consumed"}</span>
-                        <span>ETB {spent.toLocaleString()} / ETB {b.allocated.toLocaleString()}</span>
-                      </div>
-                      <div className="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
-                        <div
-                          className={`h-full rounded-full transition-all duration-500 ${overLimit ? "bg-red-500" : "bg-gradient-to-r from-emerald-500 to-amber-500"}`}
-                          style={{ width: `${Math.min(percent, 100)}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Variance value and actions */}
-                    <div className="mt-4 pt-3 border-t border-slate-900 flex justify-between items-center text-[11px]">
-                      <span className="text-slate-400">{isAmharic ? "ቀሪ በጀት / ልዩነት፦" : "Remaining Variance Balance:"}</span>
-                      <span className={`font-mono font-black ${overLimit ? "text-red-500" : "text-emerald-400"}`}>
-                        ETB {(b.allocated - spent).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 4: EXPENSE TRACKING */}
-        {activeTab === "expenses" && (
-          <div className="space-y-6">
+        {/* 4. FORMWORK ASSET ACCOUNTING MODULE */}
+        {activeTab === "formwork-assets" && (
+          <div className="space-y-6 animate-fadeIn">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-black uppercase text-white">{t("expTrack")}</h2>
-                <p className="text-xs text-slate-400">{isAmharic ? "ዕለታዊ ወጪዎች መመዝገቢያ ሰሌዳ" : "Log, audit, and track individual daily site expenditures"}</p>
+                <h2 className="text-lg font-black uppercase text-white">Aluminum Formwork Asset Accounting</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነሎች የግዢ ዋጋ፣ የእርጅና ቅናሽ እና የጥገና ሂሳብ" : "Track panel asset depreciation across 300 concrete casting usage cycles"}</p>
               </div>
-              <button
-                onClick={() => setShowExpenseForm(!showExpenseForm)}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center space-x-2 cursor-pointer hover:bg-red-700 transition"
-              >
-                <Plus size={14} />
-                <span>{t("addExpense")}</span>
-              </button>
             </div>
 
-            {/* Expense form */}
-            {showExpenseForm && (
-              <form onSubmit={handleAddExpense} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 max-w-xl animate-fadeIn">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-300">{t("addExpense")}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("category")}</label>
-                    <select
-                      value={expenseForm.category}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value as any })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    >
-                      <option value="Material">Material (ማቴሪያል)</option>
-                      <option value="Labor">Labor (ጉልበት)</option>
-                      <option value="Equipment">Equipment (ማሽነሪ)</option>
-                      <option value="Overhead">Overhead (አስተዳደራዊ)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("amount")}</label>
-                    <input
-                      type="number"
-                      required
-                      value={expenseForm.amount || ""}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, amount: Number(e.target.value) })}
-                      placeholder="ETB Amount"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 font-mono text-xs">
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Initial Purchase Cost</span>
+                <span className="text-lg font-black text-white mt-1 block">ETB 14,800,000</span>
+              </div>
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Current Asset Book Value</span>
+                <span className="text-lg font-black text-emerald-400 mt-1 block">ETB 11,200,000</span>
+              </div>
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Amortization / Depreciation</span>
+                <span className="text-lg font-black text-amber-400 mt-1 block">ETB 3,600,000</span>
+              </div>
+              <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800">
+                <span className="text-[10px] text-slate-500 uppercase font-bold block">Total Maintenance & Repair</span>
+                <span className="text-lg font-black text-purple-400 mt-1 block">ETB 840,000</span>
+              </div>
+            </div>
+          </div>
+        )}
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("vendor")}</label>
-                    <input
-                      type="text"
-                      required
-                      value={expenseForm.vendor}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
-                      placeholder="e.g. Mugher Cement Co"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("date")}</label>
-                    <input
-                      type="date"
-                      required
-                      value={expenseForm.date}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, date: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
+        {/* 5. WAREHOUSE COST MANAGEMENT MODULE */}
+        {activeTab === "warehouse-cost" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white">Warehouse Cost Management</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "የመጋዘን እቃዎች ሀብት ዋጋ፣ የጉዳት ወጪ እና የትራንስፖርት ሂሳብ" : "Real-time stock valuation and material loss cost accounting"}</p>
+              </div>
+            </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("project")}</label>
-                    <select
-                      value={expenseForm.project}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, project: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    >
-                      {projects.map(p => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("description")}</label>
-                    <input
-                      type="text"
-                      required
-                      value={expenseForm.description}
-                      onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
-                      placeholder="e.g. Bulk cement ready mix C30"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    />
-                  </div>
-                </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800">
+                <span className="text-[10px] font-black uppercase text-slate-400">Total Stock Inventory Value</span>
+                <span className="text-xl font-mono font-black text-white block mt-1">ETB 42,500,000</span>
+              </div>
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800">
+                <span className="text-[10px] font-black uppercase text-slate-400">Damaged & Missing Panel Exposure</span>
+                <span className="text-xl font-mono font-black text-red-400 block mt-1">ETB 1,850,000</span>
+              </div>
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800">
+                <span className="text-[10px] font-black uppercase text-slate-400">Inter-Site Transport Expenses</span>
+                <span className="text-xl font-mono font-black text-amber-400 block mt-1">ETB 940,000</span>
+              </div>
+            </div>
+          </div>
+        )}
 
-                <div className="flex justify-end space-x-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowExpenseForm(false)}
-                    className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ሰርዝ" : "Cancel"}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ወጪ መዝግብ" : "Log Expense"}
-                  </button>
-                </div>
-              </form>
-            )}
+        {/* 6. PROCUREMENT COST MODULE */}
+        {activeTab === "procurement-cost" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white">Procurement & Import Cost Tracking</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "የቀጥታ ግዢ ትዕዛዞች፣ የባህር ማዶ ጭነት፣ የጉምሩክ ቀረጥና ታክስ" : "Track Purchase Orders (POs), supplier invoices, customs duty & delivery fees"}</p>
+              </div>
+            </div>
 
-            {/* Expenses Register Table */}
+            {/* Procurement Table */}
             <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="p-4">{t("date")}</th>
-                    <th className="p-4">{t("category")}</th>
-                    <th className="p-4">{t("vendor")}</th>
-                    <th className="p-4">{t("description")}</th>
-                    <th className="p-4 text-right">{t("amount")}</th>
+                    <th className="p-4">PO Number</th>
+                    <th className="p-4">Supplier</th>
+                    <th className="p-4">Material Item</th>
+                    <th className="p-4">PO Amount</th>
+                    <th className="p-4">Customs Duties</th>
+                    <th className="p-4">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                  {expenses.map(e => (
-                    <tr key={e.id} className="hover:bg-slate-900/40 text-slate-200">
-                      <td className="p-4 text-slate-400 font-bold">{e.date}</td>
+                  {procurements.map(proc => (
+                    <tr key={proc.id} className="hover:bg-slate-900/40 text-slate-200">
+                      <td className="p-4 text-slate-400 font-bold">{proc.poNumber}</td>
+                      <td className="p-4 font-sans font-bold text-white">{proc.supplier}</td>
+                      <td className="p-4 font-sans text-slate-300">{proc.materialItem}</td>
+                      <td className="p-4 font-black text-white">ETB {proc.poAmount.toLocaleString()}</td>
+                      <td className="p-4 text-emerald-400">ETB {proc.customsTax.toLocaleString()}</td>
                       <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                          e.category === "Material" ? "bg-blue-950 text-blue-400 border border-blue-900" :
-                          e.category === "Labor" ? "bg-red-950 text-red-400 border border-red-900" :
-                          e.category === "Equipment" ? "bg-amber-950 text-amber-400 border border-amber-900" : "bg-emerald-950 text-emerald-400 border border-emerald-900"
-                        }`}>
-                          {e.category}
+                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${proc.status === "Paid" ? "bg-emerald-950 text-emerald-400" : "bg-amber-950 text-amber-400"}`}>
+                          {proc.status}
                         </span>
                       </td>
-                      <td className="p-4 font-sans font-bold text-white">{e.vendor}</td>
-                      <td className="p-4 font-sans text-slate-300">{e.description}</td>
-                      <td className="p-4 text-right font-black text-white">ETB {e.amount.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1544,149 +862,37 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
           </div>
         )}
 
-        {/* TAB 5: INVOICE MANAGEMENT */}
-        {activeTab === "invoices" && (
-          <div className="space-y-6">
+        {/* 7. EQUIPMENT COST MODULE */}
+        {activeTab === "equipment-cost" && (
+          <div className="space-y-6 animate-fadeIn">
             <div className="flex justify-between items-center">
               <div>
-                <h2 className="text-lg font-black uppercase text-white">{t("invMgmt")}</h2>
-                <p className="text-xs text-slate-400">{isAmharic ? "ለደንበኞች የቀረቡ እና የተረጋገጡ ደረሰኞች" : "Raise, authorize, and sync milestone certificates with clients"}</p>
+                <h2 className="text-lg font-black uppercase text-white">Equipment Operating & Fuel Cost</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "የከባድ ማሽነሪዎች የነዳጅ ፍጆታ፣ የኪራይና የጥገና ሂሳብ" : "Monitor fuel consumption, leasing fees & operating costs per hour"}</p>
               </div>
-              <button
-                onClick={() => setShowInvoiceForm(!showInvoiceForm)}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center space-x-2 cursor-pointer hover:bg-red-700 transition"
-              >
-                <Plus size={14} />
-                <span>{t("createInvoice")}</span>
-              </button>
             </div>
 
-            {/* Invoice Creation Form */}
-            {showInvoiceForm && (
-              <form onSubmit={handleCreateInvoice} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 max-w-xl animate-fadeIn">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-300">{t("createInvoice")}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("invoiceNo")}</label>
-                    <input
-                      type="text"
-                      required
-                      value={invoiceForm.invoiceNumber}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, invoiceNumber: e.target.value })}
-                      placeholder="e.g. INV-2026-004"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("amount")}</label>
-                    <input
-                      type="number"
-                      required
-                      value={invoiceForm.amount || ""}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, amount: Number(e.target.value) })}
-                      placeholder="ETB Amount"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("client")}</label>
-                    <input
-                      type="text"
-                      required
-                      value={invoiceForm.client}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, client: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("dueDate")}</label>
-                    <input
-                      type="date"
-                      required
-                      value={invoiceForm.dueDate}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("date")}</label>
-                    <input
-                      type="date"
-                      required
-                      value={invoiceForm.date}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, date: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("status")}</label>
-                    <select
-                      value={invoiceForm.status}
-                      onChange={(e) => setInvoiceForm({ ...invoiceForm, status: e.target.value as any })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    >
-                      <option value="Pending">Pending (ይጠብቃል)</option>
-                      <option value="Approved">Approved (ተረጋግጧል)</option>
-                      <option value="Paid">Paid (ተከፍሏል)</option>
-                      <option value="Draft">Draft (ረቂቅ)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowInvoiceForm(false)}
-                    className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ሰርዝ" : "Cancel"}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ደረሰኝ አውጣ" : "Raise Invoice"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Invoices List Table */}
             <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="p-4">{t("invoiceNo")}</th>
-                    <th className="p-4">{t("client")}</th>
-                    <th className="p-4">{t("date")}</th>
-                    <th className="p-4">{t("dueDate")}</th>
-                    <th className="p-4">{t("status")}</th>
-                    <th className="p-4 text-right">{t("amount")}</th>
+                    <th className="p-4">Equipment Name</th>
+                    <th className="p-4">Asset Code</th>
+                    <th className="p-4">Fuel (Liters)</th>
+                    <th className="p-4">Fuel Cost</th>
+                    <th className="p-4">Maintenance Cost</th>
+                    <th className="p-4">Rental Lease Cost</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                  {invoices.map(inv => (
-                    <tr key={inv.id} className="hover:bg-slate-900/40 text-slate-200">
-                      <td className="p-4 text-slate-400 font-bold">{inv.invoiceNumber}</td>
-                      <td className="p-4 font-sans font-bold text-white">{inv.client}</td>
-                      <td className="p-4 text-slate-400">{inv.date}</td>
-                      <td className="p-4 text-slate-400">{inv.dueDate}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                          inv.status === "Paid" ? "bg-emerald-950 text-emerald-400 border border-emerald-900" :
-                          inv.status === "Pending" ? "bg-amber-950 text-amber-400 border border-amber-900" :
-                          inv.status === "Approved" ? "bg-blue-950 text-blue-400 border border-blue-900" : "bg-slate-800 text-slate-400 border border-slate-700"
-                        }`}>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="p-4 text-right font-black text-white">ETB {inv.amount.toLocaleString()}</td>
+                  {equipments.map(eq => (
+                    <tr key={eq.id} className="hover:bg-slate-900/40 text-slate-200">
+                      <td className="p-4 font-sans font-bold text-white">{eq.equipmentName}</td>
+                      <td className="p-4 text-slate-400">{eq.assetCode}</td>
+                      <td className="p-4 font-bold text-blue-400">{eq.fuelLiters.toLocaleString()} L</td>
+                      <td className="p-4 text-emerald-400">ETB {eq.fuelCost.toLocaleString()}</td>
+                      <td className="p-4 text-purple-400">ETB {eq.maintenanceCost.toLocaleString()}</td>
+                      <td className="p-4 text-amber-400">ETB {eq.rentalCost.toLocaleString()}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -1695,374 +901,129 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ isAmharic, onLogAc
           </div>
         )}
 
-        {/* TAB 6: PAYMENT TRACKING */}
-        {activeTab === "payments" && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-black uppercase text-white">{t("payTrack")}</h2>
-                <p className="text-xs text-slate-400">{isAmharic ? "ገቢ የተደረጉ ክፍያዎች እና የሂሳብ ተቀባይ መዝገብ" : "Track cleared financial milestones and bank deposit slips"}</p>
-              </div>
-              <button
-                onClick={() => setShowPaymentForm(!showPaymentForm)}
-                className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-bold uppercase tracking-wider flex items-center space-x-2 cursor-pointer hover:bg-red-700 transition"
-              >
-                <Plus size={14} />
-                <span>{t("recordPayment")}</span>
-              </button>
-            </div>
-
-            {/* Record Payment Form */}
-            {showPaymentForm && (
-              <form onSubmit={handleAddPayment} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4 max-w-xl animate-fadeIn">
-                <h3 className="text-xs font-black uppercase tracking-widest text-slate-300">{t("recordPayment")}</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{isAmharic ? "ማገናኛ ደረሰኝ" : "Link Invoice"}</label>
-                    <select
-                      value={paymentForm.invoiceId}
-                      required
-                      onChange={(e) => setPaymentForm({ ...paymentForm, invoiceId: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    >
-                      <option value="">-- {isAmharic ? "ደረሰኝ ይምረጡ" : "Select Client Invoice"} --</option>
-                      {invoices.filter(i => i.status !== "Paid").map(inv => (
-                        <option key={inv.id} value={inv.id}>{inv.invoiceNumber} (ETB {inv.amount.toLocaleString()})</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{isAmharic ? "ክፍያ የገባበት መጠን" : "Amount Paid"}</label>
-                    <input
-                      type="number"
-                      required
-                      value={paymentForm.amount || ""}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, amount: Number(e.target.value) })}
-                      placeholder="ETB Amount"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("method")}</label>
-                    <select
-                      value={paymentForm.method}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, method: e.target.value })}
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100"
-                    >
-                      <option value="Bank Transfer">Bank Transfer (ባንክ ማስተላለፊያ)</option>
-                      <option value="Cheque">Corporate Cheque (ቼክ)</option>
-                      <option value="Cash">Cash (ጥሬ ገንዘብ)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-[10px] text-slate-400 uppercase font-black mb-1">{t("refNo")}</label>
-                    <input
-                      type="text"
-                      required
-                      value={paymentForm.reference}
-                      onChange={(e) => setPaymentForm({ ...paymentForm, reference: e.target.value })}
-                      placeholder="e.g. CBE-TXN-12093"
-                      className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2.5 text-xs text-slate-100 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentForm(false)}
-                    className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ሰርዝ" : "Cancel"}
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-3 py-1.5 bg-red-600 text-white rounded-lg text-[10px] uppercase font-bold cursor-pointer"
-                  >
-                    {isAmharic ? "ሂሳብ መዝግብ" : "Record Deposit"}
-                  </button>
-                </div>
-              </form>
-            )}
-
-            {/* Payments List Table */}
-            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="p-4">{t("date")}</th>
-                    <th className="p-4">{t("invoiceNo")}</th>
-                    <th className="p-4">{t("method")}</th>
-                    <th className="p-4">{t("refNo")}</th>
-                    <th className="p-4 text-right">{isAmharic ? "ክፍያ የገባበት መጠን" : "Amount Deposited"}</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                  {payments.map(pay => (
-                    <tr key={pay.id} className="hover:bg-slate-900/40 text-slate-200">
-                      <td className="p-4 text-slate-400 font-bold">{pay.date}</td>
-                      <td className="p-4 text-red-400">{pay.invoiceNumber}</td>
-                      <td className="p-4 font-sans font-medium text-slate-300">{pay.method}</td>
-                      <td className="p-4 text-slate-400">{pay.reference}</td>
-                      <td className="p-4 text-right font-black text-emerald-400">ETB {pay.amount.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* TAB 7: REPORTS GENERATION HUB */}
-        {activeTab === "reports" && (
-          <div className="space-y-6">
+        {/* 8. FINANCIAL REPORTS MODULE */}
+        {activeTab === "financial-reports" && (
+          <div className="space-y-6 animate-fadeIn">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div>
-                <h2 className="text-lg font-black uppercase text-white">{t("reportsTitle")}</h2>
-                <p className="text-xs text-slate-400">{t("reportsSubtitle")}</p>
-              </div>
-
-              {/* Selector Buttons */}
-              <div className="flex space-x-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                <button
-                  onClick={() => {
-                    setSelectedReportType("daily");
-                    setSimulatedPrint(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer ${
-                    selectedReportType === "daily" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {t("dailyReport")}
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedReportType("monthly");
-                    setSimulatedPrint(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer ${
-                    selectedReportType === "monthly" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {t("monthlyReport")}
-                </button>
-                <button
-                  onClick={() => {
-                    setSelectedReportType("executive");
-                    setSimulatedPrint(false);
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition cursor-pointer ${
-                    selectedReportType === "executive" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
-                  }`}
-                >
-                  {t("executiveReport")}
-                </button>
-              </div>
-            </div>
-
-            {/* Generated Document Stage */}
-            <div className="bg-white text-slate-900 rounded-3xl p-8 border border-slate-200/90 shadow-xl max-w-4xl mx-auto space-y-6 relative overflow-hidden" id="printed-report-node">
-              
-              {/* Digital Construction ERP Letterhead */}
-              <div className="flex justify-between items-start border-b-2 border-slate-800 pb-5">
-                <div>
-                  <h3 className="text-lg font-black tracking-tight text-slate-950 uppercase">Digital Construction ERP GROUP</h3>
-                  <p className="text-[10px] font-black tracking-widest text-red-600 uppercase">Construction & Real Estate Finance Core</p>
-                  <p className="text-[9px] text-slate-500 mt-1">Digital Construction ERP Tower, Bole Road, Addis Ababa, Ethiopia | +251 11 661 2233</p>
-                </div>
-                <div className="text-right text-[10px] font-mono text-slate-500">
-                  <div>DATE: 2026-07-15</div>
-                  <div>LEDFER REF: F-ERP-7781B</div>
-                  <div className="text-red-600 font-bold mt-1 uppercase">INTERNAL AUDITED CONFIDENTIAL</div>
-                </div>
-              </div>
-
-              {/* Report Title Banner */}
-              <div className="text-center py-4 bg-slate-100 rounded-2xl border border-slate-200">
-                <h4 className="text-md font-black uppercase tracking-wider text-slate-900">
-                  {selectedReportType === "daily" && t("dailyReport")}
-                  {selectedReportType === "monthly" && t("monthlyReport")}
-                  {selectedReportType === "executive" && t("executiveReport")}
-                </h4>
-                <p className="text-[10px] text-slate-500 font-mono mt-1">
-                  {selectedReportType === "daily" && "Audit Scope: Today's direct cash entries, vouchers, and materials received"}
-                  {selectedReportType === "monthly" && "Audit Scope: Cumulative monthly cost variance, invoice milestones, and receivables status"}
-                  {selectedReportType === "executive" && "Audit Scope: High-level board summary, ROI margins, and strategic resource forecast"}
-                </p>
-              </div>
-
-              {/* Dynamic Content based on report type */}
-              {selectedReportType === "daily" && (
-                <div className="space-y-4 text-xs text-slate-800">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <span className="text-[9px] font-black uppercase text-slate-500 block">Today's Materials Logged</span>
-                      <span className="text-base font-mono font-black text-slate-900 mt-1 block">ETB 8,000,000</span>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Bulk compressor cement and panel assemblies orders</p>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <span className="text-[9px] font-black uppercase text-slate-500 block">Labor & Daily Allowances</span>
-                      <span className="text-base font-mono font-black text-slate-900 mt-1 block">ETB 4,500,000</span>
-                      <p className="text-[9px] text-slate-400 mt-0.5">Overtime payouts for Floor 4 concrete pouring speed-up</p>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <h5 className="font-bold uppercase text-slate-900 text-[10px] tracking-wider">Today's Chronological Ledger Transactions</h5>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden text-[11px] font-mono">
-                      <div className="bg-slate-100 grid grid-cols-3 p-2.5 font-bold text-[9px] uppercase border-b border-slate-200">
-                        <span>Transaction</span>
-                        <span>Recipient/Vendor</span>
-                        <span className="text-right">Debit/Credit (ETB)</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2 border-b border-slate-100">
-                        <span>Concrete purchase C30</span>
-                        <span>Mugher Cement</span>
-                        <span className="text-right text-red-600">- 8,000,000</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2 border-b border-slate-100">
-                        <span>Engineering salaries</span>
-                        <span>Digital Construction ERP Payroll</span>
-                        <span className="text-right text-red-600">- 4,500,000</span>
-                      </div>
-                      <div className="grid grid-cols-3 p-2">
-                        <span>Excavation overhaul</span>
-                        <span>National Excavations</span>
-                        <span className="text-right text-red-600">- 6,500,000</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedReportType === "monthly" && (
-                <div className="space-y-4 text-xs text-slate-800">
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <span className="text-[9px] font-black uppercase text-slate-500 block">Total Monthly Cost</span>
-                      <span className="text-base font-mono font-black text-slate-900 mt-1 block">ETB {totalProjectCost.toLocaleString()}</span>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <span className="text-[9px] font-black uppercase text-slate-500 block">Total Invoiced</span>
-                      <span className="text-base font-mono font-black text-slate-900 mt-1 block">ETB {totalInvoicedAmount.toLocaleString()}</span>
-                    </div>
-                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200">
-                      <span className="text-[9px] font-black uppercase text-slate-500 block">Net Monthly Margin</span>
-                      <span className="text-base font-mono font-black text-emerald-600 mt-1 block">{profitMarginPercent.toFixed(1)}%</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <h5 className="font-bold uppercase text-slate-900 text-[10px] tracking-wider">Project Cost Allocations & Variances</h5>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden text-[11px] font-mono">
-                      <div className="bg-slate-100 grid grid-cols-4 p-2.5 font-bold text-[9px] uppercase border-b border-slate-200">
-                        <span>Category</span>
-                        <span>Budget Allocated</span>
-                        <span>Actual Cost</span>
-                        <span className="text-right">Remaining Variance</span>
-                      </div>
-                      {budgets.map(b => {
-                        const spent = expenses.filter(e => e.category === b.category).reduce((sum, e) => sum + e.amount, 0);
-                        const overLimit = spent > b.allocated;
-                        return (
-                          <div key={b.id} className="grid grid-cols-4 p-2 border-b border-slate-100">
-                            <span className="font-sans font-bold">{b.category}</span>
-                            <span>{b.allocated.toLocaleString()}</span>
-                            <span>{spent.toLocaleString()}</span>
-                            <span className={`text-right font-bold ${overLimit ? "text-red-600" : "text-emerald-600"}`}>
-                              {(b.allocated - spent).toLocaleString()}
-                            </span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {selectedReportType === "executive" && (
-                <div className="space-y-4 text-xs text-slate-800">
-                  <div className="grid grid-cols-4 gap-3">
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-[8px] font-black uppercase text-slate-500 block">Master Budget</span>
-                      <span className="text-sm font-mono font-black text-slate-950 mt-1 block">ETB 45.0M</span>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-[8px] font-black uppercase text-slate-500 block">Total Costs</span>
-                      <span className="text-sm font-mono font-black text-slate-950 mt-1 block">ETB {(totalProjectCost/1000000).toFixed(1)}M</span>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-[8px] font-black uppercase text-slate-500 block">Invoiced Receipts</span>
-                      <span className="text-sm font-mono font-black text-slate-950 mt-1 block">ETB {(totalInvoicedAmount/1000000).toFixed(1)}M</span>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-[8px] font-black uppercase text-slate-500 block">Audited Net Profit</span>
-                      <span className="text-sm font-mono font-black text-emerald-600 mt-1 block">ETB {(actualProfitVal/1000000).toFixed(2)}M</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5 border border-slate-100 p-3.5 rounded-xl bg-slate-50">
-                    <h5 className="font-bold text-slate-900 text-[10px] uppercase tracking-wider">Executive Overview & Strategic Risk Digest</h5>
-                    <p className="text-[10.5px] leading-relaxed text-slate-600">
-                      The Lemi National Cement and Bole Heights core projects are operating within steady margins, driven by a{" "}
-                      <span className="font-bold text-slate-900">{profitMarginPercent.toFixed(1)}% gross profit margin</span>. Labor utilization efficiency is currently trending +4.2% above initial timeline parameters, offsetting structural material re-order deficits in corner panels. Risk parameters remain under tight watch.
-                    </p>
-                  </div>
-                </div>
-              )}
-
-              {/* Signatures Footer */}
-              <div className="grid grid-cols-2 gap-8 pt-8 border-t border-slate-200/90 text-[10px] text-slate-500">
-                <div>
-                  <div className="border-t border-slate-400 w-36 pt-1 text-slate-900 font-bold uppercase">Audited By</div>
-                  <div>Finance Auditor Digital Construction ERP Group</div>
-                  <div>Nuriye Ahmed Adem</div>
-                </div>
-                <div className="text-right flex flex-col items-end">
-                  <div className="border-t border-slate-400 w-36 pt-1 text-slate-900 font-bold uppercase">Authorized By</div>
-                  <div>VP of Finance & Operations</div>
-                  <div>Dr. Solomon G.</div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Reports Control panel */}
-            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex items-center space-x-2 text-xs">
-                <input
-                  type="checkbox"
-                  id="approve-audit"
-                  checked={auditApproved}
-                  onChange={(e) => setAuditApproved(e.target.checked)}
-                  className="rounded border-slate-700 bg-slate-900 text-red-600 focus:ring-red-500"
-                />
-                <label htmlFor="approve-audit" className="text-slate-300 font-semibold cursor-pointer">
-                  {isAmharic ? "ሂሳብ መዝገቡ በኦዲት መረጋገጡን አረጋግጣለሁ" : "I certify that this ledger report complies with Digital Construction ERP auditing guidelines"}
-                </label>
+                <h2 className="text-lg font-black uppercase text-white">Official Financial Statements & Audit Reports</h2>
+                <p className="text-xs text-slate-400">Generate Income Statements, Balance Sheets, Cash Flow & Payroll Registers</p>
               </div>
 
               <div className="flex space-x-2">
                 <button
                   onClick={() => {
-                    setSimulatedPrint(true);
-                    onLogAction?.("Generate Report", `Compiled and printed official Digital Construction ERP financial report: ${selectedReportType}`);
-                    setTimeout(() => setSimulatedPrint(false), 2000);
+                    alert("Official ERP Financial Statement exported as PDF!");
                   }}
-                  disabled={!auditApproved}
-                  className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition-all ${
-                    auditApproved ? "bg-red-600 text-white cursor-pointer hover:bg-red-700" : "bg-slate-800 text-slate-500 cursor-not-allowed"
-                  }`}
+                  className="px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md cursor-pointer hover:bg-red-700 transition"
                 >
-                  <Printer size={14} />
-                  <span>{simulatedPrint ? (isAmharic ? "በማተም ላይ..." : "Printing...") : t("print")}</span>
+                  <FileDown size={14} />
+                  <span>Export PDF / Excel</span>
                 </button>
               </div>
             </div>
 
+            {/* Simulated Printed Document */}
+            <div className="bg-white text-slate-900 rounded-3xl p-8 border border-slate-200 shadow-xl max-w-4xl mx-auto space-y-6">
+              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
+                <div>
+                  <h3 className="text-xl font-black text-slate-950 uppercase tracking-tight">BuildSync ERP Financial Statement</h3>
+                  <p className="text-xs font-bold text-red-600 uppercase">Executive Financial Ledger & Audit Summary</p>
+                </div>
+                <div className="text-right text-xs font-mono text-slate-600">
+                  <div>Date: 2026-07-21</div>
+                  <div>Ref: BS-FIN-2026-901</div>
+                </div>
+              </div>
+
+              <div className="space-y-4 font-mono text-xs">
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-sans font-bold">Total Invoiced Revenue:</span>
+                  <span className="font-bold text-emerald-700">ETB {companyRevenue.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2">
+                  <span className="font-sans font-bold">Total Direct Construction Costs:</span>
+                  <span className="font-bold text-red-700">ETB {companyExpenses.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between border-b pb-2 text-sm font-black">
+                  <span className="font-sans">Net Operating Profit:</span>
+                  <span className="text-emerald-700">ETB {netProfitVal.toLocaleString()} ({grossProfitMargin.toFixed(1)}%)</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 9. AI FINANCIAL ANALYTICS MODULE */}
+        {activeTab === "ai-analytics" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div>
+              <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                <Cpu className="text-red-500" size={20} />
+                <span>AI Financial Analytics & Fraud Prevention</span>
+              </h2>
+              <p className="text-xs text-slate-400">Predictive cost modeling, cash flow forecasts, and anomaly detection</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs uppercase">
+                  <ShieldAlert size={16} />
+                  <span>Abnormal Spending Detection</span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  AI detected a +18% variance in fuel expenditure for CAT Excavator EX-03 compared to operating hours logged by timekeepers.
+                </p>
+              </div>
+
+              <div className="p-5 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <div className="flex items-center space-x-2 text-emerald-400 font-bold text-xs uppercase">
+                  <TrendingUp size={16} />
+                  <span>90-Day Cash Flow Forecast</span>
+                </div>
+                <p className="text-xs text-slate-300">
+                  Projected positive net inflow of +ETB 34.5M over the next 90 days following milestone 3 certification clearance.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 10. ERP INTEGRATIONS MATRIX MODULE */}
+        {activeTab === "integrations" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div>
+              <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                <RefreshCw className="text-emerald-400 animate-spin" size={20} />
+                <span>Cross-ERP Module Synchronization Matrix</span>
+              </h2>
+              <p className="text-xs text-slate-400">Real-time bi-directional data flow with all BuildSync ERP sub-applications</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 font-mono text-xs">
+              {[
+                "Head Office App",
+                "Admin App",
+                "Warehouse Manager",
+                "Procurement App",
+                "Project Manager App",
+                "Site Engineer App",
+                "Supervisor App",
+                "Team Leader App",
+                "Gang Chief App",
+                "Biometric Attendance",
+                "CAD Drawing Module",
+                "AI Digital Twin"
+              ].map((mod, idx) => (
+                <div key={idx} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
+                  <span className="font-sans font-bold text-slate-200">{mod}</span>
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 

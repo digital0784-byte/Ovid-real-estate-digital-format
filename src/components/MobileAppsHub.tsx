@@ -36,7 +36,11 @@ import {
   MapPin,
   Check,
   RotateCcw,
-  Building
+  Building,
+  Truck,
+  QrCode,
+  Store,
+  ArrowRightLeft
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -47,6 +51,7 @@ interface MobileAppsHubProps {
   workers?: any[];
   teams?: any[];
   onAddSnag?: (snag: any) => void;
+  onNavigateToTab?: (tab: string) => void;
 }
 
 type MobileAppType = 
@@ -58,7 +63,9 @@ type MobileAppType =
   | "supervisor"
   | "head_office"
   | "admin"
-  | "sub_contractor";
+  | "sub_contractor"
+  | "warehouse_manager"
+  | "store_owner";
 
 export function MobileAppsHub({ 
   isAmharic, 
@@ -66,7 +73,8 @@ export function MobileAppsHub({
   onLogAction,
   workers = [],
   teams = [],
-  onAddSnag
+  onAddSnag,
+  onNavigateToTab
 }: MobileAppsHubProps) {
   
   // --- STATE ---
@@ -536,7 +544,7 @@ self.addEventListener('fetch', (event) => {
           <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-xs space-y-3">
             <h3 className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-1.5">
               <Users size={14} className="text-indigo-600" />
-              {isAmharic ? "9ቱ የሞባይል መተግበሪያዎች" : "The 9 Role Applications"}
+              {isAmharic ? "11ቱ የሞባይል መተግበሪያዎች" : "The 11 Role Applications"}
             </h3>
             
             <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[500px] pr-1">
@@ -549,7 +557,9 @@ self.addEventListener('fetch', (event) => {
                 { id: "supervisor", titleEn: "6. Supervisor App", titleAm: "6. የሱፐርቫይዘር መተግበሪያ", descEn: "Interconnected defects review, pour approval based on count", descAm: "የኮንክሪት ሙሌት ፍቃድ፣ የፓነል ቁጥርና የአሰባሳቢ ጉድለቶች ፍተሻ" },
                 { id: "sub_contractor", titleEn: "7. Sub Contractor App", titleAm: "7. የሰብ-ኮንትራክተር መተግበሪያ", descEn: "Manage progress slider, log site active workers, inspect requests", descAm: "የስራ ሂደት መጠን፣ የሰራተኞች ቁጥር እና የቁጥጥር ጥያቄዎች" },
                 { id: "head_office", titleEn: "8. Enterprise Owner App", titleAm: "8. የድርጅቱ ባለቤት መተግበሪያ", descEn: "Subcontractors monitor & control dashboard, master budgets", descAm: "የሰብ-ኮንትራክተሮች ቁጥጥር ቦርድ፣ የበጀት ማጠቃለያና የቀጥታ ክትትል" },
-                { id: "admin", titleEn: "9. Admin App", titleAm: "9. የአድሚን መተግበሪያ", descEn: "SOC telemetry logs, App Check certs, remote wiping", descAm: "የሳይበር ደህንነት መከታተያ፣ የደህንነት ቶከኖችና የሞባይል መቆጣጠሪያ" }
+                { id: "admin", titleEn: "9. Admin App", titleAm: "9. የአድሚን መተግበሪያ", descEn: "SOC telemetry logs, App Check certs, remote wiping", descAm: "የሳይበር ደህንነት መከታተያ፣ የደህንነት ቶከኖችና የሞባይል መቆጣጠሪያ" },
+                { id: "warehouse_manager", titleEn: "10. Warehouse Manager App", titleAm: "10. የመጋዘን አስተዳዳሪ መተግበሪያ", descEn: "Central store dispatch, truck fleet plate logs & QR gate pass", descAm: "የማዕከላዊ መጋዘን ስርጭት፣ የጭነት መኪና ሰሌዳ ቁጥር እና የQR በር ፍቃድ" },
+                { id: "store_owner", titleEn: "11. Site Store Owner App", titleAm: "11. የሳይት ስቶር አቃቤ መተግበሪያ", descEn: "Site material receipts, issue vouchers, bin card balance & requisitions", descAm: "የሳይት እቃዎች መረከቢያ፣ ወጪ ማድረጊያ ቫውቸር እና የክምችት መጠን" }
               ].map((app) => (
                 <button
                   key={app.id}
@@ -638,7 +648,7 @@ self.addEventListener('fetch', (event) => {
                     </span>
                     <h4 className="font-black text-[11px] truncate uppercase max-w-[170px]">
                       {isAmharic 
-                        ? (activeApp === "worker" ? "የሰራተኛ ክፍል" : activeApp === "gang_chief" ? "የቡድን ሃላፊ" : activeApp === "team_leader" ? "የቲም መሪ" : activeApp === "time_keeper" ? "ሰዓት ቆጣሪ" : activeApp === "supervisor" ? "ሳይት ሱፐርቫይዘር" : activeApp === "head_office" ? "ዋና መ/ቤት" : "የደህንነት አድሚን")
+                        ? (activeApp === "worker" ? "የሰራተኛ ክፍል" : activeApp === "gang_chief" ? "የቡድን ሃላፊ" : activeApp === "team_leader" ? "የቲም መሪ" : activeApp === "time_keeper" ? "ሰዓት ቆጣሪ" : activeApp === "supervisor" ? "ሳይት ሱፐርቫይዘር" : activeApp === "head_office" ? "ዋና መ/ቤት" : activeApp === "warehouse_manager" ? "መጋዘን አስተዳዳሪ" : "የደህንነት አድሚን")
                         : (activeApp.replace("_", " ") + " terminal")
                       }
                     </h4>
@@ -1963,6 +1973,199 @@ self.addEventListener('fetch', (event) => {
                         {isAmharic ? "መሳሪያውን አጥፋ (Remote Wipe)" : "Initiate Secure Remote Wipe"}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {/* 10. WAREHOUSE MANAGER MOBILE APP */}
+                {activeApp === "warehouse_manager" && (
+                  <div className="space-y-3 animate-fade-in text-slate-200">
+                    {/* Central Warehouse Summary */}
+                    <div className="bg-slate-900 p-2.5 rounded-xl border border-slate-800 space-y-2">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-1">
+                        <span className="text-[10px] text-amber-400 font-bold flex items-center gap-1">
+                          <Building size={11} />
+                          {isAmharic ? "የማዕከላዊ መጋዘን ማጠቃለያ" : "Central Warehouse Hub"}
+                        </span>
+                        <span className="text-[8px] font-mono bg-amber-950 text-amber-300 border border-amber-900 px-1 rounded">MAIN HUB 01</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono text-center">
+                        <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                          <span className="text-slate-400 text-[7.5px] block">{isAmharic ? "ጠቅላላ ክምችት" : "Central Stock"}</span>
+                          <span className="text-amber-400 font-bold text-xs">18,450 Pcs</span>
+                        </div>
+                        <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                          <span className="text-slate-400 text-[7.5px] block">{isAmharic ? "የጭነት መኪኖች" : "Dispatch Trucks"}</span>
+                          <span className="text-emerald-400 font-bold text-xs">6 Active</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Truck Dispatch & Gate Pass Generator */}
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 space-y-2">
+                      <span className="text-[10px] text-slate-300 font-bold block border-b border-slate-800 pb-1 flex items-center justify-between">
+                        <span>{isAmharic ? "የጭነት መኪና መላኪያ እና የQR በር ፍቃድ" : "Dispatch Truck Cargo & QR Gate Pass"}</span>
+                        <span className="text-[8px] text-indigo-400 font-mono">GATE PASS #GP-882</span>
+                      </span>
+
+                      <div className="space-y-1.5 text-[9px]">
+                        <div>
+                          <label className="text-[7.5px] text-slate-400 block">{isAmharic ? "የመኪናው ሰሌዳ ቁጥር:" : "Truck Plate Number:"}</label>
+                          <input 
+                            type="text" 
+                            id="wmTruckPlate" 
+                            defaultValue="ET-3-11029" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white text-[9px] focus:outline-none focus:border-amber-500 font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[7.5px] text-slate-400 block">{isAmharic ? "የሚላክበት ሳይት ስቶር:" : "Destination Site Store:"}</label>
+                          <select 
+                            id="wmDestSite"
+                            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white text-[9px] focus:outline-none"
+                          >
+                            <option value="Bole Heights Site Store">Bole Heights Phase 1 Site Store</option>
+                            <option value="Saris Project Site Store">Saris Project Site Store</option>
+                            <option value="Mercato Site Store">Mercato Project Site Store</option>
+                          </select>
+                        </div>
+                        <button
+                          onClick={() => {
+                            const plateInput = (document.getElementById("wmTruckPlate") as HTMLInputElement)?.value || "ET-3-11029";
+                            const destInput = (document.getElementById("wmDestSite") as HTMLSelectElement)?.value || "Bole Heights Site Store";
+                            submitMobileAction("Warehouse Dispatch Created", { plate: plateInput, destination: destInput });
+                            sendPushNotification(
+                              isAmharic ? "የመጋዘን ጭነት ተላከ" : "Warehouse Cargo Dispatched",
+                              isAmharic ? `የጭነት መኪና ${plateInput} ወደ ${destInput} በQR በር ፍቃድ ተልኳል!` : `Truck ${plateInput} loaded & dispatched to ${destInput} with QR Gate Pass.`
+                            );
+                            onLogAction("Warehouse Manager Dispatch", `Dispatched cargo truck ${plateInput} to ${destInput}`);
+                          }}
+                          className="w-full py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-[9px] font-bold cursor-pointer transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Truck size={10} />
+                          <span>{isAmharic ? "የQR በር ፍቃድ አውጣና ላክ" : "Generate Gate Pass & Dispatch"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Supplier Intake Scanner */}
+                    <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800 space-y-1.5">
+                      <div className="flex justify-between items-center">
+                        <span className="text-[10px] text-slate-400 font-bold">{isAmharic ? "ከአቅራቢዎች የተረከቡትን በQR መመዝገቢያ" : "Scan Supplier Delivery QR"}</span>
+                        <span className="text-[8px] font-mono text-emerald-400">READY</span>
+                      </div>
+                      <button
+                        onClick={() => {
+                          addLatencyPoint();
+                          submitMobileAction("Supplier Goods Received", { supplier: "Dangote Cement Factory", qty: 500 });
+                          sendPushNotification("Supplier Delivery Verified", "500 Bags of Cement received & logged at Central Warehouse Yard.");
+                          onLogAction("Warehouse Supplier Intake", "Scanned & validated 500 bags Dangote OPC cement delivery");
+                        }}
+                        className="w-full py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded text-[9px] font-bold flex items-center justify-center gap-1 cursor-pointer"
+                      >
+                        <QrCode size={11} className="text-amber-400" />
+                        <span>{isAmharic ? "የአቅራቢ ደረሰኝ በQR ኮድ ስካን አድርግ" : "Scan Supplier QR Delivery Note"}</span>
+                      </button>
+                    </div>
+
+                    {/* Launch Full Standalone App Trigger */}
+                    {onNavigateToTab && (
+                      <button
+                        onClick={() => {
+                          onNavigateToTab("warehouseManagerApp");
+                          onLogAction("Launched Full Warehouse App", "Navigated from Mobile Simulator to Fullscreen Warehouse Manager App");
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                      >
+                        <Building size={13} />
+                        <span>{isAmharic ? "ወደ ሙሉ የመጋዘን አስተዳዳሪ መተግበሪያ ሂድ" : "Open Full Warehouse App"}</span>
+                      </button>
+                    )}
+                  </div>
+                )}
+
+                {/* 11. SITE STORE OWNER APP SCREEN */}
+                {activeApp === "store_owner" && (
+                  <div className="p-3 space-y-2.5 overflow-y-auto max-h-[480px]">
+                    <div className="bg-slate-900/90 p-2.5 rounded-2xl border border-slate-800 space-y-1.5">
+                      <div className="flex justify-between items-center border-b border-slate-800 pb-1">
+                        <span className="text-[10px] text-amber-500 font-bold flex items-center gap-1">
+                          <Store size={11} />
+                          {isAmharic ? "የሳይት ስቶር ክምችት ማጠቃለያ" : "Site Store Yard Inventory"}
+                        </span>
+                        <span className="text-[8px] font-mono bg-amber-950 text-amber-400 border border-amber-900 px-1 rounded">BOLE SITE STORE</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-1.5 text-[9px] font-mono text-center">
+                        <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                          <span className="text-slate-400 text-[7.5px] block">{isAmharic ? "የኮንክሪት ሲሚንቶ" : "OPC Cement"}</span>
+                          <span className="text-amber-400 font-bold text-xs">420 Bags</span>
+                        </div>
+                        <div className="bg-slate-950 p-1.5 rounded border border-slate-900">
+                          <span className="text-slate-400 text-[7.5px] block">{isAmharic ? "የብረት ዘንግ (Rebar)" : "16mm Rebar"}</span>
+                          <span className="text-emerald-400 font-bold text-xs">12.5 Tons</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Material Issue Voucher */}
+                    <div className="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800 space-y-2">
+                      <span className="text-[10px] text-slate-300 font-bold block border-b border-slate-800 pb-1 flex items-center justify-between">
+                        <span>{isAmharic ? "የእቃ ወጪ ማድረጊያ ቫውቸር (Issue Voucher)" : "Quick Material Issue Voucher"}</span>
+                        <span className="text-[8px] text-emerald-400 font-mono">SIV-9904</span>
+                      </span>
+
+                      <div className="space-y-1.5 text-[9px]">
+                        <div>
+                          <label className="text-[7.5px] text-slate-400 block">{isAmharic ? "የሚወጣው እቃ አይነት:" : "Material Item:"}</label>
+                          <select 
+                            id="soMaterialSelect" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white text-[9px] focus:outline-none"
+                          >
+                            <option value="Cement (Muger OPC 42.5)">Muger OPC Cement (50kg Bag)</option>
+                            <option value="Rebar 16mm Ribbed">Rebar 16mm Ribbed Steel</option>
+                            <option value="Formwork Release Oil">Formwork Release Oil (20L Drum)</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[7.5px] text-slate-400 block">{isAmharic ? "የሚቀበለው ቡድን / ተራራፊ:" : "Receiving Gang / Subcontractor:"}</label>
+                          <input 
+                            type="text" 
+                            id="soRecipient" 
+                            defaultValue="Bole Formwork Specialists (Floor 4)" 
+                            className="w-full bg-slate-950 border border-slate-800 rounded px-2 py-1 text-white text-[9px] focus:outline-none"
+                          />
+                        </div>
+                        <button
+                          onClick={() => {
+                            const mat = (document.getElementById("soMaterialSelect") as HTMLSelectElement)?.value || "Muger OPC Cement";
+                            const recipient = (document.getElementById("soRecipient") as HTMLInputElement)?.value || "Bole Formwork Specialists";
+                            submitMobileAction("Material Issued", { material: mat, recipient });
+                            sendPushNotification(
+                              isAmharic ? "የእቃ ወጪ ተደረገ" : "Material Issued at Site Store",
+                              isAmharic ? `${mat} ለ ${recipient} በወጪ ቫውቸር ተሰጥቷል!` : `${mat} issued to ${recipient}. Bin card updated.`
+                            );
+                            onLogAction("Site Store Material Issue", `Issued ${mat} to ${recipient}`);
+                          }}
+                          className="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-[9px] font-bold cursor-pointer transition-colors flex items-center justify-center gap-1"
+                        >
+                          <ArrowRightLeft size={10} />
+                          <span>{isAmharic ? "ወጪ አድርግ እና ቢን ካርድ አዘምን" : "Issue Material & Update Bin Card"}</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Launch Full Standalone App Trigger */}
+                    {onNavigateToTab && (
+                      <button
+                        onClick={() => {
+                          onNavigateToTab("storeOwnerApp");
+                          onLogAction("Launched Full Site Store App", "Navigated from Mobile Simulator to Fullscreen Site Store Owner App");
+                        }}
+                        className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
+                      >
+                        <Store size={13} />
+                        <span>{isAmharic ? "ወደ ሙሉ የሳይት ስቶር አቃቤ መተግበሪያ ሂድ" : "Open Full Site Store App"}</span>
+                      </button>
+                    )}
                   </div>
                 )}
 

@@ -145,7 +145,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     if (formatted.startsWith("TK") || formatted === "ABEBE") return UserRole.TIME_KEEPER;
     if (formatted.startsWith("TL") || formatted === "YOHANNES") return UserRole.TEAM_LEADER;
     if (formatted.startsWith("GC") || formatted === "FIKRU") return UserRole.GANG_CHIEF;
-    if (formatted.startsWith("SM") || formatted === "MULUGETA") return UserRole.STORE_MANAGER;
+    if (formatted.startsWith("WM") || formatted === "WAREHOUSE" || formatted === "MULUGETA") return UserRole.WAREHOUSE_MANAGER;
+    if (formatted.startsWith("SM") || formatted === "STORE") return UserRole.STORE_MANAGER;
     if (formatted.startsWith("HR") || formatted === "TIGIST") return UserRole.HR_MANAGER;
     if (formatted.startsWith("FM") || formatted === "BEMENT") return UserRole.FINANCE_MANAGER;
     if (formatted.startsWith("SH") || formatted === "ALEMAYEHU") return UserRole.SECTION_HEAD;
@@ -163,6 +164,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       case UserRole.TIME_KEEPER: return "TK";
       case UserRole.TEAM_LEADER: return "TL";
       case UserRole.GANG_CHIEF: return "GC";
+      case UserRole.WAREHOUSE_MANAGER: return "WM";
       case UserRole.STORE_MANAGER: return "SM";
       case UserRole.HR_MANAGER: return "HR";
       case UserRole.FINANCE_MANAGER: return "FM";
@@ -1033,7 +1035,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.TIME_KEEPER, label: isAmharic ? "የሰዓት ተቆጣጣሪ (Time Keeper)" : "Time Keeper" },
                         { role: UserRole.TEAM_LEADER, label: isAmharic ? "የቡድን መሪ (Team Leader)" : "Team Leader" },
                         { role: UserRole.GANG_CHIEF, label: isAmharic ? "የጋንግ ቺፍ (Gang Chief)" : "Gang Chief" },
-                        { role: UserRole.STORE_MANAGER, label: isAmharic ? "የመጋዘን ኃላፊ (Store Manager)" : "Store Manager" },
+                        { role: UserRole.WAREHOUSE_MANAGER, label: isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager" },
+                        { role: UserRole.STORE_MANAGER, label: isAmharic ? "የሳይት ስቶር አቃቤ (Store Manager)" : "Store Manager" },
                         { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል ሥራ አስኪያጅ (HR Manager)" : "HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
                         { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },

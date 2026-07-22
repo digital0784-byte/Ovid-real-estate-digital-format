@@ -200,6 +200,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </span>
                 <span className="text-[11px] text-slate-500 font-mono block">
                   ID: {currentUserRole === UserRole.HEAD_OFFICE ? "Digital Construction ERP-HO-01" :
+                       currentUserRole === UserRole.PROJECT_MANAGER ? "Digital Construction ERP-PM-01" :
+                       currentUserRole === UserRole.WAREHOUSE_MANAGER ? "Digital Construction ERP-WM-01" :
+                       currentUserRole === UserRole.STORE_MANAGER ? "Digital Construction ERP-SM-01" :
                        currentUserRole === UserRole.TIME_KEEPER ? "Digital Construction ERP-TK-01" :
                        currentUserRole === UserRole.TEAM_LEADER ? "Digital Construction ERP-TL-01" :
                        currentUserRole === UserRole.GANG_CHIEF ? "Digital Construction ERP-GC-01" : "ERP-W-101"}
@@ -212,6 +215,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 isAmharic 
                   ? "የዋና መስሪያ ቤት ኃላፊ ሙሉ ቁጥጥር ያለው ሲሆን የግንባታ ፎቆችን ማቀድ፣ ሰራተኞችን ማስተዳደር፣ ደመወዝ ማጽደቅ እና አጠቃላይ ምርታማነትን መከታተል ይችላል።"
                   : "Head Office has absolute command. Authorized to allocate construction blocks, manage rosters, authorize structural schedules, sign off payroll, and monitor project margins."
+              )}
+              {currentUserRole === UserRole.PROJECT_MANAGER && (
+                isAmharic 
+                  ? "የፕሮጀክት ሥራ አስኪያጁ የፕሮጀክቱን አጠቃላይ ሂደት፣ የሀብት አጠቃቀምን እና የሳይት ስራዎችን በበላይነት ይመራል።"
+                  : "Project Manager oversees overall site progress, resource allocation, structural milestones, and inter-departmental workflows."
+              )}
+              {currentUserRole === UserRole.WAREHOUSE_MANAGER && (
+                isAmharic 
+                  ? "የመጋዘን ሥራ አስኪያጁ የማዕከላዊ መጋዘን እቃዎችን፣ የአሉሚኒየም ፎርምወርክ ፓነሎችንና ማቴሪያሎችን ስርጭትና ክምችት በበላይነት አስተዳድራል።"
+                  : "Warehouse Manager oversees central inventory hubs, aluminum formwork stocks, bulk material dispatches, and inter-site transfer logistics."
+              )}
+              {currentUserRole === UserRole.STORE_MANAGER && (
+                isAmharic 
+                  ? "የሳይት ስቶር አቃቤው የሳይት ስቶር እቃዎችን መቀበል፣ ለቡድኖች ማደል፣ ብልሽቶችን መመዝገብ እና የዕቃዎች ቁጥጥር ያደርጋል።"
+                  : "Store Manager handles daily site store requisitions, pin/wedge tool issues, return verifications, and localized stock auditing."
               )}
               {currentUserRole === UserRole.TIME_KEEPER && (
                 isAmharic 
@@ -244,7 +262,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="flex flex-col space-y-1.5 max-w-xs mx-auto w-full font-sans">
               {[
                 { role: UserRole.HEAD_OFFICE, name: isAmharic ? "ዋና መስሪያ ቤት (Director)" : "Head Office (Tier 1)" },
-                { role: UserRole.TIME_KEEPER, name: isAmharic ? "መገኘት ተቆጣጣሪ (Time Keeper)" : "Time Keeper (Tier 2)" },
+                { role: UserRole.PROJECT_MANAGER, name: isAmharic ? "ፕሮጀክት ማናጀር (PM)" : "Project Manager (Tier 1B)" },
+                { role: UserRole.WAREHOUSE_MANAGER, name: isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Mgr)" : "Warehouse Manager (Tier 2A)" },
+                { role: UserRole.STORE_MANAGER, name: isAmharic ? "የሳይት ስቶር አቃቤ (Store Mgr)" : "Store Manager (Tier 2B)" },
+                { role: UserRole.TIME_KEEPER, name: isAmharic ? "መገኘት ተቆጣጣሪ (Time Keeper)" : "Time Keeper (Tier 2C)" },
                 { role: UserRole.TEAM_LEADER, name: isAmharic ? "ቡድን መሪ (Team Leader)" : "Team Leader (Tier 3)" },
                 { role: UserRole.GANG_CHIEF, name: isAmharic ? "ጋንግ ቺፍ (Gang Chief)" : "Gang Chief (Tier 4)" },
                 { role: UserRole.WORKER, name: isAmharic ? "ሳይት ሰራተኛ (Worker)" : "Worker (Tier 5)" }

@@ -1129,6 +1129,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     "Gang Chief",
     "Time Keeper",
     "Project Manager",
+    "Warehouse Manager",
+    "Store Manager",
     "Assembler"
   ], []);
 
@@ -6677,6 +6679,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                r === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ (Gang Chief)" : "Gang Chief") :
                                r === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር (Time Keeper)" : "Time Keeper") :
                                r === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር (Project Manager)" : "Project Manager") :
+                               r === "Warehouse Manager" ? (isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager") :
+                               r === "Store Manager" ? (isAmharic ? "የሳይት ስቶር አቃቤ (Store Manager)" : "Store Manager") :
                                (isAmharic ? "አሰባሳቢ (Assembler)" : "Assembler")}
                             </option>
                           ))}
@@ -6716,6 +6720,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                r === "Gang Chief" ? (isAmharic ? "ጋንግ ቺፍ (Gang Chief)" : "Gang Chief") :
                                r === "Time Keeper" ? (isAmharic ? "ታይም ኪፐር (Time Keeper)" : "Time Keeper") :
                                r === "Project Manager" ? (isAmharic ? "ፕሮጀክት ማናጀር (Project Manager)" : "Project Manager") :
+                               r === "Warehouse Manager" ? (isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager") :
+                               r === "Store Manager" ? (isAmharic ? "የሳይት ስቶር አቃቤ (Store Manager)" : "Store Manager") :
                                (isAmharic ? "አሰባሳቢ (Assembler)" : "Assembler")}
                             </option>
                           ))}
