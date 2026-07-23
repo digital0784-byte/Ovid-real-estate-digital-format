@@ -78,7 +78,7 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
             className="bg-slate-50 border border-slate-200 rounded-lg py-1.5 px-3 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 w-full sm:w-44"
           >
             <option value="All">{isAmharic ? "ሁሉም ሚናዎች" : "All Roles"}</option>
-            {Object.values(UserRole).map((role) => (
+            {Array.from(new Set(Object.values(UserRole))).map((role) => (
               <option key={role} value={role}>
                 {role}
               </option>
@@ -126,6 +126,8 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                     [UserRole.ASSEMBLER]: "bg-emerald-50 text-emerald-700 border-emerald-200",
                     [UserRole.WAREHOUSE_MANAGER]: "bg-amber-50 text-amber-800 border-amber-300",
                     [UserRole.STORE_OWNER]: "bg-orange-50 text-orange-700 border-orange-200",
+                    [UserRole.STORE_MANAGER]: "bg-orange-50 text-orange-700 border-orange-200",
+                    [UserRole.WORKER]: "bg-emerald-50 text-emerald-700 border-emerald-200",
                     [UserRole.HR_MANAGER]: "bg-pink-50 text-pink-700 border-pink-200",
                     [UserRole.FINANCE_MANAGER]: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
                     [UserRole.PROCUREMENT_MANAGER]: "bg-yellow-50 text-yellow-800 border-yellow-300",

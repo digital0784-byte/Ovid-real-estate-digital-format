@@ -20,10 +20,10 @@ export enum UserRole {
   CLIENT_CONSULTANT = "Client / Consultant",
   AUDITOR = "Auditor",
   VISITOR = "Visitor",
-  // Legacy aliases for backward compatibility
-  STORE_MANAGER = "Store Owner",
+  // Distinct role strings to prevent duplicate keys in Object.values(UserRole)
+  STORE_MANAGER = "Store Manager",
   HR_MANAGER = "HR Manager",
-  WORKER = "Assembler"
+  WORKER = "Worker"
 }
 
 export interface AuditLog {
@@ -568,31 +568,55 @@ export interface RegisteredSite {
 }
 
 export type CustomInputCategory = 
+  | "Attendance"
+  | "Employees"
+  | "Work Sector"
+  | "Projects"
+  | "Building Name"
+  | "Block Name"
+  | "Floor Name"
+  | "Zone Name"
+  | "Aluminum Panels"
   | "Material Name"
   | "Material Type"
   | "Material Dimension"
   | "Supplier Name"
   | "Manufacturer"
-  | "Building Name"
-  | "Block Name"
-  | "Floor Name"
-  | "Zone Name"
-  | "Defect Type"
-  | "Hazard Type"
-  | "Equipment Name"
-  | "Vehicle Name"
   | "Customer Name"
   | "Contractor Name"
+  | "Warehouse"
+  | "Site Store"
+  | "Finance"
+  | "Procurement"
+  | "Payroll"
+  | "Equipment Name"
+  | "Vehicle Name"
+  | "QA/QC"
+  | "Defect Type"
+  | "HSE"
+  | "NCR"
+  | "Hazard Type"
+  | "Near Miss"
+  | "Toolbox Meeting"
+  | "Assets"
+  | "Maintenance"
+  | "Documents"
+  | "Notifications"
+  | "Reports"
+  | "AI Modules"
   | "Panel Status"
   | "Remarks"
-  | "Comments";
+  | "Comments"
+  | string;
 
 export interface CustomMasterEntry {
   id: string;
   category: CustomInputCategory;
   value: string;
+  code?: string;
   labelAm?: string;
   description?: string;
+  remarks?: string;
   reason?: string;
   project?: string;
   site?: string;
@@ -777,6 +801,55 @@ export interface RoleChangeAuditLog {
     locationGps?: string;
   };
 }
+
+export interface WorkSector {
+  id: string;
+  nameEn: string;
+  nameAm: string;
+}
+
+export const WORK_SECTORS_CATALOG: WorkSector[] = [
+  { id: "carpenter", nameEn: "Formwork Carpenter", nameAm: "ካርፔንተር (የፎርምወርክ አገጣጣሚ)" },
+  { id: "stripper", nameEn: "Formwork Stripper & Dismantler", nameAm: "የፎርምወርክ አላቃቂና ከፋች" },
+  { id: "steelfixer", nameEn: "Steel Fixer & Rebar Craftsman", nameAm: "የብረት አሰሪ / ሪባር ሠራተኛ" },
+  { id: "concrete", nameEn: "Concrete Cast & Finisher", nameAm: "የኮንክሪት አፍሳሽና አጫራሽ" },
+  { id: "mason", nameEn: "Mason & Block Layer", nameAm: "ግንበኛ እና የብሎኬት ሠራተኛ" },
+  { id: "heavy_equip", nameEn: "Heavy Equipment & Excavator Operator", nameAm: "የከባድ ማሽነሪ / ኤክስካቫተር ኦፕሬተር" },
+  { id: "crane_rigger", nameEn: "Tower Crane & Rigging Specialist", nameAm: "የታወር ክሬን እና ሪጊንግ ባለሙያ" },
+  { id: "surveyor", nameEn: "Surveyor & Geodetic Technician", nameAm: "ሱርቬየር እና የልኬታ ባለሙያ" },
+  { id: "site_eng", nameEn: "Site Engineer & Civil Inspector", nameAm: "የሳይት መሐንዲስና ሲቪል ተቆጣጣሪ" },
+  { id: "qaqc", nameEn: "QA/QC Inspector & Quality Controller", nameAm: "የጥራት ቁጥጥር ኢንፔክተር" },
+  { id: "hse", nameEn: "HSE Officer & Safety Inspector", nameAm: "የደህንነትና አካባቢ ጥበቃ ኃላፊ" },
+  { id: "electrician", nameEn: "Electrician & Power Specialist", nameAm: "የኤሌክትሪክ ሠራተኛ" },
+  { id: "plumber", nameEn: "Plumber & Sanitary Fitter", nameAm: "የቧንቧ እና ሳኒተሪ ፊተር" },
+  { id: "scaffolder", nameEn: "Scaffolder & High-Elevation Rigger", nameAm: "የእስካፎልደር ባለሙያ" },
+  { id: "welder", nameEn: "Welder & Structural Fabricator", nameAm: "የብረት ዌልደርና ገጣሚ" },
+  { id: "painter", nameEn: "Painter, Plasterer & Finisher", nameAm: "ቀለም ቅቢ፣ መሃን እና ፊኒሺንግ" },
+  { id: "warehouse", nameEn: "Warehouse Manager & Store Keeper", nameAm: "የመጋዘንና የስቶር አቃቤ" },
+  { id: "driver", nameEn: "Driver & Transport Operator", nameAm: "የተሽከርካሪ አሽከርካሪ" },
+  { id: "timekeeper", nameEn: "Time Keeper & Attendance Log Officer", nameAm: "የሰዓት ተቆጣጣሪ (ታይም ኪፐር)" },
+  { id: "gang_chief", nameEn: "Gang Chief & Crew Foreman", nameAm: "የጋንግ ቺፍና ፎርማን" },
+  { id: "team_leader", nameEn: "Team Leader & Section Supervisor", nameAm: "የቡድን መሪና ተቆጣጣሪ" },
+  { id: "mechanic", nameEn: "Mechanic & Equipment Maintenance Tech", nameAm: "የማሽነሪ መካኒክ" },
+  { id: "laborer", nameEn: "General Site Helper / Daily Laborer", nameAm: "መደበኛ የሳይት ሠራተኛ/ረዳት" }
+];
+
+export const DEPARTMENTS_CATALOG = [
+  { id: "formwork_assembly", nameEn: "Formwork & Structural Assembly", nameAm: "የፎርምወርክና መዋቅር ገጠማ" },
+  { id: "formwork_stripping", nameEn: "Formwork Stripping & Demolition", nameAm: "የፎርምወርክ ማላቀቅና ማፅዳት" },
+  { id: "steel_fixing", nameEn: "Steel Rebar & Metal Fabrication", nameAm: "የብረትና ሪባር ሥራ" },
+  { id: "concrete_casting", nameEn: "Concrete Casting & Pumping", nameAm: "ኮንክሪት ማፍሰስና ፓምፕ" },
+  { id: "masonry_finishing", nameEn: "Masonry, Plastering & Finishing", nameAm: "ግንባታ፣ ምርጋና ፊኒሺንግ" },
+  { id: "engineering_pm", nameEn: "Site Engineering & Project Controls", nameAm: "የሳይት ኢንጂነሪንግና ፕሮጀክት" },
+  { id: "warehouse_store", nameEn: "Warehouse, Store & Material Logistics", nameAm: "መጋዘን፣ ስቶርና ላጅስቲክስ" },
+  { id: "qaqc_dept", nameEn: "QA/QC Testing & Quality Assurance", nameAm: "ጥራት ቁጥጥርና ላቦራቶሪ" },
+  { id: "hse_dept", nameEn: "HSE Occupational Health & Safety", nameAm: "ደህንነትና አካባቢ ጥበቃ" },
+  { id: "surveying_cad", nameEn: "Surveying, GIS & CAD Topography", nameAm: "ሱርቬይንግና CAD" },
+  { id: "heavy_fleet", nameEn: "Heavy Machinery & Fleet Equipment", nameAm: "ከባድ ማሽነሪና ተሽከርካሪ" },
+  { id: "mep_dept", nameEn: "MEP Electrical, Plumbing & HVAC", nameAm: "ኤሌክትሪክ፣ ቧንቧና ኤችቪኤሲ" },
+  { id: "finance_procurement", nameEn: "Finance, Procurement & Cost Control", nameAm: "ፋይናንስ፣ ግዥና ኮስት" },
+  { id: "hr_admin", nameEn: "HR, Timekeeping & Administration", nameAm: "ሰው ኃይልና አስተዳደር" }
+];
 
 
 

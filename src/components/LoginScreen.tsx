@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { UserRole, Worker, SystemNotification, AuditLog } from "../types";
+import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { DbService } from "../services/db";
 import { 
   Shield, 
@@ -87,6 +87,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   const [regPhone, setRegPhone] = useState("");
   const [regEmail, setRegEmail] = useState("");
   const [regRole, setRegRole] = useState<UserRole>(UserRole.WORKER);
+  const [regTrade, setRegTrade] = useState(WORK_SECTORS_CATALOG[0].nameAm);
+  const [regDept, setRegDept] = useState(DEPARTMENTS_CATALOG[0].nameAm);
 
   // Countdown timer for Lockout
   useEffect(() => {
@@ -213,8 +215,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         phoneNumber: regPhone.trim(),
         nationalId: `NID-${Math.floor(100000 + Math.random() * 900000)}`,
         company: "Digital Construction ERP",
-        department: regRole,
-        trade: regRole === UserRole.WORKER ? "General Labour" : regRole,
+        department: regDept || regRole,
+        trade: regTrade || regRole,
         position: regRole,
         joinedDate: new Date().toISOString().split("T")[0],
         status: "Active",
@@ -1030,21 +1032,72 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.SUPER_ADMIN, label: isAmharic ? "ዋና አድሚን (Super Admin)" : "Super Admin" },
                         { role: UserRole.HEAD_OFFICE, label: isAmharic ? "ዋና መሥሪያ ቤት (Head Office)" : "Head Office" },
                         { role: UserRole.PROJECT_MANAGER, label: isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ (Project Manager)" : "Project Manager" },
-                        { role: UserRole.SITE_ENGINEER, label: isAmharic ? "የሳይት መሃንዲስ (Site Engineer)" : "Site Engineer" },
+                        { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },
                         { role: UserRole.SUPERVISOR, label: isAmharic ? "ተቆጣጣሪ (Supervisor)" : "Supervisor" },
+                        { role: UserRole.SITE_ENGINEER, label: isAmharic ? "የሳይት መሃንዲስ (Site Engineer)" : "Site Engineer" },
+                        { role: UserRole.QAQC_ENGINEER, label: isAmharic ? "የጥራት ቁጥጥር መሐንዲስ (QA/QC Engineer)" : "QA/QC Engineer" },
+                        { role: UserRole.HSE_OFFICER, label: isAmharic ? "የደህንነት ኃላፊ (HSE Officer)" : "HSE Officer" },
+                        { role: UserRole.SURVEYOR, label: isAmharic ? "ሰርቬየር (Surveyor)" : "Surveyor" },
                         { role: UserRole.TIME_KEEPER, label: isAmharic ? "የሰዓት ተቆጣጣሪ (Time Keeper)" : "Time Keeper" },
                         { role: UserRole.TEAM_LEADER, label: isAmharic ? "የቡድን መሪ (Team Leader)" : "Team Leader" },
                         { role: UserRole.GANG_CHIEF, label: isAmharic ? "የጋንግ ቺፍ (Gang Chief)" : "Gang Chief" },
+                        { role: UserRole.ASSEMBLER, label: isAmharic ? "ተገጣጣሚ ሠራተኛ (Assembler)" : "Assembler" },
                         { role: UserRole.WAREHOUSE_MANAGER, label: isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager" },
-                        { role: UserRole.STORE_MANAGER, label: isAmharic ? "የሳይት ስቶር አቃቤ (Store Manager)" : "Store Manager" },
+                        { role: UserRole.STORE_OWNER, label: isAmharic ? "የሳይት ስቶር አቃቤ (Store Owner)" : "Store Owner" },
+                        { role: UserRole.STORE_MANAGER, label: isAmharic ? "የስቶር ማናጀር (Store Manager)" : "Store Manager" },
                         { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል ሥራ አስኪያጅ (HR Manager)" : "HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
-                        { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },
-                        { role: UserRole.SURVEYOR, label: isAmharic ? "ሰርቬየር (Surveyor)" : "Surveyor" },
-                        { role: UserRole.WORKER, label: isAmharic ? "ሰራተኛ (Worker)" : "Worker" }
+                        { role: UserRole.PROCUREMENT_MANAGER, label: isAmharic ? "የግዥ ሥራ አስኪያጅ (Procurement Manager)" : "Procurement Manager" },
+                        { role: UserRole.DRIVER, label: isAmharic ? "የተሽከርካሪ አሽከርካሪ (Driver)" : "Driver" },
+                        { role: UserRole.CLIENT_CONSULTANT, label: isAmharic ? "አማካሪ / ደንበኛ (Client / Consultant)" : "Client / Consultant" },
+                        { role: UserRole.AUDITOR, label: isAmharic ? "ኦዲተር (Auditor)" : "Auditor" },
+                        { role: UserRole.WORKER, label: isAmharic ? "መደበኛ ሰራተኛ (Worker)" : "Worker" },
+                        { role: UserRole.VISITOR, label: isAmharic ? "ጎብኚ (Visitor)" : "Visitor" }
                       ].map((opt) => (
                         <option key={opt.role} value={opt.role} className="bg-slate-900 text-white text-xs">
                           {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Work Sector / Certified Trade Dropdown */}
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    {isAmharic ? "የስራ ዘርፍ / ሙያ (Work Sector & Trade)" : "Work Sector / Certified Trade"}
+                  </label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <select
+                      value={regTrade}
+                      onChange={(e) => setRegTrade(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none"
+                    >
+                      {WORK_SECTORS_CATALOG.map((sec) => (
+                        <option key={sec.id} value={isAmharic ? sec.nameAm : sec.nameEn} className="bg-slate-900 text-white text-xs">
+                          {isAmharic ? sec.nameAm : sec.nameEn}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Department Dropdown */}
+                <div>
+                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                    {isAmharic ? "የስራ ዲፓርትመንት (Department)" : "Department Sector"}
+                  </label>
+                  <div className="relative">
+                    <Globe className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <select
+                      value={regDept}
+                      onChange={(e) => setRegDept(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none"
+                    >
+                      {DEPARTMENTS_CATALOG.map((dept) => (
+                        <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn} className="bg-slate-900 text-white text-xs">
+                          {isAmharic ? dept.nameAm : dept.nameEn}
                         </option>
                       ))}
                     </select>

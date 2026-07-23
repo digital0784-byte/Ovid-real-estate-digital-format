@@ -31,7 +31,7 @@ import {
   Users,
   Database
 } from "lucide-react";
-import { Worker, AttendanceRecord, AttendanceMethod, UserRole, PerformanceEvaluation, AuditLog, Team } from "../types";
+import { Worker, AttendanceRecord, AttendanceMethod, UserRole, PerformanceEvaluation, AuditLog, Team, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { BreakExceptionsHub } from "./BreakExceptionsHub";
 import { PayrollHub } from "./PayrollHub";
 import { DailyAttendanceReportsHub } from "./DailyAttendanceReportsHub";
@@ -1475,32 +1475,32 @@ export const Attendance: React.FC<AttendanceProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-600">Department *</label>
+                  <label className="font-semibold text-slate-600">{isAmharic ? "ዲፓርትመንት *" : "Department *"}</label>
                   <select 
                     value={regDept}
                     onChange={(e) => setRegDept(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-bold text-slate-800"
                   >
-                    <option value="Formwork Assembly">Formwork Assembly (T-01)</option>
-                    <option value="Formwork Stripping">Formwork Stripping (T-02)</option>
-                    <option value="Steel Fixing">Steel Fixing (T-03)</option>
-                    <option value="Concrete Casting">Concrete Casting (T-04)</option>
-                    <option value="Safety & Support">Safety & Rigging (T-05)</option>
+                    {DEPARTMENTS_CATALOG.map((dept) => (
+                      <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn}>
+                        {isAmharic ? dept.nameAm : dept.nameEn}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-semibold text-slate-600">Trade / Specialty *</label>
+                  <label className="font-semibold text-slate-600">{isAmharic ? "የስራ ዘርፍ / ሙያ *" : "Work Sector & Certified Trade *"}</label>
                   <select 
                     value={regTrade}
                     onChange={(e) => setRegTrade(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-bold text-slate-800"
                   >
-                    <option value="Carpenter">Carpenter (Formwork)</option>
-                    <option value="Stripper">Stripper (Demolition)</option>
-                    <option value="Steel Fixer">Steel Fixer</option>
-                    <option value="Concrete Worker">Concrete Placer</option>
-                    <option value="Rigger">Scaffolding Rigger</option>
+                    {WORK_SECTORS_CATALOG.map((sec) => (
+                      <option key={sec.id} value={isAmharic ? sec.nameAm : sec.nameEn}>
+                        {isAmharic ? sec.nameAm : sec.nameEn}
+                      </option>
+                    ))}
                   </select>
                 </div>
 

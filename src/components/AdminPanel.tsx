@@ -130,7 +130,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             onChange={(e) => onChangeUserRole(e.target.value as UserRole)}
             className="bg-white border border-slate-200 rounded p-1.5 font-bold text-slate-800 outline-none"
           >
-            {Object.values(UserRole).map(role => (
+            {Array.from(new Set(Object.values(UserRole))).map(role => (
               <option key={role} value={role}>{role}</option>
             ))}
           </select>

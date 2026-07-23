@@ -25,7 +25,7 @@ import {
   Compass,
   MapPin
 } from "lucide-react";
-import { Worker, UserRole, ProjectZone } from "../types";
+import { Worker, UserRole, ProjectZone, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 
 export const calculateExperience = (joinedDateStr: string, isAmharic: boolean) => {
   if (!joinedDateStr) return isAmharic ? "አልታወቀም" : "Unknown";
@@ -718,16 +718,15 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                     </label>
                     {isEditing ? (
                       <select
-                        value={editForm.department || "Formwork Assembly"}
+                        value={editForm.department || "Formwork & Structural Assembly"}
                         onChange={e => setEditForm({ ...editForm, department: e.target.value })}
-                        className="w-full bg-white border border-slate-300 rounded px-2 py-1"
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-800"
                       >
-                        <option value="Formwork Assembly">Formwork Assembly</option>
-                        <option value="Formwork Stripping">Formwork Stripping</option>
-                        <option value="Steel Fixing">Steel Fixing</option>
-                        <option value="Concrete Casting">Concrete Casting</option>
-                        <option value="Safety & Rigging">Safety & Rigging</option>
-                        <option value="Support & Logistics">Support & Logistics</option>
+                        {DEPARTMENTS_CATALOG.map(dept => (
+                          <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn}>
+                            {isAmharic ? dept.nameAm : dept.nameEn}
+                          </option>
+                        ))}
                       </select>
                     ) : (
                       <div className="font-semibold text-slate-800">{activeWorker.department}</div>
@@ -736,15 +735,20 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
 
                   <div className="space-y-2">
                     <label className="text-[10px] font-black uppercase text-slate-400 block">
-                      {isAmharic ? "የስራ ዘርፍ / ሙያ" : "Certified Trade"}
+                      {isAmharic ? "የስራ ዘርፍ / ሙያ" : "Certified Trade / Work Sector"}
                     </label>
                     {isEditing ? (
-                      <input
-                        type="text"
-                        value={editForm.trade || ""}
+                      <select
+                        value={editForm.trade || "Formwork Carpenter"}
                         onChange={e => setEditForm({ ...editForm, trade: e.target.value })}
-                        className="w-full bg-white border border-slate-300 rounded px-2 py-1"
-                      />
+                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-800"
+                      >
+                        {WORK_SECTORS_CATALOG.map(sector => (
+                          <option key={sector.id} value={isAmharic ? sector.nameAm : sector.nameEn}>
+                            {isAmharic ? sector.nameAm : sector.nameEn}
+                          </option>
+                        ))}
+                      </select>
                     ) : (
                       <div className="font-semibold text-slate-800">{activeWorker.trade}</div>
                     )}
@@ -1051,29 +1055,32 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                   <select
                     value={addForm.department}
                     onChange={e => setAddForm({ ...addForm, department: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 cursor-pointer focus:bg-white"
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 cursor-pointer focus:bg-white text-xs font-bold text-slate-800"
                   >
-                    <option value="Formwork Assembly">Formwork Assembly</option>
-                    <option value="Formwork Stripping">Formwork Stripping</option>
-                    <option value="Steel Fixing">Steel Fixing</option>
-                    <option value="Concrete Casting">Concrete Casting</option>
-                    <option value="Safety & Rigging">Safety & Rigging</option>
-                    <option value="Support & Logistics">Support & Logistics</option>
+                    {DEPARTMENTS_CATALOG.map(dept => (
+                      <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn}>
+                        {isAmharic ? dept.nameAm : dept.nameEn}
+                      </option>
+                    ))}
                   </select>
                 </div>
 
-                {/* TRADE */}
+                {/* TRADE / WORK SECTOR SELECTOR */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-black uppercase text-slate-400 block">
-                    {isAmharic ? "የስራ ዘርፍ / ሙያ" : "Certified Trade"}
+                    {isAmharic ? "የስራ ዘርፍ / ሙያ" : "Certified Trade / Work Sector"}
                   </label>
-                  <input
-                    type="text"
+                  <select
                     value={addForm.trade}
                     onChange={e => setAddForm({ ...addForm, trade: e.target.value })}
-                    placeholder="e.g. Carpenter"
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus:bg-white"
-                  />
+                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 cursor-pointer focus:bg-white text-xs font-bold text-slate-800"
+                  >
+                    {WORK_SECTORS_CATALOG.map(sector => (
+                      <option key={sector.id} value={isAmharic ? sector.nameAm : sector.nameEn}>
+                        {isAmharic ? sector.nameAm : sector.nameEn}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* COMPANY */}

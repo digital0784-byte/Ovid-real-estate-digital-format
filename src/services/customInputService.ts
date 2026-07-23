@@ -280,12 +280,64 @@ export class CustomInputService {
     };
   }
 
+  // AI Similarity Detection & Duplicate Prevention
+  public static calculateSimilarity(str1: string, str2: string): number {
+    const s1 = str1.toLowerCase().trim();
+    const s2 = str2.toLowerCase().trim();
+    if (s1 === s2) return 1.0;
+    if (s1.length === 0 || s2.length === 0) return 0.0;
+    
+    if (s1.includes(s2) || s2.includes(s1)) {
+      return 0.85;
+    }
+
+    const track = Array(s2.length + 1).fill(null).map(() => Array(s1.length + 1).fill(null));
+    for (let i = 0; i <= s1.length; i += 1) track[0][i] = i;
+    for (let j = 0; j <= s2.length; j += 1) track[j][0] = j;
+
+    for (let j = 1; j <= s2.length; j += 1) {
+      for (let i = 1; i <= s1.length; i += 1) {
+        const indicator = s1[i - 1] === s2[j - 1] ? 0 : 1;
+        track[j][i] = Math.min(
+          track[j][i - 1] + 1,
+          track[j - 1][i] + 1,
+          track[j - 1][i - 1] + indicator
+        );
+      }
+    }
+
+    const distance = track[s2.length][s1.length];
+    const maxLength = Math.max(s1.length, s2.length);
+    return Number((1 - distance / maxLength).toFixed(2));
+  }
+
+  public static findSimilarEntries(category: CustomInputCategory, inputValue: string): { entry: CustomMasterEntry; similarity: number }[] {
+    if (!inputValue || inputValue.trim().length < 2) return [];
+    const entries = this.getEntries().filter(e => e.category === category);
+    const results: { entry: CustomMasterEntry; similarity: number }[] = [];
+
+    for (const entry of entries) {
+      const simVal = this.calculateSimilarity(inputValue, entry.value);
+      const simAm = entry.labelAm ? this.calculateSimilarity(inputValue, entry.labelAm) : 0;
+      const simCode = entry.code ? this.calculateSimilarity(inputValue, entry.code) : 0;
+      const maxSim = Math.max(simVal, simAm, simCode);
+
+      if (maxSim >= 0.55) {
+        results.push({ entry, similarity: Math.round(maxSim * 100) });
+      }
+    }
+
+    return results.sort((a, b) => b.similarity - a.similarity);
+  }
+
   // Submit new custom value (with duplicate prevention and rich metadata)
   public static submitCustomValue(params: {
     category: CustomInputCategory;
     value: string;
+    code?: string;
     labelAm?: string;
     description?: string;
+    remarks?: string;
     reason?: string;
     project?: string;
     site?: string;
@@ -296,7 +348,7 @@ export class CustomInputService {
     const entries = this.getEntries();
     const cleanValue = params.value.trim();
 
-    // Prevent Duplicate Values
+    // Prevent Exact Duplicate Values
     const existing = entries.find(
       e => e.category === params.category && e.value.trim().toLowerCase() === cleanValue.toLowerCase()
     );
@@ -321,8 +373,10 @@ export class CustomInputService {
       id: `CUST-${Date.now()}`,
       category: params.category,
       value: cleanValue,
+      code: params.code?.trim() || undefined,
       labelAm: params.labelAm?.trim() || cleanValue,
       description: params.description?.trim() || "User defined custom input value",
+      remarks: params.remarks?.trim() || undefined,
       reason: params.reason?.trim() || "Required for site operational reporting",
       project: params.project || "Addis Ababa Tower Block A",
       site: params.site || "Core Tower Building Area",
@@ -359,7 +413,7 @@ export class CustomInputService {
       approvalStatus: newStatus,
       date: currentDate,
       time: currentTime,
-      details: `Submitted new custom entry under "${params.category}". Project: ${newEntry.project}, Reason: ${newEntry.reason} (Status: ${newStatus})`
+      details: `Submitted new custom entry under "${params.category}". Code: ${newEntry.code || 'N/A'}, Remarks: ${newEntry.remarks || 'None'} (Status: ${newStatus})`
     });
 
     return { entry: newEntry, requiresApproval: newStatus === "Pending", isDuplicate: false };
