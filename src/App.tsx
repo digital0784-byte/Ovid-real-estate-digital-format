@@ -58,10 +58,15 @@ import { MobileAppsHub } from "./components/MobileAppsHub";
 import { LaunchReadinessHub } from "./components/LaunchReadinessHub";
 import { SubcontractorPortal } from "./components/SubcontractorPortal";
 import { StoreOwnerApp } from "./components/StoreOwnerApp";
+import { CustomInputGovernanceHub } from "./components/CustomInputGovernanceHub";
+import { NotificationBellDropdown } from "./components/NotificationBellDropdown";
+import { EnterpriseNotificationCenter } from "./components/EnterpriseNotificationCenter";
+import { NotificationService } from "./services/notificationService";
 
 // Lucide Icons
 import { 
   Building2, 
+  BookOpen,
   Users, 
   Calendar, 
   Layers, 
@@ -114,6 +119,7 @@ export default function App() {
 
   // Shell UI parameters
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.HEAD_OFFICE);
+  const [selectedProject, setSelectedProject] = useState<string>("Addis Ababa Tower Block A");
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -277,21 +283,28 @@ export default function App() {
   };
 
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.SUPER_ADMIN]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.HEAD_OFFICE]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SUPERVISOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.WORKER]: ["dashboard", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.HR_MANAGER]: ["dashboard", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SURVEYOR]: ["dashboard", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"]
+    [UserRole.SUPER_ADMIN]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.HEAD_OFFICE]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.PROJECT_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.PROCUREMENT_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "enterpriseErp", "financeErp", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.QAQC_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "cadDrawing", "projectDocs"],
+    [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "projectDocs"],
+    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.CLIENT_CONSULTANT]: ["dashboard", "notificationCenter", "customInputHub", "progress", "cadDrawing", "projectDocs"],
+    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "warehouseManagerApp", "attendance", "auditLog"],
+    [UserRole.VISITOR]: ["dashboard", "notificationCenter", "customInputHub", "progress"]
   };
 
   const t = (key: string): string => {
@@ -354,6 +367,30 @@ export default function App() {
     loadAllData();
     return () => {
       active = false;
+    };
+  }, []);
+
+  // Handle real-time workers list update from DbService or cross-component registrations
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncWorkersList = async () => {
+      try {
+        const fresh = await DbService.getWorkers();
+        if (fresh && fresh.length > 0) {
+          setWorkers(fresh);
+        }
+      } catch (err) {
+        console.error("Failed to sync workers in App.tsx:", err);
+      }
+    };
+
+    window.addEventListener("workers_updated", syncWorkersList);
+    window.addEventListener("storage", syncWorkersList);
+
+    return () => {
+      window.removeEventListener("workers_updated", syncWorkersList);
+      window.removeEventListener("storage", syncWorkersList);
     };
   }, []);
 
@@ -791,11 +828,9 @@ export default function App() {
 
   // Admin roster operations
   const handleAddWorker = async (w: Worker) => {
-    if (workers.some(existing => existing.id === w.id)) return;
-    
-    setWorkers((prev) => [...prev, w]);
+    setWorkers((prev) => [w, ...prev.filter(existing => existing.id !== w.id)]);
     await DbService.addWorker(w);
-    logAction("Worker Registered", `Added worker ${w.name} (${w.trade}) to department ${w.department}`);
+    logAction("Worker Registered", `Added/Updated worker ${w.name} (${w.trade}) to department ${w.department}`);
 
     // Create a system notification so Admin and Head Office can see the new registrant
     const newNotif: SystemNotification = {
@@ -960,6 +995,14 @@ export default function App() {
               </span>
             </div>
 
+            {/* Enterprise Notification Bell Dropdown */}
+            <NotificationBellDropdown
+              currentUserRole={currentUserRole}
+              selectedProject={selectedProject || "ALL"}
+              onNavigateToHub={() => setActiveTab("notificationCenter")}
+              onNavigateToTab={(tabName) => setActiveTab(tabName)}
+            />
+
             {/* Language toggle widget */}
             <button
               onClick={() => setIsAmharic(!isAmharic)}
@@ -1001,6 +1044,25 @@ export default function App() {
               >
                 <Activity size={15} />
                 <span>{t("Dashboard")}</span>
+              </button>
+            )}
+
+            {/* Enterprise Notification Center Tab */}
+            {tabPermissions[currentUserRole]?.includes("notificationCenter") && (
+              <button
+                id="tab-btn-notification-center"
+                onClick={() => setActiveTab("notificationCenter")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "notificationCenter" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Bell size={15} className="text-amber-400" />
+                <span className="flex items-center gap-1.5">
+                  <span>{isAmharic ? "ማስታወቂያዎች Center" : "Notifications Center"}</span>
+                  <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[10px]">
+                    {NotificationService.getUnreadCount(currentUserRole, selectedProject)}
+                  </span>
+                </span>
               </button>
             )}
 
@@ -1407,7 +1469,13 @@ export default function App() {
         {activeTab === "financeErp" && (
           <FinanceErpHub 
             isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            workers={workers}
+            attendance={attendance}
+            teams={teams}
+            zones={zones}
             onLogAction={(action, details) => logAction(action, details)}
+            onSwitchRole={(newRole) => setCurrentUserRole(newRole)}
           />
         )}
 
@@ -1509,6 +1577,10 @@ export default function App() {
             onDeleteWorker={handleDeleteWorker}
             evaluations={evaluations}
             onAddEvaluation={handleAddEvaluation}
+            auditLogs={auditLogs}
+            onLogAction={(action, details) => logAction(action, details)}
+            teams={teams}
+            onSwitchRole={(newRole) => setCurrentUserRole(newRole)}
           />
         )}
 
@@ -1702,6 +1774,15 @@ export default function App() {
             onAddSnag={handleAddSnag}
             onUpdateZone={handleUpdateZone}
             onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "notificationCenter" && (
+          <EnterpriseNotificationCenter
+            currentUserRole={currentUserRole}
+            selectedProject={selectedProject || "ALL"}
+            onNavigateToTab={(tabName) => setActiveTab(tabName)}
+            onLogAudit={(action, details) => logAction(action, details)}
           />
         )}
 

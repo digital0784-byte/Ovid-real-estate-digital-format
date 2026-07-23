@@ -31,9 +31,12 @@ import {
   Users,
   Database
 } from "lucide-react";
-import { Worker, AttendanceRecord, AttendanceMethod, UserRole, PerformanceEvaluation } from "../types";
+import { Worker, AttendanceRecord, AttendanceMethod, UserRole, PerformanceEvaluation, AuditLog, Team } from "../types";
 import { BreakExceptionsHub } from "./BreakExceptionsHub";
 import { PayrollHub } from "./PayrollHub";
+import { DailyAttendanceReportsHub } from "./DailyAttendanceReportsHub";
+import { AttendanceSecurityRbacHub } from "./AttendanceSecurityRbacHub";
+import { Lock, ShieldAlert, Key } from "lucide-react";
 
 interface AttendanceProps {
   workers: Worker[];
@@ -46,6 +49,10 @@ interface AttendanceProps {
   onDeleteWorker: (id: string) => void;
   evaluations: PerformanceEvaluation[];
   onAddEvaluation: (evaluation: PerformanceEvaluation) => void;
+  auditLogs?: AuditLog[];
+  onLogAction?: (action: string, details: string) => void;
+  teams?: Team[];
+  onSwitchRole?: (newRole: UserRole) => void;
 }
 
 export const Attendance: React.FC<AttendanceProps> = ({
@@ -58,10 +65,38 @@ export const Attendance: React.FC<AttendanceProps> = ({
   onAddWorker,
   onDeleteWorker,
   evaluations,
-  onAddEvaluation
+  onAddEvaluation,
+  auditLogs = [],
+  onLogAction,
+  teams = [],
+  onSwitchRole
 }) => {
   // Navigation tabs inside Employee Management Hub
-  const [activeSubTab, setActiveSubTab] = useState<"directory" | "register" | "attendance_table" | "performance_table" | "clock_in" | "overtime_reports" | "biometric_enrollment" | "break_exceptions" | "smart_payroll">("directory");
+  const [activeSubTab, setActiveSubTab] = useState<"directory" | "register" | "attendance_table" | "performance_table" | "clock_in" | "overtime_reports" | "biometric_enrollment" | "break_exceptions" | "smart_payroll" | "daily_reports" | "security_rbac">("daily_reports");
+
+  // Master Prompt RBAC Access Control Permissions State
+  const [authorizedRoles, setAuthorizedRoles] = useState<UserRole[]>([
+    UserRole.TIME_KEEPER,
+    UserRole.GANG_CHIEF,
+    UserRole.TEAM_LEADER,
+    UserRole.SECTION_HEAD,
+    UserRole.SUPERVISOR,
+    UserRole.PROJECT_MANAGER,
+    UserRole.HEAD_OFFICE,
+    UserRole.SUPER_ADMIN
+  ]);
+  const [adminOverrideActive, setAdminOverrideActive] = useState(false);
+
+  // Check if current user role is authorized to view employee attendance
+  const isUserAuthorizedForAttendance = authorizedRoles.includes(currentUserRole) || adminOverrideActive;
+
+  const handleToggleRolePermission = (roleToToggle: UserRole) => {
+    if (authorizedRoles.includes(roleToToggle)) {
+      setAuthorizedRoles(authorizedRoles.filter(r => r !== roleToToggle));
+    } else {
+      setAuthorizedRoles([...authorizedRoles, roleToToggle]);
+    }
+  };
 
   // New States for Biometric Enrollment & Offline Sync
   const [selectedEnrollWorkerId, setSelectedEnrollWorkerId] = useState("");
@@ -229,7 +264,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
       qrCode: `QR-${newEmpId}`,
       faceRecognitionData: "", // Clear face recognition so they must enroll first!
       fingerprint: "", // Clear fingerprint so they must enroll first!
-      status: "Inactive", // Start as Inactive / Pending Enrollment
+      status: "Active", // Registered worker is Active immediately
       teamId: "T-01" // Default team assignment
     };
 
@@ -237,8 +272,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
     setSelectedEnrollWorkerId(newEmpId); // Pre-select for enrollment!
 
     setRegSuccessMsg(isAmharic 
-      ? `ሰራተኛ ${regName} (${newEmpId}) በተሳካ ሁኔታ ተመዝግቧል። ፕሮፋይሉ እንዲነቃ እባክዎን ባዮሜትሪክ ምዝገባ ያጠናቅቁ።` 
-      : `Employee ${regName} (${newEmpId}) registered successfully! Profile status is currently Inactive. Redirecting to Biometric Enrollment Desk...`);
+      ? `ሰራተኛ ${regName} (${newEmpId}) በተሳካ ሁኔታ ተመዝግቧል! ሰራተኛው በቋሚ ዝርዝር ላይ ነቅቷል።` 
+      : `Employee ${regName} (${newEmpId}) registered successfully and activated on roster!`);
     
     // Clear inputs
     setRegName("");
@@ -801,6 +836,58 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   const uniqueTrades = Array.from(new Set(workers.map(w => w.trade)));
 
+  // Master Prompt Access Guard: Restrict viewing to authorized roles
+  if (!isUserAuthorizedForAttendance) {
+    return (
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8 text-center max-w-3xl mx-auto space-y-6 my-8 font-sans">
+        <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto border-2 border-red-200 shadow-sm animate-pulse">
+          <ShieldAlert size={36} />
+        </div>
+
+        <div className="space-y-2">
+          <h3 className="text-xl font-black text-slate-900 tracking-tight">
+            {isAmharic ? "መዳረሻ ተከልክሏል፡ የመገኘት መረጃ ደህንነት መመሪያ" : "Access Denied: Attendance Access Control Policy Enforced"}
+          </h3>
+          <p className="text-xs text-slate-600 max-w-xl mx-auto leading-relaxed">
+            {isAmharic
+              ? "የሰራተኞች የመገኘት፣ የባዮሜትሪክስ መረጃዎች እና ዕለታዊ ሪፖርቶች ለተፈቀደላቸው የስራ ሃላፊዎች ብቻ የተገደቡ ናቸው።"
+              : "Employee attendance information, biometric logs, GPS locations, and daily reports are strictly restricted to authorized roles according to the BuildSync ERP Security Specification."}
+          </p>
+        </div>
+
+        <div className="bg-slate-50 border border-slate-200 p-4 rounded-xl text-left space-y-3 text-xs">
+          <div className="font-extrabold text-slate-800 uppercase tracking-wider text-[11px] flex items-center space-x-2">
+            <Lock size={14} className="text-red-600" />
+            <span>{isAmharic ? "የተፈቀደላቸው የስራ መደቦች (Authorized Roles Only):" : "Authorized Attendance Viewing Roles:"}</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+            {["Time Keeper", "Gang Chief", "Team Leader", "Section Head", "Supervisor", "Head Supervisor", "Admin"].map(r => (
+              <div key={r} className="bg-white p-2 rounded-lg border border-slate-200 font-bold text-slate-700 flex items-center space-x-1.5">
+                <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
+                <span>{r}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button
+            onClick={() => {
+              setAdminOverrideActive(true);
+              if (onLogAction) {
+                onLogAction("Admin Security Override Triggered", `Temporary session access granted for role ${currentUserRole}`);
+              }
+            }}
+            className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-xs shadow-md transition-all flex items-center space-x-2 cursor-pointer"
+          >
+            <Key size={14} />
+            <span>{isAmharic ? "የአስተዳዳሪ ፍቃድ ውክልና (Admin Override)" : "Request Admin Access Override"}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       
@@ -844,6 +931,27 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
         {/* Sub Navigation Bar inside Attendance Tab */}
         <div className="flex items-center overflow-x-auto gap-2 border-t border-slate-100 mt-4 pt-4 scrollbar-none">
+          <button
+            onClick={() => setActiveSubTab("daily_reports")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-2 shrink-0 cursor-pointer ${
+              activeSubTab === "daily_reports" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <FileText size={14} className="text-blue-500" />
+            <span>{isAmharic ? "ዕለታዊ የመገኘት ሪፖርቶች" : "Daily Attendance Reports Hub"}</span>
+            <span className="bg-blue-600 text-white text-[9px] px-1.5 py-0.5 rounded-full font-mono">8 Reports</span>
+          </button>
+
+          <button
+            onClick={() => setActiveSubTab("security_rbac")}
+            className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-2 shrink-0 cursor-pointer ${
+              activeSubTab === "security_rbac" ? "bg-slate-900 text-white shadow-sm" : "bg-slate-50 text-slate-600 hover:bg-slate-100"
+            }`}
+          >
+            <ShieldCheck size={14} className="text-red-500" />
+            <span>{isAmharic ? "ደህንነትና የመዳረሻ ፍቃዶች" : "Access Control & Security"}</span>
+          </button>
+
           <button
             onClick={() => setActiveSubTab("directory")}
             className={`px-4 py-2 text-xs font-bold rounded-lg transition-all flex items-center space-x-2 shrink-0 cursor-pointer ${
@@ -3304,6 +3412,29 @@ export const Attendance: React.FC<AttendanceProps> = ({
           </div>
 
         </div>
+      )}
+
+      {activeSubTab === "daily_reports" && (
+        <DailyAttendanceReportsHub
+          workers={workers}
+          attendance={attendance}
+          teams={teams}
+          isAmharic={isAmharic}
+          currentUserRole={currentUserRole}
+          onLogAction={onLogAction}
+        />
+      )}
+
+      {activeSubTab === "security_rbac" && (
+        <AttendanceSecurityRbacHub
+          currentUserRole={currentUserRole}
+          isAmharic={isAmharic}
+          authorizedRoles={authorizedRoles}
+          onToggleRolePermission={handleToggleRolePermission}
+          auditLogs={auditLogs}
+          onLogAction={onLogAction}
+          onSwitchRole={onSwitchRole}
+        />
       )}
 
       {activeSubTab === "break_exceptions" && (

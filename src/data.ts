@@ -18,6 +18,7 @@ import {
   PanelRepairRecord,
   PanelType,
   PanelStatus,
+  RegisteredSite,
   OverseasShipment,
   CustomsRecord,
   DispatchTransfer,
@@ -180,15 +181,69 @@ export const initialTeams: Team[] = [
 
 // Seed Attendance Records for today (say, 2026-07-01 and earlier)
 export const initialAttendance: AttendanceRecord[] = [
-  { id: "ATT-1001", workerId: "ERP-W-101", workerName: "Bekele Tesfaye", department: "Formwork Assembly", trade: "Carpenter", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", checkIn: "07:45:00", checkOut: "17:15:00", method: AttendanceMethod.FINGERPRINT, workingHours: 8.5, overtime: 0.5, status: "Present" },
-  { id: "ATT-1002", workerId: "ERP-W-102", workerName: "Aster Gudeta", department: "Formwork Assembly", trade: "Carpenter", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", checkIn: "07:50:00", checkOut: "17:00:00", method: AttendanceMethod.FACE_RECOGNITION, workingHours: 8.0, overtime: 0, status: "Present" },
-  { id: "ATT-1003", workerId: "ERP-W-103", workerName: "Chala Kebede", department: "Formwork Stripping", trade: "Stripper", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 3, zone: "Zone B", date: "2026-07-01", checkIn: "08:15:00", checkOut: "17:30:00", method: AttendanceMethod.QR_CODE, workingHours: 8.0, overtime: 0.25, status: "Late" },
-  { id: "ATT-1004", workerId: "ERP-W-104", workerName: "Almaz Demissie", department: "Steel Fixing", trade: "Steel Fixer", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", checkIn: "07:30:00", checkOut: "17:00:00", method: AttendanceMethod.GPS_GEOFENCE, workingHours: 8.5, overtime: 0, status: "Present" },
-  { id: "ATT-1005", workerId: "ERP-W-105", workerName: "Selamawit Alemu", department: "Formwork Assembly", trade: "Carpenter", company: "Subcontractor Alpha", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", checkIn: "07:42:00", checkOut: "17:00:00", method: AttendanceMethod.NFC, workingHours: 8.3, overtime: 0, status: "Present" },
-  { id: "ATT-1006", workerId: "ERP-W-106", workerName: "Tariku Mengistu", department: "Concrete Casting", trade: "Concrete Worker", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone B", date: "2026-07-01", checkIn: "07:55:00", checkOut: "17:15:00", method: AttendanceMethod.FINGERPRINT, workingHours: 8.2, overtime: 0.2, status: "Present" },
-  { id: "ATT-1007", workerId: "ERP-W-107", workerName: "Yosef Assefa", department: "Formwork Stripping", trade: "Stripper", company: "Subcontractor Beta", building: "Digital Tower 1", floor: 3, zone: "Zone B", date: "2026-07-01", checkIn: null, checkOut: null, method: null, workingHours: 0, overtime: 0, status: "Absent" },
-  { id: "ATT-1008", workerId: "ERP-W-108", workerName: "Mekonnen Haile", department: "Concrete Casting", trade: "Concrete Worker", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone B", date: "2026-07-01", checkIn: "07:40:00", checkOut: "17:00:00", method: AttendanceMethod.FACE_RECOGNITION, workingHours: 8.3, overtime: 0, status: "Present" },
-  { id: "ATT-1009", workerId: "ERP-W-109", workerName: "Hiwot Girma", department: "Steel Fixing", trade: "Steel Fixer", company: "Subcontractor Alpha", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", checkIn: null, checkOut: null, method: null, workingHours: 0, overtime: 0, status: "Leave" }
+  { 
+    id: "ATT-1001", workerId: "ERP-W-101", workerName: "Bekele Tesfaye", department: "Formwork Assembly", trade: "Carpenter", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", 
+    checkIn: "07:45:00", lunchOut: "12:00:00", lunchIn: "13:00:00", checkOut: "17:15:00", method: AttendanceMethod.FINGERPRINT, 
+    workingHours: 8.5, overtime: 0.5, underTime: 0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Present",
+    gpsLocationString: "Digital Bole Heights Site, Lat: 8.9806, Lng: 38.7578", biometricStatus: "Fingerprint Verified (99.4%)",
+    photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop", team: "Assembly Team Alpha"
+  },
+  { 
+    id: "ATT-1002", workerId: "ERP-W-102", workerName: "Aster Gudeta", department: "Formwork Assembly", trade: "Carpenter", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", 
+    checkIn: "07:50:00", lunchOut: "12:05:00", lunchIn: "13:02:00", checkOut: "17:00:00", method: AttendanceMethod.FACE_RECOGNITION, 
+    workingHours: 8.0, overtime: 0, underTime: 0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Present",
+    gpsLocationString: "Digital Bole Heights Site, Lat: 8.9806, Lng: 38.7578", biometricStatus: "Face Match Pass (98.2%)",
+    photoUrl: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200&h=200&fit=crop", team: "Assembly Team Alpha"
+  },
+  { 
+    id: "ATT-1003", workerId: "ERP-W-103", workerName: "Chala Kebede", department: "Formwork Stripping", trade: "Stripper", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 3, zone: "Zone B", date: "2026-07-01", 
+    checkIn: "08:15:00", lunchOut: "12:00:00", lunchIn: "13:00:00", checkOut: "17:30:00", method: AttendanceMethod.QR_CODE, 
+    workingHours: 8.0, overtime: 0.25, underTime: 0, lateArrivalMinutes: 15, earlyDepartureMinutes: 0, status: "Late",
+    gpsLocationString: "Digital Bole Heights Site, Lat: 8.9806, Lng: 38.7578", biometricStatus: "QR Scan + Supervisor Override",
+    photoUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200&h=200&fit=crop", team: "Stripping Team Beta"
+  },
+  { 
+    id: "ATT-1004", workerId: "ERP-W-104", workerName: "Almaz Demissie", department: "Steel Fixing", trade: "Steel Fixer", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", 
+    checkIn: "07:30:00", lunchOut: "12:00:00", lunchIn: "13:00:00", checkOut: "17:00:00", method: AttendanceMethod.GPS_GEOFENCE, 
+    workingHours: 8.5, overtime: 0.5, underTime: 0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Present",
+    gpsLocationString: "Digital Bole Heights Geofence, Lat: 8.9807, Lng: 38.7579", biometricStatus: "GPS Mobile Stamp",
+    photoUrl: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200&h=200&fit=crop", team: "Steel Fixing Team Gamma"
+  },
+  { 
+    id: "ATT-1005", workerId: "ERP-W-105", workerName: "Selamawit Alemu", department: "Formwork Assembly", trade: "Carpenter", company: "Subcontractor Alpha", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", 
+    checkIn: "07:42:00", lunchOut: "12:00:00", lunchIn: "13:00:00", checkOut: "16:30:00", method: AttendanceMethod.NFC, 
+    workingHours: 7.5, overtime: 0, underTime: 0.5, lateArrivalMinutes: 0, earlyDepartureMinutes: 30, status: "Present",
+    gpsLocationString: "Digital Bole Heights Site, Lat: 8.9806, Lng: 38.7578", biometricStatus: "NFC Smart Badge Tap",
+    photoUrl: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200&h=200&fit=crop", team: "Assembly Team Alpha"
+  },
+  { 
+    id: "ATT-1006", workerId: "ERP-W-106", workerName: "Tariku Mengistu", department: "Concrete Casting", trade: "Concrete Worker", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone B", date: "2026-07-01", 
+    checkIn: "07:55:00", lunchOut: "12:10:00", lunchIn: "13:00:00", checkOut: "17:15:00", method: AttendanceMethod.FINGERPRINT, 
+    workingHours: 8.2, overtime: 0.2, underTime: 0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Present",
+    gpsLocationString: "Digital Bole Heights Site, Lat: 8.9806, Lng: 38.7578", biometricStatus: "Fingerprint Verified (97.8%)",
+    photoUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop", team: "Concreting Team Delta"
+  },
+  { 
+    id: "ATT-1007", workerId: "ERP-W-107", workerName: "Yosef Assefa", department: "Formwork Stripping", trade: "Stripper", company: "Subcontractor Beta", building: "Digital Tower 1", floor: 3, zone: "Zone B", date: "2026-07-01", 
+    checkIn: null, lunchOut: null, lunchIn: null, checkOut: null, method: null, 
+    workingHours: 0, overtime: 0, underTime: 8.0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Absent", absenceStatus: "Unexcused Absence",
+    gpsLocationString: "N/A - No Clock-In Recorded", biometricStatus: "No Verification Recorded",
+    photoUrl: undefined, team: "Stripping Team Beta"
+  },
+  { 
+    id: "ATT-1008", workerId: "ERP-W-108", workerName: "Mekonnen Haile", department: "Concrete Casting", trade: "Concrete Worker", company: "Digital Construction ERP", building: "Digital Tower 1", floor: 4, zone: "Zone B", date: "2026-07-01", 
+    checkIn: "07:40:00", lunchOut: "12:00:00", lunchIn: "13:00:00", checkOut: "17:00:00", method: AttendanceMethod.FACE_RECOGNITION, 
+    workingHours: 8.3, overtime: 0, underTime: 0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Present",
+    gpsLocationString: "Digital Bole Heights Site, Lat: 8.9806, Lng: 38.7578", biometricStatus: "Face Match Pass (99.0%)",
+    photoUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=200&h=200&fit=crop", team: "Concreting Team Delta"
+  },
+  { 
+    id: "ATT-1009", workerId: "ERP-W-109", workerName: "Hiwot Girma", department: "Steel Fixing", trade: "Steel Fixer", company: "Subcontractor Alpha", building: "Digital Tower 1", floor: 4, zone: "Zone A", date: "2026-07-01", 
+    checkIn: null, lunchOut: null, lunchIn: null, checkOut: null, method: null, 
+    workingHours: 0, overtime: 0, underTime: 0, lateArrivalMinutes: 0, earlyDepartureMinutes: 0, status: "Leave", leaveStatus: "Approved Casual Leave",
+    gpsLocationString: "N/A - On Approved Leave", biometricStatus: "Leave Granted by HR",
+    photoUrl: undefined, team: "Steel Fixing Team Gamma"
+  }
 ];
 
 // Seed Performance Evaluations for yesterday
@@ -736,4 +791,103 @@ export const initialInventoryAudits: InventoryAuditRecord[] = [
     status: "Discrepancy Flagged"
   }
 ];
+
+export const initialRegisteredSites: RegisteredSite[] = [
+  {
+    id: "Digital Construction ERP-SITE-2026-001",
+    projectName: "Digital Bole Heights Phase I",
+    clientName: "Federal Housing Corporation",
+    contractorName: "Digital Construction ERP Plc",
+    region: "Addis Ababa",
+    cityWoreda: "Bole Sub-City, Woreda 03",
+    gpsLocation: "9.0118° N, 38.7954° E",
+    googleMapsCoords: "9.0118,38.7954",
+    startDate: "2025-02-15",
+    plannedCompletionDate: "2026-12-30",
+    buildingsCount: 3,
+    floorsCount: 15,
+    zonesPerFloor: 3,
+    siteManager: "Eng. Yoseph Hailu",
+    supervisor: "Martha Hagos",
+    teamLeaders: ["Yohannes Bekele", "Hiwot Girma"],
+    gangChiefs: ["Fikru Tolossa", "Chala Kebede"],
+    timeKeepers: ["Abebe Girma"],
+    status: "Active",
+    documents: [
+      { id: "S-DOC-001", name: "Approved_BoleHeights_FormworkLayout_Fl04_Z-A.dwg", type: "CAD Drawing", uploadDate: "2026-06-28", uploadedBy: "Eng. Yoseph Hailu", fileSize: "14.5 MB" },
+      { id: "S-DOC-002", name: "Structural_CoreShaft_Axis-C.pdf", type: "Structural Drawing", uploadDate: "2026-07-02", uploadedBy: "Martha Hagos", fileSize: "8.2 MB" },
+      { id: "S-DOC-003", name: "SOP_Aluminum_Assembly_Guide.pdf", type: "Method Statement", uploadDate: "2026-05-10", uploadedBy: "Martha Hagos", fileSize: "2.1 MB" },
+      { id: "S-DOC-004", name: "SafetyCompliance_HighAltitudeFormwork.pdf", type: "Safety Document", uploadDate: "2026-05-15", uploadedBy: "Kassa Hunegn", fileSize: "1.7 MB" }
+    ]
+  },
+  {
+    id: "Digital Construction ERP-SITE-2026-002",
+    projectName: "Kazanchis Financial Tower",
+    clientName: "Commercial Bank of Ethiopia",
+    contractorName: "Digital Construction ERP Plc",
+    region: "Addis Ababa",
+    cityWoreda: "Kirkos Sub-City, Woreda 08",
+    gpsLocation: "9.0254° N, 38.7612° E",
+    googleMapsCoords: "9.0254,38.7612",
+    startDate: "2025-06-01",
+    plannedCompletionDate: "2027-04-15",
+    buildingsCount: 2,
+    floorsCount: 22,
+    zonesPerFloor: 4,
+    siteManager: "Eng. Samuel Alene",
+    supervisor: "Kassa Hunegn",
+    teamLeaders: ["Bekele Tesfaye"],
+    gangChiefs: ["Yosef Assefa"],
+    timeKeepers: ["Tsion Demeke"],
+    status: "Active",
+    documents: [
+      { id: "S-DOC-005", name: "Composite_Formwork_Tower_Rev2.pdf", type: "Formwork Drawing", uploadDate: "2026-07-04", uploadedBy: "Kassa Hunegn", fileSize: "11.4 MB" }
+    ]
+  },
+  {
+    id: "Digital Construction ERP-SITE-2026-003",
+    projectName: "Gotera Interchange Project",
+    clientName: "Addis Ababa City Roads Authority",
+    contractorName: "Digital Construction ERP Plc",
+    region: "Addis Ababa",
+    cityWoreda: "Nifas Silk Sub-City, Woreda 02",
+    gpsLocation: "8.9806° N, 38.7578° E",
+    googleMapsCoords: "8.9806,38.7578",
+    startDate: "2025-09-10",
+    plannedCompletionDate: "2026-11-20",
+    buildingsCount: 1,
+    floorsCount: 8,
+    zonesPerFloor: 2,
+    siteManager: "Eng. Daniel Girma",
+    supervisor: "Solomon Kassa",
+    teamLeaders: ["Abeba Kebede"],
+    gangChiefs: ["Tadesse Melaku"],
+    timeKeepers: ["Ruth Hailu"],
+    status: "Active",
+    documents: []
+  },
+  {
+    id: "Digital Construction ERP-SITE-2026-004",
+    projectName: "Lideta Smart Apartments",
+    clientName: "Ministry of Urban Development",
+    contractorName: "Digital Construction ERP Plc",
+    region: "Addis Ababa",
+    cityWoreda: "Lideta Sub-City, Woreda 04",
+    gpsLocation: "9.0042° N, 38.7412° E",
+    googleMapsCoords: "9.0042,38.7412",
+    startDate: "2026-01-10",
+    plannedCompletionDate: "2027-08-01",
+    buildingsCount: 4,
+    floorsCount: 18,
+    zonesPerFloor: 3,
+    siteManager: "Eng. Daniel Girma",
+    supervisor: "Solomon Kassa",
+    teamLeaders: ["Abeba Kebede"],
+    gangChiefs: ["Tadesse Melaku"],
+    timeKeepers: ["Ruth Hailu"],
+    status: "Planning",
+    documents: []
+  }
+];
+
 

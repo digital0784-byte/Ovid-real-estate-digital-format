@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { UserRole, AuditLog } from "../types";
+import { UserRoleApprovalHub } from "./UserRoleApprovalHub";
 import { 
   Shield, 
+  ShieldCheck,
   Lock, 
   User, 
   Eye, 
@@ -71,7 +73,7 @@ export function SecuritySettingsHub({
   sessionTimeoutMinutes,
   onChangeSessionTimeout
 }: SecuritySettingsHubProps) {
-  const [activeTab, setActiveTab] = useState<"user_settings" | "privacy_policy" | "admin_dashboard" | "enterprise_soc">("enterprise_soc");
+  const [activeTab, setActiveTab] = useState<"user_settings" | "privacy_policy" | "admin_dashboard" | "enterprise_soc" | "role_approval_hub">("role_approval_hub");
 
   // --- ENTERPRISE SOC STATES ---
   const [appCheckEnabled, setAppCheckEnabled] = useState(true);
@@ -472,6 +474,18 @@ export function SecuritySettingsHub({
           </button>
 
           <button
+            onClick={() => setActiveTab("role_approval_hub")}
+            className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
+              activeTab === "role_approval_hub"
+                ? "bg-amber-950 text-amber-200 border-l-4 border-amber-500 shadow-xs"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+            }`}
+          >
+            <ShieldCheck size={15} className="text-amber-500 animate-pulse" />
+            <span className="font-black text-xs">{isAmharic ? "የሥራ ድርሻ ለውጥ ማጽደቂያ" : "Role Change Approval System"}</span>
+          </button>
+
+          <button
             onClick={() => setActiveTab("enterprise_soc")}
             className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
               activeTab === "enterprise_soc"
@@ -559,6 +573,17 @@ export function SecuritySettingsHub({
       {/* Main Content Pane */}
       <div className="lg:col-span-3">
         
+        {/* ROLE CHANGE APPROVAL SYSTEM */}
+        {activeTab === "role_approval_hub" && (
+          <UserRoleApprovalHub
+            currentUserRole={currentUserRole}
+            currentUserName={profileName}
+            currentUserId="EMP-104"
+            isAmharic={isAmharic}
+            onLogAction={onLogAction}
+          />
+        )}
+
         {/* TAB 1: USER SETTINGS */}
         {activeTab === "user_settings" && (
           <div className="space-y-6">

@@ -1,19 +1,29 @@
 export enum UserRole {
-  SUPER_ADMIN = "Super Admin",
+  SUPER_ADMIN = "Admin",
   HEAD_OFFICE = "Head Office",
+  FINANCE_MANAGER = "Finance Manager",
+  WAREHOUSE_MANAGER = "Warehouse Manager",
+  STORE_OWNER = "Store Owner",
+  PROCUREMENT_MANAGER = "Procurement Manager",
   PROJECT_MANAGER = "Project Manager",
-  SITE_ENGINEER = "Site Engineer",
+  SECTION_HEAD = "Section Head",
   SUPERVISOR = "Supervisor",
-  TIME_KEEPER = "Time Keeper",
+  SITE_ENGINEER = "Site Engineer",
+  SURVEYOR = "Surveyor",
+  QAQC_ENGINEER = "QA/QC Engineer",
+  HSE_OFFICER = "HSE Officer",
   TEAM_LEADER = "Team Leader",
   GANG_CHIEF = "Gang Chief",
-  WORKER = "Worker",
-  WAREHOUSE_MANAGER = "Warehouse Manager",
-  STORE_MANAGER = "Store Manager",
+  TIME_KEEPER = "Time Keeper",
+  ASSEMBLER = "Assembler",
+  DRIVER = "Driver",
+  CLIENT_CONSULTANT = "Client / Consultant",
+  AUDITOR = "Auditor",
+  VISITOR = "Visitor",
+  // Legacy aliases for backward compatibility
+  STORE_MANAGER = "Store Owner",
   HR_MANAGER = "HR Manager",
-  FINANCE_MANAGER = "Finance Manager",
-  SECTION_HEAD = "Section Head",
-  SURVEYOR = "Surveyor"
+  WORKER = "Assembler"
 }
 
 export interface AuditLog {
@@ -95,14 +105,24 @@ export interface AttendanceRecord {
   date: string; // YYYY-MM-DD
   checkIn: string | null; // HH:mm:ss
   checkOut: string | null; // HH:mm:ss
+  lunchOut?: string | null; // HH:mm:ss
+  lunchIn?: string | null; // HH:mm:ss
   method: AttendanceMethod | null;
   workingHours: number;
   overtime: number;
+  underTime?: number; // hours of undertime
+  lateArrivalMinutes?: number;
+  earlyDepartureMinutes?: number;
   status: "Present" | "Absent" | "Late" | "Leave" | "Holiday";
+  absenceStatus?: string; // e.g. "Unexcused", "Sick Leave", "Planned Vacation"
+  leaveStatus?: string; // e.g. "Approved", "Pending", "Casual Leave"
   gpsCoordinates?: { lat: number; lng: number };
   deviceUsed?: string;
   verifiedBy?: string;
   gpsLocationString?: string;
+  biometricStatus?: string; // e.g. "Fingerprint Verified (99.1%)", "Face Match Pass"
+  photoUrl?: string; // Attendance photo proof URL
+  team?: string;
 }
 
 export interface PerformanceEvaluation {
@@ -308,6 +328,7 @@ export enum PanelType {
 
 export enum PanelStatus {
   NEW = "New Panel",
+  AGED = "Aged / Old Panel",
   ACTIVE = "Active",
   IN_USE = "Installed / In Use",
   DISMANTLED = "Dismantled",
@@ -316,6 +337,7 @@ export enum PanelStatus {
   UNDER_INSPECTION = "Under Inspection",
   DAMAGED = "Damaged",
   UNDER_REPAIR = "Under Repair",
+  REPAIRED = "Repaired",
   RESERVED = "Reserved",
   IN_TRANSIT = "In Transit",
   MISSING = "Missing",
@@ -514,4 +536,248 @@ export interface InventoryAuditRecord {
   notes: string;
   status: "Reconciled" | "Discrepancy Flagged" | "Pending Review" | "Approved";
 }
+
+export interface RegisteredSite {
+  id: string;
+  projectName: string;
+  clientName: string;
+  contractorName: string;
+  region: string;
+  cityWoreda: string;
+  gpsLocation: string;
+  googleMapsCoords: string;
+  startDate: string;
+  plannedCompletionDate: string;
+  buildingsCount: number;
+  floorsCount: number;
+  zonesPerFloor: number;
+  siteManager: string;
+  supervisor: string;
+  teamLeaders: string[];
+  gangChiefs: string[];
+  timeKeepers: string[];
+  status: "Planning" | "Active" | "Completed" | "Closed";
+  documents: {
+    id: string;
+    name: string;
+    type: "CAD Drawing" | "Structural Drawing" | "Formwork Drawing" | "Method Statement" | "Safety Document" | "Progress Photo" | "Other";
+    uploadDate: string;
+    uploadedBy: string;
+    fileSize: string;
+  }[];
+}
+
+export type CustomInputCategory = 
+  | "Material Name"
+  | "Material Type"
+  | "Material Dimension"
+  | "Supplier Name"
+  | "Manufacturer"
+  | "Building Name"
+  | "Block Name"
+  | "Floor Name"
+  | "Zone Name"
+  | "Defect Type"
+  | "Hazard Type"
+  | "Equipment Name"
+  | "Vehicle Name"
+  | "Customer Name"
+  | "Contractor Name"
+  | "Panel Status"
+  | "Remarks"
+  | "Comments";
+
+export interface CustomMasterEntry {
+  id: string;
+  category: CustomInputCategory;
+  value: string;
+  labelAm?: string;
+  description?: string;
+  reason?: string;
+  project?: string;
+  site?: string;
+  createdTime?: string;
+  isPredefined: boolean;
+  status: "Approved" | "Pending" | "Rejected";
+  createdBy: string;
+  createdByRole: string;
+  createdDate: string;
+  approvedBy?: string;
+  approvedByRole?: string;
+  approvedDate?: string;
+  approvedTime?: string;
+  previousValue?: string;
+  mergedIntoValue?: string;
+  usageCount: number;
+  isFavorite?: boolean;
+  tags?: string[];
+}
+
+export interface CustomInputAuditItem {
+  id: string;
+  timestamp: string;
+  userId: string;
+  userName: string;
+  requestedBy?: string;
+  approvedBy?: string;
+  approvedByRole?: string;
+  role: string;
+  category: CustomInputCategory;
+  action: "Created" | "Updated" | "Approved" | "Rejected" | "Merged" | "Deleted" | "FavoriteToggled";
+  entryValue: string;
+  previousValue?: string;
+  newValue?: string;
+  approvalStatus?: string;
+  date?: string;
+  time?: string;
+  details: string;
+}
+
+export type NotificationCategory =
+  | "Attendance Notifications"
+  | "Warehouse Notifications"
+  | "Site Store Notifications"
+  | "Material Request Notifications"
+  | "Material Approval Notifications"
+  | "Material Transfer Notifications"
+  | "Material Return Notifications"
+  | "Aluminum Formwork Panel Tracking Notifications"
+  | "Procurement Notifications"
+  | "Purchase Order Notifications"
+  | "Delivery Notifications"
+  | "Finance Notifications"
+  | "Payroll Notifications"
+  | "Budget Notifications"
+  | "Project Progress Notifications"
+  | "Daily Report Notifications"
+  | "QA/QC Notifications"
+  | "NCR Notifications"
+  | "HSE Notifications"
+  | "Toolbox Meeting Notifications"
+  | "PPE Inspection Notifications"
+  | "Hazard Notifications"
+  | "Near Miss Notifications"
+  | "Equipment Notifications"
+  | "Vehicle Notifications"
+  | "Asset Notifications"
+  | "AI Alerts"
+  | "Maintenance Notifications"
+  | "Document Approval Notifications"
+  | "User Approval Notifications"
+  | "System Update Notifications";
+
+export type NotificationPriority = "Low" | "Medium" | "High" | "Critical";
+
+export type NotificationStatus = "Unread" | "Read" | "Acknowledged" | "Completed";
+
+export interface EnterpriseNotification {
+  id: string;
+  title: string;
+  titleAm?: string;
+  description: string;
+  descriptionAm?: string;
+  category: NotificationCategory;
+  priority: NotificationPriority;
+  status: NotificationStatus;
+  projectName: string;
+  siteName?: string;
+  building?: string;
+  floor?: string;
+  zone?: string;
+  sender: string;
+  senderRole?: string;
+  receiver: string;
+  targetRoles: (UserRole | string)[];
+  date: string;
+  time: string;
+  timestamp: number;
+  isAiGenerated?: boolean;
+  aiConfidence?: number;
+  isArchived?: boolean;
+  isSnoozed?: boolean;
+  snoozedUntil?: string;
+  deliveryChannels?: {
+    inApp: boolean;
+    push: boolean;
+    email: boolean;
+    sms: boolean;
+  };
+  actionTab?: string;
+  actionPayload?: Record<string, any>;
+  tags?: string[];
+}
+
+export interface NotificationFilterState {
+  searchQuery: string;
+  category: NotificationCategory | "ALL";
+  priority: NotificationPriority | "ALL";
+  status: NotificationStatus | "ALL" | "Archived";
+  projectName: string;
+  onlyAiAlerts: boolean;
+  dateRange: "all" | "today" | "week" | "month";
+}
+
+export interface RoleChangeRequestDoc {
+  id: string;
+  fileName: string;
+  fileSize: string;
+  fileType: string;
+  uploadedAt: string;
+  dataUrl?: string;
+}
+
+export interface RoleChangeRequest {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmail?: string;
+  phoneNumber?: string;
+  currentRole: UserRole | string;
+  requestedRole: UserRole | string;
+  assignedRole?: UserRole | string;
+  reason: string;
+  supportingDocuments?: RoleChangeRequestDoc[];
+  status: "Pending Approval" | "Approved" | "Rejected" | "Cancelled";
+  requestedBy: string;
+  requestedByRole: string;
+  requestedDate: string;
+  requestedTime: string;
+  approvedBy?: string;
+  approvedByRole?: string;
+  approvedDate?: string;
+  approvedTime?: string;
+  rejectionReason?: string;
+  deviceInfo: {
+    ip: string;
+    deviceType: string;
+    browserOs: string;
+    locationGps?: string;
+  };
+}
+
+export interface RoleChangeAuditLog {
+  id: string;
+  timestamp: string;
+  date: string;
+  time: string;
+  userId: string;
+  userName: string;
+  previousRole: string;
+  newRole: string;
+  requestedBy: string;
+  approvedBy: string;
+  approverRole: string;
+  status: "Approved" | "Rejected" | "Cancelled";
+  reason: string;
+  rejectionReason?: string;
+  deviceInfo: {
+    ip: string;
+    deviceType: string;
+    browserOs: string;
+    locationGps?: string;
+  };
+}
+
+
+
 

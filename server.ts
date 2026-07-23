@@ -331,6 +331,103 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
     }
   });
 
+  // AI Financial Analysis & Fraud Detection Endpoint
+  app.post("/api/finance/ai-analysis", async (req, res) => {
+    try {
+      const { budgetData, expenseData, payrollData, procurementData, assetData, projectsData } = req.body;
+      const ai = getGeminiClient();
+
+      if (!ai) {
+        return res.json({
+          success: true,
+          simulated: true,
+          data: {
+            predictedExpensesNextMonth: 104500000,
+            predictedCashFlow3Months: [
+              { month: "Aug 2026", cashIn: 185000000, cashOut: 110000000, netCash: 75000000 },
+              { month: "Sep 2026", cashIn: 195000000, cashOut: 115000000, netCash: 80000000 },
+              { month: "Oct 2026", cashIn: 210000000, cashOut: 120000000, netCash: 90000000 }
+            ],
+            unusualSpendingAlerts: [
+              { id: "ALERT-101", category: "Equipment Fuel", amount: 2400000, threshold: 1800000, riskLevel: "High", reason: "Fuel consumption spiked +33% on concrete pump truck CP-02 without corresponding cubic meter log increase." },
+              { id: "ALERT-102", category: "Material Procurement", amount: 15400000, threshold: 12000000, riskLevel: "Medium", reason: "Rebar unit price from Ethio Steel Mills is 8% above Q2 market baseline." }
+            ],
+            payrollAnomalies: [
+              { workerId: "W-104", name: "Abebe Kassaye", anomalyType: "Overtime Spike", description: "38 overtime hours logged in single week (exceeds 20h safety cap). Verified with Timekeeper Abebe Girma.", severity: "Warning" },
+              { workerId: "W-209", name: "Tewodros Worku", anomalyType: "Duplicate Badge Entry", description: "Biometric clock-in recorded at Site B1 and Site A1 within 12 minutes.", severity: "Severe" }
+            ],
+            forecastCompletionCost: 362000000,
+            recommendedBudgetAdjustments: [
+              { fromCategory: "Overhead & Supervision", toCategory: "Material Concrete & Rebar", amount: 3500000, justification: "Overhead is running 12% under budget while concrete supplier prices increased 4%." },
+              { fromCategory: "Equipment Leasing", toCategory: "Formwork Spare Accessories", amount: 1200000, justification: "Formwork pin replacement rate requires buffer funding before slab casting floor 8." }
+            ],
+            fraudRiskAlerts: [
+              { riskType: "Split Purchase Orders", targetEntity: "PO-2026-881 & PO-2026-882", severity: "Medium", recommendation: "Two POs issued to same vendor under ETB 15M threshold within 48 hours. Recommend Head Office audit." }
+            ],
+            executiveSummaryMarkdown: "### Executive Financial Intelligence Summary\n- **Overall Fiscal Health**: **Strong / Low Default Risk** (CPI = 1.08, SPI = 1.04)\n- **Operating Margin**: 28.4% gross profit margin sustained across Bole Heights & Yeka Hills projects.\n- **Cash Flow Runway**: Projected net liquidity reserve exceeds ETB 245M through Q4 2026.\n- **Key Recommendation**: Approve recommended ETB 3.5M budget re-allocation from Overhead to Material buffer to lock in bulk cement discounts."
+          }
+        });
+      }
+
+      const prompt = `
+You are the Chief AI Financial Auditor & Predictive Economist for BuildSync Smart Construction ERP.
+Analyze the following corporate financial dataset:
+- Budgets: ${JSON.stringify(budgetData || [])}
+- Expenses: ${JSON.stringify(expenseData || [])}
+- Payroll Summaries: ${JSON.stringify(payrollData || [])}
+- Procurement & Imports: ${JSON.stringify(procurementData || [])}
+- Equipment & Assets: ${JSON.stringify(assetData || [])}
+- Active Projects EVM: ${JSON.stringify(projectsData || [])}
+
+Provide comprehensive financial forecasts and audit alerts:
+1. Predict next month total company expenses (ETB).
+2. Predict 3-month cash flow trajectory (Inflow, Outflow, Net).
+3. Detect unusual spending anomalies and budget variances (>15%).
+4. Detect payroll anomalies (suspicious overtime, duplicate entries).
+5. Forecast total completion cost (EAC) across active projects.
+6. Provide specific budget adjustment recommendations between cost categories.
+7. Identify potential financial fraud risks (split POs, pricing deviations).
+8. Write a concise Markdown Executive Summary for the CEO and Finance Manager.
+
+Return a JSON object matching this schema exactly without markdown formatting around it:
+{
+  "predictedExpensesNextMonth": number,
+  "predictedCashFlow3Months": [{"month": string, "cashIn": number, "cashOut": number, "netCash": number}],
+  "unusualSpendingAlerts": [{"id": string, "category": string, "amount": number, "threshold": number, "riskLevel": string, "reason": string}],
+  "payrollAnomalies": [{"workerId": string, "name": string, "anomalyType": string, "description": string, "severity": string}],
+  "forecastCompletionCost": number,
+  "recommendedBudgetAdjustments": [{"fromCategory": string, "toCategory": string, "amount": number, "justification": string}],
+  "fraudRiskAlerts": [{"riskType": string, "targetEntity": string, "severity": string, "recommendation": string}],
+  "executiveSummaryMarkdown": string
+}
+`;
+
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json"
+        }
+      });
+
+      const responseText = response.text || "{}";
+      const resultData = JSON.parse(responseText.trim());
+
+      res.json({
+        success: true,
+        simulated: false,
+        data: resultData
+      });
+
+    } catch (error) {
+      console.error("Gemini Finance AI analysis failed:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : "Internal Server Error" 
+      });
+    }
+  });
+
   // AI Safety Predictions Endpoint
   app.post("/api/ai/predict-safety", async (req, res) => {
     try {

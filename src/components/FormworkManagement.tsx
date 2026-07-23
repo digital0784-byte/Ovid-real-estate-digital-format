@@ -58,6 +58,7 @@ import {
   Legend 
 } from "recharts";
 import { DbService } from "../services/db";
+import { SmartCustomSelect } from "./SmartCustomSelect";
 import { 
   AluminumFormworkPanel, 
   PanelMovementLog, 
@@ -614,11 +615,74 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
   const COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b", "#6366f1", "#8b5cf6"];
   const STATUS_COLORS: Record<string, string> = {
+    [PanelStatus.NEW]: "#06b6d4",
+    [PanelStatus.AGED]: "#64748b",
     [PanelStatus.ACTIVE]: "#10b981",
     [PanelStatus.IN_USE]: "#3b82f6",
+    [PanelStatus.CLEANED]: "#059669",
+    [PanelStatus.WAITING_CLEANING]: "#d97706",
     [PanelStatus.DAMAGED]: "#ef4444",
     [PanelStatus.UNDER_REPAIR]: "#f59e0b",
+    [PanelStatus.REPAIRED]: "#8b5cf6",
     [PanelStatus.MISSING]: "#6366f1",
+    [PanelStatus.DISMANTLED]: "#94a3b8",
+    [PanelStatus.UNDER_INSPECTION]: "#38bdf8",
+    [PanelStatus.RESERVED]: "#a855f7",
+    [PanelStatus.IN_TRANSIT]: "#3b82f6",
+    [PanelStatus.SCRAPPED]: "#475569"
+  };
+
+  const getPanelStatusDisplay = (status: string) => {
+    if (!isAmharic) return status;
+    switch (status) {
+      case PanelStatus.NEW:
+      case "New Panel":
+      case "New":
+        return "አዲስ (New)";
+      case PanelStatus.AGED:
+      case "Aged / Old Panel":
+      case "Aged":
+      case "Old":
+        return "አሮጌ (Aged/Old)";
+      case PanelStatus.CLEANED:
+      case "Cleaned":
+        return "የፀዳ (Cleaned)";
+      case PanelStatus.WAITING_CLEANING:
+      case "Waiting Cleaning":
+      case "Uncleaned":
+        return "ያልተፀዳ (Uncleaned)";
+      case PanelStatus.DAMAGED:
+      case "Damaged":
+        return "የተበላሸ (Damaged)";
+      case PanelStatus.REPAIRED:
+      case "Repaired":
+      case "Refurbished":
+        return "የተጠገነ (Repaired)";
+      case PanelStatus.IN_USE:
+      case "Installed / In Use":
+      case "In Use":
+        return "ስራ ላይ ያለ (In Use)";
+      case PanelStatus.ACTIVE:
+      case "Active":
+        return "ንቁ (Active)";
+      case PanelStatus.DISMANTLED:
+      case "Dismantled":
+        return "የተበተነ (Dismantled)";
+      case PanelStatus.UNDER_INSPECTION:
+      case "Under Inspection":
+        return "በፍተሻ ላይ (Under Inspection)";
+      case PanelStatus.UNDER_REPAIR:
+      case "Under Repair":
+        return "በጥገና ላይ (Under Repair)";
+      case PanelStatus.IN_TRANSIT:
+      case "In Transit":
+        return "በትራንዚት ላይ (In Transit)";
+      case PanelStatus.MISSING:
+      case "Missing":
+        return "የጠፋ (Missing)";
+      default:
+        return status;
+    }
   };
 
   // --- Handlers ---
@@ -1785,7 +1849,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                       >
                         <option value="All">{t("All Statuses", "ሁሉንም ሁኔታዎች")}</option>
                         {Object.values(PanelStatus).map((s, i) => (
-                          <option key={i} value={s}>{s}</option>
+                          <option key={i} value={s}>{getPanelStatusDisplay(s)}</option>
                         ))}
                       </select>
                     </div>
@@ -1861,13 +1925,13 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                             </td>
                             <td className="p-3">
                               <span 
-                                className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                                className="px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200/50"
                                 style={{ 
-                                  backgroundColor: `${STATUS_COLORS[panel.status]}15`, 
-                                  color: STATUS_COLORS[panel.status] 
+                                  backgroundColor: `${STATUS_COLORS[panel.status] || '#10b981'}15`, 
+                                  color: STATUS_COLORS[panel.status] || '#10b981'
                                 }}
                               >
-                                {panel.status}
+                                {getPanelStatusDisplay(panel.status)}
                               </span>
                             </td>
                             <td className="p-3 text-center">
@@ -4938,14 +5002,19 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">{t("Initial Asset Status", "የመጀመሪያ የፓነል ሁኔታ")}</label>
-                <select
+                <SmartCustomSelect
+                  category="Panel Status"
                   value={newPanelStatus}
-                  onChange={e => setNewPanelStatus(e.target.value as PanelStatus)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
-                >
-                  <option value={PanelStatus.ACTIVE}>{t("Active (Standby)", "ንቁ (ዝግጁ)")}</option>
-                  <option value={PanelStatus.IN_USE}>{t("In Use (Deployed)", "በስራ ላይ ያለ")}</option>
-                </select>
+                  onChange={(val) => setNewPanelStatus(val as PanelStatus)}
+                  labelEn="Panel Status"
+                  labelAm="የፓነል ሁኔታ"
+                  placeholderEn="Select or specify status (e.g. New, Aged, Cleaned, Damaged...)"
+                  placeholderAm="የፓነል ሁኔታ ይምረጡ ወይም በግልጽ ያስገቡ (አዲስ፣ አሮጌ፣ የፀዳ፣ ያልተፀዳ፣ የተበላሸ፣ የተጠገነ፣ ስራ ላይ ያለ...)"
+                  isAmharic={isAmharic}
+                  currentUserRole={currentUserRole}
+                  currentUserName={currentUserName}
+                  required
+                />
               </div>
 
               <div className="grid grid-cols-3 gap-3">

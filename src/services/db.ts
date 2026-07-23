@@ -36,7 +36,8 @@ import {
   CustomsRecord,
   DispatchTransfer,
   SiteReceivingReport,
-  InventoryAuditRecord
+  InventoryAuditRecord,
+  RegisteredSite
 } from "../types";
 import { 
   initialWorkers, 
@@ -57,7 +58,8 @@ import {
   initialCustomsRecords,
   initialDispatchTransfers,
   initialSiteReceivingReports,
-  initialInventoryAudits
+  initialInventoryAudits,
+  initialRegisteredSites
 } from "../data";
 
 // High-integrity Local Database Engine
@@ -134,6 +136,9 @@ export const DbService = {
 
   async addWorker(worker: Worker): Promise<void> {
     localDb.insert<Worker>("workers", worker, initialWorkers);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workers_updated"));
+    }
     if (isFirebaseReady) {
       setDoc(doc(db, "workers", worker.id), worker).catch((err) => {
         console.error("Firestore background addWorker failed:", err);
@@ -143,6 +148,9 @@ export const DbService = {
 
   async updateWorker(worker: Worker): Promise<void> {
     localDb.update<Worker>("workers", worker, initialWorkers);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workers_updated"));
+    }
     if (isFirebaseReady) {
       setDoc(doc(db, "workers", worker.id), worker, { merge: true }).catch((err) => {
         console.error("Firestore background updateWorker failed:", err);
@@ -152,6 +160,9 @@ export const DbService = {
 
   async deleteWorker(id: string): Promise<void> {
     localDb.delete<Worker>("workers", id, initialWorkers);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workers_updated"));
+    }
     if (isFirebaseReady) {
       deleteDoc(doc(db, "workers", id)).catch((err) => {
         console.error("Firestore background deleteWorker failed:", err);
@@ -587,5 +598,44 @@ export const DbService = {
   },
   async addInventoryAudit(audit: InventoryAuditRecord): Promise<void> {
     localDb.insert<InventoryAuditRecord>("inventoryAudits", audit, initialInventoryAudits);
+  },
+
+  // === REGISTERED SITES ===
+  async getRegisteredSites(): Promise<RegisteredSite[]> {
+    if (isFirebaseReady) {
+      try {
+        const colRef = collection(db, "registeredSites");
+        const snapshot = await getDocs(colRef);
+        const sites = snapshot.docs.map(doc => doc.data() as RegisteredSite);
+        if (sites.length > 0) return sites;
+      } catch (err) {
+        console.error("Firestore getRegisteredSites failed:", err);
+      }
+    }
+    return localDb.getList<RegisteredSite>("registeredSites", initialRegisteredSites);
+  },
+  async addRegisteredSite(site: RegisteredSite): Promise<void> {
+    localDb.insert<RegisteredSite>("registeredSites", site, initialRegisteredSites);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "registeredSites", site.id), site).catch((err) => {
+        console.error("Firestore background addRegisteredSite failed:", err);
+      });
+    }
+  },
+  async updateRegisteredSite(site: RegisteredSite): Promise<void> {
+    localDb.update<RegisteredSite>("registeredSites", site, initialRegisteredSites);
+    if (isFirebaseReady) {
+      setDoc(doc(db, "registeredSites", site.id), site, { merge: true }).catch((err) => {
+        console.error("Firestore background updateRegisteredSite failed:", err);
+      });
+    }
+  },
+  async deleteRegisteredSite(id: string): Promise<void> {
+    localDb.delete<RegisteredSite>("registeredSites", id, initialRegisteredSites);
+    if (isFirebaseReady) {
+      deleteDoc(doc(db, "registeredSites", id)).catch((err) => {
+        console.error("Firestore background deleteRegisteredSite failed:", err);
+      });
+    }
   }
 };

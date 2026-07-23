@@ -3,6 +3,7 @@ import {
   Plus, 
   Users, 
   ShieldAlert, 
+  ShieldCheck,
   Layers, 
   Trash2, 
   Check, 
@@ -142,6 +143,30 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           <span>{notifyMsg}</span>
         </div>
       )}
+
+      {/* Role Change Approval System Banner */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-950 p-5 rounded-2xl border border-amber-500/30 text-white flex flex-col md:flex-row items-center justify-between gap-4 shadow-lg">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-amber-500 text-slate-950 rounded-xl font-bold shrink-0">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2 flex-wrap gap-y-1">
+              <h3 className="text-sm font-bold text-white">
+                {isAmharic ? "የሥራ ድርሻ ለውጥ ማጽደቂያ ሥርዓት" : "User Role Change Approval System"}
+              </h3>
+              <span className="px-2 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded text-[10px] font-mono font-bold">
+                {isAmharic ? "የአድሚን እና ሄድ ኦፊስ ፈቃድ ብቻ" : "Admin & Head Office Authorized"}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+              {isAmharic 
+                ? "ተጠቃሚዎች ከምዝገባ በኋላ በራሳቸው ድርሻቸውን መቀየር አይችሉም። ሁሉም የድርሻ ለውጥ ጥያቄዎች በደህንነት ማዕከል (Security & Settings -> Role Change Approval) በኩል ማጽደቅ አለባቸው።"
+                : "Self-service role modification is disabled by security mandate. All pending role changes must be requested and approved/rejected via Security & Settings -> Role Change Approval System."}
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* Grid: Forms */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { 
   Building2, 
@@ -36,7 +36,8 @@ import {
   FileCode,
   FileDown
 } from "lucide-react";
-import { Worker, Team, AttendanceRecord, UserRole } from "../types";
+import { Worker, Team, AttendanceRecord, UserRole, RegisteredSite } from "../types";
+import { DbService } from "../services/db";
 
 // Types matching specification
 export interface Project {
@@ -212,6 +213,68 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       zonesPerFloor: 3
     }
   ]);
+
+  useEffect(() => {
+    const loadDbSites = async () => {
+      try {
+        const fetchedSites = await DbService.getRegisteredSites();
+        if (fetchedSites && fetchedSites.length > 0) {
+          const convertedProjects: Project[] = fetchedSites.map((s) => {
+            const coords = s.googleMapsCoords ? s.googleMapsCoords.split(",") : [];
+            const lat = coords[0] ? parseFloat(coords[0].trim()) : 9.0118;
+            const lng = coords[1] ? parseFloat(coords[1].trim()) : 38.7954;
+            return {
+              id: s.id,
+              name: s.projectName,
+              client: s.clientName,
+              contractor: s.contractorName,
+              projectManager: s.siteManager || "Eng. Samuel Alene",
+              supervisor: s.supervisor || "Kassa Hunegn",
+              teamLeaders: s.teamLeaders || ["Yohannes Bekele"],
+              gangChiefs: s.gangChiefs || ["Fikru Tolossa"],
+              timeKeepers: s.timeKeepers || ["Tsion Demeke"],
+              address: s.cityWoreda,
+              city: s.cityWoreda.split(",")[0] || "Addis Ababa",
+              region: s.region,
+              country: "Ethiopia",
+              lat: isNaN(lat) ? 9.0118 : lat,
+              lng: isNaN(lng) ? 38.7954 : lng,
+              geofenceRadius: 150,
+              startDate: s.startDate,
+              plannedCompletionDate: s.plannedCompletionDate,
+              status: s.status === "Active" ? "In Progress" : s.status === "Planning" ? "Planning" : "In Progress",
+              description: `Registered Project Site: ${s.projectName} located in ${s.cityWoreda}, ${s.region}. Buildings: ${s.buildingsCount}, Floors: ${s.floorsCount}.`,
+              zonesPerFloor: s.zonesPerFloor
+            };
+          });
+
+          setProjects(prev => {
+            const existingIds = new Set(prev.map(p => p.id));
+            const newProjs = convertedProjects.filter(p => !existingIds.has(p.id));
+            if (newProjs.length > 0) {
+              return [...newProjs, ...prev];
+            }
+            return prev;
+          });
+        }
+      } catch (err) {
+        console.error("Failed to load DB sites in ProjectDocumentManager:", err);
+      }
+    };
+
+    loadDbSites();
+
+    const handleSync = () => {
+      loadDbSites();
+    };
+    window.addEventListener("sites_updated", handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => {
+      window.removeEventListener("sites_updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, []);
 
   const [buildings, setBuildings] = useState<Building[]>([
     { id: "BLD-101-A", projectId: "Digital Construction ERP-PRJ-101", name: "Tower Block A", buildingNumber: "B1", floorsCount: 15, basementLevels: 2, roofLevel: 16, totalArea: 18500 },
@@ -396,7 +459,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
   // --- HANDLERS ---
 
-  const handleCreateProject = (e: React.FormEvent) => {
+  const handleCreateProject = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canRegisterAndEdit) return;
 
@@ -427,6 +490,32 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
     setProjects(prev => [newProj, ...prev]);
     setSelectedProjectId(newId);
+
+    // Save to global registered sites DB
+    const regSite: RegisteredSite = {
+      id: newId,
+      projectName: newProj.name,
+      clientName: newProj.client,
+      contractorName: newProj.contractor,
+      region: newProj.region,
+      cityWoreda: `${newProj.city}, ${newProj.address}`,
+      gpsLocation: `${newProj.lat}° N, ${newProj.lng}° E`,
+      googleMapsCoords: `${newProj.lat},${newProj.lng}`,
+      startDate: newProj.startDate,
+      plannedCompletionDate: newProj.plannedCompletionDate,
+      buildingsCount: 1,
+      floorsCount: 10,
+      zonesPerFloor: newProj.zonesPerFloor,
+      siteManager: newProj.projectManager,
+      supervisor: newProj.supervisor,
+      teamLeaders: newProj.teamLeaders,
+      gangChiefs: newProj.gangChiefs,
+      timeKeepers: newProj.timeKeepers,
+      status: "Planning",
+      documents: []
+    };
+    await DbService.addRegisteredSite(regSite);
+    window.dispatchEvent(new CustomEvent("sites_updated"));
 
     // Reset Form fields
     setProjName("");

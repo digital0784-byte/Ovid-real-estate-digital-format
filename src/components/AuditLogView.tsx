@@ -123,11 +123,18 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
                     [UserRole.TEAM_LEADER]: "bg-blue-50 text-blue-700 border-blue-200",
                     [UserRole.GANG_CHIEF]: "bg-purple-50 text-purple-700 border-purple-200",
                     [UserRole.TIME_KEEPER]: "bg-amber-50 text-amber-700 border-amber-200",
-                    [UserRole.WORKER]: "bg-emerald-50 text-emerald-700 border-emerald-200",
+                    [UserRole.ASSEMBLER]: "bg-emerald-50 text-emerald-700 border-emerald-200",
                     [UserRole.WAREHOUSE_MANAGER]: "bg-amber-50 text-amber-800 border-amber-300",
-                    [UserRole.STORE_MANAGER]: "bg-orange-50 text-orange-700 border-orange-200",
+                    [UserRole.STORE_OWNER]: "bg-orange-50 text-orange-700 border-orange-200",
                     [UserRole.HR_MANAGER]: "bg-pink-50 text-pink-700 border-pink-200",
-                    [UserRole.FINANCE_MANAGER]: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200"
+                    [UserRole.FINANCE_MANAGER]: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
+                    [UserRole.PROCUREMENT_MANAGER]: "bg-yellow-50 text-yellow-800 border-yellow-300",
+                    [UserRole.QAQC_ENGINEER]: "bg-lime-50 text-lime-800 border-lime-300",
+                    [UserRole.HSE_OFFICER]: "bg-emerald-100 text-emerald-900 border-emerald-300",
+                    [UserRole.DRIVER]: "bg-stone-50 text-stone-700 border-stone-200",
+                    [UserRole.CLIENT_CONSULTANT]: "bg-blue-100 text-blue-900 border-blue-300",
+                    [UserRole.AUDITOR]: "bg-slate-100 text-slate-800 border-slate-300",
+                    [UserRole.VISITOR]: "bg-gray-50 text-gray-600 border-gray-200"
                   };
 
                   return (

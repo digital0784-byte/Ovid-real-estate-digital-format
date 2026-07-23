@@ -220,6 +220,12 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
     };
 
     onAddWorker(newWorker);
+    // Reset filters so the newly created worker is immediately visible
+    setSearchTerm("");
+    setSelectedDepartment("All");
+    setSelectedTrade("All");
+    setSelectedCompany("All");
+    setSelectedStatus("All");
     setSelectedWorkerId(newWorker.id);
     setShowAddModal(false);
     

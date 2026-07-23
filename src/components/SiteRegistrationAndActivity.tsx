@@ -39,39 +39,11 @@ import {
   Play,
   ClipboardList
 } from "lucide-react";
-import { Worker, Team, AttendanceRecord, UserRole } from "../types";
+import { Worker, Team, AttendanceRecord, UserRole, RegisteredSite } from "../types";
+import { DbService } from "../services/db";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Legend } from "recharts";
 
-// Interfaces according to specification
-export interface RegisteredSite {
-  id: string; // e.g. Digital Construction ERP-SITE-2026-001
-  projectName: string;
-  clientName: string;
-  contractorName: string;
-  region: string;
-  cityWoreda: string;
-  gpsLocation: string; // "9.0118° N, 38.7954° E"
-  googleMapsCoords: string; // "9.0118,38.7954"
-  startDate: string;
-  plannedCompletionDate: string;
-  buildingsCount: number;
-  floorsCount: number;
-  zonesPerFloor: number;
-  siteManager: string;
-  supervisor: string;
-  teamLeaders: string[];
-  gangChiefs: string[];
-  timeKeepers: string[];
-  status: "Planning" | "Active" | "Completed" | "Closed";
-  documents: {
-    id: string;
-    name: string;
-    type: "CAD Drawing" | "Structural Drawing" | "Formwork Drawing" | "Method Statement" | "Safety Document" | "Progress Photo" | "Other";
-    uploadDate: string;
-    uploadedBy: string;
-    fileSize: string;
-  }[];
-}
+export type { RegisteredSite };
 
 export interface DailyActivity {
   id: string;
@@ -126,82 +98,32 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   // --- SUB TAB CONTROL ---
   const [activeSubTab, setActiveSubTab] = useState<"register" | "dailyActivity" | "report">("register");
 
-  // --- DATABASE STATE (Simulated Firestore with real-time replication effect) ---
-  const [sites, setSites] = useState<RegisteredSite[]>([
-    {
-      id: "Digital Construction ERP-SITE-2026-001",
-      projectName: "Digital Bole Heights",
-      clientName: "Federal Housing Corporation",
-      contractorName: "Digital Construction ERP Plc",
-      region: "Addis Ababa",
-      cityWoreda: "Bole Sub-City, Woreda 03",
-      gpsLocation: "9.0118° N, 38.7954° E",
-      googleMapsCoords: "9.0118,38.7954",
-      startDate: "2025-02-15",
-      plannedCompletionDate: "2026-12-30",
-      buildingsCount: 3,
-      floorsCount: 15,
-      zonesPerFloor: 3,
-      siteManager: "Eng. Yoseph Hailu",
-      supervisor: "Martha Hagos",
-      teamLeaders: ["Yohannes Bekele", "Hiwot Girma"],
-      gangChiefs: ["Fikru Tolossa", "Chala Kebede"],
-      timeKeepers: ["Abebe Girma"],
-      status: "Active",
-      documents: [
-        { id: "S-DOC-001", name: "Approved_BoleHeights_FormworkLayout_Fl04_Z-A.dwg", type: "CAD Drawing", uploadDate: "2026-06-28", uploadedBy: "Eng. Yoseph Hailu", fileSize: "14.5 MB" },
-        { id: "S-DOC-002", name: "Structural_CoreShaft_Axis-C.pdf", type: "Structural Drawing", uploadDate: "2026-07-02", uploadedBy: "Martha Hagos", fileSize: "8.2 MB" },
-        { id: "S-DOC-003", name: "SOP_Aluminum_Assembly_Guide.pdf", type: "Method Statement", uploadDate: "2026-05-10", uploadedBy: "Martha Hagos", fileSize: "2.1 MB" },
-        { id: "S-DOC-004", name: "SafetyCompliance_HighAltitudeFormwork.pdf", type: "Safety Document", uploadDate: "2026-05-15", uploadedBy: "Kassa Hunegn", fileSize: "1.7 MB" }
-      ]
-    },
-    {
-      id: "Digital Construction ERP-SITE-2026-002",
-      projectName: "Digital Construction ERP Ayat East Block T2",
-      clientName: "Digital Construction ERP System",
-      contractorName: "Digital Construction ERP Plc",
-      region: "Addis Ababa",
-      cityWoreda: "Yeka Sub-City, Woreda 11",
-      gpsLocation: "9.0254° N, 38.8612° E",
-      googleMapsCoords: "9.0254,38.8612",
-      startDate: "2025-06-01",
-      plannedCompletionDate: "2027-04-15",
-      buildingsCount: 2,
-      floorsCount: 10,
-      zonesPerFloor: 4,
-      siteManager: "Eng. Samuel Alene",
-      supervisor: "Kassa Hunegn",
-      teamLeaders: ["Bekele Tesfaye"],
-      gangChiefs: ["Yosef Assefa"],
-      timeKeepers: ["Tsion Demeke"],
-      status: "Active",
-      documents: [
-        { id: "S-DOC-005", name: "Composite_Formwork_BlockT2_Rev2.pdf", type: "Formwork Drawing", uploadDate: "2026-07-04", uploadedBy: "Kassa Hunegn", fileSize: "11.4 MB" }
-      ]
-    },
-    {
-      id: "Digital Construction ERP-SITE-2026-003",
-      projectName: "Lideta Smart Apartments",
-      clientName: "Ministry of Urban Development",
-      contractorName: "Digital Construction ERP Plc",
-      region: "Addis Ababa",
-      cityWoreda: "Lideta Sub-City, Woreda 04",
-      gpsLocation: "9.0042° N, 38.7412° E",
-      googleMapsCoords: "9.0042,38.7412",
-      startDate: "2026-01-10",
-      plannedCompletionDate: "2027-08-01",
-      buildingsCount: 4,
-      floorsCount: 18,
-      zonesPerFloor: 3,
-      siteManager: "Eng. Daniel Girma",
-      supervisor: "Solomon Kassa",
-      teamLeaders: ["Abeba Kebede"],
-      gangChiefs: ["Tadesse Melaku"],
-      timeKeepers: ["Ruth Hailu"],
-      status: "Planning",
-      documents: []
+  // --- DATABASE STATE (Loaded dynamically via DbService) ---
+  const [sites, setSites] = useState<RegisteredSite[]>([]);
+
+  const refreshSites = async () => {
+    try {
+      const fetched = await DbService.getRegisteredSites();
+      if (fetched && fetched.length > 0) {
+        setSites(fetched);
+      }
+    } catch (e) {
+      console.error("Failed to load registered sites:", e);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    refreshSites();
+    const handleSync = () => {
+      refreshSites();
+    };
+    window.addEventListener("sites_updated", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("sites_updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, []);
 
   const [dailyActivities, setDailyActivities] = useState<DailyActivity[]>([
     {
@@ -373,7 +295,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   const canApproveTomorrowPlan = currentUserRole === UserRole.SUPERVISOR || currentUserRole === UserRole.HEAD_OFFICE;
 
   // --- HANDLERS ---
-  const handleRegisterSite = (e: React.FormEvent) => {
+  const handleRegisterSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canRegisterSite) return;
 
@@ -381,8 +303,8 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
     
     // Initial standard documents pack for new site
     const initialDocs = [
-      { id: `S-DOC-${Date.now()}-1`, name: `${formProjName.replace(/\s+/g, "_")}_FormworkMethodStatement.pdf`, type: "Method Statement" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.4 MB" },
-      { id: `S-DOC-${Date.now()}-2`, name: `${formProjName.replace(/\s+/g, "_")}_SafetyProtocol.pdf`, type: "Safety Document" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.1 MB" }
+      { id: `S-DOC-${Date.now()}-1`, name: `${(formProjName || "New_Site").replace(/\s+/g, "_")}_FormworkMethodStatement.pdf`, type: "Method Statement" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.4 MB" },
+      { id: `S-DOC-${Date.now()}-2`, name: `${(formProjName || "New_Site").replace(/\s+/g, "_")}_SafetyProtocol.pdf`, type: "Safety Document" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.1 MB" }
     ];
 
     const newSite: RegisteredSite = {
@@ -408,8 +330,10 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
       documents: initialDocs
     };
 
-    setSites(prev => [newSite, ...prev]);
+    await DbService.addRegisteredSite(newSite);
+    setSites(prev => [newSite, ...prev.filter(s => s.id !== newSite.id)]);
     setSelectedSiteId(generatedSiteId);
+    window.dispatchEvent(new CustomEvent("sites_updated"));
 
     // Reset Form
     setFormProjName("");
@@ -419,7 +343,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
     setFormEnd("");
 
     if (onLogAction) {
-      onLogAction("Registered New Site", `Created site record ${generatedSiteId} for ${newSite.projectName}. Cloud Storage partitions allocated.`);
+      onLogAction("Registered New Site", `Created site record ${generatedSiteId} for ${newSite.projectName}. Persistent storage & Cloud partitions allocated.`);
     }
 
     triggerFirebaseSync();
@@ -435,7 +359,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
         return {
           ...s,
           documents: [
-            ...s.documents,
+            ...(s.documents || []),
             {
               id: `S-DOC-${Date.now()}`,
               name: fileName,
@@ -840,7 +764,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
 
                   {/* Documents list */}
                   <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                    {selectedSite.documents && selectedSite.documents.length > 0 ? (
+                    {selectedSite?.documents && selectedSite.documents.length > 0 ? (
                       selectedSite.documents.map(doc => (
                         <div key={doc.id} className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/60 flex items-center justify-between text-xs hover:border-indigo-500/40 transition-colors">
                           <div className="space-y-0.5 truncate pr-2">

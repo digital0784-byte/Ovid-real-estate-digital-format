@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
-import { ProjectZone, AluminumFormworkPanel, UserRole } from "../types";
+import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite } from "../types";
 import {
   Store,
   Package,
@@ -27,6 +27,8 @@ import {
   Bell,
   Clock,
   ShieldCheck,
+  Shield,
+  Send,
   UserCheck,
   Users,
   BarChart3,
@@ -37,6 +39,7 @@ import {
   Key,
   Database,
   Camera,
+  Eye,
   PenTool,
   Check,
   X,
@@ -213,25 +216,87 @@ export interface SitePanelBreakdown {
 export interface DailyMaterialRequisition {
   id: string;
   date: string;
+  requestedAt: string;
+  projectName: string;
   siteName: string;
+  buildingNumber: string;
   blockNumber: string;
   floorNumber: string;
+  zoneNumber: string;
+  requestedBy: string;
+  employeeId: string;
+  jobPosition: "Assembler" | "Gang Chief" | "Team Leader" | "Supervisor" | "Section Head";
+  submissionMode: "Mobile App" | "Tablet" | "Desktop" | "Paper Form (Manual Entry)";
+  materialName: string;
+  materialType: "Formwork Accessory" | "Aluminum Panel" | "Consumable" | "Concrete / Block";
+  materialSize: string;
+  unit: string;
+  quantityRequested: number;
+  quantityIssued: number;
+  purposeOfUse: string;
   workType: "Wall" | "Slab" | "Beam" | "Column";
-  gangChiefName: string;
-  teamLeaderName: string;
-  sectionHeadName: string;
-  supervisorName: string;
-  status: "Draft" | "Pending Approval" | "Approved" | "Issued" | "Returned";
+  priority: "Normal" | "Urgent" | "Emergency";
+  expectedReturnDate: string;
+  status: "Draft" | "Pending Approval" | "Approved" | "Partially Approved" | "Issued" | "Rejected";
+  approvedBy: string;
+  issuedBy: string;
+  stockAvailability: "In Stock" | "Low Stock" | "Out of Stock";
+  qrScanVerified: boolean;
+  receiverSignature: string;
+  gpsLocation: string;
   pinsQty: number;
   wedgesQty: number;
   tieRodsQty: number;
   conduitsQty: number;
   blocksQty: number;
   floorItemsQty: number;
-  requestedAt: string;
-  approvedBy: string;
-  issuedBy: string;
   notes: string;
+}
+
+export interface DailyConsumptionVariance {
+  id: string;
+  requisitionId: string;
+  date: string;
+  siteName: string;
+  blockNumber: string;
+  floorNumber: string;
+  materialName: string;
+  jobPosition: string;
+  requestedBy: string;
+  quantityRequested: number;
+  quantityIssued: number;
+  quantityUsed: number;
+  quantityReturned: number;
+  quantityLost: number;
+  quantityDamaged: number;
+  quantityRemaining: number;
+  varianceQty: number;
+  variancePercent: number;
+  varianceStatus: "Balanced (0% Loss)" | "Acceptable Tolerance" | "High Loss Variance" | "Audit Required";
+  reportedBy: string;
+  verifiedByStorekeeper: boolean;
+}
+
+export interface ApprovalRuleLimit {
+  jobPosition: "Assembler" | "Gang Chief" | "Team Leader" | "Supervisor" | "Section Head";
+  amharicTitle: string;
+  maxQtyWithoutApproval: number;
+  requiresHigherApproval: boolean;
+  approverRoleRequired: string;
+  allowedPriorities: string[];
+}
+
+export interface RequisitionAuditLog {
+  id: string;
+  requisitionId: string;
+  action: string;
+  performedBy: string;
+  jobPosition: string;
+  timestamp: string;
+  gpsLocation: string;
+  digitalSignature: string;
+  details: string;
+  ledgerDelta: string;
 }
 
 export interface DailyReturnReport {
@@ -258,6 +323,7 @@ export interface DailyReturnReport {
   conduitsDamaged: number;
   damageDescription: string;
   photoUploaded: boolean;
+  photoEvidence?: boolean;
   photoUrl?: string;
   gangChiefSigned: boolean;
   storeOwnerSigned: boolean;
@@ -403,18 +469,32 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const t = (key: string): string => dict[lang][key] || key;
 
-  // DB-linked panels state
+  // DB-linked panels & sites state
   const [dbPanels, setDbPanels] = useState<AluminumFormworkPanel[]>([]);
+  const [registeredSitesList, setRegisteredSitesList] = useState<RegisteredSite[]>([]);
   const [loadingDb, setLoadingDb] = useState(true);
+
+  const fetchSites = async () => {
+    try {
+      const sites = await DbService.getRegisteredSites();
+      if (sites) setRegisteredSitesList(sites);
+    } catch (err) {
+      console.error("Failed to fetch registered sites:", err);
+    }
+  };
 
   useEffect(() => {
     let active = true;
     const loadStoreData = async () => {
       try {
         setLoadingDb(true);
-        const panels = await DbService.getFormworkPanels();
+        const [panels, sites] = await Promise.all([
+          DbService.getFormworkPanels(),
+          DbService.getRegisteredSites()
+        ]);
         if (active) {
           setDbPanels(panels || []);
+          if (sites) setRegisteredSitesList(sites);
           setLoadingDb(false);
         }
       } catch (err) {
@@ -423,7 +503,18 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       }
     };
     loadStoreData();
-    return () => { active = false; };
+
+    const handleSync = () => {
+      fetchSites();
+    };
+    window.addEventListener("sites_updated", handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => { 
+      active = false; 
+      window.removeEventListener("sites_updated", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
   }, []);
 
   // MASTER INVENTORY DATA (10 Categories)
@@ -881,66 +972,220 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [sitePanelFilterSite, setSitePanelFilterSite] = useState<string>("ALL");
   const [sitePanelFilterType, setSitePanelFilterType] = useState<string>("ALL");
 
+  // CONFIGURABLE APPROVAL RULE LIMITS (By Role / Position)
+  const [approvalRuleLimits] = useState<ApprovalRuleLimit[]>([
+    {
+      jobPosition: "Assembler",
+      amharicTitle: "አገጣጣሚ (Assembler)",
+      maxQtyWithoutApproval: 50,
+      requiresHigherApproval: true,
+      approverRoleRequired: "Gang Chief / Team Leader",
+      allowedPriorities: ["Normal"]
+    },
+    {
+      jobPosition: "Gang Chief",
+      amharicTitle: "የቡድን መሪ (Gang Chief)",
+      maxQtyWithoutApproval: 200,
+      requiresHigherApproval: true,
+      approverRoleRequired: "Team Leader / Supervisor",
+      allowedPriorities: ["Normal", "Urgent"]
+    },
+    {
+      jobPosition: "Team Leader",
+      amharicTitle: "የቡድን አስተባባሪ (Team Leader)",
+      maxQtyWithoutApproval: 500,
+      requiresHigherApproval: true,
+      approverRoleRequired: "Supervisor / Section Head",
+      allowedPriorities: ["Normal", "Urgent", "Emergency"]
+    },
+    {
+      jobPosition: "Supervisor",
+      amharicTitle: "ሱፐርቫይዘር (Supervisor)",
+      maxQtyWithoutApproval: 1500,
+      requiresHigherApproval: false,
+      approverRoleRequired: "Section Head / Storekeeper Direct",
+      allowedPriorities: ["Normal", "Urgent", "Emergency"]
+    },
+    {
+      jobPosition: "Section Head",
+      amharicTitle: "የክፍል ኃላፊ (Section Head)",
+      maxQtyWithoutApproval: 5000,
+      requiresHigherApproval: false,
+      approverRoleRequired: "Direct Store Issue",
+      allowedPriorities: ["Normal", "Urgent", "Emergency"]
+    }
+  ]);
+
   // DAILY MATERIAL REQUISITION STATE (Morning Requisitions)
   const [dailyRequisitions, setDailyRequisitions] = useState<DailyMaterialRequisition[]>([
     {
       id: "REQ-20260722-001",
       date: "2026-07-22",
+      requestedAt: "06:15 AM",
+      projectName: "Bole Heights Commercial Tower",
       siteName: "Bole Heights Phase I",
+      buildingNumber: "Bldg 01",
       blockNumber: "Block A",
       floorNumber: "Floor 4",
+      zoneNumber: "Zone 2",
+      requestedBy: "Fikru Tolossa",
+      employeeId: "EMP-4091",
+      jobPosition: "Gang Chief",
+      submissionMode: "Mobile App",
+      materialName: "Aluminum Formwork Pin & Wedge Set (16mm)",
+      materialType: "Formwork Accessory",
+      materialSize: "16mm Heavy Duty",
+      unit: "Sets",
+      quantityRequested: 400,
+      quantityIssued: 400,
+      purposeOfUse: "Wall formwork assembly for Zone 2 shear wall concrete pour",
       workType: "Wall",
-      gangChiefName: "Fikru Tolossa",
-      teamLeaderName: "Yohannes Bekele",
-      sectionHeadName: "Alemayehu Kebede",
-      supervisorName: "Kassa Hunegn",
+      priority: "Normal",
+      expectedReturnDate: "2026-07-23",
       status: "Approved",
+      approvedBy: "Eng. Kassa Hunegn (Supervisor)",
+      issuedBy: "Abebe Storekeeper",
+      stockAvailability: "In Stock",
+      qrScanVerified: true,
+      receiverSignature: "Signed (Fikru Tolossa - Fingerprint Auth)",
+      gpsLocation: "8.9806° N, 38.7578° E",
       pinsQty: 150,
       wedgesQty: 250,
       tieRodsQty: 80,
       conduitsQty: 40,
-      blocksQty: 300,
+      blocksQty: 0,
       floorItemsQty: 30,
-      requestedAt: "06:15 AM",
-      approvedBy: "Eng. Kassa Hunegn (Supervisor)",
-      issuedBy: "Abebe Storekeeper",
       notes: "High priority wall formwork erection for Zone 2 concrete pouring"
     },
     {
       id: "REQ-20260722-002",
       date: "2026-07-22",
+      requestedAt: "06:45 AM",
+      projectName: "Kazanchis Financial Tower",
       siteName: "Kazanchis Financial Tower",
+      buildingNumber: "Tower 01",
       blockNumber: "Block 1",
       floorNumber: "Floor 8",
+      zoneNumber: "Zone 1",
+      requestedBy: "Tiruneh Girma",
+      employeeId: "EMP-5102",
+      jobPosition: "Team Leader",
+      submissionMode: "Tablet",
+      materialName: "High Strength Tie Rods 1200mm & Waterstop Nuts",
+      materialType: "Formwork Accessory",
+      materialSize: "1200mm x 16mm",
+      unit: "Pcs",
+      quantityRequested: 250,
+      quantityIssued: 0,
+      purposeOfUse: "Slab formwork decking & prop bracing for heavy beam casting",
       workType: "Slab",
-      gangChiefName: "Chala Bekele",
-      teamLeaderName: "Tiruneh Girma",
-      sectionHeadName: "Getachew Worku",
-      supervisorName: "Mulugeta Tadesse",
+      priority: "Urgent",
+      expectedReturnDate: "2026-07-24",
       status: "Pending Approval",
+      approvedBy: "Awaiting Supervisor & Section Head Approval",
+      issuedBy: "Pending",
+      stockAvailability: "In Stock",
+      qrScanVerified: false,
+      receiverSignature: "Pending Signature",
+      gpsLocation: "9.0182° N, 38.7631° E",
       pinsQty: 200,
       wedgesQty: 350,
       tieRodsQty: 120,
       conduitsQty: 60,
       blocksQty: 0,
       floorItemsQty: 50,
-      requestedAt: "06:45 AM",
-      approvedBy: "Awaiting Section Head & Supervisor Approval",
-      issuedBy: "Pending",
       notes: "Slab formwork decking & prop bracing"
+    }
+  ]);
+
+  // DAILY END-OF-DAY CONSUMPTION VARIANCE STATE
+  const [dailyConsumptionVariances, setDailyConsumptionVariances] = useState<DailyConsumptionVariance[]>([
+    {
+      id: "VAR-20260722-01",
+      requisitionId: "REQ-20260722-001",
+      date: "2026-07-22",
+      siteName: "Bole Heights Phase I",
+      blockNumber: "Block A",
+      floorNumber: "Floor 4",
+      materialName: "Aluminum Formwork Pin & Wedge Set",
+      jobPosition: "Gang Chief",
+      requestedBy: "Fikru Tolossa",
+      quantityRequested: 400,
+      quantityIssued: 400,
+      quantityUsed: 385,
+      quantityReturned: 10,
+      quantityLost: 3,
+      quantityDamaged: 2,
+      quantityRemaining: 0,
+      varianceQty: 0,
+      variancePercent: 1.25,
+      varianceStatus: "Acceptable Tolerance",
+      reportedBy: "Fikru Tolossa (Gang Chief)",
+      verifiedByStorekeeper: true
+    }
+  ]);
+
+  // PERMANENT REQUISITION AUDIT LOG STATE
+  const [requisitionAuditLogs, setRequisitionAuditLogs] = useState<RequisitionAuditLog[]>([
+    {
+      id: "AUD-REQ-901",
+      requisitionId: "REQ-20260722-001",
+      action: "REQUEST_CREATED",
+      performedBy: "Fikru Tolossa (EMP-4091)",
+      jobPosition: "Gang Chief",
+      timestamp: "2026-07-22 06:15:22",
+      gpsLocation: "8.9806° N, 38.7578° E",
+      digitalSignature: "SIG-ETH-88201-OK",
+      details: "Created requisition REQ-20260722-001 for 400 Pcs Pin & Wedge Sets (Mobile App)",
+      ledgerDelta: "0 Pcs (Pending Approval)"
+    },
+    {
+      id: "AUD-REQ-902",
+      requisitionId: "REQ-20260722-001",
+      action: "APPROVAL_GRANTED",
+      performedBy: "Eng. Kassa Hunegn (EMP-2010)",
+      jobPosition: "Supervisor",
+      timestamp: "2026-07-22 06:22:10",
+      gpsLocation: "8.9806° N, 38.7578° E",
+      digitalSignature: "SIG-ETH-99302-SUP",
+      details: "Supervisor approved requisition REQ-20260722-001 after stock verification",
+      ledgerDelta: "400 Pcs Reserved in Site Store"
+    },
+    {
+      id: "AUD-REQ-903",
+      requisitionId: "REQ-20260722-001",
+      action: "MATERIAL_ISSUED_QR",
+      performedBy: "Abebe Storekeeper (EMP-1002)",
+      jobPosition: "Store Owner",
+      timestamp: "2026-07-22 06:30:45",
+      gpsLocation: "8.9806° N, 38.7578° E",
+      digitalSignature: "SIG-ETH-77401-STORE",
+      details: "Materials issued via Bluetooth Barcode Scanner & receiver fingerprint signature captured. Live notification sent to HQ & Warehouse.",
+      ledgerDelta: "-400 Pcs Site Store Stock"
     }
   ]);
 
   const [showNewRequisitionModal, setShowNewRequisitionModal] = useState(false);
   const [newReqForm, setNewReqForm] = useState({
+    projectName: "Bole Heights Commercial Tower",
     siteName: "Bole Heights Phase I",
+    buildingNumber: "Bldg 01",
     blockNumber: "Block A",
     floorNumber: "Floor 4",
+    zoneNumber: "Zone 2",
+    requestedBy: "Fikru Tolossa",
+    employeeId: "EMP-4091",
+    jobPosition: "Gang Chief" as "Assembler" | "Gang Chief" | "Team Leader" | "Supervisor" | "Section Head",
+    submissionMode: "Mobile App" as "Mobile App" | "Tablet" | "Desktop" | "Paper Form (Manual Entry)",
+    materialName: "Aluminum Formwork Pin & Wedge Set (16mm)",
+    materialType: "Formwork Accessory" as "Formwork Accessory" | "Aluminum Panel" | "Consumable" | "Concrete / Block",
+    materialSize: "16mm Heavy Duty",
+    unit: "Sets",
+    quantityRequested: 200,
+    purposeOfUse: "Wall formwork erection for Zone 2 shear wall concrete pour",
     workType: "Wall" as "Wall" | "Slab" | "Beam" | "Column",
-    gangChiefName: "Fikru Tolossa",
-    teamLeaderName: "Yohannes Bekele",
-    sectionHeadName: "Alemayehu Kebede",
-    supervisorName: "Kassa Hunegn",
+    priority: "Normal" as "Normal" | "Urgent" | "Emergency",
+    expectedReturnDate: "2026-07-23",
     pinsQty: 100,
     wedgesQty: 150,
     tieRodsQty: 50,
@@ -951,6 +1196,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   });
 
   // EVENING DISMANTLING & RETURN REPORT STATE
+  const [selectedPhotoReturn, setSelectedPhotoReturn] = useState<DailyReturnReport | null>(null);
   const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([
     {
       id: "RET-20260721-001",
@@ -976,9 +1222,71 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       conduitsDamaged: 1,
       damageDescription: "2 Tie rods bent during wedge pin removal. 3 pins head mushroomed.",
       photoUploaded: true,
+      photoEvidence: true,
+      photoUrl: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&auto=format&fit=crop",
       gangChiefSigned: true,
       storeOwnerSigned: true,
       returnedAt: "05:45 PM"
+    },
+    {
+      id: "RET-20260722-002",
+      requisitionId: "REQ-20260722-104",
+      date: "2026-07-22",
+      siteName: "Kazanchis Financial Tower",
+      blockNumber: "Block B",
+      floorNumber: "Floor 6",
+      gangChiefName: "Yosef Assefa",
+      siteStoreOwnerName: "Abebe Storekeeper",
+      status: "With Damage",
+      pinsReturned: 180,
+      pinsLost: 2,
+      pinsDamaged: 4,
+      wedgesReturned: 310,
+      wedgesLost: 4,
+      wedgesDamaged: 1,
+      tieRodsReturned: 90,
+      tieRodsLost: 1,
+      tieRodsDamaged: 3,
+      conduitsReturned: 45,
+      conduitsLost: 0,
+      conduitsDamaged: 2,
+      damageDescription: "Micro-fracture detected on 4 pins after concrete stripping cycle.",
+      photoUploaded: true,
+      photoEvidence: true,
+      photoUrl: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop",
+      gangChiefSigned: true,
+      storeOwnerSigned: true,
+      returnedAt: "05:15 PM"
+    },
+    {
+      id: "RET-20260722-003",
+      requisitionId: "REQ-20260722-108",
+      date: "2026-07-22",
+      siteName: "Gotera Interchange Project",
+      blockNumber: "Section 1",
+      floorNumber: "Pier 2",
+      gangChiefName: "Tadesse Melaku",
+      siteStoreOwnerName: "Abebe Storekeeper",
+      status: "Fully Returned",
+      pinsReturned: 120,
+      pinsLost: 0,
+      pinsDamaged: 0,
+      wedgesReturned: 200,
+      wedgesLost: 0,
+      wedgesDamaged: 0,
+      tieRodsReturned: 60,
+      tieRodsLost: 0,
+      tieRodsDamaged: 0,
+      conduitsReturned: 30,
+      conduitsLost: 0,
+      conduitsDamaged: 0,
+      damageDescription: "All formwork accessories dismantled in pristine condition.",
+      photoUploaded: true,
+      photoEvidence: true,
+      photoUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop",
+      gangChiefSigned: true,
+      storeOwnerSigned: true,
+      returnedAt: "05:50 PM"
     }
   ]);
 
@@ -1006,32 +1314,72 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const handleCreateRequisition = (e: React.FormEvent) => {
     e.preventDefault();
+    const reqId = `REQ-${new Date().toISOString().substring(0, 10).replace(/-/g, "")}-${Math.floor(100 + Math.random() * 900)}`;
+    const nowTime = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+    // Check approval limits based on role
+    const limitRule = approvalRuleLimits.find(r => r.jobPosition === newReqForm.jobPosition);
+    const requiresApproval = limitRule ? (newReqForm.quantityRequested > limitRule.maxQtyWithoutApproval || limitRule.requiresHigherApproval) : true;
+
     const newReq: DailyMaterialRequisition = {
-      id: `REQ-${new Date().toISOString().substring(0, 10).replace(/-/g, "")}-${Math.floor(100 + Math.random() * 900)}`,
+      id: reqId,
       date: new Date().toISOString().substring(0, 10),
+      requestedAt: nowTime,
+      projectName: newReqForm.projectName,
       siteName: newReqForm.siteName,
+      buildingNumber: newReqForm.buildingNumber,
       blockNumber: newReqForm.blockNumber,
       floorNumber: newReqForm.floorNumber,
+      zoneNumber: newReqForm.zoneNumber,
+      requestedBy: newReqForm.requestedBy,
+      employeeId: newReqForm.employeeId,
+      jobPosition: newReqForm.jobPosition,
+      submissionMode: newReqForm.submissionMode,
+      materialName: newReqForm.materialName,
+      materialType: newReqForm.materialType,
+      materialSize: newReqForm.materialSize,
+      unit: newReqForm.unit,
+      quantityRequested: newReqForm.quantityRequested,
+      quantityIssued: requiresApproval ? 0 : newReqForm.quantityRequested,
+      purposeOfUse: newReqForm.purposeOfUse,
       workType: newReqForm.workType,
-      gangChiefName: newReqForm.gangChiefName,
-      teamLeaderName: newReqForm.teamLeaderName,
-      sectionHeadName: newReqForm.sectionHeadName,
-      supervisorName: newReqForm.supervisorName,
-      status: "Pending Approval",
+      priority: newReqForm.priority,
+      expectedReturnDate: newReqForm.expectedReturnDate,
+      status: requiresApproval ? "Pending Approval" : "Approved",
+      approvedBy: requiresApproval ? `Awaiting ${limitRule?.approverRoleRequired || "Supervisor"} Approval` : `${newReqForm.requestedBy} (Self-Authorized)`,
+      issuedBy: "Pending Site Store",
+      stockAvailability: "In Stock",
+      qrScanVerified: false,
+      receiverSignature: `Digital Signature Verified (${newReqForm.requestedBy})`,
+      gpsLocation: "8.9806° N, 38.7578° E (Site GPS Tagged)",
       pinsQty: newReqForm.pinsQty,
       wedgesQty: newReqForm.wedgesQty,
       tieRodsQty: newReqForm.tieRodsQty,
       conduitsQty: newReqForm.conduitsQty,
       blocksQty: newReqForm.blocksQty,
       floorItemsQty: newReqForm.floorItemsQty,
-      requestedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      approvedBy: "Pending Supervisor",
-      issuedBy: "Pending Storekeeper",
       notes: newReqForm.notes
     };
+
     setDailyRequisitions(prev => [newReq, ...prev]);
+
+    // Append Audit Trail
+    const newAudit: RequisitionAuditLog = {
+      id: `AUD-REQ-${Math.floor(1000 + Math.random() * 9000)}`,
+      requisitionId: reqId,
+      action: "REQUEST_CREATED",
+      performedBy: `${newReqForm.requestedBy} (${newReqForm.employeeId})`,
+      jobPosition: newReqForm.jobPosition,
+      timestamp: `${new Date().toISOString().substring(0, 10)} ${nowTime}`,
+      gpsLocation: "8.9806° N, 38.7578° E",
+      digitalSignature: `SIG-REQ-${Math.floor(10000 + Math.random() * 90000)}`,
+      details: `Created requisition ${reqId} for ${newReqForm.quantityRequested} ${newReqForm.unit} of ${newReqForm.materialName} (${newReqForm.submissionMode})`,
+      ledgerDelta: requiresApproval ? "0 Pcs (Pending Approval)" : `-${newReqForm.quantityRequested} Pcs Reserved`
+    };
+    setRequisitionAuditLogs(prev => [newAudit, ...prev]);
+
     setShowNewRequisitionModal(false);
-    onLogAction?.("Morning Requisition Created", `Submitted morning requisition ${newReq.id} for ${newReq.blockNumber} ${newReq.floorNumber}`);
+    onLogAction?.("Morning Requisition Created", `Submitted morning requisition ${newReq.id} for ${newReq.blockNumber} ${newReq.floorNumber} by ${newReq.jobPosition} ${newReq.requestedBy}`);
   };
 
   const handleCreateReturn = (e: React.FormEvent) => {
@@ -1060,6 +1408,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       conduitsDamaged: newReturnForm.conduitsDamaged,
       damageDescription: newReturnForm.damageDescription,
       photoUploaded: newReturnForm.photoUploaded,
+      photoEvidence: newReturnForm.photoUploaded,
+      photoUrl: newReturnForm.photoUploaded ? "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&auto=format&fit=crop" : undefined,
       gangChiefSigned: true,
       storeOwnerSigned: true,
       returnedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -2126,11 +2476,18 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   className="bg-slate-900 border border-slate-800 text-white text-xs rounded-xl px-3 py-2 font-mono focus:outline-none focus:border-amber-500"
                 >
                   <option value="ALL">{isAmharic ? "ሁሉንም ሳይቶች" : "All Construction Sites"}</option>
-                  <option value="Bole Heights Phase I">Bole Heights Phase I</option>
-                  <option value="Kazanchis Financial Tower">Kazanchis Financial Tower</option>
-                  <option value="Gotera Interchange Project">Gotera Interchange Project</option>
-                  <option value="CMC Residential Complex">CMC Residential Complex</option>
-                  <option value="Kilinto Industrial Zone">Kilinto Industrial Zone</option>
+                  {registeredSitesList.map(s => (
+                    <option key={s.id} value={s.projectName}>{s.projectName}</option>
+                  ))}
+                  {registeredSitesList.length === 0 && (
+                    <>
+                      <option value="Bole Heights Phase I">Bole Heights Phase I</option>
+                      <option value="Kazanchis Financial Tower">Kazanchis Financial Tower</option>
+                      <option value="Gotera Interchange Project">Gotera Interchange Project</option>
+                      <option value="CMC Residential Complex">CMC Residential Complex</option>
+                      <option value="Kilinto Industrial Zone">Kilinto Industrial Zone</option>
+                    </>
+                  )}
                 </select>
 
                 <select
@@ -2258,36 +2615,68 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {/* 2. MORNING MATERIAL REQUISITION MODULE */}
         {activeTab === "morning-requisitions" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 border-b border-slate-800 pb-4">
               <div>
                 <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
                   <FileText className="text-emerald-400" size={20} />
-                  <span>{isAmharic ? "የጠዋት እቃዎች ጥያቄ (Daily Morning Requisitions)" : "Daily Morning Material Requisition Flow"}</span>
+                  <span>{isAmharic ? "የሳይት ስቶር የእቃዎች ጥያቄ እና ማፅደቂያ (Site Store Material Request & Approval Workflow)" : "Site Store Material Request & Approval Workflow"}</span>
                 </h2>
                 <p className="text-xs text-slate-400 mt-1">
                   {isAmharic 
-                    ? "የቡድን መሪ (Gang Chief) ጥያቄ → ቡድን መሪ (Team Leader) → የሴክሽን መሪ (Section Head) → ሱፐርቫይዘር (Supervisor) → ስቶር አቃቤ" 
-                    : "6:00 AM Material Requisition Workflow: Gang Chief -> Team Leader -> Section Head -> Supervisor -> Site Store Owner"}
+                    ? "አገጣጣሚ (Assembler) | የቡድን መሪ (Gang Chief) | የቡድን አስተባባሪ (Team Leader) | ሱፐርቫይዘር (Supervisor) | የክፍል ኃላፊ (Section Head)" 
+                    : "Authorized Requisitions: Assembler -> Gang Chief -> Team Leader -> Supervisor -> Section Head -> Site Store Auto-Ledger"}
                 </p>
               </div>
 
-              <button
-                onClick={() => setShowNewRequisitionModal(true)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 cursor-pointer shadow-md"
-              >
-                <Plus size={14} />
-                <span>{isAmharic ? "አዲስ የጠዋት ጥያቄ አስገባ" : "New Morning Requisition"}</span>
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={() => setShowNewRequisitionModal(true)}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 cursor-pointer shadow-md"
+                >
+                  <Plus size={14} />
+                  <span>{isAmharic ? "አዲስ የእቃዎች ጥያቄ አስገባ" : "New Material Requisition"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* APPROVAL LIMITS & POLICY RULE CARDS */}
+            <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black uppercase text-amber-400 flex items-center space-x-1.5">
+                  <ShieldCheck size={14} />
+                  <span>{isAmharic ? "የኃላፊነት እና የማፅደቂያ ገደቦች ደንብ (Configurable Approval Rules & Limits)" : "Configurable Approval Rules & Quantity Limits"}</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Enforced by ERP Core</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs font-mono">
+                {approvalRuleLimits.map(rule => (
+                  <div key={rule.jobPosition} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
+                    <div className="font-bold text-white text-[11px] font-sans">{rule.amharicTitle}</div>
+                    <div className="text-[10px] text-emerald-400 mt-1">
+                      Limit: <strong className="text-white">{rule.maxQtyWithoutApproval.toLocaleString()} Pcs</strong>
+                    </div>
+                    <div className="text-[9px] text-slate-400 mt-0.5 font-sans truncate">
+                      {rule.requiresHigherApproval ? `Approver: ${rule.approverRoleRequired}` : "Direct Store Issue"}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* REQUISITION REGISTER TABLE */}
             <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
               <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
-                <span className="text-xs font-black uppercase text-white tracking-wider">
-                  {isAmharic ? "የዛሬ የጠዋት የእቃዎች ጥያቄዎች ዝርዝር" : "Today's Requisition Workflow Register"}
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  Total Requisitions: {dailyRequisitions.length}
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-black uppercase text-white tracking-wider">
+                    {isAmharic ? "የዛሬ የእቃዎች ጥያቄዎች መዝገብ" : "Live Material Requisitions Register"}
+                  </span>
+                  <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded-full text-[10px] font-bold border border-emerald-800">
+                    {dailyRequisitions.length} Requests Active
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono text-cyan-400 flex items-center space-x-1">
+                  <Radio size={12} className="animate-pulse" />
+                  <span>HQ & Warehouse Broadcast Live</span>
                 </span>
               </div>
 
@@ -2295,13 +2684,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <th className="p-4">Requisition ID</th>
-                      <th className="p-4">Block & Floor</th>
-                      <th className="p-4">Work Type</th>
-                      <th className="p-4">Gang Chief & Approver</th>
-                      <th className="p-4">Accessories & Items Requested</th>
+                      <th className="p-4">Req No & Time</th>
+                      <th className="p-4">Project & Location</th>
+                      <th className="p-4">Requester & Position</th>
+                      <th className="p-4">Material Details</th>
+                      <th className="p-4 text-center">Priority & Return</th>
+                      <th className="p-4 text-center">Stock & Signature</th>
                       <th className="p-4 text-center">Status</th>
-                      <th className="p-4 text-right">Actions</th>
+                      <th className="p-4 text-right">Workflow Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
@@ -2309,67 +2699,225 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                       <tr key={req.id} className="hover:bg-slate-900/40 text-slate-200">
                         <td className="p-4 font-bold text-amber-400">
                           <div>{req.id}</div>
-                          <div className="text-[10px] text-slate-500 font-sans">{req.requestedAt}</div>
-                        </td>
-                        <td className="p-4 font-sans font-bold text-white">
-                          <div>{req.siteName}</div>
-                          <div className="text-[11px] text-cyan-400 font-mono">{req.blockNumber} • {req.floorNumber}</div>
-                        </td>
-                        <td className="p-4 font-sans">
-                          <span className="px-2 py-0.5 bg-slate-900 border border-slate-800 rounded text-[10px] font-bold text-purple-300">
-                            {req.workType}
+                          <div className="text-[10px] text-slate-400 font-sans">{req.requestedAt}</div>
+                          <span className="inline-block mt-1 px-1.5 py-0.2 bg-slate-900 text-purple-300 rounded text-[9px]">
+                            {req.submissionMode || "Mobile App"}
                           </span>
                         </td>
-                        <td className="p-4 font-sans text-xs">
-                          <div className="font-bold text-white">{req.gangChiefName} (Gang Chief)</div>
-                          <div className="text-[10px] text-slate-400">Approver: {req.approvedBy}</div>
-                        </td>
-                        <td className="p-4 font-mono text-[11px]">
-                          <div className="grid grid-cols-2 gap-x-3 text-slate-300">
-                            <span>Pins (ፒን): <strong className="text-amber-400">{req.pinsQty}</strong></span>
-                            <span>Wedges (ዌጅ): <strong className="text-amber-400">{req.wedgesQty}</strong></span>
-                            <span>Tie Rods (ታይሮድ): <strong className="text-cyan-400">{req.tieRodsQty}</strong></span>
-                            <span>Conduits (ኮንድት): <strong className="text-cyan-400">{req.conduitsQty}</strong></span>
-                            <span>Blocks (ብሎክ): <strong className="text-emerald-400">{req.blocksQty}</strong></span>
-                            <span>Floor Items: <strong className="text-indigo-400">{req.floorItemsQty}</strong></span>
+                        <td className="p-4 font-sans font-bold text-white">
+                          <div className="text-xs text-white">{req.siteName}</div>
+                          <div className="text-[10px] text-cyan-400 font-mono mt-0.5">
+                            {req.buildingNumber || "Bldg 01"} • {req.blockNumber} • {req.floorNumber} ({req.zoneNumber || "Zone 1"})
                           </div>
                         </td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 font-sans text-xs">
+                          <div className="font-bold text-white">{req.requestedBy}</div>
+                          <div className="text-[10px] text-slate-400 font-mono">ID: {req.employeeId || "EMP-102"}</div>
+                          <span className="inline-block mt-0.5 px-2 py-0.5 bg-indigo-950 text-indigo-300 rounded text-[10px] font-bold border border-indigo-800">
+                            {req.jobPosition}
+                          </span>
+                        </td>
+                        <td className="p-4 font-mono text-xs">
+                          <div className="font-bold text-amber-300 font-sans">{req.materialName}</div>
+                          <div className="text-[10px] text-slate-400">Type: {req.materialType} ({req.materialSize})</div>
+                          <div className="text-[11px] text-emerald-400 font-bold mt-1">
+                            Req: {req.quantityRequested} {req.unit} | Issued: {req.quantityIssued} {req.unit}
+                          </div>
+                        </td>
+                        <td className="p-4 text-center font-sans">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            req.priority === "Emergency" ? "bg-rose-950 text-rose-400 border border-rose-800" :
+                            req.priority === "Urgent" ? "bg-amber-950 text-amber-400 border border-amber-800" :
+                            "bg-slate-900 text-slate-300 border border-slate-800"
+                          }`}>
+                            {req.priority}
+                          </span>
+                          <div className="text-[9px] text-slate-400 mt-1 font-mono">
+                            Return: {req.expectedReturnDate || "2026-07-23"}
+                          </div>
+                        </td>
+                        <td className="p-4 text-center font-sans text-xs">
+                          <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded text-[10px] font-bold border border-emerald-800">
+                            {req.stockAvailability || "In Stock"}
+                          </span>
+                          <div className="text-[9px] text-slate-400 mt-1 font-mono truncate max-w-[130px]">
+                            {req.gpsLocation || "8.9806° N, 38.7578° E"}
+                          </div>
+                          <div className="text-[9px] text-cyan-400 font-mono mt-0.5">
+                            {req.receiverSignature ? "✓ Signed" : "Pending Signature"}
+                          </div>
+                        </td>
+                        <td className="p-4 text-center font-sans">
                           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase ${
                             req.status === "Approved" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" :
                             req.status === "Issued" ? "bg-cyan-950 text-cyan-400 border border-cyan-800" :
+                            req.status === "Rejected" ? "bg-rose-950 text-rose-400 border border-rose-800" :
                             "bg-amber-950 text-amber-400 border border-amber-800"
                           }`}>
                             {req.status}
                           </span>
+                          <div className="text-[9px] text-slate-400 mt-1 font-mono">
+                            {req.approvedBy}
+                          </div>
                         </td>
                         <td className="p-4 text-right">
                           {req.status === "Pending Approval" && (
-                            <button
-                              onClick={() => {
-                                setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { ...r, status: "Approved", approvedBy: "Eng. Kassa Hunegn (Supervisor)" } : r));
-                                onLogAction?.("Requisition Approved", `Approved morning requisition ${req.id} for ${req.blockNumber} ${req.floorNumber}`);
-                              }}
-                              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
-                            >
-                              Approve
-                            </button>
+                            <div className="flex justify-end space-x-1">
+                              <button
+                                onClick={() => {
+                                  setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { 
+                                    ...r, 
+                                    status: "Approved", 
+                                    approvedBy: "Eng. Kassa Hunegn (Supervisor)",
+                                    quantityIssued: r.quantityRequested
+                                  } : r));
+                                  onLogAction?.("Requisition Approved", `Approved material request ${req.id} for ${req.quantityRequested} ${req.unit}`);
+                                }}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { 
+                                    ...r, 
+                                    status: "Rejected", 
+                                    approvedBy: "Rejected by Supervisor (Limit Exceeded)" 
+                                  } : r));
+                                  onLogAction?.("Requisition Rejected", `Rejected material request ${req.id}`);
+                                }}
+                                className="px-2 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
                           )}
                           {req.status === "Approved" && (
                             <button
                               onClick={() => {
-                                setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { ...r, status: "Issued", issuedBy: "Abebe Storekeeper" } : r));
-                                onLogAction?.("Requisition Issued", `Issued materials for requisition ${req.id} via QR scan`);
+                                setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { 
+                                  ...r, 
+                                  status: "Issued", 
+                                  issuedBy: "Abebe Storekeeper",
+                                  qrScanVerified: true,
+                                  receiverSignature: `Fingerprint Signature Captured (${req.requestedBy})`
+                                } : r));
+                                onLogAction?.("Materials Issued via QR", `Scanned QR & issued ${req.quantityRequested} ${req.unit} for ${req.id}. Auto-deducted from store stock.`);
                               }}
-                              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[10px] font-bold cursor-pointer"
+                              className="px-3 py-1 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-[10px] font-bold cursor-pointer flex items-center space-x-1 ml-auto"
                             >
-                              Issue Materials
+                              <QrCode size={12} />
+                              <span>Scan & Issue</span>
                             </button>
                           )}
                           {req.status === "Issued" && (
-                            <span className="text-[10px] text-slate-500 font-mono">Issued by Store</span>
+                            <div className="text-[10px] text-emerald-400 font-mono font-bold flex items-center justify-end space-x-1">
+                              <CheckCircle2 size={12} />
+                              <span>Issued & Synced</span>
+                            </div>
                           )}
                         </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* END OF DAY CONSUMPTION VARIANCE MATRIX */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden space-y-2">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <div>
+                  <h3 className="text-xs font-black uppercase text-amber-400 tracking-wider">
+                    {isAmharic ? "የቀን ማጠቃለያ የፍጆታ እና ልዩነት ሰንጠረዥ (Daily Consumption & Variance Matrix)" : "Daily Material Consumption & Variance Matrix"}
+                  </h3>
+                  <p className="text-[11px] text-slate-400 font-sans mt-0.5">
+                    Compares Requested Qty vs Issued Qty vs Used Qty vs Returned Qty vs Lost Qty vs Damaged Qty
+                  </p>
+                </div>
+                <span className="text-[10px] font-mono text-slate-400">Variance Calculation: Automatic</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse font-mono">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                      <th className="p-3">Req ID</th>
+                      <th className="p-3">Material Name</th>
+                      <th className="p-3 text-center">Requested</th>
+                      <th className="p-3 text-center">Issued</th>
+                      <th className="p-3 text-center text-emerald-400">Used</th>
+                      <th className="p-3 text-center text-cyan-400">Returned</th>
+                      <th className="p-3 text-center text-rose-400">Lost</th>
+                      <th className="p-3 text-center text-amber-400">Damaged</th>
+                      <th className="p-3 text-center font-bold">Variance %</th>
+                      <th className="p-3 text-center">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-xs">
+                    {dailyConsumptionVariances.map(v => (
+                      <tr key={v.id} className="hover:bg-slate-900/40 text-slate-200">
+                        <td className="p-3 font-bold text-amber-400">{v.requisitionId}</td>
+                        <td className="p-3 font-sans font-semibold text-white">{v.materialName}</td>
+                        <td className="p-3 text-center">{v.quantityRequested}</td>
+                        <td className="p-3 text-center text-cyan-300 font-bold">{v.quantityIssued}</td>
+                        <td className="p-3 text-center text-emerald-400 font-bold">{v.quantityUsed}</td>
+                        <td className="p-3 text-center text-cyan-400 font-bold">{v.quantityReturned}</td>
+                        <td className="p-3 text-center text-rose-400 font-bold">{v.quantityLost}</td>
+                        <td className="p-3 text-center text-amber-400 font-bold">{v.quantityDamaged}</td>
+                        <td className="p-3 text-center font-bold text-purple-300">{v.variancePercent}%</td>
+                        <td className="p-3 text-center font-sans">
+                          <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 rounded text-[10px] font-bold border border-emerald-800">
+                            {v.varianceStatus}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* PERMANENT REQUISITION AUDIT TRAIL LOG */}
+            <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+                <span className="text-xs font-black uppercase text-cyan-400 tracking-wider flex items-center space-x-1.5">
+                  <Shield size={14} />
+                  <span>{isAmharic ? "የማይሰረዝ የኦዲት መዝገብ (Immutable Requisition Audit Log)" : "Immutable Requisition Audit Log"}</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono">Permanent Firestore Ledger Records</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse font-mono">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase text-slate-400">
+                      <th className="p-3">Audit ID</th>
+                      <th className="p-3">Req ID</th>
+                      <th className="p-3">Action</th>
+                      <th className="p-3">Performed By</th>
+                      <th className="p-3">Timestamp & GPS</th>
+                      <th className="p-3">Digital Signature</th>
+                      <th className="p-3">Inventory Delta</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 text-[11px]">
+                    {requisitionAuditLogs.map(log => (
+                      <tr key={log.id} className="hover:bg-slate-900/40 text-slate-300">
+                        <td className="p-3 font-bold text-slate-400">{log.id}</td>
+                        <td className="p-3 font-bold text-amber-400">{log.requisitionId}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-0.5 bg-purple-950 text-purple-300 rounded text-[9px] font-bold border border-purple-800">
+                            {log.action}
+                          </span>
+                        </td>
+                        <td className="p-3 font-sans text-white">{log.performedBy} ({log.jobPosition})</td>
+                        <td className="p-3 font-sans">
+                          <div className="text-slate-300">{log.timestamp}</div>
+                          <div className="text-[9px] text-slate-500 font-mono">{log.gpsLocation}</div>
+                        </td>
+                        <td className="p-3 font-mono text-cyan-400 text-[10px]">{log.digitalSignature}</td>
+                        <td className="p-3 font-bold text-emerald-400">{log.ledgerDelta}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -2465,8 +3013,32 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                             <CheckCircle2 size={12} />
                             <span>Storekeeper Verified</span>
                           </div>
-                          {ret.photoUploaded && (
-                            <div className="text-amber-300 underline cursor-pointer mt-0.5">View Damage Photo</div>
+                          {(ret.photoEvidence || ret.photoUploaded) ? (
+                            <div className="mt-2 flex items-center space-x-2">
+                              <div 
+                                onClick={() => setSelectedPhotoReturn(ret)}
+                                className="relative group cursor-pointer overflow-hidden rounded-lg border border-amber-500/40 w-16 h-11 bg-slate-900 shrink-0 shadow-sm hover:border-amber-400 transition-all"
+                              >
+                                <img 
+                                  src={ret.photoUrl || "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=300&auto=format&fit=crop"} 
+                                  alt="Return evidence photo"
+                                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                                  referrerPolicy="no-referrer"
+                                />
+                                <div className="absolute inset-0 bg-slate-950/40 group-hover:bg-slate-950/10 flex items-center justify-center transition-colors">
+                                  <Camera size={14} className="text-amber-300 drop-shadow-md" />
+                                </div>
+                              </div>
+                              <button 
+                                onClick={() => setSelectedPhotoReturn(ret)}
+                                className="text-[10px] font-bold text-amber-300 hover:text-amber-200 bg-amber-950/80 hover:bg-amber-900 px-2.5 py-1.5 rounded-lg border border-amber-800/80 cursor-pointer flex items-center space-x-1 transition-all shadow-sm"
+                              >
+                                <Eye size={12} />
+                                <span>View Photo</span>
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[10px] italic mt-1 block">No photo attached</span>
                           )}
                         </td>
                         <td className="p-4">
@@ -3806,91 +4378,236 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       {/* NEW MORNING REQUISITION MODAL */}
       {showNewRequisitionModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 animate-scaleUp text-slate-100">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-4 animate-scaleUp text-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
-              <h3 className="text-sm font-black uppercase text-white flex items-center space-x-2">
-                <FileText size={18} className="text-emerald-400" />
-                <span>{isAmharic ? "አዲስ የጠዋት የእቃዎች ጥያቄ መሙያ" : "6:00 AM Morning Requisition Form"}</span>
-              </h3>
+              <div>
+                <h3 className="text-sm font-black uppercase text-white flex items-center space-x-2">
+                  <FileText size={18} className="text-emerald-400" />
+                  <span>{isAmharic ? "አዲስ የሳይት ስቶር እቃዎች ጥያቄ ማመልከቻ" : "Site Store Material Request Form"}</span>
+                </h3>
+                <p className="text-[10px] text-slate-400 mt-0.5">
+                  Authorized Roles: Assembler, Gang Chief, Team Leader, Supervisor, Section Head
+                </p>
+              </div>
               <button onClick={() => setShowNewRequisitionModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
                 <X size={18} />
               </button>
             </div>
 
             <form onSubmit={handleCreateRequisition} className="space-y-3 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Construction Site</label>
-                  <select
-                    value={reqForm.siteName}
-                    onChange={e => setReqForm({ ...reqForm, siteName: e.target.value })}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono"
-                  >
-                    <option value="Bole Heights Phase I">Bole Heights Phase I</option>
-                    <option value="Kazanchis Financial Tower">Kazanchis Financial Tower</option>
-                    <option value="Gotera Interchange Project">Gotera Interchange Project</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Block & Floor</label>
-                  <div className="grid grid-cols-2 gap-1 mt-1">
+              {/* REQUESTER INFORMATION */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[10px] font-black uppercase text-amber-400 block">1. Requester & Job Position (የጠያቂው መረጃ)</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Requester Name</label>
                     <input
                       type="text"
-                      placeholder="Block"
                       required
-                      value={reqForm.blockNumber}
-                      onChange={e => setReqForm({ ...reqForm, blockNumber: e.target.value })}
-                      className="bg-slate-950 border border-slate-800 text-white rounded-xl px-2 py-2 focus:outline-none focus:border-emerald-500"
+                      value={newReqForm.requestedBy}
+                      onChange={e => setNewReqForm({ ...newReqForm, requestedBy: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
                     />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Employee ID</label>
                     <input
                       type="text"
-                      placeholder="Floor"
                       required
-                      value={reqForm.floorNumber}
-                      onChange={e => setReqForm({ ...reqForm, floorNumber: e.target.value })}
-                      className="bg-slate-950 border border-slate-800 text-white rounded-xl px-2 py-2 focus:outline-none focus:border-emerald-500"
+                      value={newReqForm.employeeId}
+                      onChange={e => setNewReqForm({ ...newReqForm, employeeId: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-mono"
                     />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Job Position</label>
+                    <select
+                      value={newReqForm.jobPosition}
+                      onChange={e => setNewReqForm({ ...newReqForm, jobPosition: e.target.value as any })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-sans"
+                    >
+                      <option value="Assembler">Assembler (አገጣጣሚ)</option>
+                      <option value="Gang Chief">Gang Chief (የቡድን መሪ)</option>
+                      <option value="Team Leader">Team Leader (የቡድን አስተባባሪ)</option>
+                      <option value="Supervisor">Supervisor (ሱፐርቫይዘር)</option>
+                      <option value="Section Head">Section Head (የክፍል ኃላፊ)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Submission Mode</label>
+                    <select
+                      value={newReqForm.submissionMode}
+                      onChange={e => setNewReqForm({ ...newReqForm, submissionMode: e.target.value as any })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-sans"
+                    >
+                      <option value="Mobile App">Mobile App</option>
+                      <option value="Tablet">Tablet</option>
+                      <option value="Desktop">Desktop</option>
+                      <option value="Paper Form (Manual Entry)">Paper Form (Manual Entry)</option>
+                    </select>
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Work Type</label>
-                  <select
-                    value={reqForm.workType}
-                    onChange={e => setReqForm({ ...reqForm, workType: e.target.value })}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
-                  >
-                    <option value="Wall Erection">Wall Erection (የግድግዳ ፎርምወርክ)</option>
-                    <option value="Decking / Slab">Decking / Slab (የስላብ ፎርምወርክ)</option>
-                    <option value="Column Casting">Column Casting (የአምድ ፎርምወርክ)</option>
-                    <option value="Beam Assembly">Beam Assembly (የቢም ፎርምወርክ)</option>
-                  </select>
+              {/* LOCATION DETAILS */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[10px] font-black uppercase text-cyan-400 block">2. Location Hierarchy (የሳይት እና ህንጻ ቦታ)</span>
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Project / Site Name</label>
+                    <input
+                      type="text"
+                      required
+                      list="registered-sites-list"
+                      value={newReqForm.siteName}
+                      onChange={e => setNewReqForm({ ...newReqForm, siteName: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 text-xs font-mono"
+                      placeholder="Select or enter site name"
+                    />
+                    <datalist id="registered-sites-list">
+                      {registeredSitesList.map(s => (
+                        <option key={s.id} value={s.projectName} />
+                      ))}
+                      <option value="Digital Bole Heights" />
+                      <option value="Digital Construction ERP Ayat East Block T2" />
+                      <option value="Lideta Smart Apartments" />
+                    </datalist>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Building No & Block</label>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <input
+                        type="text"
+                        placeholder="Bldg"
+                        value={newReqForm.buildingNumber}
+                        onChange={e => setNewReqForm({ ...newReqForm, buildingNumber: e.target.value })}
+                        className="bg-slate-900 border border-slate-800 text-white rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Block"
+                        value={newReqForm.blockNumber}
+                        onChange={e => setNewReqForm({ ...newReqForm, blockNumber: e.target.value })}
+                        className="bg-slate-900 border border-slate-800 text-white rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Floor No & Zone</label>
+                    <div className="grid grid-cols-2 gap-1 mt-1">
+                      <input
+                        type="text"
+                        placeholder="Floor"
+                        value={newReqForm.floorNumber}
+                        onChange={e => setNewReqForm({ ...newReqForm, floorNumber: e.target.value })}
+                        className="bg-slate-900 border border-slate-800 text-white rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                      />
+                      <input
+                        type="text"
+                        placeholder="Zone"
+                        value={newReqForm.zoneNumber}
+                        onChange={e => setNewReqForm({ ...newReqForm, zoneNumber: e.target.value })}
+                        className="bg-slate-900 border border-slate-800 text-white rounded-xl px-2 py-1.5 focus:outline-none focus:border-emerald-500"
+                      />
+                    </div>
+                  </div>
                 </div>
+              </div>
+
+              {/* MATERIAL ITEM SPECIFICATION */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
+                <span className="text-[10px] font-black uppercase text-emerald-400 block">3. Requested Material Specification (የእቃው ዝርዝር)</span>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  <div className="col-span-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Material Name</label>
+                    <input
+                      type="text"
+                      required
+                      value={newReqForm.materialName}
+                      onChange={e => setNewReqForm({ ...newReqForm, materialName: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Material Type</label>
+                    <select
+                      value={newReqForm.materialType}
+                      onChange={e => setNewReqForm({ ...newReqForm, materialType: e.target.value as any })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-sans"
+                    >
+                      <option value="Formwork Accessory">Formwork Accessory</option>
+                      <option value="Aluminum Panel">Aluminum Panel</option>
+                      <option value="Consumable">Consumable</option>
+                      <option value="Concrete / Block">Concrete / Block</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Size / Specification</label>
+                    <input
+                      type="text"
+                      value={newReqForm.materialSize}
+                      onChange={e => setNewReqForm({ ...newReqForm, materialSize: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Unit</label>
+                    <input
+                      type="text"
+                      value={newReqForm.unit}
+                      onChange={e => setNewReqForm({ ...newReqForm, unit: e.target.value })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Requested Quantity</label>
+                    <input
+                      type="number"
+                      required
+                      value={newReqForm.quantityRequested}
+                      onChange={e => setNewReqForm({ ...newReqForm, quantityRequested: Number(e.target.value) })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-amber-300 font-bold rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Priority Level</label>
+                    <select
+                      value={newReqForm.priority}
+                      onChange={e => setNewReqForm({ ...newReqForm, priority: e.target.value as any })}
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-sans"
+                    >
+                      <option value="Normal">Normal</option>
+                      <option value="Urgent">Urgent</option>
+                      <option value="Emergency">Emergency</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Gang Chief Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Purpose of Use</label>
                   <input
                     type="text"
                     required
-                    value={reqForm.gangChiefName}
-                    onChange={e => setReqForm({ ...reqForm, gangChiefName: e.target.value })}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                    value={newReqForm.purposeOfUse}
+                    onChange={e => setNewReqForm({ ...newReqForm, purposeOfUse: e.target.value })}
+                    className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
-              {/* QUANTITIES */}
+              {/* ACCESSORIES BREAKDOWN */}
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-black uppercase text-amber-400 block">Formwork Accessories Requested</span>
+                <span className="text-[10px] font-black uppercase text-amber-400 block">4. Accessory Items (ፒኖች፣ ዌጆች፣ ታይሮድ፣ ኮንድቶች)</span>
                 <div className="grid grid-cols-3 gap-2 font-mono">
                   <div>
                     <label className="text-[9px] text-slate-400 block">Pins (ፒን)</label>
                     <input
                       type="number"
-                      required
-                      value={reqForm.pinsQty}
-                      onChange={e => setReqForm({ ...reqForm, pinsQty: Number(e.target.value) })}
+                      value={newReqForm.pinsQty}
+                      onChange={e => setNewReqForm({ ...newReqForm, pinsQty: Number(e.target.value) })}
                       className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
                     />
                   </div>
@@ -3898,9 +4615,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     <label className="text-[9px] text-slate-400 block">Wedges (ዌጅ)</label>
                     <input
                       type="number"
-                      required
-                      value={reqForm.wedgesQty}
-                      onChange={e => setReqForm({ ...reqForm, wedgesQty: Number(e.target.value) })}
+                      value={newReqForm.wedgesQty}
+                      onChange={e => setNewReqForm({ ...newReqForm, wedgesQty: Number(e.target.value) })}
                       className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
                     />
                   </div>
@@ -3908,9 +4624,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     <label className="text-[9px] text-slate-400 block">Tie Rods (ታይሮድ)</label>
                     <input
                       type="number"
-                      required
-                      value={reqForm.tieRodsQty}
-                      onChange={e => setReqForm({ ...reqForm, tieRodsQty: Number(e.target.value) })}
+                      value={newReqForm.tieRodsQty}
+                      onChange={e => setNewReqForm({ ...newReqForm, tieRodsQty: Number(e.target.value) })}
                       className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
                     />
                   </div>
@@ -3918,9 +4633,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     <label className="text-[9px] text-slate-400 block">PVC Conduits</label>
                     <input
                       type="number"
-                      required
-                      value={reqForm.conduitsQty}
-                      onChange={e => setReqForm({ ...reqForm, conduitsQty: Number(e.target.value) })}
+                      value={newReqForm.conduitsQty}
+                      onChange={e => setNewReqForm({ ...newReqForm, conduitsQty: Number(e.target.value) })}
                       className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
                     />
                   </div>
@@ -3928,9 +4642,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     <label className="text-[9px] text-slate-400 block">Concrete Blocks</label>
                     <input
                       type="number"
-                      required
-                      value={reqForm.blocksQty}
-                      onChange={e => setReqForm({ ...reqForm, blocksQty: Number(e.target.value) })}
+                      value={newReqForm.blocksQty}
+                      onChange={e => setNewReqForm({ ...newReqForm, blocksQty: Number(e.target.value) })}
                       className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
                     />
                   </div>
@@ -3938,13 +4651,21 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     <label className="text-[9px] text-slate-400 block">Floor Panels</label>
                     <input
                       type="number"
-                      required
-                      value={reqForm.floorItemsQty}
-                      onChange={e => setReqForm({ ...reqForm, floorItemsQty: Number(e.target.value) })}
+                      value={newReqForm.floorItemsQty}
+                      onChange={e => setNewReqForm({ ...newReqForm, floorItemsQty: Number(e.target.value) })}
                       className="w-full mt-0.5 bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-center"
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* GPS & SIGNATURE STAMP */}
+              <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 flex justify-between items-center text-[10px] font-mono text-slate-400">
+                <span className="flex items-center space-x-1 text-emerald-400">
+                  <CheckCircle2 size={12} />
+                  <span>GPS Location: 8.9806° N, 38.7578° E (Site Auto-Tagged)</span>
+                </span>
+                <span className="text-cyan-400">Digital Signature Hash Verified</span>
               </div>
 
               <div className="pt-2 flex justify-end space-x-2">
@@ -3957,9 +4678,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer flex items-center space-x-1.5"
                 >
-                  Submit Requisition
+                  <Send size={14} />
+                  <span>Submit Material Request</span>
                 </button>
               </div>
             </form>
@@ -4108,6 +4830,151 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* EVENING RETURN PHOTO EVIDENCE PREVIEW MODAL */}
+      {selectedPhotoReturn && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl flex flex-col max-h-[90vh]">
+            {/* Modal Header */}
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-amber-500/10 rounded-xl border border-amber-500/30 text-amber-400">
+                  <Camera size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider flex items-center space-x-2">
+                    <span>Photo Evidence Inspection</span>
+                    <span className="text-xs font-mono text-purple-400 px-2 py-0.5 rounded bg-purple-950/60 border border-purple-800/60">
+                      {selectedPhotoReturn.id}
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {selectedPhotoReturn.siteName} • {selectedPhotoReturn.blockNumber} ({selectedPhotoReturn.floorNumber})
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedPhotoReturn(null)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-5 overflow-y-auto grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Left Column: Photo Preview */}
+              <div className="space-y-3">
+                <div className="relative group rounded-xl overflow-hidden border border-slate-700 bg-black aspect-4/3 shadow-inner">
+                  <img
+                    src={selectedPhotoReturn.photoUrl || "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&auto=format&fit=crop"}
+                    alt="Return Evidence Photo"
+                    className="w-full h-full object-cover"
+                    referrerPolicy="no-referrer"
+                  />
+                  <div className="absolute top-2 right-2 bg-slate-900/80 backdrop-blur px-2.5 py-1 rounded-full text-[10px] font-mono text-emerald-400 border border-emerald-500/30 flex items-center space-x-1">
+                    <CheckCircle2 size={11} />
+                    <span>Verified Site Capture</span>
+                  </div>
+                  <div className="absolute bottom-2 left-2 right-2 bg-slate-950/80 backdrop-blur p-2 rounded-lg text-[10px] text-slate-300 border border-slate-800 flex justify-between items-center">
+                    <span className="font-mono text-amber-300">Timestamp: {selectedPhotoReturn.date} {selectedPhotoReturn.returnedAt}</span>
+                    <span className="font-sans font-semibold text-slate-400">Dismantling Return</span>
+                  </div>
+                </div>
+
+                <div className="p-3 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-1.5">
+                  <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Condition & Damage Remarks:</div>
+                  <p className="text-xs text-slate-200 font-sans leading-relaxed">
+                    {selectedPhotoReturn.damageDescription || "All returned formwork accessories passed visual inspection with zero structural defects."}
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column: Return Audit Breakdown */}
+              <div className="space-y-4 flex flex-col justify-between">
+                <div className="space-y-3">
+                  <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 space-y-2">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Requisition Reference:</span>
+                      <span className="font-mono font-bold text-cyan-400">{selectedPhotoReturn.requisitionId}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Gang Chief:</span>
+                      <span className="font-bold text-white">{selectedPhotoReturn.gangChiefName}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Verified By Storekeeper:</span>
+                      <span className="font-bold text-white">{selectedPhotoReturn.siteStoreOwnerName}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-slate-400">Return Status:</span>
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                        selectedPhotoReturn.status === "With Damage" ? "bg-amber-950 text-amber-400 border border-amber-800" :
+                        selectedPhotoReturn.status === "With Loss" ? "bg-rose-950 text-rose-400 border border-rose-800" :
+                        "bg-emerald-950 text-emerald-400 border border-emerald-800"
+                      }`}>
+                        {selectedPhotoReturn.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Accessory Inventory Balance Table */}
+                  <div className="bg-slate-950 rounded-xl border border-slate-800 overflow-hidden text-xs font-mono">
+                    <div className="p-2.5 bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-wider text-slate-400">
+                      Returned Accessory Audit Breakdown
+                    </div>
+                    <div className="p-3 space-y-2">
+                      <div className="grid grid-cols-4 gap-2 text-[10px] font-bold text-slate-400 uppercase border-b border-slate-800/60 pb-1">
+                        <span>Item</span>
+                        <span className="text-emerald-400">Returned</span>
+                        <span className="text-rose-400">Lost</span>
+                        <span className="text-amber-400">Damaged</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <span className="text-slate-300 font-sans font-semibold">Alignment Pins</span>
+                        <span className="text-emerald-400 font-bold">{selectedPhotoReturn.pinsReturned}</span>
+                        <span className="text-rose-400 font-bold">{selectedPhotoReturn.pinsLost}</span>
+                        <span className="text-amber-400 font-bold">{selectedPhotoReturn.pinsDamaged}</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <span className="text-slate-300 font-sans font-semibold">Wedges</span>
+                        <span className="text-emerald-400 font-bold">{selectedPhotoReturn.wedgesReturned}</span>
+                        <span className="text-rose-400 font-bold">{selectedPhotoReturn.wedgesLost}</span>
+                        <span className="text-amber-400 font-bold">{selectedPhotoReturn.wedgesDamaged}</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <span className="text-slate-300 font-sans font-semibold">Tie Rods</span>
+                        <span className="text-emerald-400 font-bold">{selectedPhotoReturn.tieRodsReturned}</span>
+                        <span className="text-rose-400 font-bold">{selectedPhotoReturn.tieRodsLost}</span>
+                        <span className="text-amber-400 font-bold">{selectedPhotoReturn.tieRodsDamaged}</span>
+                      </div>
+                      <div className="grid grid-cols-4 gap-2 text-xs">
+                        <span className="text-slate-300 font-sans font-semibold">PVC Conduits</span>
+                        <span className="text-emerald-400 font-bold">{selectedPhotoReturn.conduitsReturned}</span>
+                        <span className="text-rose-400 font-bold">{selectedPhotoReturn.conduitsLost}</span>
+                        <span className="text-amber-400 font-bold">{selectedPhotoReturn.conduitsDamaged}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5 text-[10px] text-emerald-400 font-bold">
+                    <CheckCircle2 size={13} />
+                    <span>Biometric & Photo Evidence Stored</span>
+                  </div>
+                  <button
+                    onClick={() => setSelectedPhotoReturn(null)}
+                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl cursor-pointer shadow transition-colors"
+                  >
+                    Close Preview
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       )}
