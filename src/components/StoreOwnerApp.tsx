@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
 import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite } from "../types";
+import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import {
   Store,
   Package,
@@ -1658,9 +1659,66 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     unit: "Bags"
   });
 
-  // QR / Barcode Simulator State
+  // QR / Barcode Simulator & Label Printing Module State
   const [scannedCode, setScannedCode] = useState("");
-  const [scanResult, setScanResult] = useState<StoreMaterialItem | null>(null);
+  const [scanResult, setScanResult] = useState<any | null>(null);
+  const [qrSubTab, setQrSubTab] = useState<"generator" | "scanner">("generator");
+  const [qrSelectedCategory, setQrSelectedCategory] = useState<string>("All");
+  const [qrSearch, setQrSearch] = useState<string>("");
+  const [qrLabelCopies, setQrLabelCopies] = useState<number>(1);
+  const [qrLabelFormat, setQrLabelFormat] = useState<"thermal" | "industrial" | "grid_a4">("thermal");
+  const [qrSelectedBatchIds, setQrSelectedBatchIds] = useState<string[]>(() => 
+    INITIAL_ACCESSORY_MASTER_DATABASE.map(i => i.id)
+  );
+
+  // Combined searchable list of all accessories + store items for QR label printing
+  const allPrintableAccessories = useMemo(() => {
+    const masterAccs = INITIAL_ACCESSORY_MASTER_DATABASE.map(acc => ({
+      id: acc.id,
+      code: acc.code,
+      name: acc.name,
+      category: acc.category,
+      material: acc.material,
+      size: acc.size,
+      unit: acc.unit,
+      weightKg: acc.weightKg,
+      warehouseLocation: acc.warehouseLocation,
+      barcode: acc.barcode,
+      qrCode: acc.qrCode,
+      serialNumber: acc.serialNumber,
+      stock: acc.currentStock,
+    }));
+
+    const storeAccs = storeItems.map(st => ({
+      id: st.id,
+      code: st.code,
+      name: st.name,
+      category: st.category,
+      material: st.category === "Aluminum Panels" ? "6061-T6 Aluminum" : "Steel / Composite",
+      size: st.unit,
+      unit: st.unit,
+      weightKg: 0.5,
+      warehouseLocation: st.warehouseLocation,
+      barcode: `BAR-${st.code}-2026`,
+      qrCode: `QR-${st.code}`,
+      serialNumber: `SN-${st.code}-001`,
+      stock: st.availableStock,
+    }));
+
+    return [...masterAccs, ...storeAccs];
+  }, [storeItems]);
+
+  const filteredPrintableAccessories = useMemo(() => {
+    return allPrintableAccessories.filter(item => {
+      const matchesCategory = qrSelectedCategory === "All" || item.category === qrSelectedCategory;
+      const matchesSearch = qrSearch === "" ||
+        item.name.toLowerCase().includes(qrSearch.toLowerCase()) ||
+        item.code.toLowerCase().includes(qrSearch.toLowerCase()) ||
+        item.category.toLowerCase().includes(qrSearch.toLowerCase()) ||
+        item.warehouseLocation.toLowerCase().includes(qrSearch.toLowerCase());
+      return matchesCategory && matchesSearch;
+    });
+  }, [allPrintableAccessories, qrSelectedCategory, qrSearch]);
 
   // Filter state for Store Inventory
   const [searchFilter, setSearchFilter] = useState("");
@@ -1783,6 +1841,25 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const handleSimulateScan = (code: string) => {
     setScannedCode(code);
+    const foundAcc = allPrintableAccessories.find(
+      i => i.code.toLowerCase() === code.toLowerCase() || i.id.toLowerCase() === code.toLowerCase()
+    );
+    if (foundAcc) {
+      setScanResult({
+        id: foundAcc.id,
+        code: foundAcc.code,
+        name: foundAcc.name,
+        category: foundAcc.category,
+        totalStock: foundAcc.stock,
+        availableStock: foundAcc.stock,
+        reservedStock: 0,
+        warehouseLocation: foundAcc.warehouseLocation,
+        status: "In Stock",
+        unit: foundAcc.unit,
+        minThreshold: 100,
+      });
+      return;
+    }
     const found = storeItems.find(i => i.code.toLowerCase() === code.toLowerCase() || i.id.toLowerCase() === code.toLowerCase());
     setScanResult(found || storeItems[0]);
   };
@@ -3558,92 +3635,430 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           </div>
         )}
 
-        {/* 9. QR & BARCODE SYSTEM MODULE */}
+        {/* 9. QR & BARCODE SYSTEM & LABEL PRINTING MODULE */}
         {activeTab === "qr-barcode" && (
           <div className="space-y-6 animate-fadeIn">
-            <div>
-              <h2 className="text-lg font-black uppercase text-white">QR Code & Barcode Scanner / Generator</h2>
-              <p className="text-xs text-slate-400">{isAmharic ? "QR እና Barcode በመስራትና በካሜራ በማንበብ እቃዎችን መለየያ" : "Simulated camera/laser scanner for store receiving and dispatch"}</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white flex items-center space-x-2">
+                  <QrCode size={20} className="text-amber-400" />
+                  <span>{isAmharic ? "የQR ኮድ እና ባርኮድ ሌብል ማዘጋጃ እና ስካነር" : "Accessory QR Code & Barcode Label Generator & Scanner"}</span>
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {isAmharic 
+                    ? "ለአሉሚኒየም ፎርምወርክ መለዋወጫዎች እና እቃዎች ልዩ የQR ኮድ ሌብሎችን አዘጋጅተው ያትሙ"
+                    : "Generate, batch-select, and print unique high-density QR code sticker labels for all inventory accessories."}
+                </p>
+              </div>
+
+              {/* Sub-tab Navigation */}
+              <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                <button
+                  onClick={() => setQrSubTab("generator")}
+                  className={`px-4 py-2 rounded-lg font-extrabold transition-all flex items-center space-x-2 cursor-pointer ${
+                    qrSubTab === "generator" 
+                      ? "bg-amber-500 text-slate-950 shadow-md font-bold" 
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Printer size={14} />
+                  <span>{isAmharic ? "ሌብል ማዘጋጃና ማተሚያ" : "Label Generator & Print Station"}</span>
+                </button>
+                <button
+                  onClick={() => setQrSubTab("scanner")}
+                  className={`px-4 py-2 rounded-lg font-extrabold transition-all flex items-center space-x-2 cursor-pointer ${
+                    qrSubTab === "scanner" 
+                      ? "bg-amber-500 text-slate-950 shadow-md font-bold" 
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Scan size={14} />
+                  <span>{isAmharic ? "የካሜራ ስካነር ሙከራ" : "Live Scanner Simulator"}</span>
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* Scan Simulator */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-                <h3 className="text-xs font-black uppercase text-amber-400 flex items-center space-x-2">
-                  <Scan size={16} />
-                  <span>Interactive Scanner Simulation</span>
-                </h3>
+            {/* SUB-TAB 1: LABEL GENERATOR & BATCH PRINTING */}
+            {qrSubTab === "generator" && (
+              <div className="space-y-6">
+                {/* Print Settings & Filter Toolbar */}
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                    
+                    {/* Filters */}
+                    <div className="flex flex-wrap items-center gap-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                          {isAmharic ? "ምድብ (Category)" : "Category Filter"}
+                        </label>
+                        <select
+                          value={qrSelectedCategory}
+                          onChange={(e) => setQrSelectedCategory(e.target.value)}
+                          className="bg-slate-900 border border-slate-800 text-xs text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 font-sans"
+                        >
+                          <option value="All">All Categories ({allPrintableAccessories.length})</option>
+                          {ACCESSORY_CATEGORIES.map((cat, idx) => (
+                            <option key={idx} value={cat}>{cat}</option>
+                          ))}
+                        </select>
+                      </div>
 
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Enter Code or Click Quick Test:</label>
-                  <div className="flex space-x-2">
-                    <input
-                      type="text"
-                      value={scannedCode}
-                      onChange={e => setScannedCode(e.target.value)}
-                      placeholder="e.g. CEM-OPC-50 or ST-REB-16"
-                      className="flex-grow bg-slate-900 border border-slate-800 text-xs px-3 py-2 rounded-xl text-white font-mono focus:outline-none focus:border-amber-500"
-                    />
-                    <button
-                      onClick={() => handleSimulateScan(scannedCode || "CEM-OPC-50")}
-                      className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold uppercase cursor-pointer"
-                    >
-                      Scan Code
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                          {isAmharic ? "እቃ ፈልግ" : "Search Accessory"}
+                        </label>
+                        <div className="relative">
+                          <Search size={14} className="absolute left-3 top-3 text-slate-500" />
+                          <input
+                            type="text"
+                            value={qrSearch}
+                            onChange={(e) => setQrSearch(e.target.value)}
+                            placeholder={isAmharic ? "በስም ወይም በኮድ..." : "Search code, name..."}
+                            className="bg-slate-900 border border-slate-800 text-xs pl-8 pr-3 py-2 rounded-xl text-white focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                          {isAmharic ? "የሌብል አይነት" : "Label Paper Size"}
+                        </label>
+                        <select
+                          value={qrLabelFormat}
+                          onChange={(e) => setQrLabelFormat(e.target.value as any)}
+                          className="bg-slate-900 border border-slate-800 text-xs text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
+                        >
+                          <option value="thermal">Thermal Sticker (50mm x 30mm)</option>
+                          <option value="industrial">Industrial Heavy Tag (70mm x 50mm)</option>
+                          <option value="grid_a4">A4 Sticker Sheet (21 Labels/Sheet)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+                          {isAmharic ? "የኮፒ ብዛት" : "Copies / Item"}
+                        </label>
+                        <input
+                          type="number"
+                          min={1}
+                          max={20}
+                          value={qrLabelCopies}
+                          onChange={(e) => setQrLabelCopies(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-20 bg-slate-900 border border-slate-800 text-xs text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 text-center font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Quick Selection Actions & Print Trigger */}
+                    <div className="flex items-center space-x-3 self-end lg:self-center">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (qrSelectedBatchIds.length === filteredPrintableAccessories.length) {
+                            setQrSelectedBatchIds([]);
+                          } else {
+                            setQrSelectedBatchIds(filteredPrintableAccessories.map(i => i.id));
+                          }
+                        }}
+                        className="px-3.5 py-2 bg-slate-900 border border-slate-800 hover:border-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer transition"
+                      >
+                        {qrSelectedBatchIds.length === filteredPrintableAccessories.length ? "Deselect All" : "Select All Filtered"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        disabled={qrSelectedBatchIds.length === 0}
+                        className="px-6 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs rounded-xl shadow-lg flex items-center space-x-2 transition transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      >
+                        <Printer size={16} />
+                        <span>
+                          {isAmharic ? "የተመረጡትን ሌብሎች አትም" : "Print Selected QR Labels"} ({qrSelectedBatchIds.length * qrLabelCopies})
+                        </span>
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+                {/* Batch Item Selector Table */}
+                <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
+                  <div className="p-3 bg-slate-900 border-b border-slate-800 flex justify-between items-center text-xs">
+                    <span className="font-bold text-white uppercase tracking-wider">
+                      Inventory Accessory Selection List ({filteredPrintableAccessories.length} items found)
+                    </span>
+                    <span className="text-amber-400 font-mono font-bold">
+                      {qrSelectedBatchIds.length} items checked
+                    </span>
+                  </div>
+
+                  <div className="max-h-60 overflow-y-auto divide-y divide-slate-800/60 font-mono text-xs">
+                    {filteredPrintableAccessories.map(item => {
+                      const isChecked = qrSelectedBatchIds.includes(item.id);
+                      return (
+                        <div
+                          key={item.id}
+                          onClick={() => {
+                            if (isChecked) {
+                              setQrSelectedBatchIds(prev => prev.filter(id => id !== item.id));
+                            } else {
+                              setQrSelectedBatchIds(prev => [...prev, item.id]);
+                            }
+                          }}
+                          className={`p-3 flex items-center justify-between cursor-pointer transition ${
+                            isChecked ? "bg-amber-950/20 text-white" : "hover:bg-slate-900/40 text-slate-400"
+                          }`}
+                        >
+                          <div className="flex items-center space-x-3">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => {}}
+                              className="rounded border-slate-700 bg-slate-900 text-amber-500 focus:ring-amber-500"
+                            />
+                            <div>
+                              <span className="font-bold text-amber-400 mr-2">{item.code}</span>
+                              <span className="font-sans font-bold text-white">{item.name}</span>
+                              <span className="text-[10px] text-slate-500 ml-2 font-sans">({item.category})</span>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-4 text-[10px] text-slate-400">
+                            <span>Size: <strong className="text-slate-300">{item.size}</strong></span>
+                            <span>Bin: <strong className="text-slate-300">{item.warehouseLocation}</strong></span>
+                            <span className="text-emerald-400 font-bold">Stock: {item.stock} {item.unit}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Printable QR Code Sticker Sheet Preview */}
+                <div className="space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <h3 className="font-black uppercase text-amber-400 flex items-center space-x-2">
+                      <QrCode size={16} />
+                      <span>Printable QR Sticker Preview Sheet</span>
+                    </h3>
+                    <span className="text-slate-400 text-[11px]">
+                      Showing preview for {qrSelectedBatchIds.length} items x {qrLabelCopies} copies = {qrSelectedBatchIds.length * qrLabelCopies} labels
+                    </span>
+                  </div>
+
+                  <div
+                    id="printable-qr-labels-container"
+                    className="bg-white rounded-2xl p-6 border-2 border-slate-300 text-slate-900 shadow-2xl"
+                  >
+                    {qrSelectedBatchIds.length === 0 ? (
+                      <div className="p-12 text-center text-slate-400 space-y-2">
+                        <QrCode className="w-12 h-12 mx-auto text-slate-300" />
+                        <p className="font-bold text-slate-600">No items selected for printing.</p>
+                        <p className="text-xs">Check accessories in the list above to generate printable QR sticker labels.</p>
+                      </div>
+                    ) : (
+                      <div
+                        className={`grid gap-4 ${
+                          qrLabelFormat === "grid_a4"
+                            ? "grid-cols-3"
+                            : qrLabelFormat === "industrial"
+                            ? "grid-cols-2 md:grid-cols-3"
+                            : "grid-cols-2 md:grid-cols-4"
+                        }`}
+                      >
+                        {filteredPrintableAccessories
+                          .filter(item => qrSelectedBatchIds.includes(item.id))
+                          .flatMap(item =>
+                            Array.from({ length: qrLabelCopies }).map((_, copyIdx) => (
+                              <div
+                                key={`${item.id}-label-copy-${copyIdx}`}
+                                className="p-3 bg-white border-2 border-slate-900 rounded-xl shadow-sm flex flex-col justify-between space-y-2 text-slate-900 print:break-inside-avoid"
+                              >
+                                {/* Label Branding Header */}
+                                <div className="border-b border-slate-300 pb-1 flex items-center justify-between text-[9px] font-bold font-mono tracking-tight text-slate-800">
+                                  <span>BUILD-SYNC ERP</span>
+                                  <span className="text-amber-700">FORMWORK ACC</span>
+                                </div>
+
+                                {/* Label Center - QR Code & Specs */}
+                                <div className="flex items-center space-x-2">
+                                  {/* Crisp SVG QR Code */}
+                                  <div className="shrink-0 p-1 bg-white border border-slate-900 rounded">
+                                    <svg viewBox="0 0 100 100" className="w-16 h-16 text-slate-900">
+                                      <rect width="100" height="100" fill="white" />
+                                      {/* Outer Position Detection Squares */}
+                                      <rect x="5" y="5" width="28" height="28" fill="black" />
+                                      <rect x="9" y="9" width="20" height="20" fill="white" />
+                                      <rect x="13" y="13" width="12" height="12" fill="black" />
+
+                                      <rect x="67" y="5" width="28" height="28" fill="black" />
+                                      <rect x="71" y="9" width="20" height="20" fill="white" />
+                                      <rect x="75" y="13" width="12" height="12" fill="black" />
+
+                                      <rect x="5" y="67" width="28" height="28" fill="black" />
+                                      <rect x="9" y="71" width="20" height="20" fill="white" />
+                                      <rect x="13" y="75" width="12" height="12" fill="black" />
+
+                                      {/* High-density QR Module Pattern */}
+                                      <rect x="40" y="8" width="6" height="6" fill="black" />
+                                      <rect x="50" y="12" width="8" height="6" fill="black" />
+                                      <rect x="42" y="24" width="10" height="6" fill="black" />
+                                      <rect x="55" y="22" width="6" height="8" fill="black" />
+                                      <rect x="8" y="42" width="8" height="8" fill="black" />
+                                      <rect x="22" y="45" width="6" height="6" fill="black" />
+                                      <rect x="35" y="38" width="8" height="8" fill="black" />
+                                      <rect x="48" y="40" width="12" height="6" fill="black" />
+                                      <rect x="65" y="42" width="8" height="8" fill="black" />
+                                      <rect x="78" y="45" width="14" height="6" fill="black" />
+                                      <rect x="40" y="55" width="6" height="10" fill="black" />
+                                      <rect x="52" y="58" width="10" height="6" fill="black" />
+                                      <rect x="68" y="55" width="6" height="8" fill="black" />
+                                      <rect x="80" y="60" width="8" height="8" fill="black" />
+                                      <rect x="40" y="72" width="10" height="8" fill="black" />
+                                      <rect x="55" y="75" width="8" height="6" fill="black" />
+                                      <rect x="68" y="72" width="12" height="8" fill="black" />
+                                      <rect x="82" y="78" width="8" height="12" fill="black" />
+                                      <rect x="42" y="86" width="14" height="6" fill="black" />
+                                      <rect x="62" y="85" width="8" height="8" fill="black" />
+                                    </svg>
+                                  </div>
+
+                                  <div className="flex-1 min-w-0 space-y-0.5">
+                                    <div className="flex items-center justify-between">
+                                      <span className="font-mono font-extrabold text-xs text-amber-700">{item.code}</span>
+                                      <span className="text-[9px] font-mono px-1 bg-slate-100 text-slate-700 rounded border border-slate-300">{item.id}</span>
+                                    </div>
+                                    <div className="font-extrabold text-xs text-slate-900 truncate leading-tight">{item.name}</div>
+                                    <div className="text-[10px] text-slate-600 flex flex-wrap gap-x-2">
+                                      <span>Mat: <strong>{item.material}</strong></span>
+                                      <span>Size: <strong>{item.size}</strong></span>
+                                    </div>
+                                    <div className="text-[9px] font-mono text-slate-500 truncate pt-0.5">
+                                      Bin: {item.warehouseLocation}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Label Footer */}
+                                <div className="border-t border-slate-300 pt-1 flex items-center justify-between text-[9px] font-mono text-slate-700">
+                                  <span>{item.barcode}</span>
+                                  <span className="font-bold text-slate-900">COPY #{copyIdx + 1}</span>
+                                </div>
+                              </div>
+                            ))
+                          )
+                        }
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Print Directive Style Block */}
+                <style>{`
+                  @media print {
+                    body * {
+                      visibility: hidden !important;
+                    }
+                    #printable-qr-labels-container, #printable-qr-labels-container * {
+                      visibility: visible !important;
+                    }
+                    #printable-qr-labels-container {
+                      position: absolute !important;
+                      left: 0 !important;
+                      top: 0 !important;
+                      width: 100% !important;
+                      background: white !important;
+                      padding: 10px !important;
+                      box-shadow: none !important;
+                      border: none !important;
+                    }
+                  }
+                `}</style>
+              </div>
+            )}
+
+            {/* SUB-TAB 2: SCANNER SIMULATOR */}
+            {qrSubTab === "scanner" && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Scan Simulator */}
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <h3 className="text-xs font-black uppercase text-amber-400 flex items-center space-x-2">
+                    <Scan size={16} />
+                    <span>Interactive Scanner Simulation</span>
+                  </h3>
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Enter Code or Click Quick Test:</label>
+                    <div className="flex space-x-2">
+                      <input
+                        type="text"
+                        value={scannedCode}
+                        onChange={e => setScannedCode(e.target.value)}
+                        placeholder="e.g. PW-1650 or CEM-OPC-50 or ST-REB-16"
+                        className="flex-grow bg-slate-900 border border-slate-800 text-xs px-3 py-2 rounded-xl text-white font-mono focus:outline-none focus:border-amber-500"
+                      />
+                      <button
+                        onClick={() => handleSimulateScan(scannedCode || "PW-1650")}
+                        className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold uppercase cursor-pointer"
+                      >
+                        Scan Code
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap gap-2 pt-2">
+                    <button onClick={() => handleSimulateScan("PW-1650")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Scan Pin & Wedge (PW-1650)
+                    </button>
+                    <button onClick={() => handleSimulateScan("CEM-OPC-50")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Scan Cement (CEM-OPC-50)
+                    </button>
+                    <button onClick={() => handleSimulateScan("ST-REB-16")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Scan Rebar (ST-REB-16)
+                    </button>
+                    <button onClick={() => handleSimulateScan("AL-PNL-1260")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Scan Formwork (AL-PNL-1260)
                     </button>
                   </div>
+
+                  {/* Scan Details Result */}
+                  {scanResult && (
+                    <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 animate-fadeIn">
+                      <div className="flex justify-between items-center">
+                        <span className="text-xs font-bold text-emerald-400 flex items-center space-x-1">
+                          <CheckCircle2 size={14} />
+                          <span>Valid Code Verified</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400">{scanResult.code}</span>
+                      </div>
+                      <div className="text-xs font-sans font-bold text-white">{scanResult.name}</div>
+                      <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-300">
+                        <div>Total Stock: <span className="text-white font-bold">{scanResult.totalStock}</span></div>
+                        <div>Available: <span className="text-emerald-400 font-bold">{scanResult.availableStock}</span></div>
+                        <div>Location: <span className="text-amber-400">{scanResult.warehouseLocation}</span></div>
+                        <div>Status: <span className="text-emerald-400">{scanResult.status}</span></div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
-                <div className="flex flex-wrap gap-2 pt-2">
-                  <button onClick={() => handleSimulateScan("CEM-OPC-50")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                    Scan Cement (CEM-OPC-50)
-                  </button>
-                  <button onClick={() => handleSimulateScan("ST-REB-16")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                    Scan Rebar (ST-REB-16)
-                  </button>
-                  <button onClick={() => handleSimulateScan("AL-PNL-1260")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                    Scan Formwork (AL-PNL-1260)
-                  </button>
-                </div>
+                {/* QR Generator Mock */}
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
+                  <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center space-x-2">
+                    <QrCode size={16} />
+                    <span>Generated Store Label QR</span>
+                  </h3>
 
-                {/* Scan Details Result */}
-                {scanResult && (
-                  <div className="p-4 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 animate-fadeIn">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-emerald-400 flex items-center space-x-1">
-                        <CheckCircle2 size={14} />
-                        <span>Valid Code Verified</span>
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400">{scanResult.code}</span>
+                  <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl text-slate-900 space-y-3">
+                    <div className="p-4 border-4 border-slate-900 rounded-lg">
+                      <QrCode size={96} className="text-slate-900" />
                     </div>
-                    <div className="text-xs font-sans font-bold text-white">{scanResult.name}</div>
-                    <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-slate-300">
-                      <div>Total Stock: <span className="text-white font-bold">{scanResult.totalStock}</span></div>
-                      <div>Available: <span className="text-emerald-400 font-bold">{scanResult.availableStock}</span></div>
-                      <div>Location: <span className="text-amber-400">{scanResult.warehouseLocation}</span></div>
-                      <div>Status: <span className="text-emerald-400">{scanResult.status}</span></div>
-                    </div>
+                    <span className="text-xs font-mono font-bold text-slate-900 tracking-widest">BUILD-SYNC-STORE-2026</span>
+                    <span className="text-[10px] font-sans font-semibold text-slate-600">Bole Heights Phase I Site Store Shed A</span>
                   </div>
-                )}
-              </div>
-
-              {/* QR Generator Mock */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-                <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center space-x-2">
-                  <QrCode size={16} />
-                  <span>Generated Store Label QR</span>
-                </h3>
-
-                <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl text-slate-900 space-y-3">
-                  <div className="p-4 border-4 border-slate-900 rounded-lg">
-                    <QrCode size={96} className="text-slate-900" />
-                  </div>
-                  <span className="text-xs font-mono font-bold text-slate-900 tracking-widest">BUILD-SYNC-STORE-2026</span>
-                  <span className="text-[10px] font-sans font-semibold text-slate-600">Bole Heights Phase I Site Store Shed A</span>
                 </div>
               </div>
-
-            </div>
+            )}
           </div>
         )}
 

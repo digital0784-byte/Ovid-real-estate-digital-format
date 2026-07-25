@@ -205,19 +205,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                   <option value="Scaffolder">Scaffolder</option>
                 </select>
               </div>
-
-              <div className="space-y-1">
-                <label className="font-semibold text-slate-600">Department</label>
-                <select 
-                  value={workerDept} onChange={e => setWorkerDept(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded p-2 text-slate-800 outline-none"
-                >
-                  <option value="Formwork Assembly">Formwork Assembly</option>
-                  <option value="Formwork Stripping">Formwork Stripping</option>
-                  <option value="Concreting">Concreting</option>
-                  <option value="Scaffolding">Scaffolding</option>
-                </select>
-              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
@@ -343,7 +330,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                 <th className="p-3">Worker ID</th>
                 <th className="p-3">Name</th>
                 <th className="p-3">Trade SPECIALTY</th>
-                <th className="p-3">Department</th>
                 <th className="p-3">Company</th>
                 <th className="p-3">Assigned Crew</th>
                 <th className="p-3 text-right">Actions</th>
@@ -357,7 +343,6 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                     <td className="p-3 font-mono font-bold text-slate-500">{w.id}</td>
                     <td className="p-3 font-bold text-slate-900">{w.name}</td>
                     <td className="p-3 text-slate-600">{w.trade}</td>
-                    <td className="p-3 text-slate-600">{w.department}</td>
                     <td className="p-3 text-slate-500">{w.company}</td>
                     <td className="p-3">
                       <span className="bg-slate-100 text-slate-800 font-bold px-2 py-0.5 rounded">

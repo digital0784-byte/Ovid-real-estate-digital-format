@@ -1460,7 +1460,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
             <div className="space-y-4">
               <h4 className="font-bold text-slate-800 border-b pb-1 text-[13px]">{isAmharic ? "2. የቅጥር እና የስራ ምደባ መረጃዎች" : "2. Deployment & Assignment Settings"}</h4>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <label className="font-semibold text-slate-600">Company *</label>
                   <select 
@@ -1471,36 +1471,6 @@ export const Attendance: React.FC<AttendanceProps> = ({
                     <option value="Digital Construction ERP">Digital Construction ERP System Construction</option>
                     <option value="Subcontractor Alpha">Subcontractor Alpha</option>
                     <option value="Subcontractor Beta">Subcontractor Beta</option>
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-600">{isAmharic ? "ዲፓርትመንት *" : "Department *"}</label>
-                  <select 
-                    value={regDept}
-                    onChange={(e) => setRegDept(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-bold text-slate-800"
-                  >
-                    {DEPARTMENTS_CATALOG.map((dept) => (
-                      <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn}>
-                        {isAmharic ? dept.nameAm : dept.nameEn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-semibold text-slate-600">{isAmharic ? "የስራ ዘርፍ / ሙያ *" : "Work Sector & Certified Trade *"}</label>
-                  <select 
-                    value={regTrade}
-                    onChange={(e) => setRegTrade(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 outline-none font-bold text-slate-800"
-                  >
-                    {WORK_SECTORS_CATALOG.map((sec) => (
-                      <option key={sec.id} value={isAmharic ? sec.nameAm : sec.nameEn}>
-                        {isAmharic ? sec.nameAm : sec.nameEn}
-                      </option>
-                    ))}
                   </select>
                 </div>
 

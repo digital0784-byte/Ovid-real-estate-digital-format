@@ -1311,8 +1311,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                       onChange={(e) => setSelectedBldProj(e.target.value)}
                       className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                     >
-                      {projects.map(p => (
-                        <option key={p.id} value={p.id}>{p.name}</option>
+                      {projects.map((p, idx) => (
+                        <option key={`${p.id}-${idx}`} value={p.id}>{p.name}</option>
                       ))}
                     </select>
                   </div>
@@ -1686,8 +1686,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                           onChange={(e) => setSelectedProjectId(e.target.value)}
                           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                         >
-                          {projects.map(p => (
-                            <option key={p.id} value={p.id}>{p.name}</option>
+                          {projects.map((p, idx) => (
+                            <option key={`${p.id}-${idx}`} value={p.id}>{p.name}</option>
                           ))}
                         </select>
                       </div>
@@ -1700,8 +1700,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                             onChange={(e) => setSelectedCadBuilding(e.target.value)}
                             className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:border-red-500"
                           >
-                            {buildings.filter(b => b.projectId === selectedProjectId).map(b => (
-                              <option key={b.id} value={b.id}>{b.name}</option>
+                            {buildings.filter(b => b.projectId === selectedProjectId).map((b, idx) => (
+                              <option key={`${b.id}-${idx}`} value={b.id}>{b.name}</option>
                             ))}
                           </select>
                         </div>
@@ -1712,8 +1712,8 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                             onChange={(e) => setSelectedCadFloor(e.target.value)}
                             className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2 focus:border-red-500"
                           >
-                            {floors.map(f => (
-                              <option key={f.id} value={f.id}>{f.name}</option>
+                            {floors.map((f, idx) => (
+                              <option key={`${f.id}-${idx}`} value={f.id}>{f.name}</option>
                             ))}
                           </select>
                         </div>

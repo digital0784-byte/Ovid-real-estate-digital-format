@@ -59,6 +59,10 @@ import {
 } from "recharts";
 import { DbService } from "../services/db";
 import { SmartCustomSelect } from "./SmartCustomSelect";
+import { PanelMasterDatabaseView } from "./PanelMasterDatabaseView";
+import { AccessoryMasterDatabaseView } from "./AccessoryMasterDatabaseView";
+import { MasterPanelSelector, MasterPanelSelectorResult } from "./MasterPanelSelector";
+import { MASTER_PANEL_DATABASE } from "../data/panelMasterDatabase";
 import { 
   AluminumFormworkPanel, 
   PanelMovementLog, 
@@ -103,6 +107,8 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   // --- UI/Interaction States ---
   const [activeSubTab, setActiveSubTab] = useState<
     | "dashboard"
+    | "master_db"
+    | "accessories_db"
     | "database"
     | "shipments_customs"
     | "transfers"
@@ -449,6 +455,15 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
     setInstallRows(prev => prev.map((row, idx) => {
       if (idx === index) {
         return { ...row, customDimensions };
+      }
+      return row;
+    }));
+  };
+
+  const handlePanelTypeChange = (index: number, type: string) => {
+    setInstallRows(prev => prev.map((row, idx) => {
+      if (idx === index) {
+        return { ...row, type, isCustom: true };
       }
       return row;
     }));
@@ -1309,6 +1324,28 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           {t("📊 Inventory Dashboard", "📊 ክምችት ዳሽቦርድ")}
         </button>
         <button
+          onClick={() => setActiveSubTab("master_db")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "master_db"
+              ? "bg-gradient-to-r from-red-600 to-amber-600 text-white font-extrabold shadow-md"
+              : "bg-red-50 text-red-700 hover:bg-red-100 font-bold"
+          }`}
+        >
+          <Sparkles size={14} className="text-amber-300" />
+          <span>{t("📚 Panel Master Database (2,000+)", "📚 የፓነሎች ማስተር ዳታቤዝ (2,000+)")}</span>
+        </button>
+        <button
+          onClick={() => setActiveSubTab("accessories_db")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "accessories_db"
+              ? "bg-gradient-to-r from-amber-600 to-slate-900 text-white font-extrabold shadow-md"
+              : "bg-amber-50 text-amber-800 hover:bg-amber-100 font-bold border border-amber-200"
+          }`}
+        >
+          <Wrench size={14} className="text-amber-600" />
+          <span>{t("⚙️ Accessories Master Library", "⚙️ የአክሰሰሪዎች ማስተር ላይብረሪ")}</span>
+        </button>
+        <button
           onClick={() => setActiveSubTab("database")}
           className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
             activeSubTab === "database"
@@ -1487,6 +1524,20 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
             transition={{ duration: 0.15 }}
           >
             
+            {/* === MASTER PANEL DATABASE VIEW === */}
+            {activeSubTab === "master_db" && (
+              <PanelMasterDatabaseView
+                isAmharic={isAmharic}
+                currentUserRole={currentUserRole}
+                currentUserName={currentUserName}
+              />
+            )}
+
+            {/* === ACCESSORIES MASTER DATABASE VIEW === */}
+            {activeSubTab === "accessories_db" && (
+              <AccessoryMasterDatabaseView />
+            )}
+
             {/* === DASHBOARD VIEW === */}
             {activeSubTab === "dashboard" && (
               <div className="space-y-6">
@@ -3107,30 +3158,36 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                                     />
                                   </td>
 
-                                  {/* Panel Name & Badge */}
+                                  {/* Panel Name & Badge - Directly Editable */}
                                   <td className="p-3 font-medium">
-                                    <div className="flex flex-col">
-                                      <span className="font-bold text-slate-950">{row.type}</span>
+                                    <div className="flex flex-col space-y-1">
+                                      <input
+                                        type="text"
+                                        title={t("Click or write to edit panel type directly", "የፓነል አይነት እዚህ በነፃነት ይጻፉ")}
+                                        value={row.type}
+                                        onChange={e => handlePanelTypeChange(realIdx, e.target.value)}
+                                        className="w-full bg-slate-50 hover:bg-white border border-slate-200 hover:border-red-400 rounded px-2 py-1 font-bold text-slate-950 text-xs outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-colors"
+                                      />
                                       {row.isCustom && (
-                                        <span className="inline-block bg-orange-100 text-orange-800 text-[9px] px-1.5 py-0.5 rounded font-bold w-max mt-0.5">
-                                          {t("Custom Entry", "ብጁ ግቤት")}
+                                        <span className="inline-block bg-orange-100 text-orange-800 text-[9px] px-1.5 py-0.5 rounded font-bold w-max">
+                                          {t("Editable Entry", "በቀጥታ የተጻፈ")}
                                         </span>
                                       )}
                                     </div>
                                   </td>
 
-                                  {/* Dimensions Spec & Custom input */}
+                                  {/* Dimensions Spec & Custom input - Directly Editable */}
                                   <td className="p-3">
-                                    <div className="space-y-1.5">
+                                    <div className="space-y-1">
                                       <span className="text-[10px] text-slate-400 block italic">{row.standardDimensions}</span>
                                       
-                                      {/* Custom dimension override */}
+                                      {/* Custom dimension override - Direct Write */}
                                       <input
                                         type="text"
-                                        placeholder={t("Override dimension (e.g. 450x2400)", "ልዩ መጠን እዚህ ይጻፉ")}
+                                        placeholder={t("Write dimension directly (e.g. 1200x600, 450x2400 mm)", "መጠን በነፃነት እዚህ ይፃፉ (ለምሳሌ 1200x600 mm)")}
                                         value={row.customDimensions}
                                         onChange={e => handleCustomDimensionsChange(realIdx, e.target.value)}
-                                        className="w-full bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-[10px] outline-none"
+                                        className="w-full bg-slate-50 hover:bg-white border border-slate-200 hover:border-red-400 rounded px-2 py-1 text-xs font-semibold text-slate-800 outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600 transition-colors"
                                       />
                                     </div>
                                   </td>
@@ -4298,8 +4355,8 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100 text-slate-700">
-                        {panels.filter(p => p.status !== PanelStatus.ACTIVE).map((panel) => (
-                          <tr key={panel.id} className="hover:bg-slate-50">
+                        {panels.filter(p => p.status !== PanelStatus.ACTIVE).map((panel, idx) => (
+                          <tr key={`${panel.id}-${idx}`} className="hover:bg-slate-50">
                             <td className="p-3 font-mono font-bold text-slate-900">{panel.id}</td>
                             <td className="p-3">
                               <span className="font-semibold">{panel.type}</span>
@@ -4602,11 +4659,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- ADD NEW WAREHOUSE YARD MODAL --- */}
       {showAddWarehouseModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -4741,11 +4798,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- CREATE NEW TRANSFER MODAL --- */}
       {showCreateTransferModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -4889,11 +4946,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- ADD NEW PANEL MODAL --- */}
       {showAddModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-2xl w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -4908,20 +4965,74 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
               </button>
             </div>
 
-            <form onSubmit={handleRegisterPanel} className="space-y-3.5 text-xs">
-              <div>
-                <label className="block font-semibold text-slate-700 mb-1">{t("Panel Serial Number", "የፓነል ሲሪያል ቁጥር (ለምሳሌ SN-AL-901)")}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="SN-AL-XXXXXX"
-                  value={newPanelSerial}
-                  onChange={e => setNewPanelSerial(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs uppercase"
-                />
+            <form onSubmit={handleRegisterPanel} className="space-y-4 text-xs">
+              {/* 4-Step Guided Master Panel Selection System */}
+              <MasterPanelSelector
+                onSelectPanel={(res: MasterPanelSelectorResult) => {
+                  setNewPanelType(res.category as any);
+                  setNewPanelSize(`${res.widthMm}x${res.heightMm} mm`);
+                  setNewPanelWeight(res.weightKg);
+                  setNewPanelQuantity(res.bundleQuantity || 1);
+                  setNewPanelBundle(`BDL-${res.panelCode}`);
+                  setNewPanelSerial(res.serialNumber);
+                }}
+                existingSerials={panels.map(p => p.serialNumber || "")}
+                existingPanelCodes={panels.map(p => p.bundleNumber || "")}
+                isAmharic={isAmharic}
+                currentUserRole={currentUserRole}
+                currentUserName={currentUserName}
+                showAdminAddOption={currentUserRole === "Head Office" || currentUserRole === "Store Manager"}
+              />
+
+              {/* Panel Type & Panel Dimension Auto-Synced Summary Fields */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block font-bold text-slate-800">{t("Panel Type", "የፓነል አይነት")}</label>
+                    <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {t("Auto-Selected from Master", "ከማስተር መዝገብ የተመረጠ")}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={newPanelType}
+                    onChange={e => setNewPanelType(e.target.value as any)}
+                    placeholder={t("Panel Type (e.g. Wall Panels)", "የፓነል አይነት")}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 outline-none text-xs font-bold focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1">
+                    <label className="block font-bold text-slate-800">{t("Dimensions / Size", "የፓነል መጠን (Dimension)")}</label>
+                    <span className="text-[10px] font-bold text-slate-500 bg-white px-2 py-0.5 rounded border border-slate-200">
+                      {t("Auto-Selected from Master", "ከማስተር መዝገብ የተመረጠ")}
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={newPanelSize}
+                    onChange={e => setNewPanelSize(e.target.value)}
+                    placeholder={t("Dimensions (e.g. 1200x600 mm)", "የፓነል መጠን")}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-900 outline-none text-xs font-bold focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                  />
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Panel Serial Number", "የፓነል ሲሪያል ቁጥር")}</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="SN-AL-XXXXXX"
+                    value={newPanelSerial}
+                    onChange={e => setNewPanelSerial(e.target.value)}
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-800 font-bold font-mono outline-none text-xs uppercase"
+                  />
+                </div>
                 <div>
                   <label className="block font-semibold text-slate-700 mb-1">{t("Bundle Number", "ጥቅል ቁጥር")}</label>
                   <input
@@ -4929,49 +5040,19 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                     placeholder="BDL-XX"
                     value={newPanelBundle}
                     onChange={e => setNewPanelBundle(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-800 font-bold font-mono outline-none text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{t("Quantity", "የፓነል ብዛት")}</label>
+                  <label className="block font-semibold text-slate-700 mb-1">{t("Register Quantity", "የፓነል ብዛት")}</label>
                   <input
                     type="number"
                     required
                     min={1}
                     value={newPanelQuantity}
                     onChange={e => setNewPanelQuantity(Number(e.target.value))}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
+                    className="w-full bg-white border border-slate-300 rounded-lg p-2.5 text-slate-800 font-bold font-mono outline-none text-xs"
                   />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{t("Panel Type", "የፓነል አይነት")}</label>
-                  <select
-                    value={newPanelType}
-                    onChange={e => setNewPanelType(e.target.value as PanelType)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
-                  >
-                    {Object.values(PanelType).map((t, i) => (
-                      <option key={i} value={t}>{t}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block font-semibold text-slate-700 mb-1">{t("Dimensions / Size", "የፓነል መጠን")}</label>
-                  <select
-                    value={newPanelSize}
-                    onChange={e => setNewPanelSize(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs"
-                  >
-                    <option value="1200x600 mm">1200x600 mm</option>
-                    <option value="1200x450 mm">1200x450 mm</option>
-                    <option value="2400x600 mm">2400x600 mm</option>
-                    <option value="900x400 mm">900x400 mm</option>
-                    <option value="200x200 mm">200x200 mm (Corner)</option>
-                    <option value="Custom Curved">Custom Curved</option>
-                  </select>
                 </div>
               </div>
 
@@ -5077,11 +5158,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- RELOCATE/ASSIGN MOVEMENT MODAL --- */}
       {showMoveModal && selectedPanelForMove && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -5164,11 +5245,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- REPORT DAMAGE MODAL --- */}
       {showDamageModal && (selectedPanelForDamage || isDirectDamageMode) && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -5272,11 +5353,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- LOG REPAIR RECORD MODAL --- */}
       {showRepairModal && selectedDamageReportForRepair && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -5352,11 +5433,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- QR BARCODE LABEL PREVIEW MODAL --- */}
       {showQRLabelModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-sm w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 flex items-center space-x-2">
@@ -5443,11 +5524,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- ADD NEW OVERSEAS SHIPMENT MODAL --- */}
       {showAddShipmentModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">
@@ -5522,11 +5603,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
       {/* --- PHYSICAL STOCK AUDIT MODAL --- */}
       {showAuditModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 overflow-y-auto">
           <motion.div 
             initial={{ scale: 0.95, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100"
+            className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-slate-100 my-auto max-h-[90vh] overflow-y-auto"
           >
             <div className="flex justify-between items-center pb-2 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 flex items-center space-x-2">

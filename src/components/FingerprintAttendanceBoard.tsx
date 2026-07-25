@@ -1495,7 +1495,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
             <thead>
               <tr className="border-b border-slate-100 text-slate-400 font-extrabold uppercase tracking-wider text-[10px] bg-slate-50/50">
                 <th className="py-3 px-4 shrink-0">{isAmharic ? "ሰራተኛ" : "Employee"}</th>
-                <th className="py-3 px-4">{isAmharic ? "የሙያ ዘርፍ" : "Trade Specialty"}</th>
+                <th className="py-3 px-4">{isAmharic ? "የስራ ድርሻ" : "Job Role"}</th>
                 <th className="py-3 px-4">{isAmharic ? "የስራ ቡድን" : "Construction Team"}</th>
                 <th className="py-3 px-4">{isAmharic ? "ጋንግ ቺፍ" : "Gang Chief"}</th>
                 <th className="py-3 px-4">{isAmharic ? "ቡድን መሪ" : "Team Leader"}</th>

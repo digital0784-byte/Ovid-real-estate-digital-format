@@ -271,7 +271,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
           </h2>
           <p className="text-xs text-slate-500 mt-1">
             {isAmharic 
-              ? "የሰራተኞች መለያ መረጃ፣ ዲፓርትመንት፣ ሙያ፣ ችሎታ እና ድንገተኛ አደጋ አድራሻዎችን ማስተዳደሪያ።" 
+              ? "የሰራተኞች መለያ መረጃ፣ ችሎታ እና ድንገተኛ አደጋ አድራሻዎችን ማስተዳደሪያ።" 
               : "Access, audit, and update certified worker credentials, skill sets, emergency contacts, and active status."}
           </p>
         </div>
@@ -313,7 +313,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
 
       {/* SEARCH AND FILTERS */}
       <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           {/* SEARCH FIELD */}
           <div className="md:col-span-2 relative">
             <span className="absolute left-3.5 top-2.5 text-slate-500">
@@ -326,34 +326,6 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
               placeholder={isAmharic ? "በስም ወይም መለያ ቁጥር ይፈልጉ..." : "Search by name, ID number..."}
               className="w-full bg-slate-800 border border-slate-700 rounded-xl pl-10 pr-4 py-2 text-xs font-semibold focus:outline-none focus:border-red-500 placeholder-slate-500 text-white"
             />
-          </div>
-
-          {/* DEPT FILTER */}
-          <div className="space-y-1">
-            <select
-              value={selectedDepartment}
-              onChange={e => setSelectedDepartment(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none text-white cursor-pointer"
-            >
-              <option value="All">{isAmharic ? "ሁሉም ዲፓርትመንት" : "All Departments"}</option>
-              {departments.filter(d => d !== "All").map(dept => (
-                <option key={dept} value={dept}>{dept}</option>
-              ))}
-            </select>
-          </div>
-
-          {/* TRADE FILTER */}
-          <div className="space-y-1">
-            <select
-              value={selectedTrade}
-              onChange={e => setSelectedTrade(e.target.value)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-xl px-3 py-2 text-xs font-semibold focus:outline-none text-white cursor-pointer"
-            >
-              <option value="All">{isAmharic ? "ሁሉም የሙያ ዘርፍ" : "All Trades"}</option>
-              {trades.filter(t => t !== "All").map(trade => (
-                <option key={trade} value={trade}>{trade}</option>
-              ))}
-            </select>
           </div>
 
           {/* COMPANY FILTER */}
@@ -583,15 +555,6 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                           <span className="text-slate-400 font-bold uppercase text-[10px]">ID:</span>
                           <strong>{activeWorker.id}</strong>
                         </p>
-                        
-                        <div className="mt-3 flex flex-wrap justify-center sm:justify-start gap-2 text-[10px] font-bold uppercase">
-                          <span className="bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-100">
-                            {activeWorker.trade}
-                          </span>
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded border border-slate-200">
-                            {activeWorker.department}
-                          </span>
-                        </div>
                       </>
                     )}
                   </div>
@@ -709,48 +672,6 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                         <Building2 size={13} className="text-red-600 shrink-0" />
                         <span>{activeWorker.company}</span>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 block">
-                      {isAmharic ? "ዲፓርትመንት" : "Department"}
-                    </label>
-                    {isEditing ? (
-                      <select
-                        value={editForm.department || "Formwork & Structural Assembly"}
-                        onChange={e => setEditForm({ ...editForm, department: e.target.value })}
-                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-800"
-                      >
-                        {DEPARTMENTS_CATALOG.map(dept => (
-                          <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn}>
-                            {isAmharic ? dept.nameAm : dept.nameEn}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="font-semibold text-slate-800">{activeWorker.department}</div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-slate-400 block">
-                      {isAmharic ? "የስራ ዘርፍ / ሙያ" : "Certified Trade / Work Sector"}
-                    </label>
-                    {isEditing ? (
-                      <select
-                        value={editForm.trade || "Formwork Carpenter"}
-                        onChange={e => setEditForm({ ...editForm, trade: e.target.value })}
-                        className="w-full bg-white border border-slate-300 rounded px-2 py-1 text-xs font-bold text-slate-800"
-                      >
-                        {WORK_SECTORS_CATALOG.map(sector => (
-                          <option key={sector.id} value={isAmharic ? sector.nameAm : sector.nameEn}>
-                            {isAmharic ? sector.nameAm : sector.nameEn}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <div className="font-semibold text-slate-800">{activeWorker.trade}</div>
                     )}
                   </div>
 
@@ -1045,42 +966,6 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                     placeholder="e.g. Chala Chuko"
                     className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 focus:bg-white"
                   />
-                </div>
-
-                {/* DEPT SELECTOR */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 block">
-                    {isAmharic ? "ዲፓርትመንት" : "Department"}
-                  </label>
-                  <select
-                    value={addForm.department}
-                    onChange={e => setAddForm({ ...addForm, department: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 cursor-pointer focus:bg-white text-xs font-bold text-slate-800"
-                  >
-                    {DEPARTMENTS_CATALOG.map(dept => (
-                      <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn}>
-                        {isAmharic ? dept.nameAm : dept.nameEn}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* TRADE / WORK SECTOR SELECTOR */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black uppercase text-slate-400 block">
-                    {isAmharic ? "የስራ ዘርፍ / ሙያ" : "Certified Trade / Work Sector"}
-                  </label>
-                  <select
-                    value={addForm.trade}
-                    onChange={e => setAddForm({ ...addForm, trade: e.target.value })}
-                    className="w-full bg-slate-50 border border-slate-300 rounded px-2.5 py-1.5 cursor-pointer focus:bg-white text-xs font-bold text-slate-800"
-                  >
-                    {WORK_SECTORS_CATALOG.map(sector => (
-                      <option key={sector.id} value={isAmharic ? sector.nameAm : sector.nameEn}>
-                        {isAmharic ? sector.nameAm : sector.nameEn}
-                      </option>
-                    ))}
-                  </select>
                 </div>
 
                 {/* COMPANY */}

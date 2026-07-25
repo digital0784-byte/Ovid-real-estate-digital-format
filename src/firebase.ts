@@ -19,12 +19,16 @@ let db: any = null;
 let auth: any = null;
 let isFirebaseReady = false;
 
-// Check if variables are configured
-const hasConfig = 
-  firebaseConfig.apiKey && 
-  firebaseConfig.projectId;
+// Check if variables are configured and non-placeholder
+const isConfigValid = 
+  Boolean(firebaseConfig.apiKey) && 
+  Boolean(firebaseConfig.projectId) &&
+  firebaseConfig.apiKey !== "undefined" &&
+  firebaseConfig.projectId !== "undefined" &&
+  !firebaseConfig.apiKey.includes("YOUR_") &&
+  !firebaseConfig.projectId.includes("demo-");
 
-if (hasConfig) {
+if (isConfigValid) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     db = getFirestore(app);
@@ -35,17 +39,20 @@ if (hasConfig) {
     if (typeof window !== "undefined") {
       enableIndexedDbPersistence(db).catch((err) => {
         if (err.code === 'failed-precondition') {
-          console.warn("Firestore offline persistence failed: Multiple tabs open.");
+          console.warn("Firestore offline persistence notice: Multiple tabs open.");
         } else if (err.code === 'unimplemented') {
           console.warn("Firestore offline persistence is not supported by this browser.");
+        } else {
+          console.warn("Firestore offline persistence notice:", err.message);
         }
       });
     }
   } catch (error) {
-    console.error("Firebase Initialization Error. Operating in resilient offline-first mode:", error);
+    console.warn("Firebase Initialization notice. Operating in resilient offline-first mode:", error);
+    isFirebaseReady = false;
   }
 } else {
-  console.info("Firebase environment variables not set. Defaulting to local persistent storage engine.");
+  console.info("Firebase environment variables not fully set. Defaulting to local persistent storage engine.");
 }
 
 export { db, auth, isFirebaseReady };

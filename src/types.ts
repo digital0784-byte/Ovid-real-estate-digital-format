@@ -344,6 +344,74 @@ export enum PanelStatus {
   SCRAPPED = "Scrapped"
 }
 
+export interface FormworkAccessoryRecord {
+  id: string; // e.g., ACC-1001
+  code: string; // e.g., PW-1650
+  name: string; // e.g., Standard Pin & Wedge Set 16x50mm
+  category: string; // e.g., Fasteners & Connectors
+  description: string;
+  material: string; // e.g., Forged Carbon Steel 45#
+  size: string; // e.g., 16mm x 50mm
+  unit: string; // e.g., Pcs, Box (250 pcs), Set
+  weightKg: number;
+  compatiblePanelTypes: string[]; // e.g. ["Internal Wall Panels", "External Wall Panels", "Slab Panels"]
+  minStock: number;
+  maxStock: number;
+  currentStock: number;
+  issuedStock: number;
+  inMaintenanceStock: number;
+  warehouseLocation: string; // e.g., Central Yard - Bin A-12
+  supplier: string;
+  manufacturer: string;
+  purchasePrice: number; // in USD or ETB
+  rentalPrice: number; // daily rate
+  barcode: string;
+  qrCode: string;
+  serialNumber: string;
+  status: "Available" | "Low Stock" | "Out of Stock" | "In Inspection" | "In Maintenance" | "Deactivated";
+  photoUrl?: string;
+  isCustom?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface AccessoryMovementLog {
+  id: string; // ACC-MV-1001
+  accessoryId: string;
+  accessoryCode: string;
+  accessoryName: string;
+  transactionType: "Issue to Site" | "Return from Site" | "Warehouse Transfer" | "Stock Adjustment" | "Procurement Receipt" | "Scrapped";
+  quantity: number;
+  goodConditionQty?: number;
+  damagedQty?: number;
+  missingQty?: number;
+  fromLocation: string;
+  toLocation: string;
+  projectName?: string;
+  building?: string;
+  floor?: number;
+  zone?: string;
+  handledBy: string;
+  driverName?: string;
+  truckPlate?: string;
+  notes?: string;
+  timestamp: string;
+}
+
+export interface AccessoryMaintenanceRecord {
+  id: string; // ACC-MNT-1001
+  accessoryId: string;
+  accessoryCode: string;
+  accessoryName: string;
+  maintenanceType: "Inspection & Audit" | "Cleaning & Oiling" | "Thread Retapping" | "Straightening" | "Welding & Repair" | "Scrapped / Retired";
+  conditionRating: "100% Excellent" | "80% Good" | "60% Fair / Minor Wear" | "30% Needs Servicing" | "0% Scrapped";
+  technician: string;
+  cost: number;
+  details: string;
+  maintenanceDate: string;
+  nextScheduledDate?: string;
+}
+
 export interface AluminumFormworkPanel {
   id: string;
   serialNumber: string;

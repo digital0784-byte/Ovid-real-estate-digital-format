@@ -912,7 +912,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
             <div className="flex flex-wrap gap-2">
               <div className="flex items-center space-x-1.5 bg-white px-2.5 py-1.5 rounded-lg border border-slate-200 text-xs font-semibold">
                 <Filter size={13} className="text-slate-400" />
-                <span className="text-slate-500">{isAmharic ? "ዘርፍ:" : "Department:"}</span>
+                <span className="text-slate-500">{isAmharic ? "የስራ ክፍል:" : "Unit:"}</span>
                 <select
                   value={deptFilter}
                   onChange={(e) => setDeptFilter(e.target.value)}
@@ -1259,7 +1259,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                   <ChevronRight size={12} className="text-slate-400" />
                 </button>
                 <button className="w-full text-left p-2 rounded bg-white border border-slate-100 hover:border-red-400 text-xs font-semibold flex justify-between items-center transition-all cursor-pointer">
-                  <span>{isAmharic ? "የዘርፍ / ክፍል ወጪዎች" : "Departmental Payroll Report"}</span>
+                  <span>{isAmharic ? "የቡድን / ክፍል ወጪዎች" : "Departmental Payroll Report"}</span>
                   <ChevronRight size={12} className="text-slate-400" />
                 </button>
                 <button className="w-full text-left p-2 rounded bg-white border border-slate-100 hover:border-red-400 text-xs font-semibold flex justify-between items-center transition-all cursor-pointer">

@@ -253,7 +253,7 @@ export default function App() {
       "Clock Out (OUT)": "መውጫ (OUT)",
       "Worker Attendance Logs": "የመገኘት መዝገብ ሰሌዳ",
       "Worker Name": "የሰራተኛ ስም",
-      "Trade": "የሙያ ዘርፍ",
+      "Trade": "የስራ ድርሻ",
       "Check In": "የመግቢያ ሰዓት",
       "Check Out": "የመውጫ ሰዓት",
       "Working Hours": "የሰሩበት ሰዓት",
@@ -849,9 +849,40 @@ export default function App() {
     try {
       await DbService.addNotification(newNotif);
       setNotifications((prev) => [newNotif, ...prev]);
+
+      // Create Enterprise Notification for Admin, Head Office, and HR
+      NotificationService.createNotification({
+        title: `New Registrant: ${w.name}`,
+        titleAm: `አዲስ ተመዝጋቢ: ${w.name}`,
+        description: `New staff member ${w.name} (${w.position || w.trade || w.department || "Staff"}) has registered on the ERP system. ID: ${w.id}`,
+        descriptionAm: `አዲስ ሰራተኛ/ተመዝጋቢ ${w.name} (${w.position || w.trade || w.department || "ሰራተኛ"}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${w.id}`,
+        category: "User Approval Notifications",
+        priority: "High",
+        status: "Unread",
+        projectName: selectedProject || "Global System",
+        siteName: "Worker Enrollment Kiosk",
+        sender: w.name,
+        senderRole: String(w.position || w.trade || "Registered Worker"),
+        receiver: "Admin, Head Office & HR",
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.HEAD_OFFICE,
+          UserRole.HR_MANAGER,
+          "Admin",
+          "Head Office",
+          "HR Manager",
+          "HR"
+        ],
+        deliveryChannels: { inApp: true, push: true, email: true, sms: false },
+        actionTab: "admin"
+      });
       
-      // Also trigger a toast instantly for current user if they are admin/head office
-      if (currentUserRole === UserRole.SUPER_ADMIN || currentUserRole === UserRole.HEAD_OFFICE) {
+      // Also trigger a toast instantly for current user if they are admin, head office, or HR
+      if (
+        currentUserRole === UserRole.SUPER_ADMIN || 
+        currentUserRole === UserRole.HEAD_OFFICE ||
+        currentUserRole === UserRole.HR_MANAGER
+      ) {
         triggerNotificationToast("New Registrant", newNotif.message);
       }
     } catch (e) {

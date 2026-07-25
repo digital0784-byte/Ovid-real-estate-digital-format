@@ -795,11 +795,26 @@ export class NotificationService {
     const roleStr = String(role);
 
     return all.filter(n => {
-      // Role check: If super admin or head office or role in targetRoles
+      // Role check: If super admin, head office, HR manager, or role matches targetRoles
       const matchesRole = 
         roleStr === UserRole.SUPER_ADMIN || 
         roleStr === UserRole.HEAD_OFFICE || 
-        n.targetRoles.some(r => String(r) === roleStr);
+        roleStr === UserRole.HR_MANAGER ||
+        roleStr === "Admin" ||
+        roleStr === "Head Office" ||
+        roleStr === "HR Manager" ||
+        roleStr === "HR" ||
+        roleStr.toLowerCase().includes("admin") ||
+        roleStr.toLowerCase().includes("head office") ||
+        roleStr.toLowerCase().includes("hr") ||
+        n.targetRoles.some(r => {
+          const rStr = String(r).toLowerCase();
+          const targetRoleStr = roleStr.toLowerCase();
+          return rStr === targetRoleStr ||
+                 (rStr.includes("admin") && targetRoleStr.includes("admin")) ||
+                 (rStr.includes("head office") && targetRoleStr.includes("head office")) ||
+                 (rStr.includes("hr") && targetRoleStr.includes("hr"));
+        });
 
       // Project check: If global or matched or no project filter
       const matchesProject = !projectName || projectName === "ALL" || n.projectName === "Global System" || n.projectName === projectName;
@@ -887,7 +902,25 @@ export class NotificationService {
     const roleStr = String(role);
 
     list.forEach(n => {
-      const matchesRole = roleStr === UserRole.SUPER_ADMIN || roleStr === UserRole.HEAD_OFFICE || n.targetRoles.some(r => String(r) === roleStr);
+      const matchesRole = 
+        roleStr === UserRole.SUPER_ADMIN || 
+        roleStr === UserRole.HEAD_OFFICE || 
+        roleStr === UserRole.HR_MANAGER ||
+        roleStr === "Admin" ||
+        roleStr === "Head Office" ||
+        roleStr === "HR Manager" ||
+        roleStr === "HR" ||
+        roleStr.toLowerCase().includes("admin") ||
+        roleStr.toLowerCase().includes("head office") ||
+        roleStr.toLowerCase().includes("hr") ||
+        n.targetRoles.some(r => {
+          const rStr = String(r).toLowerCase();
+          const targetRoleStr = roleStr.toLowerCase();
+          return rStr === targetRoleStr ||
+                 (rStr.includes("admin") && targetRoleStr.includes("admin")) ||
+                 (rStr.includes("head office") && targetRoleStr.includes("head office")) ||
+                 (rStr.includes("hr") && targetRoleStr.includes("hr"));
+        });
       const matchesProject = !projectName || projectName === "ALL" || n.projectName === "Global System" || n.projectName === projectName;
       if (matchesRole && matchesProject && n.status === "Unread") {
         n.status = "Read";

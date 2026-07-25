@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { DbService } from "../services/db";
+import { NotificationService } from "../services/notificationService";
 import { 
   Shield, 
   ShieldCheck,
@@ -237,6 +238,33 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         read: false
       };
       await DbService.addNotification(newNotif).catch(e => console.error("Error writing system notification for registrant:", e));
+
+      // Trigger Enterprise Notification for Admin, Head Office, and HR Manager
+      NotificationService.createNotification({
+        title: `New Registrant: ${regName.trim()}`,
+        titleAm: `አዲስ ተመዝጋቢ: ${regName.trim()}`,
+        description: `New staff member ${regName.trim()} (${regRole}) has registered on the ERP system. Assigned ID: ${fullEmpId}`,
+        descriptionAm: `አዲስ ሰራተኛ/ተመዝጋቢ ${regName.trim()} (${regRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`,
+        category: "User Approval Notifications",
+        priority: "High",
+        status: "Unread",
+        projectName: "Global System",
+        siteName: "Registration Portal",
+        sender: regName.trim(),
+        senderRole: regRole || "Self-Registered User",
+        receiver: "Admin, Head Office & HR",
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.HEAD_OFFICE,
+          UserRole.HR_MANAGER,
+          "Admin",
+          "Head Office",
+          "HR Manager",
+          "HR"
+        ],
+        deliveryChannels: { inApp: true, push: true, email: true, sms: false },
+        actionTab: "admin"
+      });
 
       // Also generate an audit log record for self-registration
       const newAuditLog: AuditLog = {
@@ -1056,48 +1084,6 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       ].map((opt) => (
                         <option key={opt.role} value={opt.role} className="bg-slate-900 text-white text-xs">
                           {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Work Sector / Certified Trade Dropdown */}
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                    {isAmharic ? "የስራ ዘርፍ / ሙያ (Work Sector & Trade)" : "Work Sector / Certified Trade"}
-                  </label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                    <select
-                      value={regTrade}
-                      onChange={(e) => setRegTrade(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none"
-                    >
-                      {WORK_SECTORS_CATALOG.map((sec) => (
-                        <option key={sec.id} value={isAmharic ? sec.nameAm : sec.nameEn} className="bg-slate-900 text-white text-xs">
-                          {isAmharic ? sec.nameAm : sec.nameEn}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Department Dropdown */}
-                <div>
-                  <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                    {isAmharic ? "የስራ ዲፓርትመንት (Department)" : "Department Sector"}
-                  </label>
-                  <div className="relative">
-                    <Globe className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                    <select
-                      value={regDept}
-                      onChange={(e) => setRegDept(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none"
-                    >
-                      {DEPARTMENTS_CATALOG.map((dept) => (
-                        <option key={dept.id} value={isAmharic ? dept.nameAm : dept.nameEn} className="bg-slate-900 text-white text-xs">
-                          {isAmharic ? dept.nameAm : dept.nameEn}
                         </option>
                       ))}
                     </select>

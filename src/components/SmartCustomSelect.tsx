@@ -198,9 +198,9 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
     <div className={`relative w-full ${className}`} ref={containerRef} id={id || `smart-select-${category.toLowerCase().replace(/\s+/g, '-')}`}>
       {/* Optional Label */}
       {(labelEn || labelAm) && (
-        <label className="block text-xs font-bold text-slate-300 mb-1.5 flex justify-between items-center">
+        <label className="block text-xs font-bold text-slate-700 mb-1.5 flex justify-between items-center">
           <span>{isAmharic ? labelAm || labelEn : labelEn || labelAm}</span>
-          {required && <span className="text-red-400 text-xs font-black ml-1">*</span>}
+          {required && <span className="text-red-600 text-xs font-black ml-1">*</span>}
         </label>
       )}
 
@@ -211,10 +211,10 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
         onClick={() => setIsOpen(!isOpen)}
         className={`w-full px-3.5 py-2.5 rounded-xl border text-left flex items-center justify-between transition cursor-pointer text-xs font-medium ${
           disabled 
-            ? "bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed" 
+            ? "bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed" 
             : isOpen 
-              ? "bg-slate-950 border-red-500 shadow-md shadow-red-500/10 text-white" 
-              : "bg-slate-950 border-slate-800 text-slate-200 hover:border-slate-700"
+              ? "bg-white border-red-500 ring-2 ring-red-500/20 shadow-md text-slate-900 font-bold" 
+              : "bg-white border-slate-300 text-slate-800 hover:border-slate-400"
         }`}
       >
         <span className="truncate">
@@ -222,29 +222,29 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
             <span className="flex items-center space-x-2">
               <span className="font-semibold">{displayLabel}</span>
               {selectedObj?.isPredefined === false && (
-                <span className="px-1.5 py-0.5 bg-amber-950/80 text-amber-400 border border-amber-800 rounded text-[9px] font-black uppercase">
+                <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded text-[9px] font-black uppercase">
                   {isAmharic ? "የተገለጸ" : "Custom"}
                 </span>
               )}
             </span>
           ) : (
-            <span className="text-slate-500 italic">
+            <span className="text-slate-400 italic font-normal">
               {isAmharic ? placeholderAm : placeholderEn}
             </span>
           )}
         </span>
 
-        <div className="flex items-center space-x-1 ml-2 flex-shrink-0 text-slate-400">
-          <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? "rotate-180 text-red-400" : ""}`} />
+        <div className="flex items-center space-x-1 ml-2 flex-shrink-0 text-slate-500">
+          <ChevronDown size={16} className={`transition-transform duration-200 ${isOpen ? "rotate-180 text-red-600" : ""}`} />
         </div>
       </button>
 
       {/* Dropdown Popup Menu */}
       {isOpen && (
-        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden max-h-96 flex flex-col text-slate-200">
+        <div className="absolute left-0 right-0 top-full mt-1.5 z-50 bg-white border border-slate-200 rounded-2xl shadow-2xl overflow-hidden max-h-96 flex flex-col text-slate-800">
           
           {/* Header Search & Actions */}
-          <div className="p-2.5 bg-slate-900/90 border-b border-slate-800 space-y-2">
+          <div className="p-2.5 bg-slate-50 border-b border-slate-200 space-y-2">
             <div className="relative">
               <Search size={14} className="absolute left-3 top-2.5 text-slate-400" />
               <input
@@ -253,12 +253,12 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={isAmharic ? "ፈልግ ወይም ቃል ፃፍ (Search or Filter)..." : "Search or filter items..."}
-                className="w-full pl-8 pr-8 py-1.5 bg-slate-950 border border-slate-800 rounded-xl text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-red-500 font-medium"
+                className="w-full pl-8 pr-8 py-1.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:border-red-500 font-medium"
               />
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm("")}
-                  className="absolute right-2.5 top-2 text-slate-400 hover:text-white"
+                  className="absolute right-2.5 top-2 text-slate-400 hover:text-slate-700"
                 >
                   <X size={14} />
                 </button>
@@ -266,20 +266,20 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
             </div>
 
             {/* Subheader info bar */}
-            <div className="flex items-center justify-between text-[10px] text-slate-400 px-1 font-mono">
-              <span>Category: <strong className="text-amber-400">{category}</strong></span>
+            <div className="flex items-center justify-between text-[10px] text-slate-500 px-1 font-mono">
+              <span>Category: <strong className="text-red-700">{category}</strong></span>
               <span>{filteredEntries.length} options available</span>
             </div>
           </div>
 
           {/* Options Scroll List */}
-          <div className="overflow-y-auto flex-1 p-1 divide-y divide-slate-900/60">
+          <div className="overflow-y-auto flex-1 p-1 divide-y divide-slate-100">
             
             {/* 1. FAVORITES SECTION */}
             {favoriteEntries.length > 0 && (
               <div className="py-1">
-                <div className="px-2 py-1 text-[10px] font-black uppercase text-amber-400 tracking-wider flex items-center space-x-1">
-                  <Star size={11} className="fill-amber-400 text-amber-400" />
+                <div className="px-2 py-1 text-[10px] font-black uppercase text-amber-600 tracking-wider flex items-center space-x-1">
+                  <Star size={11} className="fill-amber-500 text-amber-500" />
                   <span>{isAmharic ? "ተመራጭ እሴቶች (Favorites)" : "Favorites"}</span>
                 </div>
                 {favoriteEntries.map(entry => {
@@ -289,22 +289,22 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                       key={entry.id}
                       onClick={() => handleSelectOption(entry.value)}
                       className={`px-3 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition ${
-                        isSelected ? "bg-red-950/80 text-white font-bold border border-red-800/80" : "hover:bg-slate-900 text-slate-200"
+                        isSelected ? "bg-red-50 text-red-900 font-bold border border-red-200" : "hover:bg-slate-50 text-slate-800"
                       }`}
                     >
                       <div className="truncate pr-2">
                         <span className="block font-medium truncate">{isAmharic && entry.labelAm ? entry.labelAm : entry.value}</span>
                         {entry.code && (
-                          <span className="text-[10px] font-mono text-amber-400/80 block">{entry.code}</span>
+                          <span className="text-[10px] font-mono text-slate-500 block">{entry.code}</span>
                         )}
                       </div>
                       
                       <div className="flex items-center space-x-1 flex-shrink-0">
-                        {isSelected && <Check size={14} className="text-red-400" />}
+                        {isSelected && <Check size={14} className="text-red-600" />}
                         <button
                           type="button"
                           onClick={(e) => handleToggleStar(e, entry.id)}
-                          className="p-1 text-amber-400 hover:text-amber-300"
+                          className="p-1 text-amber-500 hover:text-amber-600"
                         >
                           <Star size={13} className="fill-amber-400" />
                         </button>
@@ -318,7 +318,7 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
             {/* 2. RECENTLY USED SECTION */}
             {recentEntries.length > 0 && (
               <div className="py-1">
-                <div className="px-2 py-1 text-[10px] font-black uppercase text-blue-400 tracking-wider flex items-center space-x-1">
+                <div className="px-2 py-1 text-[10px] font-black uppercase text-blue-600 tracking-wider flex items-center space-x-1">
                   <Clock size={11} />
                   <span>{isAmharic ? "በቅርቡ የተጠቀሟቸው (Recently Used)" : "Recently Used"}</span>
                 </div>
@@ -329,7 +329,7 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                       key={entry.id}
                       onClick={() => handleSelectOption(entry.value)}
                       className={`px-3 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition ${
-                        isSelected ? "bg-red-950/80 text-white font-bold border border-red-800/80" : "hover:bg-slate-900 text-slate-200"
+                        isSelected ? "bg-red-50 text-red-900 font-bold border border-red-200" : "hover:bg-slate-50 text-slate-800"
                       }`}
                     >
                       <div className="truncate pr-2">
@@ -337,11 +337,11 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                       </div>
                       
                       <div className="flex items-center space-x-1 flex-shrink-0">
-                        {isSelected && <Check size={14} className="text-red-400" />}
+                        {isSelected && <Check size={14} className="text-red-600" />}
                         <button
                           type="button"
                           onClick={(e) => handleToggleStar(e, entry.id)}
-                          className="p-1 text-slate-600 hover:text-amber-400"
+                          className="p-1 text-slate-400 hover:text-amber-500"
                         >
                           <Star size={13} />
                         </button>
@@ -355,7 +355,7 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
             {/* 3. MAIN PREDEFINED & APPROVED OPTIONS */}
             <div className="py-1">
               {(favoriteEntries.length > 0 || recentEntries.length > 0) && (
-                <div className="px-2 py-1 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                <div className="px-2 py-1 text-[10px] font-black uppercase text-slate-500 tracking-wider">
                   {isAmharic ? "ሁሉም የቋሚ መዝገብ እሴቶች (Master Options)" : "Master Options"}
                 </div>
               )}
@@ -372,7 +372,7 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                       key={entry.id}
                       onClick={() => handleSelectOption(entry.value)}
                       className={`px-3 py-2 rounded-xl text-xs flex items-center justify-between cursor-pointer transition ${
-                        isSelected ? "bg-red-950/80 text-white font-bold border border-red-800/80" : "hover:bg-slate-900 text-slate-200"
+                        isSelected ? "bg-red-50 text-red-900 font-bold border border-red-200" : "hover:bg-slate-50 text-slate-800"
                       }`}
                     >
                       <div className="truncate pr-2">
@@ -466,7 +466,7 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                   <p className="text-xs leading-relaxed">{submissionFeedback.msg}</p>
                 </div>
               ) : (
-                <form onSubmit={handleSubmitCustomValue} className="space-y-3.5">
+                <div className="space-y-3.5">
                   
                   {/* Name (Required) */}
                   <div>
@@ -584,7 +584,8 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                     </button>
 
                     <button
-                      type="submit"
+                      type="button"
+                      onClick={handleSubmitCustomValue}
                       className="px-5 py-2 bg-gradient-to-r from-red-600 to-amber-600 hover:opacity-95 text-white rounded-xl text-xs font-bold shadow-lg shadow-red-500/20 transition flex items-center space-x-1.5"
                     >
                       <Check size={15} />
@@ -592,7 +593,7 @@ export const SmartCustomSelect: React.FC<SmartCustomSelectProps> = ({
                     </button>
                   </div>
 
-                </form>
+                </div>
               )}
 
             </div>

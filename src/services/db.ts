@@ -1,4 +1,5 @@
 import { db, isFirebaseReady } from "../firebase";
+import { NotificationService } from "./notificationService";
 import { 
   collection, 
   doc, 
@@ -117,20 +118,32 @@ class LocalDatabaseEngine {
 
 const localDb = new LocalDatabaseEngine();
 
+// Resilient helper to read from Firestore with timeout and automatic local fallback
+async function safeFirestoreRead<T>(readFn: () => Promise<T>): Promise<T | null> {
+  if (!isFirebaseReady || !db) return null;
+  try {
+    const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 1500));
+    const result = await Promise.race([
+      readFn().catch(() => null),
+      timeoutPromise
+    ]);
+    return result;
+  } catch (e) {
+    return null;
+  }
+}
+
 // Master Database Services
 export const DbService = {
   // === WORKERS ===
   async getWorkers(): Promise<Worker[]> {
-    if (isFirebaseReady) {
-      try {
-        const colRef = collection(db, "workers");
-        const snapshot = await getDocs(colRef);
-        const workers = snapshot.docs.map(doc => doc.data() as Worker);
-        if (workers.length > 0) return workers;
-      } catch (err) {
-        console.error("Firestore getWorkers failed, falling back to offline db:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const colRef = collection(db, "workers");
+      const snapshot = await getDocs(colRef);
+      const workers = snapshot.docs.map(doc => doc.data() as Worker);
+      return workers.length > 0 ? workers : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<Worker>("workers", initialWorkers);
   },
 
@@ -138,11 +151,38 @@ export const DbService = {
     localDb.insert<Worker>("workers", worker, initialWorkers);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workers_updated"));
+      try {
+        NotificationService.createNotification({
+          title: `New Registrant: ${worker.name}`,
+          titleAm: `አዲስ ተመዝጋቢ: ${worker.name}`,
+          description: `New staff member ${worker.name} (${worker.position || worker.trade || worker.department || "Staff"}) registered on the ERP system. ID: ${worker.id}`,
+          descriptionAm: `አዲስ ሰራተኛ/ተመዝጋቢ ${worker.name} (${worker.position || worker.trade || worker.department || "ሰራተኛ"}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${worker.id}`,
+          category: "User Approval Notifications",
+          priority: "High",
+          status: "Unread",
+          projectName: "Global System",
+          siteName: "Registration",
+          sender: worker.name,
+          senderRole: String(worker.position || worker.trade || "Registered Worker"),
+          receiver: "Admin, Head Office & HR",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.HR_MANAGER,
+            "Admin",
+            "Head Office",
+            "HR Manager",
+            "HR"
+          ],
+          deliveryChannels: { inApp: true, push: true, email: true, sms: false },
+          actionTab: "admin"
+        });
+      } catch (err) {
+        console.error("Error creating notification in addWorker:", err);
+      }
     }
-    if (isFirebaseReady) {
-      setDoc(doc(db, "workers", worker.id), worker).catch((err) => {
-        console.error("Firestore background addWorker failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "workers", worker.id), worker).catch(() => {});
     }
   },
 
@@ -151,10 +191,8 @@ export const DbService = {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workers_updated"));
     }
-    if (isFirebaseReady) {
-      setDoc(doc(db, "workers", worker.id), worker, { merge: true }).catch((err) => {
-        console.error("Firestore background updateWorker failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "workers", worker.id), worker, { merge: true }).catch(() => {});
     }
   },
 
@@ -163,212 +201,166 @@ export const DbService = {
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workers_updated"));
     }
-    if (isFirebaseReady) {
-      deleteDoc(doc(db, "workers", id)).catch((err) => {
-        console.error("Firestore background deleteWorker failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      deleteDoc(doc(db, "workers", id)).catch(() => {});
     }
   },
 
   // === TEAMS ===
   async getTeams(): Promise<Team[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "teams"));
-        const teams = snapshot.docs.map(doc => doc.data() as Team);
-        if (teams.length > 0) return teams;
-      } catch (err) {
-        console.error("Firestore getTeams failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "teams"));
+      const teams = snapshot.docs.map(doc => doc.data() as Team);
+      return teams.length > 0 ? teams : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<Team>("teams", initialTeams);
   },
 
   async addTeam(team: Team): Promise<void> {
     localDb.insert<Team>("teams", team, initialTeams);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "teams", team.id), team).catch((err) => {
-        console.error("Firestore background addTeam failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "teams", team.id), team).catch(() => {});
     }
   },
 
   // === ATTENDANCE RECORDS ===
   async getAttendance(): Promise<AttendanceRecord[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "attendance"));
-        const records = snapshot.docs.map(doc => doc.data() as AttendanceRecord);
-        if (records.length > 0) return records;
-      } catch (err) {
-        console.error("Firestore getAttendance failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "attendance"));
+      const records = snapshot.docs.map(doc => doc.data() as AttendanceRecord);
+      return records.length > 0 ? records : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<AttendanceRecord>("attendance", initialAttendance);
   },
 
   async addAttendanceRecord(record: AttendanceRecord): Promise<void> {
     localDb.insert<AttendanceRecord>("attendance", record, initialAttendance);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "attendance", record.id), record).catch((err) => {
-        console.error("Firestore background addAttendanceRecord failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "attendance", record.id), record).catch(() => {});
     }
   },
 
   async updateAttendanceRecord(record: AttendanceRecord): Promise<void> {
     localDb.update<AttendanceRecord>("attendance", record, initialAttendance);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "attendance", record.id), record, { merge: true }).catch((err) => {
-        console.error("Firestore background updateAttendanceRecord failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "attendance", record.id), record, { merge: true }).catch(() => {});
     }
   },
 
   // === PERFORMANCE EVALUATIONS ===
   async getEvaluations(): Promise<PerformanceEvaluation[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "evaluations"));
-        const evals = snapshot.docs.map(doc => doc.data() as PerformanceEvaluation);
-        if (evals.length > 0) return evals;
-      } catch (err) {
-        console.error("Firestore getEvaluations failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "evaluations"));
+      const evals = snapshot.docs.map(doc => doc.data() as PerformanceEvaluation);
+      return evals.length > 0 ? evals : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<PerformanceEvaluation>("evaluations", initialEvaluations);
   },
 
   async addEvaluation(evaluation: PerformanceEvaluation): Promise<void> {
     localDb.insert<PerformanceEvaluation>("evaluations", evaluation, initialEvaluations);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "evaluations", evaluation.id), evaluation).catch((err) => {
-        console.error("Firestore background addEvaluation failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "evaluations", evaluation.id), evaluation).catch(() => {});
     }
   },
 
   // === PROJECT ZONES ===
   async getZones(): Promise<ProjectZone[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "zones"));
-        const zones = snapshot.docs.map(doc => doc.data() as ProjectZone);
-        if (zones.length > 0) return zones;
-      } catch (err) {
-        console.error("Firestore getZones failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "zones"));
+      const zones = snapshot.docs.map(doc => doc.data() as ProjectZone);
+      return zones.length > 0 ? zones : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<ProjectZone>("zones", initialZones);
   },
 
   async updateZone(zone: ProjectZone): Promise<void> {
     localDb.update<ProjectZone>("zones", zone, initialZones);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "zones", zone.id), zone, { merge: true }).catch((err) => {
-        console.error("Firestore background updateZone failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "zones", zone.id), zone, { merge: true }).catch(() => {});
     }
   },
 
   // === DAILY PROGRESS LOGS ===
   async getProgressLogs(): Promise<DailyProgressLog[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "progressLogs"));
-        const logs = snapshot.docs.map(doc => doc.data() as DailyProgressLog);
-        if (logs.length > 0) return logs;
-      } catch (err) {
-        console.error("Firestore getProgressLogs failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "progressLogs"));
+      const logs = snapshot.docs.map(doc => doc.data() as DailyProgressLog);
+      return logs.length > 0 ? logs : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<DailyProgressLog>("progressLogs", initialProgressLogs);
   },
 
   async addProgressLog(log: DailyProgressLog): Promise<void> {
     localDb.insert<DailyProgressLog>("progressLogs", log, initialProgressLogs);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "progressLogs", log.id), log).catch((err) => {
-        console.error("Firestore background addProgressLog failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "progressLogs", log.id), log).catch(() => {});
     }
   },
 
   // === SAFETY LOGS ===
   async getSafetyLogs(): Promise<SafetyLog[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "safetyLogs"));
-        const logs = snapshot.docs.map(doc => doc.data() as SafetyLog);
-        if (logs.length > 0) return logs;
-      } catch (err) {
-        console.error("Firestore getSafetyLogs failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "safetyLogs"));
+      const logs = snapshot.docs.map(doc => doc.data() as SafetyLog);
+      return logs.length > 0 ? logs : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<SafetyLog>("safetyLogs", initialSafetyLogs);
   },
 
   async addSafetyLog(log: SafetyLog): Promise<void> {
     localDb.insert<SafetyLog>("safetyLogs", log, initialSafetyLogs);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "safetyLogs", log.id), log).catch((err) => {
-        console.error("Firestore background addSafetyLog failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "safetyLogs", log.id), log).catch(() => {});
     }
   },
 
   // === QUALITY SNAGS ===
   async getQualitySnags(): Promise<QualitySnag[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "qualitySnags"));
-        const snags = snapshot.docs.map(doc => doc.data() as QualitySnag);
-        if (snags.length > 0) return snags;
-      } catch (err) {
-        console.error("Firestore getQualitySnags failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "qualitySnags"));
+      const snags = snapshot.docs.map(doc => doc.data() as QualitySnag);
+      return snags.length > 0 ? snags : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<QualitySnag>("qualitySnags", initialQualitySnags);
   },
 
   async addQualitySnag(snag: QualitySnag): Promise<void> {
     localDb.insert<QualitySnag>("qualitySnags", snag, initialQualitySnags);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "qualitySnags", snag.id), snag).catch((err) => {
-        console.error("Firestore background addQualitySnag failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "qualitySnags", snag.id), snag).catch(() => {});
     }
   },
 
   async updateQualitySnag(snag: QualitySnag): Promise<void> {
     localDb.update<QualitySnag>("qualitySnags", snag, initialQualitySnags);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "qualitySnags", snag.id), snag, { merge: true }).catch((err) => {
-        console.error("Firestore background updateQualitySnag failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "qualitySnags", snag.id), snag, { merge: true }).catch(() => {});
     }
   },
 
   // === QUALITY LOGS ===
   async getQualityLogs(): Promise<QualityLog[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "qualityLogs"));
-        const logs = snapshot.docs.map(doc => doc.data() as QualityLog);
-        if (logs.length > 0) return logs;
-      } catch (err) {
-        console.error("Firestore getQualityLogs failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "qualityLogs"));
+      const logs = snapshot.docs.map(doc => doc.data() as QualityLog);
+      return logs.length > 0 ? logs : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<QualityLog>("qualityLogs", initialQualityLogs);
   },
 
   async addQualityLog(log: QualityLog): Promise<void> {
     localDb.insert<QualityLog>("qualityLogs", log, initialQualityLogs);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "qualityLogs", log.id), log).catch((err) => {
-        console.error("Firestore background addQualityLog failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "qualityLogs", log.id), log).catch(() => {});
     }
   },
 
@@ -397,165 +389,130 @@ export const DbService = {
 
   async addNotification(notif: SystemNotification): Promise<void> {
     localDb.insert<SystemNotification>("notifications", notif, []);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "notifications", notif.id), notif).catch((err) => {
-        console.error("Firestore background addNotification failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "notifications", notif.id), notif).catch(() => {});
     }
   },
 
   async updateNotification(notif: SystemNotification): Promise<void> {
     localDb.update<SystemNotification>("notifications", notif, []);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "notifications", notif.id), notif, { merge: true }).catch((err) => {
-        console.error("Firestore background updateNotification failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "notifications", notif.id), notif, { merge: true }).catch(() => {});
     }
   },
 
   // === AUDIT LOGS ===
   async getAuditLogs(): Promise<AuditLog[]> {
-    if (isFirebaseReady) {
-      try {
-        const snapshot = await getDocs(collection(db, "auditLogs"));
-        const logs = snapshot.docs.map(doc => doc.data() as AuditLog);
-        if (logs.length > 0) return logs;
-      } catch (err) {
-        console.error("Firestore getAuditLogs failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const snapshot = await getDocs(collection(db, "auditLogs"));
+      const logs = snapshot.docs.map(doc => doc.data() as AuditLog);
+      return logs.length > 0 ? logs : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<AuditLog>("auditLogs", initialAuditLogs);
   },
 
   async addAuditLog(log: AuditLog): Promise<void> {
     localDb.insert<AuditLog>("auditLogs", log, initialAuditLogs);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "auditLogs", log.id), log).catch((err) => {
-        console.error("Firestore background addAuditLog failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "auditLogs", log.id), log).catch(() => {});
     }
   },
 
   // === ALUMINUM FORMWORK PANELS ===
   async getFormworkPanels(): Promise<AluminumFormworkPanel[]> {
-    if (isFirebaseReady) {
-      try {
-        const colRef = collection(db, "formworkPanels");
-        const snapshot = await getDocs(colRef);
-        const panels = snapshot.docs.map(doc => doc.data() as AluminumFormworkPanel);
-        if (panels.length > 0) return panels;
-      } catch (err) {
-        console.error("Firestore getFormworkPanels failed, falling back to offline db:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const colRef = collection(db, "formworkPanels");
+      const snapshot = await getDocs(colRef);
+      const panels = snapshot.docs.map(doc => doc.data() as AluminumFormworkPanel);
+      return panels.length > 0 ? panels : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
   },
 
   async addFormworkPanel(panel: AluminumFormworkPanel): Promise<void> {
     localDb.insert<AluminumFormworkPanel>("formworkPanels", panel, initialFormworkPanels);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "formworkPanels", panel.id), panel).catch((err) => {
-        console.error("Firestore background addFormworkPanel failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "formworkPanels", panel.id), panel).catch(() => {});
     }
   },
 
   async updateFormworkPanel(panel: AluminumFormworkPanel): Promise<void> {
     localDb.update<AluminumFormworkPanel>("formworkPanels", panel, initialFormworkPanels);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "formworkPanels", panel.id), panel, { merge: true }).catch((err) => {
-        console.error("Firestore background updateFormworkPanel failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "formworkPanels", panel.id), panel, { merge: true }).catch(() => {});
     }
   },
 
   async deleteFormworkPanel(id: string): Promise<void> {
     localDb.delete<AluminumFormworkPanel>("formworkPanels", id, initialFormworkPanels);
-    if (isFirebaseReady) {
-      deleteDoc(doc(db, "formworkPanels", id)).catch((err) => {
-        console.error("Firestore background deleteFormworkPanel failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      deleteDoc(doc(db, "formworkPanels", id)).catch(() => {});
     }
   },
 
   // === PANEL MOVEMENT LOGS ===
   async getPanelMovementLogs(): Promise<PanelMovementLog[]> {
-    if (isFirebaseReady) {
-      try {
-        const colRef = collection(db, "panelMovementLogs");
-        const snapshot = await getDocs(colRef);
-        const logs = snapshot.docs.map(doc => doc.data() as PanelMovementLog);
-        if (logs.length > 0) return logs;
-      } catch (err) {
-        console.error("Firestore getPanelMovementLogs failed, falling back to offline db:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const colRef = collection(db, "panelMovementLogs");
+      const snapshot = await getDocs(colRef);
+      const logs = snapshot.docs.map(doc => doc.data() as PanelMovementLog);
+      return logs.length > 0 ? logs : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
   },
 
   async addPanelMovementLog(log: PanelMovementLog): Promise<void> {
     localDb.insert<PanelMovementLog>("panelMovementLogs", log, initialMovementLogs);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "panelMovementLogs", log.id), log).catch((err) => {
-        console.error("Firestore background addPanelMovementLog failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "panelMovementLogs", log.id), log).catch(() => {});
     }
   },
 
   // === PANEL DAMAGE REPORTS ===
   async getPanelDamageReports(): Promise<PanelDamageReport[]> {
-    if (isFirebaseReady) {
-      try {
-        const colRef = collection(db, "panelDamageReports");
-        const snapshot = await getDocs(colRef);
-        const reports = snapshot.docs.map(doc => doc.data() as PanelDamageReport);
-        if (reports.length > 0) return reports;
-      } catch (err) {
-        console.error("Firestore getPanelDamageReports failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const colRef = collection(db, "panelDamageReports");
+      const snapshot = await getDocs(colRef);
+      const reports = snapshot.docs.map(doc => doc.data() as PanelDamageReport);
+      return reports.length > 0 ? reports : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<PanelDamageReport>("panelDamageReports", initialDamageReports);
   },
 
   async addPanelDamageReport(report: PanelDamageReport): Promise<void> {
     localDb.insert<PanelDamageReport>("panelDamageReports", report, initialDamageReports);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "panelDamageReports", report.id), report).catch((err) => {
-        console.error("Firestore background addPanelDamageReport failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "panelDamageReports", report.id), report).catch(() => {});
     }
   },
 
   async updatePanelDamageReport(report: PanelDamageReport): Promise<void> {
     localDb.update<PanelDamageReport>("panelDamageReports", report, initialDamageReports);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "panelDamageReports", report.id), report, { merge: true }).catch((err) => {
-        console.error("Firestore background updatePanelDamageReport failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "panelDamageReports", report.id), report, { merge: true }).catch(() => {});
     }
   },
 
   // === PANEL REPAIR RECORDS ===
   async getPanelRepairRecords(): Promise<PanelRepairRecord[]> {
-    if (isFirebaseReady) {
-      try {
-        const colRef = collection(db, "panelRepairRecords");
-        const snapshot = await getDocs(colRef);
-        const records = snapshot.docs.map(doc => doc.data() as PanelRepairRecord);
-        if (records.length > 0) return records;
-      } catch (err) {
-        console.error("Firestore getPanelRepairRecords failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const colRef = collection(db, "panelRepairRecords");
+      const snapshot = await getDocs(colRef);
+      const records = snapshot.docs.map(doc => doc.data() as PanelRepairRecord);
+      return records.length > 0 ? records : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<PanelRepairRecord>("panelRepairRecords", initialRepairRecords);
   },
 
   async addPanelRepairRecord(record: PanelRepairRecord): Promise<void> {
     localDb.insert<PanelRepairRecord>("panelRepairRecords", record, initialRepairRecords);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "panelRepairRecords", record.id), record).catch((err) => {
-        console.error("Firestore background addPanelRepairRecord failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "panelRepairRecords", record.id), record).catch(() => {});
     }
   },
 
@@ -602,40 +559,31 @@ export const DbService = {
 
   // === REGISTERED SITES ===
   async getRegisteredSites(): Promise<RegisteredSite[]> {
-    if (isFirebaseReady) {
-      try {
-        const colRef = collection(db, "registeredSites");
-        const snapshot = await getDocs(colRef);
-        const sites = snapshot.docs.map(doc => doc.data() as RegisteredSite);
-        if (sites.length > 0) return sites;
-      } catch (err) {
-        console.error("Firestore getRegisteredSites failed:", err);
-      }
-    }
+    const firestoreData = await safeFirestoreRead(async () => {
+      const colRef = collection(db, "registeredSites");
+      const snapshot = await getDocs(colRef);
+      const sites = snapshot.docs.map(doc => doc.data() as RegisteredSite);
+      return sites.length > 0 ? sites : null;
+    });
+    if (firestoreData) return firestoreData;
     return localDb.getList<RegisteredSite>("registeredSites", initialRegisteredSites);
   },
   async addRegisteredSite(site: RegisteredSite): Promise<void> {
     localDb.insert<RegisteredSite>("registeredSites", site, initialRegisteredSites);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "registeredSites", site.id), site).catch((err) => {
-        console.error("Firestore background addRegisteredSite failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "registeredSites", site.id), site).catch(() => {});
     }
   },
   async updateRegisteredSite(site: RegisteredSite): Promise<void> {
     localDb.update<RegisteredSite>("registeredSites", site, initialRegisteredSites);
-    if (isFirebaseReady) {
-      setDoc(doc(db, "registeredSites", site.id), site, { merge: true }).catch((err) => {
-        console.error("Firestore background updateRegisteredSite failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "registeredSites", site.id), site, { merge: true }).catch(() => {});
     }
   },
   async deleteRegisteredSite(id: string): Promise<void> {
     localDb.delete<RegisteredSite>("registeredSites", id, initialRegisteredSites);
-    if (isFirebaseReady) {
-      deleteDoc(doc(db, "registeredSites", id)).catch((err) => {
-        console.error("Firestore background deleteRegisteredSite failed:", err);
-      });
+    if (isFirebaseReady && db) {
+      deleteDoc(doc(db, "registeredSites", id)).catch(() => {});
     }
   }
 };
