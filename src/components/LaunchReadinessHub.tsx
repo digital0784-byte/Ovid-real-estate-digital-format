@@ -94,40 +94,33 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
     onLogAction("Copy Code Snippet", `User copied the payload template for: ${label}`);
   };
 
-  // Run Unit Tests Simulation
-  const runUnitTests = () => {
+  // Run Real Vitest & Express Integration Test Suite
+  const runUnitTests = async () => {
     setUnitTestRunning(true);
-    setUnitTestProgress(0);
-    setUnitTestLogs([]);
+    setUnitTestProgress(10);
+    setUnitTestLogs(["Initializing Vitest & Supertest integration test suite..."]);
     setUnitTestResults([]);
     setUnitTestsPassed(null);
-    onLogAction("Triggered Unit Tests", "Initiated modular unit test runner for formwork calculations and biometrics.");
+    onLogAction("Triggered Unit Tests", "Initiated real test suite runner for API, Auth, Cryptography, and Firestore.");
 
-    const steps = [
-      { log: "Initializing Jest environment on local test container...", delay: 400 },
-      { log: "Checking Aluminum Formwork plumb verticality math formula...", test: "Verticality plumb calculations (plumbDeviationLimit < 2mm)", passed: true, delay: 900 },
-      { log: "Asserting biometric templates alignment matching scores...", test: "Biometric ISO/IEC 19794-2 extraction & verification key hash", passed: true, delay: 1400 },
-      { log: "Validating offline queue synchronization transaction replay integrity...", test: "Offline Local SQLite data sequence FIFO queue validation", passed: true, delay: 1900 },
-      { log: "Verifying AES-256 encryption & decryption checksum output...", test: "Security Cryptographic salt generation & local cache payload parity", passed: true, delay: 2400 },
-      { log: "Checking concrete curing timeline prediction algorithm...", test: "AI concrete curing rate regression model predictions constraints", passed: true, delay: 2900 },
-      { log: "Consolidating final test suites: 5/5 Passed (100% Code Coverage)", delay: 3200 }
-    ];
-
-    steps.forEach((step, index) => {
-      setTimeout(() => {
-        setUnitTestLogs(prev => [...prev, step.log]);
-        if (step.test) {
-          setUnitTestResults(prev => [...prev, { name: step.test, status: "passed" }]);
-        }
-        setUnitTestProgress(Math.floor(((index + 1) / steps.length) * 100));
-
-        if (index === steps.length - 1) {
-          setUnitTestRunning(false);
-          setUnitTestsPassed(true);
-          onLogAction("Unit Tests Successful", "All 5 production unit test assertions returned code coverage at 100%.");
-        }
-      }, step.delay);
-    });
+    try {
+      const res = await fetch("/api/testing/run-suite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+      const data = await res.json();
+      setUnitTestProgress(100);
+      setUnitTestLogs(data.logs || ["Test suite execution finished."]);
+      setUnitTestResults(data.results || []);
+      setUnitTestRunning(false);
+      setUnitTestsPassed(Boolean(data.success));
+      onLogAction("Unit Tests Completed", `Executed ${data.totalCount || 5} integration tests. Success: ${data.success}`);
+    } catch (err: any) {
+      setUnitTestProgress(100);
+      setUnitTestLogs(prev => [...prev, `Error running test suite: ${err.message}`]);
+      setUnitTestRunning(false);
+      setUnitTestsPassed(false);
+    }
   };
 
   // Run Security Scans

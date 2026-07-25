@@ -14,6 +14,11 @@ export default defineConfig(() => {
       },
       dedupe: ['react', 'react-dom'],
     },
+    test: {
+      globals: true,
+      environment: 'jsdom',
+      setupFiles: ['./src/__tests__/setup.ts']
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.

@@ -1857,7 +1857,7 @@ export default function App() {
             {isAmharic 
               ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
               : "Admin App developed by: Nuriye Ahmed Adem"} 
-            {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862 / 0920843843 | mejennur669@gmail.com
+            {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862 / 0920843843
           </p>
           <p className="font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>
         </div>
