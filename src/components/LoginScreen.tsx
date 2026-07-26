@@ -3,7 +3,14 @@ import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, D
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
 import { auth, isFirebaseReady } from "../firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { 
+  signInWithEmailAndPassword, 
+  createUserWithEmailAndPassword, 
+  sendPasswordResetEmail,
+  RecaptchaVerifier,
+  signInWithPhoneNumber,
+  ConfirmationResult
+} from "firebase/auth";
 import { 
   Shield, 
   ShieldCheck,
@@ -28,6 +35,21 @@ import {
   UserCheck,
   Briefcase
 } from "lucide-react";
+
+const formatToE164 = (phone: string): string => {
+  const cleaned = phone.trim().replace(/[^\d+]/g, "");
+  if (!cleaned) return "";
+  if (cleaned.startsWith("+")) {
+    return cleaned;
+  }
+  if (cleaned.startsWith("0")) {
+    return "+251" + cleaned.slice(1);
+  }
+  if (cleaned.startsWith("251")) {
+    return "+" + cleaned;
+  }
+  return "+251" + cleaned;
+};
 
 interface LoginScreenProps {
   onLoginSuccess: (
@@ -70,7 +92,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaError, setMfaError] = useState("");
-  const [simulatedMfaToken, setSimulatedMfaToken] = useState("");
+  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+  const [phoneLoading, setPhoneLoading] = useState(false);
   
   // Security locks
   const [failedAttempts, setFailedAttempts] = useState(0);
@@ -479,30 +502,147 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       
       identifiedMethod = "Email/Password Authentication";
     } else if (authMethod === "phone") {
-      if (!phoneNumber) {
+      if (!phoneNumber.trim()) {
         handleFailedAttempt(isAmharic ? "ስልክ ቁጥር ያስገቡ" : "Please enter phone number");
         return;
       }
-      if (!isOtpSent) {
-        // Send OTP Verification
-        setIsOtpSent(true);
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        setSimulatedMfaToken(code);
-        setOtpCode(""); // User must type their own OTP code
-        setSuccessMessage(isAmharic ? "የኤስኤምኤስ ማረጋገጫ ኮድ ተልኳል" : "OTP verification code sent to mobile.");
+
+      const formattedPhone = formatToE164(phoneNumber);
+      const e164Regex = /^\+[1-9]\d{7,14}$/;
+      if (!formattedPhone || !e164Regex.test(formattedPhone)) {
+        handleFailedAttempt(
+          isAmharic
+            ? "እባክዎ ትክክለኛ የሞባይል ስልክ ቁጥር ያስገቡ (ምሳሌ +251 911 223 344 ወይም 0911223344)"
+            : "Please enter a valid mobile phone number in E.164 format (e.g. +251 911 223 344 or 0911223344)"
+        );
         return;
-      } else {
-        if (otpCode.trim() !== simulatedMfaToken) {
-          handleFailedAttempt(isAmharic ? "የተሳሳተ የኦቲፒ (OTP) ኮድ" : "Incorrect OTP verification code");
+      }
+
+      if (!isOtpSent) {
+        if (!isFirebaseReady || !auth) {
+          handleFailedAttempt(
+            isAmharic
+              ? "የፋየርቤዝ አገልግሎት አልተዘጋጀም:: እባክዎ የፋየርቤዝ ቅንብሮችን ያረጋግጡ::"
+              : "Firebase authentication is not configured."
+          );
           return;
         }
-        
+
+        setPhoneLoading(true);
+        try {
+          let appVerifier = (window as any).recaptchaVerifier;
+          if (!appVerifier) {
+            appVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
+              size: "invisible"
+            });
+            (window as any).recaptchaVerifier = appVerifier;
+          }
+
+          const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+          setConfirmationResult(confirmation);
+          setIsOtpSent(true);
+          setOtpCode("");
+          setSuccessMessage(
+            isAmharic
+              ? `የኤስኤምኤስ ማረጋገጫ ኮድ ወደ ${formattedPhone} ተልኳል`
+              : `SMS verification code sent to ${formattedPhone}`
+          );
+        } catch (phoneErr: any) {
+          console.error("Firebase Phone Auth error:", phoneErr);
+          if ((window as any).recaptchaVerifier) {
+            try {
+              (window as any).recaptchaVerifier.clear();
+              (window as any).recaptchaVerifier = null;
+            } catch (e) {}
+          }
+          const code = phoneErr?.code || "";
+          const msg = phoneErr?.message || "";
+          if (code === "auth/api-key-not-valid" || msg.includes("api-key-not-valid")) {
+            handleFailedAttempt(
+              isAmharic
+                ? "የፋየርቤዝ ኤፒአይ ቁልፍ (API Key) ትክክለኛ አይደለም:: እባክዎ በፕሮጀክት ቅንብሮች ውስጥ ትክክለኛ VITE_FIREBASE_API_KEY ያስገቡ::"
+                : "Invalid Firebase API Key. Please provide a valid VITE_FIREBASE_API_KEY in environment settings."
+            );
+          } else if (code === "auth/operation-not-allowed") {
+            handleFailedAttempt(
+              isAmharic
+                ? "በፋየርቤዝ ውስጥ የስልክ ማረጋገጫ (Phone Auth) አልተከፈተም:: እባክዎ በFirebase Console -> Authentication -> Sign-in method ውስጥ 'Phone' ን ያንቁ::"
+                : "Phone authentication is disabled in your Firebase project. Please enable 'Phone' in Firebase Console > Authentication > Sign-in method."
+            );
+          } else if (code === "auth/invalid-app-credential") {
+            handleFailedAttempt(
+              isAmharic
+                ? "የመተግበሪያው ጎራ በFirebase Console ውስጥ አልተፈቀደም:: እባክዎ በAuthorized Domains ውስጥ ጎራዎን ያክሉ::"
+                : "Domain not authorized in Firebase Console. Please add your domain under Firebase Console > Authentication > Settings > Authorized domains."
+            );
+          } else if (code === "auth/invalid-phone-number") {
+            handleFailedAttempt(
+              isAmharic
+                ? "ትክክለኛ ያልሆነ የስልክ ቁጥር ቅርፅ። እባክዎ በ+251 የሀገር ኮድ ያረጋግጡ።"
+                : "Invalid phone number format. Please ensure correct country code (+251)."
+            );
+          } else if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") {
+            handleFailedAttempt(
+              isAmharic
+                ? "የኤስኤምኤስ መላክ ገደብ አልፏል ወይም ብዙ ሙከራ ተደርጓል። እባክዎ ቆይተው ይሞክሩ።"
+                : "SMS quota exceeded or too many attempts. Please try again later."
+            );
+          } else if (code === "auth/captcha-check-failed") {
+            handleFailedAttempt(
+              isAmharic ? "reCAPTCHA ማረጋገጫ አልተሳካም።" : "reCAPTCHA verification failed."
+            );
+          } else {
+            handleFailedAttempt(
+              isAmharic
+                ? "የኤስኤምኤስ ኮድ መላክ አልተሳካም። እባክዎ ስልክ ቁጥሩን ያረጋግጡ።"
+                : phoneErr?.message || "Failed to send SMS code. Please verify phone number."
+            );
+          }
+          return;
+        } finally {
+          setPhoneLoading(false);
+        }
+        return;
+      } else {
+        if (!otpCode.trim()) {
+          handleFailedAttempt(isAmharic ? "እባክዎ ባለ 6-አሃዝ ማረጋገጫ ኮድ ያስገቡ" : "Please enter the 6-digit verification code");
+          return;
+        }
+
+        if (!confirmationResult) {
+          handleFailedAttempt(isAmharic ? "የማረጋገጫ ሂደት አልተገኘም። እባክዎ እንደገና ይሞክሩ" : "Verification session expired. Please resend SMS.");
+          setIsOtpSent(false);
+          return;
+        }
+
+        setPhoneLoading(true);
+        try {
+          await confirmationResult.confirm(otpCode.trim());
+        } catch (confirmErr: any) {
+          console.error("OTP Confirmation error:", confirmErr);
+          const code = confirmErr?.code || "";
+          if (code === "auth/invalid-verification-code") {
+            handleFailedAttempt(isAmharic ? "የተሳሳተ የኦቲፒ (OTP) ኮድ" : "Incorrect OTP verification code");
+          } else if (code === "auth/code-expired") {
+            handleFailedAttempt(isAmharic ? "የማረጋገጫ ኮዱ ጊዜው አልፏል። እባክዎ እንደገና ይላኩ" : "Verification code expired. Please request a new code.");
+          } else {
+            handleFailedAttempt(
+              isAmharic
+                ? "የኦቲፒ ማረጋገጫ አልተሳካም"
+                : confirmErr?.message || "Failed to verify OTP code"
+            );
+          }
+          return;
+        } finally {
+          setPhoneLoading(false);
+        }
+
         // Smart Auto-detection of roles based on phone
-        const cleanPhone = phoneNumber.trim();
-        if (cleanPhone.includes("0910097862") || cleanPhone.includes("0920843843") || cleanPhone.includes("0911223344")) {
+        const cleanPhone = formattedPhone;
+        if (cleanPhone.includes("0910097862") || cleanPhone.includes("0920843843") || cleanPhone.includes("0911223344") || cleanPhone.includes("911223344")) {
           targetRole = UserRole.HEAD_OFFICE;
         }
-        
+
         identifiedMethod = "Mobile SMS OTP";
       }
     } else if (authMethod === "empId") {
@@ -953,6 +1093,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
                   {authMethod === "phone" && (
                     <>
+                      <div id="recaptcha-container"></div>
                       <div>
                         <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
                           {isAmharic ? "የሞባይል ስልክ ቁጥር" : "Registered Mobile Number"}
@@ -1200,16 +1341,18 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                   {/* SUBMIT BUTTON */}
                   <button
                     type="submit"
-                    disabled={isLocked}
+                    disabled={isLocked || phoneLoading}
                     className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 hover:shadow-red-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
                   >
                     <Shield size={14} />
                     <span>
-                      {mfaRequired 
-                        ? (isAmharic ? "ማረጋገጫ አረጋግጥ እና ክፈት" : "Verify Token & Authorize") 
-                        : authMethod === "phone" && !isOtpSent 
-                          ? (isAmharic ? "የማረጋገጫ ኤስኤምኤስ ላክ" : "Send SMS Authentication OTP") 
-                          : (isAmharic ? "ግባና ERP ጫን" : "Unlock & Access Command ERP")}
+                      {phoneLoading
+                        ? (isAmharic ? "በማስኬድ ላይ..." : "Processing...")
+                        : mfaRequired 
+                          ? (isAmharic ? "ማረጋገጫ አረጋግጥ እና ክፈት" : "Verify Token & Authorize") 
+                          : authMethod === "phone" && !isOtpSent 
+                            ? (isAmharic ? "የማረጋገጫ ኤስኤምኤስ ላክ" : "Send SMS Authentication OTP") 
+                            : (isAmharic ? "ግባና ERP ጫን" : "Unlock & Access Command ERP")}
                     </span>
                   </button>
                 </>
