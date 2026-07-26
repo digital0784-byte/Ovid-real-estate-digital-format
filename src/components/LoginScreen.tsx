@@ -402,14 +402,20 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         try {
           await signInWithEmailAndPassword(auth, lowerEmail, password);
         } catch (fbErr: any) {
-          if (fbErr.code === "auth/user-not-found" || fbErr.code === "auth/invalid-credential") {
+          if (fbErr.code === "auth/user-not-found") {
             try {
               await createUserWithEmailAndPassword(auth, lowerEmail, password);
             } catch (createErr: any) {
-              console.warn("Firebase auth creation notice, granting resilient access:", createErr?.message);
+              handleFailedAttempt(isAmharic ? "ኢሜል ወይም የይለፍ ቃል አልተገኘም" : "User not found or creation failed");
+              return;
             }
           } else {
-            console.warn("Firebase auth fallback notice:", fbErr.message);
+            handleFailedAttempt(
+              isAmharic 
+                ? "የተሳሳተ የይለፍ ቃል ወይም የተቀየረ መለያ" 
+                : fbErr?.message || "Incorrect password or authentication failed"
+            );
+            return;
           }
         }
       }
@@ -444,11 +450,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         setIsOtpSent(true);
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         setSimulatedMfaToken(code);
-        setOtpCode(code); // Auto-fill code for instant verification
-        setSuccessMessage(isAmharic ? `የኤስኤምኤስ ማረጋገጫ ኮድ ተልኳል፡ ${code}` : `OTP code sent to mobile: ${code}`);
+        setOtpCode(""); // User must type their own OTP code
+        setSuccessMessage(isAmharic ? "የኤስኤምኤስ ማረጋገጫ ኮድ ተልኳል" : "OTP verification code sent to mobile.");
         return;
       } else {
-        if (otpCode !== simulatedMfaToken && otpCode.length < 4) {
+        if (otpCode.trim() !== simulatedMfaToken) {
           handleFailedAttempt(isAmharic ? "የተሳሳተ የኦቲፒ (OTP) ኮድ" : "Incorrect OTP verification code");
           return;
         }
@@ -503,11 +509,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     if (isSensitiveRole && !mfaRequired) {
       setMfaRequired(true);
       setSimulatedMfaToken(currentTotpCode);
-      setMfaCode(currentTotpCode); // Pre-fill code so user can directly click submit to log in!
+      setMfaCode(""); // User must enter their own MFA code manually
       setSuccessMessage(
         isAmharic
-          ? `የደህንነት ኤምኤፍኤ ኮድ፡ ${currentTotpCode} (በራስ-ሰር ተሞልቷል)`
-          : `MFA Token generated & auto-filled: ${currentTotpCode}`
+          ? "እባክዎ ባለ 6-አሃዝ MFA ማረጋገጫ ኮድዎን ያስገቡ"
+          : "Please enter your 6-digit MFA security token."
       );
       return;
     }
@@ -734,47 +740,6 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           {!isRegistering ? (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               
-              {/* One-Click Direct Access Quick Login Buttons */}
-              <div className="bg-slate-950 p-3 rounded-xl border border-red-900/40 space-y-2">
-                <div className="flex items-center justify-between text-[11px] font-bold text-slate-300">
-                  <span className="flex items-center gap-1.5 text-red-400">
-                    <ShieldCheck size={14} />
-                    <span>{isAmharic ? "ባለአንድ-ክሊክ ፈጣን መግቢያ" : "One-Click Quick Access Login"}</span>
-                  </span>
-                  <span className="text-[9px] text-slate-500 font-mono font-normal">
-                    {isAmharic ? "ሚና ይምረጡና በቀጥታ ይግቡ" : "Select Role to Enter"}
-                  </span>
-                </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                  {[
-                    { role: UserRole.HEAD_OFFICE, labelAm: "ዋና መስሪያ ቤት (ኑሪዬ አህመድ)", labelEn: "Head Office (Nuriye)" },
-                    { role: UserRole.SUPER_ADMIN, labelAm: "ዋና አድሚን", labelEn: "Super Admin" },
-                    { role: UserRole.PROJECT_MANAGER, labelAm: "የፕሮጀክት ሥራ አስኪያጅ", labelEn: "Project Manager" },
-                    { role: UserRole.SITE_ENGINEER, labelAm: "የሳይት መሃንዲስ", labelEn: "Site Engineer" },
-                    { role: UserRole.HR_MANAGER, labelAm: "የHR ሥራ አስኪያጅ", labelEn: "HR Manager" },
-                    { role: UserRole.SUPERVISOR, labelAm: "ተቆጣጣሪ (Supervisor)", labelEn: "Site Supervisor" },
-                  ].map((preset) => (
-                    <button
-                      key={preset.role}
-                      type="button"
-                      onClick={() => {
-                        const simLog = {
-                          loginTime: new Date().toISOString().replace("T", " ").slice(0, 19),
-                          device: "Direct Authorization Workstation",
-                          ip: "192.168.10.1",
-                          gps: "9.0272° N, 38.7483° E (Bole Heights Site B1)"
-                        };
-                        onLoginSuccess(preset.role, `Direct One-Click Login (${preset.role})`, simLog);
-                      }}
-                      className="px-2.5 py-1.5 bg-slate-900 hover:bg-red-600/20 border border-slate-800 hover:border-red-500/50 rounded-lg text-[10px] font-bold text-slate-200 hover:text-white transition-all text-left flex flex-col justify-center cursor-pointer group"
-                    >
-                      <span className="truncate group-hover:text-red-400">{isAmharic ? preset.labelAm : preset.labelEn}</span>
-                      <span className="text-[8px] font-mono text-slate-500 group-hover:text-slate-300">Click to enter →</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Header tab navigation for Auth Method */}
               <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/60">
                 {[
@@ -1053,20 +1018,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     />
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const codeToUse = simulatedMfaToken || "123456";
-                      setMfaCode(codeToUse);
-                      setMfaError("");
-                    }}
-                    className="w-full py-2 bg-emerald-950/60 hover:bg-emerald-900/80 border border-emerald-500/50 text-emerald-300 font-bold text-xs rounded-lg transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-                  >
-                    <CheckCircle size={14} />
-                    <span>{isAmharic ? "ኮዱን በራስ-ሰር ሙላ (Auto-Fill Code)" : "Auto-Fill Code"}</span>
-                  </button>
-
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 pt-2">
                     <button
                       type="button"
                       onClick={() => {
@@ -1074,7 +1026,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         setMfaCode("");
                         setMfaError("");
                       }}
-                      className="flex-1 py-1.5 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 text-[10px] font-bold uppercase transition-all cursor-pointer"
+                      className="flex-1 py-1.5 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 text-[10px] font-bold uppercase transition-all cursor-pointer text-slate-300"
                     >
                       {isAmharic ? "ተመለስ" : "Back"}
                     </button>
@@ -1084,7 +1036,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         // Regenerate MFA
                         const nextCode = Math.floor(100000 + Math.random() * 900000).toString();
                         setSimulatedMfaToken(nextCode);
-                        setSuccessMessage(isAmharic ? `አዲስ ማረጋገጫ ኮድ ተልኳል፡ ${nextCode}` : `New MFA token synchronized: ${nextCode}`);
+                        setMfaCode("");
+                        setSuccessMessage(isAmharic ? "አዲስ የማረጋገጫ ኮድ ተልኳል" : "A new MFA token has been generated.");
                       }}
                       className="flex-1 py-1.5 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 text-[10px] font-bold uppercase transition-all text-red-400 cursor-pointer"
                     >
