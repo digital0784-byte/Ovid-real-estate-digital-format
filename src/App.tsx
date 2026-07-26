@@ -118,7 +118,13 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
 
   // Shell UI parameters
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(UserRole.HEAD_OFFICE);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("erp_current_user_role");
+      if (saved) return saved as UserRole;
+    }
+    return UserRole.HEAD_OFFICE;
+  });
   const [selectedProject, setSelectedProject] = useState<string>("Addis Ababa Tower Block A");
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
@@ -143,7 +149,12 @@ export default function App() {
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   // Security and Authentication session states
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("erp_is_authenticated") === "true";
+    }
+    return false;
+  });
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(10);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [loginMetadata, setLoginMetadata] = useState<{ loginTime: string; device: string; ip: string; gps: string } | null>(null);
@@ -920,6 +931,10 @@ export default function App() {
           setCurrentUserRole(role);
           setIsAuthenticated(true);
           setLoginMetadata(loginLog);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("erp_is_authenticated", "true");
+            localStorage.setItem("erp_current_user_role", role);
+          }
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${role} | Metadata: ${JSON.stringify(loginLog)}`, role);
 
           // Fetch fresh data in the background without blocking the login transition
@@ -1050,6 +1065,10 @@ export default function App() {
             <button
               onClick={() => {
                 setIsAuthenticated(false);
+                if (typeof window !== "undefined") {
+                  localStorage.removeItem("erp_is_authenticated");
+                  localStorage.removeItem("erp_current_user_role");
+                }
                 logAction("User Logged Out", "Operator requested secure closure of acting token.");
               }}
               className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-black transition-all flex items-center space-x-1 cursor-pointer"

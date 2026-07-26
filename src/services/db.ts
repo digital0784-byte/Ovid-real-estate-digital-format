@@ -75,15 +75,19 @@ class OfflineCacheAndOutboxEngine {
   public getCache<T>(collectionName: string, defaultData: T[]): T[] {
     if (typeof window === "undefined") return defaultData;
     const key = this.getStorageKey(collectionName);
-    const data = localStorage.getItem(key);
-    if (!data) {
-      localStorage.setItem(key, JSON.stringify(defaultData));
-      return defaultData;
-    }
     try {
+      const data = localStorage.getItem(key);
+      if (!data) {
+        try {
+          localStorage.setItem(key, JSON.stringify(defaultData));
+        } catch (e) {
+          console.warn(`localStorage setItem notice for "${collectionName}":`, e);
+        }
+        return defaultData;
+      }
       return JSON.parse(data);
     } catch (e) {
-      console.error(`Error reading offline cache collection "${collectionName}":`, e);
+      console.warn(`Error reading offline cache collection "${collectionName}":`, e);
       return defaultData;
     }
   }
@@ -91,7 +95,11 @@ class OfflineCacheAndOutboxEngine {
   public saveCache<T>(collectionName: string, list: T[]): void {
     if (typeof window === "undefined") return;
     const key = this.getStorageKey(collectionName);
-    localStorage.setItem(key, JSON.stringify(list));
+    try {
+      localStorage.setItem(key, JSON.stringify(list));
+    } catch (e) {
+      console.warn(`localStorage saveCache notice for "${collectionName}":`, e);
+    }
   }
 
   public updateCacheItem<T extends { id: string }>(collectionName: string, item: T, defaultData: T[]): void {
@@ -113,35 +121,43 @@ class OfflineCacheAndOutboxEngine {
 
   public queueOutbox(action: "set" | "delete", collectionName: string, id: string, data?: any): void {
     if (typeof window === "undefined") return;
-    const outboxKey = this.getOutboxKey();
-    const existing = localStorage.getItem(outboxKey);
-    const queue: OutboxItem[] = existing ? JSON.parse(existing) : [];
-    queue.push({ id, action, collectionName, data, timestamp: Date.now() });
-    localStorage.setItem(outboxKey, JSON.stringify(queue));
+    try {
+      const outboxKey = this.getOutboxKey();
+      const existing = localStorage.getItem(outboxKey);
+      const queue: OutboxItem[] = existing ? JSON.parse(existing) : [];
+      queue.push({ id, action, collectionName, data, timestamp: Date.now() });
+      localStorage.setItem(outboxKey, JSON.stringify(queue));
+    } catch (e) {
+      console.warn("queueOutbox error notice:", e);
+    }
   }
 
   public async flushOutbox(): Promise<void> {
     if (!isFirebaseReady || !db || typeof window === "undefined") return;
-    const outboxKey = this.getOutboxKey();
-    const existing = localStorage.getItem(outboxKey);
-    if (!existing) return;
-    const queue: OutboxItem[] = JSON.parse(existing);
-    if (queue.length === 0) return;
+    try {
+      const outboxKey = this.getOutboxKey();
+      const existing = localStorage.getItem(outboxKey);
+      if (!existing) return;
+      const queue: OutboxItem[] = JSON.parse(existing);
+      if (queue.length === 0) return;
 
-    const remaining: OutboxItem[] = [];
-    for (const item of queue) {
-      try {
-        if (item.action === "set") {
-          await setDoc(doc(db, item.collectionName, item.id), item.data, { merge: true });
-        } else if (item.action === "delete") {
-          await deleteDoc(doc(db, item.collectionName, item.id));
+      const remaining: OutboxItem[] = [];
+      for (const item of queue) {
+        try {
+          if (item.action === "set") {
+            await setDoc(doc(db, item.collectionName, item.id), item.data, { merge: true });
+          } else if (item.action === "delete") {
+            await deleteDoc(doc(db, item.collectionName, item.id));
+          }
+        } catch (err) {
+          console.warn(`Outbox sync failed for ${item.collectionName}/${item.id}, retaining in queue:`, err);
+          remaining.push(item);
         }
-      } catch (err) {
-        console.warn(`Outbox sync failed for ${item.collectionName}/${item.id}, retaining in queue:`, err);
-        remaining.push(item);
       }
+      localStorage.setItem(outboxKey, JSON.stringify(remaining));
+    } catch (e) {
+      console.warn("flushOutbox error notice:", e);
     }
-    localStorage.setItem(outboxKey, JSON.stringify(remaining));
   }
 }
 

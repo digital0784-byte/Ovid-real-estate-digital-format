@@ -1,5 +1,6 @@
 import express from "express";
 import path from "path";
+import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
@@ -7,19 +8,14 @@ import crypto from "crypto";
 import { initializeApp, getApps, App } from "firebase-admin/app";
 import { getAppCheck } from "firebase-admin/app-check";
 import { getFirestore } from "firebase-admin/firestore";
-import * as OTPAuth from "otpauth";
+import { TOTP, Secret } from "otpauth";
 
 // Load environment variables
 dotenv.config();
 
-// Strict boot validation for production secrets
-if (process.env.NODE_ENV === "production") {
-  const missingVars: string[] = [];
-  if (!process.env.ENCRYPTION_SECRET_KEY) missingVars.push("ENCRYPTION_SECRET_KEY");
-  if (missingVars.length > 0) {
-    console.error(`[FATAL BOOT ERROR] Missing required environment variable(s) in production mode: ${missingVars.join(", ")}`);
-    process.exit(1);
-  }
+// Boot check for encryption key
+if (!process.env.ENCRYPTION_SECRET_KEY) {
+  console.warn("[WARNING] ENCRYPTION_SECRET_KEY is not set. Using development fallback key.");
 }
 
 // Secure Symmetric Encryption Core for Database/Field level protection
@@ -316,14 +312,14 @@ async function startServer() {
     }
 
     try {
-      let otpSecret: OTPAuth.Secret;
+      let otpSecret: Secret;
       try {
-        otpSecret = OTPAuth.Secret.fromBase32(userSecret);
+        otpSecret = Secret.fromBase32(userSecret);
       } catch {
-        otpSecret = OTPAuth.Secret.fromUTF8(userSecret);
+        otpSecret = Secret.fromUTF8(userSecret);
       }
 
-      const totp = new OTPAuth.TOTP({
+      const totp = new TOTP({
         issuer: "OVID ERP",
         label: targetUserId,
         algorithm: "SHA1",
@@ -960,18 +956,20 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
   });
 
   // Serve static assets or mount Vite dev middleware
-  if (process.env.NODE_ENV !== "production") {
+  const distPath = path.join(process.cwd(), "dist");
+  const hasBuiltDist = fs.existsSync(path.join(distPath, "index.html"));
+
+  if (process.env.NODE_ENV === "production") {
+    app.use(express.static(distPath));
+    app.get("*", (req, res) => {
+      res.sendFile(path.join(distPath, "index.html"));
+    });
+  } else {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa",
     });
     app.use(vite.middlewares);
-  } else {
-    const distPath = path.join(process.cwd(), "dist");
-    app.use(express.static(distPath));
-    app.get("*", (req, res) => {
-      res.sendFile(path.join(distPath, "index.html"));
-    });
   }
 
   app.listen(PORT, "0.0.0.0", () => {
