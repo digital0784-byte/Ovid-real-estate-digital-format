@@ -88,7 +88,11 @@ service cloud.firestore {
     // 1. Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create, update: if isSuperAdmin() || isHeadOffice() || isOwner(userId);
+      allow create: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+        isOwner(userId) &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'customClaims'])
+      );
       allow delete: if isSuperAdmin();
     }
 
@@ -191,6 +195,11 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || isHeadOffice() || isHRManager();
       allow create: if isSignedIn() && isValidId(logId);
       allow update, delete: if false;
+    }
+
+    // 15. Admin Invitations
+    match /invitations/{inviteId} {
+      allow read, write: if isSuperAdmin() || isHeadOffice() || isHRManager();
     }
   }
 }

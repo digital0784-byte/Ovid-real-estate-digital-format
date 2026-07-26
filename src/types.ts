@@ -64,6 +64,7 @@ export interface Worker {
   department: string;
   trade: string; // e.g., Welder, Carpenter, Steel Fixer, Concrete Worker
   position?: string;
+  hourlyRate?: number; // Base rate in ETB/hr
   employmentType?: "Daily Labourer" | "Contract" | "Permanent" | string;
   joinedDate: string;
   assignedProject?: string;

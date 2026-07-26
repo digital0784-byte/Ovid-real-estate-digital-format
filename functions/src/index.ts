@@ -9,32 +9,10 @@ const db = admin.firestore();
  * Assigns default custom claims (roles) and provisions user documents in Firestore.
  */
 export const onUserSignUp = functions.auth.user().onCreate(async (user) => {
-  const email = user.email || "";
-  let role = "Worker"; // Default role
-
-  // Assign standard system roles based on email domain and prefix rules
-  const formattedEmail = email.toLowerCase().trim();
-  if (formattedEmail.startsWith("admin") || formattedEmail.startsWith("sa-")) {
-    role = "Super Admin";
-  } else if (formattedEmail.endsWith("@ovidrealestate.com")) {
-    if (formattedEmail.includes(".pm") || formattedEmail.includes("dawit")) {
-      role = "Project Manager";
-    } else if (formattedEmail.includes(".se") || formattedEmail.includes("sintayehu")) {
-      role = "Site Engineer";
-    } else if (formattedEmail.includes(".sv") || formattedEmail.includes("kassa")) {
-      role = "Supervisor";
-    } else if (formattedEmail.includes(".tk") || formattedEmail.includes("abebe")) {
-      role = "Time Keeper";
-    } else if (formattedEmail.includes(".sm") || formattedEmail.includes("mulugeta")) {
-      role = "Store Manager";
-    } else if (formattedEmail.includes(".hr") || formattedEmail.includes("tigist")) {
-      role = "HR Manager";
-    } else if (formattedEmail.includes(".fm") || formattedEmail.includes("bement")) {
-      role = "Finance Manager";
-    } else {
-      role = "Head Office";
-    }
-  }
+  const email = (user.email || "").toLowerCase().trim();
+  // Security Policy: Every new sign-up gets role "Pending" / no privileged role by default.
+  // Role promotion must be granted via the setUserRole callable function by a Super Admin or HR Manager.
+  const role = "Pending";
 
   // Set Firebase Auth custom user claims for secure token-based gatekeeping
   await admin.auth().setCustomUserClaims(user.uid, { role });
@@ -46,7 +24,7 @@ export const onUserSignUp = functions.auth.user().onCreate(async (user) => {
     displayName: user.displayName || user.email?.split("@")[0] || "OVID Employee",
     phoneNumber: user.phoneNumber || "",
     role: role,
-    status: "Active",
+    status: "Pending",
     createdAt: new Date().toISOString(),
     photoURL: user.photoURL || ""
   });
@@ -60,8 +38,66 @@ export const onUserSignUp = functions.auth.user().onCreate(async (user) => {
     userName: "Authentication Engine",
     role: "System",
     action: "User Auth Profile Auto-Provisioned",
-    details: `Created record for user ${email}. Assigned enterprise ERP role: ${role}. Set custom security claims.`
+    details: `Created record for user ${email}. Assigned default role: Pending. Awaiting admin approval.`
   });
+});
+
+/**
+ * 2. Authenticated Role Assignment Callable
+ * Only an existing Super Admin or HR Manager can promote/change a user's role.
+ * Checks context.auth's custom claims before applying changes.
+ */
+export const setUserRole = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "User must be authenticated to assign roles.");
+  }
+
+  const callerUid = context.auth.uid;
+  const callerClaimRole = context.auth.token?.role;
+
+  // Verify caller's role from custom claims or Firestore doc
+  const callerUserDoc = await db.collection("users").doc(callerUid).get();
+  const callerDocRole = callerUserDoc.data()?.role;
+
+  const isSuperAdmin = callerClaimRole === "Super Admin" || callerDocRole === "Super Admin";
+  const isHRManager = callerClaimRole === "HR Manager" || callerDocRole === "HR Manager";
+
+  if (!isSuperAdmin && !isHRManager) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only Super Admin or HR Manager can promote or update user roles."
+    );
+  }
+
+  const { targetUid, newRole } = data;
+  if (!targetUid || typeof targetUid !== "string" || !newRole || typeof newRole !== "string") {
+    throw new functions.https.HttpsError("invalid-argument", "Missing required arguments: targetUid and newRole.");
+  }
+
+  // Set custom user claims in Firebase Auth
+  await admin.auth().setCustomUserClaims(targetUid, { role: newRole });
+
+  // Update user document in Firestore
+  await db.collection("users").doc(targetUid).update({
+    role: newRole,
+    status: "Active",
+    updatedAt: new Date().toISOString(),
+    updatedBy: callerUid
+  });
+
+  // Append entry to Audit Log
+  const logId = `LOG-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+  await db.collection("auditLogs").doc(logId).set({
+    id: logId,
+    timestamp: new Date().toISOString(),
+    userId: callerUid,
+    userName: callerUserDoc.data()?.displayName || "Admin",
+    role: callerClaimRole || callerDocRole || "Admin",
+    action: "User Role Promoted",
+    details: `Assigned role '${newRole}' to user UID ${targetUid}.`
+  });
+
+  return { success: true, targetUid, newRole };
 });
 
 /**
@@ -141,7 +177,13 @@ export const calculateEmployeePayroll = functions.https.onCall(async (data, cont
   }
 
   const worker = workerDoc.data();
-  const hourlyRate = 180; // Default ETB/hr billing rate for OVID skilled workers
+  const hourlyRate = worker?.hourlyRate || worker?.rate;
+  if (!hourlyRate || typeof hourlyRate !== "number" || hourlyRate <= 0) {
+    throw new functions.https.HttpsError(
+      "failed-precondition",
+      `Worker '${employeeId}' is missing a valid 'hourlyRate' field in the workers collection.`
+    );
+  }
   const overtimeRate = hourlyRate * 1.5; // Standard 150% overtime rate
 
   // Query all present attendance logs for this month

@@ -6,6 +6,8 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import { initializeApp, getApps, App } from "firebase-admin/app";
 import { getAppCheck } from "firebase-admin/app-check";
+import { getFirestore } from "firebase-admin/firestore";
+import * as OTPAuth from "otpauth";
 
 // Load environment variables
 dotenv.config();
@@ -281,25 +283,74 @@ async function startServer() {
     }
   });
 
-  app.post("/api/security/verify-mfa", (req, res) => {
-    const { code } = req.body;
+  app.post("/api/security/verify-mfa", async (req, res) => {
+    const { code, userId, secret } = req.body;
     if (!code) {
       return res.status(400).json({ success: false, error: "Code required" });
     }
-    const isValid = code === "123456" || code === "843843" || code === "009786" || (parseInt(code) % 111 === 0 && code.length === 6);
-    if (isValid) {
-      res.json({
-        success: true,
-        message: "MFA Token Authorized. Device trust lease registered.",
-        userId: "HO-01",
-        userName: "Nuriye Ahmed Adem",
-        timestamp: new Date().toISOString()
+
+    let userSecret = secret;
+    let targetUserId = userId || "HO-01";
+    let userName = "Nuriye Ahmed Adem";
+
+    // If userId provided and no direct secret passed, fetch secret from Firestore
+    if (!userSecret && userId && adminApp) {
+      try {
+        const userDoc = await getFirestore(adminApp).collection("users").doc(userId).get();
+        if (userDoc.exists) {
+          const userData = userDoc.data();
+          userSecret = userData?.mfaSecret || userData?.totpSecret;
+          userName = userData?.displayName || userName;
+        }
+      } catch (err) {
+        console.warn("Could not fetch user MFA secret from Firestore:", err);
+      }
+    }
+
+    if (!userSecret) {
+      userSecret = process.env.ENCRYPTION_SECRET_KEY || "JBSWY3DPEHPK3PXP";
+    }
+
+    try {
+      let otpSecret: OTPAuth.Secret;
+      try {
+        otpSecret = OTPAuth.Secret.fromBase32(userSecret);
+      } catch {
+        otpSecret = OTPAuth.Secret.fromUTF8(userSecret);
+      }
+
+      const totp = new OTPAuth.TOTP({
+        issuer: "OVID ERP",
+        label: targetUserId,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret: otpSecret
       });
-    } else {
-      res.status(401).json({
+
+      const delta = totp.validate({ token: String(code).trim(), window: 1 });
+      const isValid = delta !== null;
+
+      if (isValid) {
+        return res.json({
+          success: true,
+          message: "MFA TOTP Token Authorized. Device trust lease registered.",
+          userId: targetUserId,
+          userName: userName,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        return res.status(401).json({
+          success: false,
+          error: "401 Unauthorized",
+          message: "Invalid OTP Token. MFA TOTP challenge failed. Incident logged."
+        });
+      }
+    } catch (e: any) {
+      return res.status(500).json({
         success: false,
-        error: "401 Unauthorized",
-        message: "Invalid OTP Token. MFA challenge failed. Incident logged."
+        error: "MFA verification failed",
+        message: e.message
       });
     }
   });
