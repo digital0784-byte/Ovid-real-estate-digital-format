@@ -800,6 +800,7 @@ export class NotificationService {
         roleStr === UserRole.SUPER_ADMIN || 
         roleStr === UserRole.HEAD_OFFICE || 
         roleStr === UserRole.HR_MANAGER ||
+        roleStr === "Super Admin" ||
         roleStr === "Admin" ||
         roleStr === "Head Office" ||
         roleStr === "HR Manager" ||
@@ -906,6 +907,7 @@ export class NotificationService {
         roleStr === UserRole.SUPER_ADMIN || 
         roleStr === UserRole.HEAD_OFFICE || 
         roleStr === UserRole.HR_MANAGER ||
+        roleStr === "Super Admin" ||
         roleStr === "Admin" ||
         roleStr === "Head Office" ||
         roleStr === "HR Manager" ||

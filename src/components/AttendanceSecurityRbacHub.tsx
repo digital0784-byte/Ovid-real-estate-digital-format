@@ -624,22 +624,22 @@ service cloud.firestore {
     // Attendance Records Collection
     match /attendance_records/{recordId} {
       allow read: if hasRole([
-        'Admin', 'Head Office', 'Finance Manager', 
+        'Super Admin', 'Head Office', 'Finance Manager', 
         'Project Manager', 'Section Head', 'Supervisor', 
         'Time Keeper', 'Team Leader', 'Gang Chief', 'Auditor'
       ]);
-      allow write: if hasRole(['Admin', 'Time Keeper']);
+      allow write: if hasRole(['Super Admin', 'Time Keeper']);
     }
 
     // Material & Warehouse Collection
     match /warehouse_materials/{matId} {
-      allow read: if hasRole(['Admin', 'Head Office', 'Warehouse Manager', 'Store Owner', 'Auditor']);
-      allow write: if hasRole(['Admin', 'Warehouse Manager', 'Store Owner']);
+      allow read: if hasRole(['Super Admin', 'Head Office', 'Warehouse Manager', 'Store Owner', 'Auditor']);
+      allow write: if hasRole(['Super Admin', 'Warehouse Manager', 'Store Owner']);
     }
 
     // Payroll & Salary Collection
     match /payroll/{payId} {
-      allow read, write: if hasRole(['Admin', 'Finance Manager', 'Auditor']);
+      allow read, write: if hasRole(['Super Admin', 'Finance Manager', 'Auditor']);
     }
   }
 }` : `// Cloud Functions Authorization Handler
@@ -652,7 +652,7 @@ exports.enforceRoleSecurity = functions.https.onCall(async (data, context) => {
   }
   
   const userRole = context.auth.token.role;
-  const allowedRoles = ["Admin", "Head Office", "Project Manager", "Finance Manager"];
+  const allowedRoles = ["Super Admin", "Head Office", "Project Manager", "Finance Manager"];
   
   if (!allowedRoles.includes(userRole)) {
     throw new functions.https.HttpsError("permission-denied", "Unauthorized access level");

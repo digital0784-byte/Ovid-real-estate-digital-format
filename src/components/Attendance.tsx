@@ -861,7 +861,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
             <span>{isAmharic ? "የተፈቀደላቸው የስራ መደቦች (Authorized Roles Only):" : "Authorized Attendance Viewing Roles:"}</span>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
-            {["Time Keeper", "Gang Chief", "Team Leader", "Section Head", "Supervisor", "Head Supervisor", "Admin"].map(r => (
+            {["Time Keeper", "Gang Chief", "Team Leader", "Section Head", "Supervisor", "Head Supervisor", "Super Admin"].map(r => (
               <div key={r} className="bg-white p-2 rounded-lg border border-slate-200 font-bold text-slate-700 flex items-center space-x-1.5">
                 <CheckCircle2 size={12} className="text-emerald-600 shrink-0" />
                 <span>{r}</span>

@@ -98,7 +98,7 @@ const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
     requestedDate: "2026-07-18",
     requestedTime: "11:00 AM",
     approvedBy: "Super Admin (System)",
-    approvedByRole: "Admin",
+    approvedByRole: "Super Admin",
     approvedDate: "2026-07-18",
     approvedTime: "02:45 PM",
     deviceInfo: {
@@ -148,7 +148,7 @@ const INITIAL_SEED_AUDITS: RoleChangeAuditLog[] = [
     newRole: "Supervisor",
     requestedBy: "Abebe Bikila",
     approvedBy: "Super Admin (System)",
-    approverRole: "Admin",
+    approverRole: "Super Admin",
     status: "Approved",
     reason: "Completed 3 years site operations training and appointed site supervisor for Zone 4.",
     deviceInfo: {
@@ -186,7 +186,7 @@ export class RoleChangeApprovalService {
   // Check if current user is authorized to approve/reject role changes
   public static canApproveRoleChange(role: UserRole | string): boolean {
     const r = String(role);
-    return r === UserRole.SUPER_ADMIN || r === "Admin" || r === UserRole.HEAD_OFFICE || r === "Head Office";
+    return r === UserRole.SUPER_ADMIN || r === "Super Admin" || r === "Admin" || r === UserRole.HEAD_OFFICE || r === "Head Office";
   }
 
   // Get all requests from local storage or seed

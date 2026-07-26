@@ -278,7 +278,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           UserRole.SUPER_ADMIN,
           UserRole.HEAD_OFFICE,
           UserRole.HR_MANAGER,
-          "Admin",
+          "Super Admin",
           "Head Office",
           "HR Manager",
           "HR"

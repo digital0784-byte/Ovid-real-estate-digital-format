@@ -268,7 +268,7 @@ export class CustomInputService {
     authorizedScope: string;
   } {
     const r = String(role);
-    const isSuperAdmin = r === UserRole.SUPER_ADMIN || r === "Admin" || r === "SUPER_ADMIN";
+    const isSuperAdmin = r === UserRole.SUPER_ADMIN || r === "Super Admin" || r === "Admin" || r === "SUPER_ADMIN";
     const isHeadOffice = r === UserRole.HEAD_OFFICE;
     const isProjectManager = r === UserRole.PROJECT_MANAGER;
     const isFinanceManager = r === UserRole.FINANCE_MANAGER;

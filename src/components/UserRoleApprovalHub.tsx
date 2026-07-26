@@ -61,7 +61,7 @@ const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.HSE_OFFICER, nameEn: "HSE Officer", nameAm: "የደህንነትና አካባቢ ጥበቃ ኃላፊ" },
   { role: UserRole.DRIVER, nameEn: "Driver", nameAm: "የተሽከርካሪ አሽከርካሪ" },
   { role: UserRole.SURVEYOR, nameEn: "Surveyor", nameAm: "የመሬት ልኬታ መሐንዲስ (ሱርቬየር)" },
-  { role: UserRole.SUPER_ADMIN, nameEn: "Admin", nameAm: "የሲስተም ዋና አስተዳዳሪ" },
+  { role: UserRole.SUPER_ADMIN, nameEn: "Super Admin", nameAm: "የሲስተም ዋና አስተዳዳሪ" },
   { role: UserRole.HEAD_OFFICE, nameEn: "Head Office", nameAm: "የዋና መስሪያ ቤት አመራር" }
 ];
 
