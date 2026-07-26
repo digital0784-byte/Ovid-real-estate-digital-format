@@ -15,7 +15,12 @@ dotenv.config();
 
 // Boot check for encryption key
 if (!process.env.ENCRYPTION_SECRET_KEY) {
-  console.warn("[WARNING] ENCRYPTION_SECRET_KEY is not set. Using development fallback key.");
+  if (process.env.NODE_ENV === "production") {
+    console.error("[FATAL ERROR] ENCRYPTION_SECRET_KEY is missing in production environment!");
+    process.exit(1);
+  } else {
+    console.warn("[WARNING] ENCRYPTION_SECRET_KEY is not set. Using development fallback key.");
+  }
 }
 
 // Secure Symmetric Encryption Core for Database/Field level protection
@@ -292,11 +297,19 @@ async function startServer() {
     // If userId provided and no direct secret passed, fetch secret from Firestore
     if (!userSecret && targetUserId && adminApp) {
       try {
-        const userDoc = await getFirestore(adminApp).collection("users").doc(targetUserId).get();
+        const firestore = getFirestore(adminApp);
+        const userDoc = await firestore.collection("users").doc(targetUserId).get();
         if (userDoc.exists) {
           const userData = userDoc.data();
           userSecret = userData?.mfaSecret || userData?.totpSecret;
           userName = userData?.displayName || userName;
+        } else {
+          const querySnap = await firestore.collection("users").where("email", "==", targetUserId.toLowerCase()).get();
+          if (!querySnap.empty) {
+            const userData = querySnap.docs[0].data();
+            userSecret = userData?.mfaSecret || userData?.totpSecret;
+            userName = userData?.displayName || userName;
+          }
         }
       } catch (err) {
         console.warn("Could not fetch user MFA secret from Firestore:", err);

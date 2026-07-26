@@ -4,7 +4,6 @@ import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
 import { auth, isFirebaseReady } from "../firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
-import { TOTP, Secret } from "otpauth";
 import { 
   Shield, 
   ShieldCheck,
@@ -208,8 +207,25 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       setErrorMessage(isAmharic ? "እባክዎ የኢሜል አድራሻ ያስገቡ" : "Please enter your email address");
       return;
     }
+    if (!regPassword.trim() || regPassword.trim().length < 6) {
+      setErrorMessage(isAmharic ? "እባክዎ ቢያንስ 6 አሃዝ ያለው የይለፍ ቃል ያስገቡ" : "Please enter a password with at least 6 characters.");
+      return;
+    }
 
     try {
+      if (isFirebaseReady && auth) {
+        try {
+          await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
+        } catch (fbErr: any) {
+          if (fbErr.code === "auth/email-already-in-use") {
+            setErrorMessage(isAmharic ? "ይህ ኢሜል አስቀድሞ ተመዝግቧል። እባክዎ በመግቢያ ገጽ ይግቡ።" : "This email address is already registered. Please login.");
+            return;
+          } else {
+            console.warn("Firebase registration notice:", fbErr?.message);
+          }
+        }
+      }
+
       const prefix = getPrefixFromRole(regRole);
       const randNum = Math.floor(100 + Math.random() * 900);
       const generatedId = `${prefix}-${randNum}`;
@@ -230,28 +246,6 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       };
 
       await DbService.addWorker(newWorker);
-
-      // Store in persistent local registry so subsequent logins recognize this user instantly
-      try {
-        if (typeof window !== "undefined") {
-          const existingStr = localStorage.getItem("erp_registered_users_v1");
-          const existingUsers = existingStr ? JSON.parse(existingStr) : [];
-          existingUsers.push({
-            id: fullEmpId,
-            name: regName.trim(),
-            phone: regPhone.trim(),
-            email: regEmail.trim().toLowerCase(),
-            password: regPassword.trim(),
-            role: regRole,
-            trade: regTrade,
-            department: regDept
-          });
-          localStorage.setItem("erp_registered_users_v1", JSON.stringify(existingUsers));
-          localStorage.setItem("erp_last_registered_id", fullEmpId);
-        }
-      } catch (e) {
-        console.error("Error writing user to local registry:", e);
-      }
 
       // Create a system notification so Admin and Head Office can see the new registrant
       const newNotif: SystemNotification = {
@@ -357,32 +351,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       return;
     }
 
-    // Check if the user exists in local registered users list
-    let matchedRole: UserRole | null = null;
-    let matchedName: string | null = null;
-    try {
-      if (typeof window !== "undefined") {
-        const storedStr = localStorage.getItem("erp_registered_users_v1");
-        if (storedStr) {
-          const list = JSON.parse(storedStr);
-          const found = list.find((u: any) => 
-            (email && u.email && u.email.toLowerCase() === email.toLowerCase().trim()) ||
-            (phoneNumber && u.phone && u.phone.trim() === phoneNumber.trim()) ||
-            (employeeId && u.id && u.id.toLowerCase().includes(employeeId.toLowerCase().trim()))
-          );
-          if (found) {
-            matchedRole = found.role as UserRole;
-            matchedName = found.name;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Error reading local registered users:", e);
-    }
-
     // Validate inputs depending on authMethod
-    let targetRole = matchedRole || selectedRole;
-    let identifiedMethod = matchedName ? `Registered Account (${matchedName})` : "Password Check";
+    let targetRole = selectedRole;
+    let identifiedMethod = "Password Check";
 
     if (authMethod === "credentials") {
       if (!email || !password) {
@@ -420,23 +391,21 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         }
       }
       
-      // Smart Auto-detection of roles based on email if not already matched
-      if (!matchedRole) {
-        if (lowerEmail === "mejennur669@gmail.com" || lowerEmail.includes("nuriye") || lowerEmail.includes("nuri")) {
-          targetRole = UserRole.HEAD_OFFICE;
-        } else if (lowerEmail.includes("admin")) {
-          targetRole = UserRole.SUPER_ADMIN;
-        } else if (lowerEmail.includes("pm") || lowerEmail.includes("manager")) {
-          targetRole = UserRole.PROJECT_MANAGER;
-        } else if (lowerEmail.includes("engineer")) {
-          targetRole = UserRole.SITE_ENGINEER;
-        } else if (lowerEmail.includes("surveyor")) {
-          targetRole = UserRole.SURVEYOR;
-        } else if (lowerEmail.includes("finance")) {
-          targetRole = UserRole.FINANCE_MANAGER;
-        } else if (lowerEmail.includes("hr")) {
-          targetRole = UserRole.HR_MANAGER;
-        }
+      // Smart Auto-detection of roles based on email
+      if (lowerEmail === "mejennur669@gmail.com" || lowerEmail.includes("nuriye") || lowerEmail.includes("nuri")) {
+        targetRole = UserRole.HEAD_OFFICE;
+      } else if (lowerEmail.includes("admin")) {
+        targetRole = UserRole.SUPER_ADMIN;
+      } else if (lowerEmail.includes("pm") || lowerEmail.includes("manager")) {
+        targetRole = UserRole.PROJECT_MANAGER;
+      } else if (lowerEmail.includes("engineer")) {
+        targetRole = UserRole.SITE_ENGINEER;
+      } else if (lowerEmail.includes("surveyor")) {
+        targetRole = UserRole.SURVEYOR;
+      } else if (lowerEmail.includes("finance")) {
+        targetRole = UserRole.FINANCE_MANAGER;
+      } else if (lowerEmail.includes("hr")) {
+        targetRole = UserRole.HR_MANAGER;
       }
       
       identifiedMethod = "Email/Password Authentication";
@@ -461,7 +430,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         
         // Smart Auto-detection of roles based on phone
         const cleanPhone = phoneNumber.trim();
-        if (!matchedRole && (cleanPhone.includes("0910097862") || cleanPhone.includes("0920843843") || cleanPhone.includes("0911223344"))) {
+        if (cleanPhone.includes("0910097862") || cleanPhone.includes("0920843843") || cleanPhone.includes("0911223344")) {
           targetRole = UserRole.HEAD_OFFICE;
         }
         
@@ -472,9 +441,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         handleFailedAttempt(isAmharic ? "እባክዎ የኩባንያ መታወቂያ ያስገቡ" : "Please enter Employee ID");
         return;
       }
-      if (!matchedRole) {
-        targetRole = getRoleFromEmpId(employeeId);
-      }
+      targetRole = getRoleFromEmpId(employeeId);
       identifiedMethod = `Employee ID (${employeeId})`;
     } else if (authMethod === "biometric") {
       if (!scanSuccess) {
@@ -486,29 +453,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
     // Determine if TOTP MFA is required (Sensitive roles require MFA by policy)
     const isSensitiveRole = [UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.FINANCE_MANAGER].includes(targetRole);
-    
-    // Standard Base32 TOTP Secret for the organization
-    const totpSecret = "JBSWY3DPEHPK3PXP";
-    let currentTotpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    let totpObj: any = null;
-
-    try {
-      totpObj = new TOTP({
-        issuer: "Digital Construction ERP",
-        label: email || "ERP User",
-        algorithm: "SHA1",
-        digits: 6,
-        period: 30,
-        secret: Secret.fromBase32(totpSecret)
-      });
-      currentTotpCode = totpObj.generate();
-    } catch (totpErr) {
-      console.warn("TOTP generation fallback:", totpErr);
-    }
 
     if (isSensitiveRole && !mfaRequired) {
       setMfaRequired(true);
-      setSimulatedMfaToken(currentTotpCode);
       setMfaCode(""); // User must enter their own MFA code manually
       setSuccessMessage(
         isAmharic
@@ -519,18 +466,29 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     }
 
     if (mfaRequired) {
-      let isValidMfa = false;
-      if (totpObj) {
-        try {
-          const validationDelta = totpObj.validate({ token: mfaCode.trim(), window: 2 });
-          isValidMfa = validationDelta !== null;
-        } catch (e) {
-          isValidMfa = false;
-        }
+      if (!mfaCode.trim()) {
+        setMfaError(isAmharic ? "እባክዎ ባለ 6-አሃዝ MFA ማረጋገጫ ኮድ ያስገቡ" : "Please enter your 6-digit MFA security token.");
+        return;
       }
-      if (!isValidMfa && mfaCode.trim() !== currentTotpCode && mfaCode.trim() !== simulatedMfaToken) {
-        setMfaError(isAmharic ? "የተሳሳተ የደህንነት TOTP ኮድ!" : "Incorrect TOTP MFA authentication token!");
-        handleFailedAttempt(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "TOTP MFA authentication failed");
+      try {
+        const res = await fetch("/api/security/verify-mfa", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code: mfaCode.trim(),
+            userId: email.trim().toLowerCase() || employeeId.trim() || "user",
+            userName: email || employeeId || "User"
+          })
+        });
+        const mfaData = await res.json();
+        if (!res.ok || !mfaData.success) {
+          setMfaError(mfaData.message || mfaData.error || (isAmharic ? "የተሳሳተ የደህንነት TOTP ኮድ!" : "Incorrect TOTP MFA authentication token!"));
+          handleFailedAttempt(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "TOTP MFA authentication failed");
+          return;
+        }
+      } catch (mfaErr: any) {
+        setMfaError(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "MFA verification failed. Please check network connection.");
+        handleFailedAttempt("MFA verification request failed");
         return;
       }
     }
@@ -1033,15 +991,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     <button
                       type="button"
                       onClick={() => {
-                        // Regenerate MFA
-                        const nextCode = Math.floor(100000 + Math.random() * 900000).toString();
-                        setSimulatedMfaToken(nextCode);
                         setMfaCode("");
-                        setSuccessMessage(isAmharic ? "አዲስ የማረጋገጫ ኮድ ተልኳል" : "A new MFA token has been generated.");
+                        setMfaError("");
+                        setSuccessMessage(isAmharic ? "አዲስ የማረጋገጫ ኮድ ጥያቄ ተልኳል" : "A new MFA challenge request was sent.");
                       }}
                       className="flex-1 py-1.5 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 text-[10px] font-bold uppercase transition-all text-red-400 cursor-pointer"
                     >
-                      {isAmharic ? "ኮድ መልሰህ ላክ" : "Regenerate Token"}
+                      {isAmharic ? "ኮድ መልሰህ ላክ" : "Resend Token"}
                     </button>
                   </div>
                 </div>
