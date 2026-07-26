@@ -290,13 +290,13 @@ async function startServer() {
     }
 
     let userSecret = secret;
-    let targetUserId = userId || "HO-01";
-    let userName = "Nuriye Ahmed Adem";
+    let targetUserId = userId || "";
+    let userName = "OVID User";
 
     // If userId provided and no direct secret passed, fetch secret from Firestore
-    if (!userSecret && userId && adminApp) {
+    if (!userSecret && targetUserId && adminApp) {
       try {
-        const userDoc = await getFirestore(adminApp).collection("users").doc(userId).get();
+        const userDoc = await getFirestore(adminApp).collection("users").doc(targetUserId).get();
         if (userDoc.exists) {
           const userData = userDoc.data();
           userSecret = userData?.mfaSecret || userData?.totpSecret;
@@ -308,7 +308,11 @@ async function startServer() {
     }
 
     if (!userSecret) {
-      userSecret = process.env.ENCRYPTION_SECRET_KEY || "JBSWY3DPEHPK3PXP";
+      return res.status(400).json({
+        success: false,
+        error: "MFA not enrolled for this user",
+        message: "User has not enrolled or set up Multi-Factor Authentication (MFA)."
+      });
     }
 
     try {
