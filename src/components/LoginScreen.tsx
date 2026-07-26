@@ -3,7 +3,7 @@ import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, D
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
 import { auth, isFirebaseReady } from "../firebase";
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { 
   Shield, 
   ShieldCheck,
@@ -84,6 +84,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   // Status/Error Messaging
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Forgot Password States
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccessMessage, setResetSuccessMessage] = useState("");
+  const [resetErrorMessage, setResetErrorMessage] = useState("");
 
   // Registration States (Default to login form so user enters directly)
   const [isRegistering, setIsRegistering] = useState(false);
@@ -325,6 +332,68 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           ? "ምዝገባው አልተሳካም። እባክዎ እንደገና ይሞክሩ።"
           : "Registration failed. Please try again."
       );
+    }
+  };
+
+  const handleSendPasswordReset = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    setResetErrorMessage("");
+    setResetSuccessMessage("");
+
+    const targetEmail = (resetEmail || email).trim().toLowerCase();
+    if (!targetEmail) {
+      setResetErrorMessage(
+        isAmharic 
+          ? "እባክዎ የኢሜል አድራሻ ያስገቡ" 
+          : "Please enter your email address."
+      );
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(targetEmail)) {
+      setResetErrorMessage(
+        isAmharic 
+          ? "እባክዎ ትክክለኛ የኢሜል አድራሻ ያስገቡ" 
+          : "Please enter a valid email address."
+      );
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      if (isFirebaseReady && auth) {
+        await sendPasswordResetEmail(auth, targetEmail);
+      }
+      setResetSuccessMessage(
+        isAmharic
+          ? "ይህ ኢሜል በሲስተሙ ውስጥ ካለ የይለፍ ቃል መቀየሪያ ሊንክ ተላኳል።"
+          : "If an account exists for this email, a reset link has been sent."
+      );
+    } catch (err: any) {
+      console.warn("Password reset request error:", err?.code || err?.message);
+      const errorCode = err?.code || "";
+      if (errorCode === "auth/invalid-email") {
+        setResetErrorMessage(
+          isAmharic 
+            ? "የተሳሳተ የኢሜል ቅርፅ። እባክዎ ትክክለኛ ኢሜል ያስገቡ።" 
+            : "Invalid email format. Please check the email address."
+        );
+      } else if (errorCode === "auth/too-many-requests") {
+        setResetErrorMessage(
+          isAmharic 
+            ? "ብዙ ሙከራ ተደርጓል። እባክዎ ትንሽ ቆይተው እንደገና ይሞክሩ።" 
+            : "Too many requests. Please try again later."
+        );
+      } else {
+        setResetSuccessMessage(
+          isAmharic
+            ? "ይህ ኢሜል በሲስተሙ ውስጥ ካለ የይለፍ ቃል መቀየሪያ ሊንክ ተላኳል።"
+            : "If an account exists for this email, a reset link has been sent."
+        );
+      }
+    } finally {
+      setResetLoading(false);
     }
   };
 
@@ -696,7 +765,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           </div>
 
           {!isRegistering ? (
-            <form onSubmit={handleLoginSubmit} className="space-y-4">
+            <form onSubmit={(e) => { if (showForgotPassword) { handleSendPasswordReset(e); } else { handleLoginSubmit(e); } }} className="space-y-4">
               
               {/* Header tab navigation for Auth Method */}
               <div className="flex bg-slate-950 p-1 rounded-xl border border-slate-800/60">
@@ -713,6 +782,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       type="button"
                       onClick={() => {
                         setAuthMethod(m.id as any);
+                        setShowForgotPassword(false);
                         setErrorMessage("");
                         setSuccessMessage("");
                         setIsOtpSent(false);
@@ -746,42 +816,140 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
               {/* RENDER DYNAMIC FORM FIELDS */}
               {!mfaRequired ? (
-                <div className="space-y-3">
-                  {authMethod === "credentials" && (
-                    <>
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                          {isAmharic ? "ድርጅታዊ ኢሜል አድራሻ" : "Corporate Email Address"}
-                        </label>
-                        <div className="relative">
-                          <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                          <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            placeholder="e.g. yoseph@digital_construction_erprealestate.com"
-                            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
-                          />
-                        </div>
-                      </div>
+                showForgotPassword ? (
+                  <div className="space-y-3 bg-slate-950 border border-slate-800 p-4 rounded-xl animate-fade-in">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-black uppercase text-white tracking-wider flex items-center gap-1.5">
+                        <KeyRound size={14} className="text-red-500" />
+                        <span>{isAmharic ? "ይለፍ ቃል መልሶ ማግኛ" : "Reset Password"}</span>
+                      </h4>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setResetErrorMessage("");
+                          setResetSuccessMessage("");
+                        }}
+                        className="text-[10px] text-slate-400 hover:text-white font-bold cursor-pointer"
+                      >
+                        {isAmharic ? "ወደ መግቢያ ተመለስ" : "Back to Login"}
+                      </button>
+                    </div>
 
-                      <div>
-                        <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
-                          {isAmharic ? "ይለፍ ቃል" : "Secure Password"}
-                        </label>
-                        <div className="relative">
-                          <Lock className="absolute left-3 top-2.5 text-slate-500" size={16} />
-                          <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            placeholder="••••••••"
-                            className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
-                          />
-                        </div>
+                    <p className="text-[10px] text-slate-400 leading-normal">
+                      {isAmharic 
+                        ? "እባክዎ የተመዘገበበትን ድርጅታዊ ኢሜል ያስገቡ። የይለፍ ቃል መቀየሪያ ሊንክ እንልክልዎታለን።"
+                        : "Enter your registered corporate email address to receive a secure password reset link."}
+                    </p>
+
+                    {resetErrorMessage && (
+                      <div className="p-2.5 rounded-lg bg-red-950/30 border border-red-900/50 flex items-start space-x-2 text-xs text-red-300">
+                        <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                        <span>{resetErrorMessage}</span>
                       </div>
-                    </>
-                  )}
+                    )}
+
+                    {resetSuccessMessage && (
+                      <div className="p-2.5 rounded-lg bg-emerald-950/30 border border-emerald-900/50 flex items-start space-x-2 text-xs text-emerald-300">
+                        <CheckCircle size={14} className="mt-0.5 shrink-0" />
+                        <span>{resetSuccessMessage}</span>
+                      </div>
+                    )}
+
+                    <div>
+                      <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                        {isAmharic ? "ድርጅታዊ ኢሜል አድራሻ" : "Corporate Email Address"}
+                      </label>
+                      <div className="relative">
+                        <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                        <input
+                          type="email"
+                          value={resetEmail}
+                          onChange={(e) => setResetEmail(e.target.value)}
+                          placeholder="e.g. yoseph@digital_construction_erprealestate.com"
+                          className="w-full pl-9 pr-3 py-2 text-xs bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowForgotPassword(false);
+                          setResetErrorMessage("");
+                          setResetSuccessMessage("");
+                        }}
+                        className="flex-1 py-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-bold uppercase rounded-lg transition-all cursor-pointer"
+                      >
+                        {isAmharic ? "ሰርዝ" : "Cancel"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleSendPasswordReset}
+                        disabled={resetLoading}
+                        className="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white text-xs font-bold uppercase rounded-lg shadow-lg shadow-red-600/20 transition-all flex items-center justify-center space-x-1.5 cursor-pointer disabled:opacity-50"
+                      >
+                        <Mail size={14} />
+                        <span>
+                          {resetLoading
+                            ? (isAmharic ? "በመላክ ላይ..." : "Sending...")
+                            : (isAmharic ? "የመቀየሪያ ሊንክ ላክ" : "Send Reset Link")}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {authMethod === "credentials" && (
+                      <>
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                            {isAmharic ? "ድርጅታዊ ኢሜል አድራሻ" : "Corporate Email Address"}
+                          </label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                            <input
+                              type="email"
+                              value={email}
+                              onChange={(e) => setEmail(e.target.value)}
+                              placeholder="e.g. yoseph@digital_construction_erprealestate.com"
+                              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
+                            {isAmharic ? "ይለፍ ቃል" : "Secure Password"}
+                          </label>
+                          <div className="relative">
+                            <Lock className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                            <input
+                              type="password"
+                              value={password}
+                              onChange={(e) => setPassword(e.target.value)}
+                              placeholder="••••••••"
+                              className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
+                            />
+                          </div>
+                          <div className="flex justify-end mt-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setShowForgotPassword(true);
+                                setResetEmail(email);
+                                setResetErrorMessage("");
+                                setResetSuccessMessage("");
+                              }}
+                              className="text-[11px] text-red-400 hover:text-red-300 font-bold hover:underline transition-colors cursor-pointer"
+                            >
+                              {isAmharic ? "ይለፍ ቃል ረስተዋል?" : "Forgot Password?"}
+                            </button>
+                          </div>
+                        </div>
+                      </>
+                    )}
 
                   {authMethod === "phone" && (
                     <>
@@ -939,7 +1107,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     </div>
                   )}
                 </div>
-              ) : (
+              )
+            ) : (
                 // MFA VERIFICATION VIEW (Triggered for Head Office, Proj Manager, Section Head)
                 <div className="space-y-4 bg-slate-950 border border-red-950/80 p-4 rounded-xl animate-fade-in">
                   <div className="text-center">
@@ -1003,44 +1172,48 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                 </div>
               )}
 
-              {/* PRIVACY POLICY COMPLIANCE */}
-              <div className="pt-2">
-                <label className="flex items-start space-x-2 cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={privacyAccepted}
-                    onChange={(e) => setPrivacyAccepted(e.target.checked)}
-                    className="mt-1 accent-red-600 rounded cursor-pointer"
-                  />
-                  <span className="text-[10px] text-slate-400 leading-normal group-hover:text-slate-300 transition-colors">
-                    {isAmharic ? "የዲጂታል ኮንስትራክሽን ERP ሲስተም" : "I accept the Digital Construction ERP System "}{" "}
-                    <button
-                      type="button"
-                      onClick={() => setShowPrivacyModal(true)}
-                      className="text-red-500 hover:underline font-bold"
-                    >
-                      {isAmharic ? "የግል ደህንነት፣ ምስጢራዊነት እና የግል መረጃ አጠቃቀም ፖሊሲን" : "Privacy Policy & GDPR Compliance Term"}
-                    </button>{" "}
-                    {isAmharic ? "በሙሉ ተስማምቻለሁ።" : "before first use."}
-                  </span>
-                </label>
-              </div>
+              {!showForgotPassword && (
+                <>
+                  {/* PRIVACY POLICY COMPLIANCE */}
+                  <div className="pt-2">
+                    <label className="flex items-start space-x-2 cursor-pointer group">
+                      <input
+                        type="checkbox"
+                        checked={privacyAccepted}
+                        onChange={(e) => setPrivacyAccepted(e.target.checked)}
+                        className="mt-1 accent-red-600 rounded cursor-pointer"
+                      />
+                      <span className="text-[10px] text-slate-400 leading-normal group-hover:text-slate-300 transition-colors">
+                        {isAmharic ? "የዲጂታል ኮንስትራክሽን ERP ሲስተም" : "I accept the Digital Construction ERP System "}{" "}
+                        <button
+                          type="button"
+                          onClick={() => setShowPrivacyModal(true)}
+                          className="text-red-500 hover:underline font-bold"
+                        >
+                          {isAmharic ? "የግል ደህንነት፣ ምስጢራዊነት እና የግል መረጃ አጠቃቀም ፖሊሲን" : "Privacy Policy & GDPR Compliance Term"}
+                        </button>{" "}
+                        {isAmharic ? "በሙሉ ተስማምቻለሁ።" : "before first use."}
+                      </span>
+                    </label>
+                  </div>
 
-              {/* SUBMIT BUTTON */}
-              <button
-                type="submit"
-                disabled={isLocked}
-                className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 hover:shadow-red-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
-              >
-                <Shield size={14} />
-                <span>
-                  {mfaRequired 
-                    ? (isAmharic ? "ማረጋገጫ አረጋግጥ እና ክፈት" : "Verify Token & Authorize") 
-                    : authMethod === "phone" && !isOtpSent 
-                      ? (isAmharic ? "የማረጋገጫ ኤስኤምኤስ ላክ" : "Send SMS Authentication OTP") 
-                      : (isAmharic ? "ግባና ERP ጫን" : "Unlock & Access Command ERP")}
-                </span>
-              </button>
+                  {/* SUBMIT BUTTON */}
+                  <button
+                    type="submit"
+                    disabled={isLocked}
+                    className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 hover:shadow-red-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
+                  >
+                    <Shield size={14} />
+                    <span>
+                      {mfaRequired 
+                        ? (isAmharic ? "ማረጋገጫ አረጋግጥ እና ክፈት" : "Verify Token & Authorize") 
+                        : authMethod === "phone" && !isOtpSent 
+                          ? (isAmharic ? "የማረጋገጫ ኤስኤምኤስ ላክ" : "Send SMS Authentication OTP") 
+                          : (isAmharic ? "ግባና ERP ጫን" : "Unlock & Access Command ERP")}
+                    </span>
+                  </button>
+                </>
+              )}
 
               {/* Switch to Registration */}
               <div className="text-center pt-2">
