@@ -11,6 +11,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult
 } from "firebase/auth";
+import { FirebaseConfigModal } from "./FirebaseConfigModal";
 import { 
   Shield, 
   ShieldCheck,
@@ -33,7 +34,8 @@ import {
   Laptop,
   UserPlus,
   UserCheck,
-  Briefcase
+  Briefcase,
+  Key
 } from "lucide-react";
 
 const formatToE164 = (phone: string): string => {
@@ -100,9 +102,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   const [isLocked, setIsLocked] = useState(false);
   const [lockoutTime, setLockoutTime] = useState(0);
   
-  // Privacy Policy state
+  // Privacy Policy & Firebase Config Modal states
   const [privacyAccepted, setPrivacyAccepted] = useState(true);
   const [showPrivacyModal, setShowPrivacyModal] = useState(false);
+  const [showFirebaseModal, setShowFirebaseModal] = useState(false);
 
   // Status/Error Messaging
   const [errorMessage, setErrorMessage] = useState("");
@@ -1564,12 +1567,22 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             </form>
           )}
 
-          {/* Secure lock info */}
-          <div className="mt-4 pt-3 border-t border-slate-800/60 flex items-center justify-between text-[10px] font-mono text-slate-500">
-            <span className="flex items-center gap-1">
-              <Lock size={10} className="text-red-500" />
-              <span>TLS 1.3 | SHA-256</span>
-            </span>
+          {/* Secure lock info & Firebase Config Button */}
+          <div className="mt-4 pt-3 border-t border-slate-800/60 flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono text-slate-500">
+            <div className="flex items-center space-x-3">
+              <span className="flex items-center gap-1">
+                <Lock size={10} className="text-red-500" />
+                <span>TLS 1.3 | SHA-256</span>
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowFirebaseModal(true)}
+                className="text-indigo-400 hover:text-indigo-300 hover:underline flex items-center space-x-1 font-bold cursor-pointer transition-colors"
+              >
+                <Key size={10} />
+                <span>{isAmharic ? "የፋየርቤዝ ኤፒአይ ቁልፍ ያስገቡ (Firebase Keys)" : "Firebase API Keys"}</span>
+              </button>
+            </div>
             <span>
               {failedAttempts > 0 && `${failedAttempts}/3 ${isAmharic ? "የተሳሳቱ ሙከራዎች" : "Failed attempts"}`}
             </span>
@@ -1664,6 +1677,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           </div>
         </div>
       )}
+
+      {/* FIREBASE CONFIGURATION MODAL */}
+      <FirebaseConfigModal
+        isOpen={showFirebaseModal}
+        onClose={() => setShowFirebaseModal(false)}
+        isAmharic={isAmharic}
+      />
 
     </div>
   );

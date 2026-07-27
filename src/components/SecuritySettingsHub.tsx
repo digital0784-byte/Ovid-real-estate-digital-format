@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { UserRole, AuditLog } from "../types";
 import { UserRoleApprovalHub } from "./UserRoleApprovalHub";
+import { FirebaseConfigModal } from "./FirebaseConfigModal";
 import { 
   Shield, 
   ShieldCheck,
@@ -30,7 +31,8 @@ import {
   Laptop,
   Check,
   FileText,
-  Printer
+  Printer,
+  Key
 } from "lucide-react";
 
 interface SecuritySettingsHubProps {
@@ -74,6 +76,7 @@ export function SecuritySettingsHub({
   onChangeSessionTimeout
 }: SecuritySettingsHubProps) {
   const [activeTab, setActiveTab] = useState<"user_settings" | "privacy_policy" | "admin_dashboard" | "enterprise_soc" | "role_approval_hub">("role_approval_hub");
+  const [showFirebaseModal, setShowFirebaseModal] = useState(false);
 
   // --- ENTERPRISE SOC STATES ---
   const [appCheckEnabled, setAppCheckEnabled] = useState(true);
@@ -1001,6 +1004,14 @@ export function SecuritySettingsHub({
 
                   <div className="space-y-1.5 pt-1">
                     <button
+                      onClick={() => setShowFirebaseModal(true)}
+                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 shadow-xs cursor-pointer"
+                    >
+                      <Key size={14} className="text-amber-400 animate-pulse" />
+                      <span>{isAmharic ? "የፋየርቤዝ ኤፒአይ ቁልፍ እና ጎራ ማዋቀሪያ (Firebase Keys)" : "Configure Firebase API Keys & Credentials"}</span>
+                    </button>
+
+                    <button
                       onClick={requestAppCheckToken}
                       disabled={appCheckLoading}
                       className="w-full py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1 disabled:opacity-50 cursor-pointer"
@@ -1696,6 +1707,13 @@ export function SecuritySettingsHub({
         )}
 
       </div>
+
+      {/* FIREBASE CONFIGURATION MODAL */}
+      <FirebaseConfigModal
+        isOpen={showFirebaseModal}
+        onClose={() => setShowFirebaseModal(false)}
+        isAmharic={isAmharic}
+      />
 
     </div>
   );
