@@ -9,6 +9,7 @@ import { initializeApp, getApps, App } from "firebase-admin/app";
 import { getAppCheck } from "firebase-admin/app-check";
 import { getFirestore } from "firebase-admin/firestore";
 import { TOTP, Secret } from "otpauth";
+import firebaseConfigJson from "./firebase-applet-config.json";
 
 // Load environment variables
 dotenv.config();
@@ -30,10 +31,11 @@ const IV_LENGTH = 12;
 // Initialize Firebase Admin SDK for App Check Verification if env is configured
 let adminApp: App | null = null;
 try {
-  if (process.env.FIREBASE_PROJECT_ID || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+  const projectId = firebaseConfigJson.projectId || process.env.FIREBASE_PROJECT_ID;
+  if (projectId || process.env.GOOGLE_APPLICATION_CREDENTIALS) {
     const apps = getApps();
     adminApp = apps.length > 0 ? apps[0]! : initializeApp({
-      projectId: process.env.FIREBASE_PROJECT_ID
+      projectId: projectId
     });
   }
 } catch (e) {
@@ -297,7 +299,8 @@ async function startServer() {
     // If userId provided and no direct secret passed, fetch secret from Firestore
     if (!userSecret && targetUserId && adminApp) {
       try {
-        const firestore = getFirestore(adminApp);
+        const databaseId = firebaseConfigJson.firestoreDatabaseId;
+        const firestore = databaseId ? getFirestore(adminApp, databaseId) : getFirestore(adminApp);
         const userDoc = await firestore.collection("users").doc(targetUserId).get();
         if (userDoc.exists) {
           const userData = userDoc.data();

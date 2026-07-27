@@ -1,8 +1,11 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
+import { getFirestore } from "firebase-admin/firestore";
+import firebaseConfigJson from "../../firebase-applet-config.json";
 
-admin.initializeApp();
-const db = admin.firestore();
+const app = admin.initializeApp();
+const databaseId = firebaseConfigJson.firestoreDatabaseId;
+const db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
 
 /**
  * 1. Firebase Authentication: On User Creation Trigger
@@ -104,8 +107,11 @@ export const setUserRole = functions.https.onCall(async (data, context) => {
  * 2. Real-time Attendance Aggregation Trigger
  * Automatically aggregates daily site attendance counts, active counts, and updates dashboards.
  */
-export const onAttendanceLogged = functions.firestore
-  .document("attendance/{attendanceId}")
+const attendanceTrigger = databaseId
+  ? functions.firestore.database(databaseId).document("attendance/{attendanceId}")
+  : functions.firestore.document("attendance/{attendanceId}");
+
+export const onAttendanceLogged = attendanceTrigger
   .onCreate(async (snapshot, context) => {
     const data = snapshot.data();
     if (!data) return;
