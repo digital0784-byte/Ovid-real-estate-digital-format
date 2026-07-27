@@ -5,6 +5,7 @@ import { FirebaseConfigModal } from "./FirebaseConfigModal";
 import { 
   Shield, 
   ShieldCheck,
+  ShieldAlert,
   Lock, 
   User, 
   Eye, 
@@ -75,6 +76,23 @@ export function SecuritySettingsHub({
   sessionTimeoutMinutes,
   onChangeSessionTimeout
 }: SecuritySettingsHubProps) {
+  // Role-gating guard: Only Super Admin and Head Office personnel are allowed
+  if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserRole !== UserRole.HEAD_OFFICE) {
+    return (
+      <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-lg my-6 max-w-2xl mx-auto">
+        <ShieldAlert size={48} className="mx-auto text-red-500 mb-4 animate-bounce" />
+        <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2">
+          {isAmharic ? "መዳረሻ ተከለክሏል (Access Denied)" : "Access Denied"}
+        </h3>
+        <p className="text-sm text-slate-600 dark:text-slate-400">
+          {isAmharic
+            ? "ይህንን የደህንነት እና ኤፒአይ ቁልፎች ማዋቀሪያ ማዕከል ለማየት የሱፐር አድሚን (Super Admin) ስልጣን ያስፈልጋል።"
+            : "Only authenticated Super Admin personnel have permission to access the Security & API Key Management Hub."}
+        </p>
+      </div>
+    );
+  }
+
   const [activeTab, setActiveTab] = useState<"user_settings" | "privacy_policy" | "admin_dashboard" | "enterprise_soc" | "role_approval_hub">("role_approval_hub");
   const [showFirebaseModal, setShowFirebaseModal] = useState(false);
 
@@ -276,9 +294,9 @@ export function SecuritySettingsHub({
 
   // --- USER SETTINGS STATES ---
   const [profileName, setProfileName] = useState(
-    currentUserRole === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem" :
-    currentUserRole === UserRole.PROJECT_MANAGER ? "Eng. Dawit" :
-    currentUserRole === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Site Operator"
+    (currentUserRole as string) === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem" :
+    (currentUserRole as string) === UserRole.PROJECT_MANAGER ? "Eng. Dawit" :
+    (currentUserRole as string) === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Super Admin Operator"
   );
   const [profilePhone, setProfilePhone] = useState("0910097862/0920843843");
   const [profileEmail, setProfileEmail] = useState("mejennur669@gmail.com");
