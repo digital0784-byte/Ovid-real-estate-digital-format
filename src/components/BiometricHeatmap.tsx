@@ -24,9 +24,9 @@ interface BiometricHeatmapProps {
 }
 
 export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
-  workers,
-  attendance,
-  isAmharic,
+  workers = [],
+  attendance = [],
+  isAmharic = false,
   onAddAttendance
 }) => {
   // Local active configuration
@@ -43,7 +43,8 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
 
   // Unique Trades available for filtering
   const trades = useMemo(() => {
-    const allTrades = workers.map(w => w.trade).filter(Boolean);
+    const safeWorkers = workers || [];
+    const allTrades = safeWorkers.map(w => w?.trade).filter(Boolean);
     return ["All", ...Array.from(new Set(allTrades))];
   }, [workers]);
 
@@ -54,10 +55,11 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
 
   // Compute active on-site workers based on last successful biometric check-in (attendance record with checkIn !== null && checkOut === null)
   const activePresentRecords = useMemo(() => {
+    const safeAttendance = attendance || [];
     // Group attendance by workerId to get their latest record of today
     const latestTodayRecords: Record<string, AttendanceRecord> = {};
-    attendance
-      .filter(a => a.date === todayDate || a.date === "2026-07-02") // Support mock date and real date
+    safeAttendance
+      .filter(a => a && (a.date === todayDate || a.date === "2026-07-02")) // Support mock date and real date
       .forEach(record => {
         const existing = latestTodayRecords[record.workerId];
         if (!existing || (record.checkIn && (!existing.checkIn || record.checkIn > existing.checkIn))) {
@@ -71,6 +73,7 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
 
   // Map workers to their active status and current location
   const gridData = useMemo(() => {
+    const safeWorkers = workers || [];
     // Initialize empty grid mapping
     const map: Record<string, { workers: Worker[]; attendanceRecords: AttendanceRecord[] }> = {};
     floors.forEach(f => {
@@ -82,14 +85,14 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
     if (viewMode === "biometric") {
       // Find where people checked in
       activePresentRecords.forEach(rec => {
-        const worker = workers.find(w => w.id === rec.workerId);
+        const worker = safeWorkers.find(w => w && w.id === rec.workerId);
         if (worker) {
           // Filter by Trade if applicable
           if (selectedTrade !== "All" && worker.trade !== selectedTrade) return;
           // Filter by Biometric Method if applicable
           if (selectedMethodFilter !== "All" && rec.method !== selectedMethodFilter) return;
           // Filter by Search query
-          if (searchQuery && !worker.name.toLowerCase().includes(searchQuery.toLowerCase()) && !worker.id.toLowerCase().includes(searchQuery.toLowerCase())) return;
+          if (searchQuery && !worker.name?.toLowerCase().includes(searchQuery.toLowerCase()) && !worker.id?.toLowerCase().includes(searchQuery.toLowerCase())) return;
 
           const key = `${rec.floor}-${rec.zone}`;
           if (map[key]) {
@@ -100,10 +103,10 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
       });
     } else {
       // Roster planning view (allocated locations in worker profiles)
-      workers.forEach(w => {
-        if (w.status !== "Active") return; // Only active workers
+      safeWorkers.forEach(w => {
+        if (!w || w.status !== "Active") return; // Only active workers
         if (selectedTrade !== "All" && w.trade !== selectedTrade) return;
-        if (searchQuery && !w.name.toLowerCase().includes(searchQuery.toLowerCase()) && !w.id.toLowerCase().includes(searchQuery.toLowerCase())) return;
+        if (searchQuery && !w.name?.toLowerCase().includes(searchQuery.toLowerCase()) && !w.id?.toLowerCase().includes(searchQuery.toLowerCase())) return;
 
         // In roster view we look at the worker's assigned floor and zone
         const fl = w.floor || 1;
@@ -117,6 +120,13 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
 
     return map;
   }, [viewMode, activePresentRecords, workers, selectedTrade, selectedMethodFilter, searchQuery]);
+
+  // Selected cell data memoized
+  const selectedCellData = useMemo(() => {
+    if (!selectedCell) return null;
+    const cellKey = `${selectedCell.floor}-${selectedCell.zone}`;
+    return gridData[cellKey] || { workers: [], attendanceRecords: [] };
+  }, [selectedCell, gridData]);
 
   // Max count in a cell to compute relative density
   const maxDensityCount = useMemo(() => {
@@ -481,76 +491,66 @@ export const BiometricHeatmap: React.FC<BiometricHeatmapProps> = ({
             </div>
 
             {/* Detail Listing */}
-            {selectedCell ? (
-              (() => {
-                const cellKey = `${selectedCell.floor}-${selectedCell.zone}`;
-                const cell = gridData[cellKey] || { workers: [], attendanceRecords: [] };
-                const list = cell.workers;
+            {selectedCell && selectedCellData ? (
+              selectedCellData.workers.length === 0 ? (
+                <div className="text-center py-10 px-4 bg-white rounded-xl border border-dashed border-slate-200 text-slate-400 space-y-2">
+                  <Users size={24} className="mx-auto text-slate-300" />
+                  <p className="text-[11px] leading-relaxed">
+                    {isAmharic 
+                      ? "በዚህ ፎቅ እና ዞን ውስጥ የተመዘገበ ንቁ ሰራተኛ የለም።" 
+                      : "No active personnel detected in this sector under current filter criteria."}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
+                  <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block">
+                    {isAmharic ? "በሳይቱ ላይ ያሉ ሰራተኞች" : "Identified Site Crew"} ({selectedCellData.workers.length})
+                  </span>
 
-                if (list.length === 0) {
-                  return (
-                    <div className="text-center py-10 px-4 bg-white rounded-xl border border-dashed border-slate-200 text-slate-400 space-y-2">
-                      <Users size={24} className="mx-auto text-slate-300" />
-                      <p className="text-[11px] leading-relaxed">
-                        {isAmharic 
-                          ? "በዚህ ፎቅ እና ዞን ውስጥ የተመዘገበ ንቁ ሰራተኛ የለም።" 
-                          : "No active personnel detected in this sector under current filter criteria."}
-                      </p>
-                    </div>
-                  );
-                }
-
-                return (
-                  <div className="space-y-3 max-h-[340px] overflow-y-auto pr-1">
-                    <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider block">
-                      {isAmharic ? "በሳይቱ ላይ ያሉ ሰራተኞች" : "Identified Site Crew"} ({list.length})
-                    </span>
-
-                    <div className="space-y-2">
-                      {list.map(w => {
-                        // Find check in record details if in biometric mode
-                        const attRec = cell.attendanceRecords.find(r => r.workerId === w.id);
-                        return (
-                          <div key={w.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs text-[11px] space-y-1.5 hover:border-red-400 transition-colors">
-                            <div className="flex items-center space-x-2.5">
-                              <img 
-                                src={w.photo || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop"} 
-                                alt={w.name} 
-                                className="w-8 h-8 rounded-full border border-slate-300 object-cover" 
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <span className="font-bold text-slate-800 block truncate">{w.name}</span>
-                                <span className="text-[9px] font-mono text-slate-400 block">{w.id} | {w.trade}</span>
-                              </div>
-                            </div>
-
-                            {/* Telemetry metadata */}
-                            <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between text-[9px] text-slate-500 gap-1.5 font-sans">
-                              <span>
-                                {isAmharic ? "አሰሪ ኩባንያ:" : "Employer:"} <strong className="text-slate-700">{w.company}</strong>
-                              </span>
-                              
-                              {viewMode === "biometric" && attRec && (
-                                <div className="flex items-center space-x-1.5 mt-0.5">
-                                  <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded flex items-center space-x-0.5 font-bold">
-                                    <CheckCircle2 size={9} />
-                                    <span>{attRec.checkIn?.substring(0, 5)}</span>
-                                  </span>
-                                  <span className="bg-red-50 text-red-700 border border-red-200 px-1 rounded flex items-center space-x-0.5 font-semibold">
-                                    <Smartphone size={9} />
-                                    <span>{attRec.method === AttendanceMethod.FACE_RECOGNITION ? "Face ID" : "Finger"}</span>
-                                  </span>
-                                </div>
-                              )}
+                  <div className="space-y-2">
+                    {selectedCellData.workers.map(w => {
+                      // Find check in record details if in biometric mode
+                      const attRec = selectedCellData.attendanceRecords.find(r => r.workerId === w.id);
+                      return (
+                        <div key={w.id} className="bg-white p-3 rounded-xl border border-slate-200 shadow-2xs text-[11px] space-y-1.5 hover:border-red-400 transition-colors">
+                          <div className="flex items-center space-x-2.5">
+                            <img 
+                              src={w.photo || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&h=100&fit=crop"} 
+                              alt={w.name} 
+                              className="w-8 h-8 rounded-full border border-slate-300 object-cover" 
+                              referrerPolicy="no-referrer"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <span className="font-bold text-slate-800 block truncate">{w.name}</span>
+                              <span className="text-[9px] font-mono text-slate-400 block">{w.id} | {w.trade}</span>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
+
+                          {/* Telemetry metadata */}
+                          <div className="pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between text-[9px] text-slate-500 gap-1.5 font-sans">
+                            <span>
+                              {isAmharic ? "አሰሪ ኩባንያ:" : "Employer:"} <strong className="text-slate-700">{w.company}</strong>
+                            </span>
+                            
+                            {viewMode === "biometric" && attRec && (
+                              <div className="flex items-center space-x-1.5 mt-0.5">
+                                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-1 rounded flex items-center space-x-0.5 font-bold">
+                                  <CheckCircle2 size={9} />
+                                  <span>{attRec.checkIn?.substring(0, 5)}</span>
+                                </span>
+                                <span className="bg-red-50 text-red-700 border border-red-200 px-1 rounded flex items-center space-x-0.5 font-semibold">
+                                  <Smartphone size={9} />
+                                  <span>{attRec.method === AttendanceMethod.FACE_RECOGNITION ? "Face ID" : "Finger"}</span>
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                );
-              })()
+                </div>
+              )
             ) : (
               <div className="text-center py-12 px-4 bg-white rounded-xl border border-dashed border-slate-200 text-slate-400 space-y-2">
                 <Flame size={28} className="mx-auto text-slate-300 animate-pulse" />
