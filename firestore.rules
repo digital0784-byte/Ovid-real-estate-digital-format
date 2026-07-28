@@ -96,7 +96,7 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // 2. Projects & Sites
+    // 2. Projects, Sites & Registered Sites
     match /projects/{projectId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
@@ -105,31 +105,55 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
     }
+    match /registeredSites/{siteId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+    match /zones/{zoneId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer();
+    }
 
-    // 3. Employees
+    // 3. Employees, Workers & Teams
     match /employees/{employeeId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isHRManager();
     }
+    match /workers/{workerId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+    }
+    match /teams/{teamId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager() || isProjectManager();
+    }
 
-    // 4. Attendance (Requires Time Keeper, Supervisor or higher)
+    // 4. Attendance & Worker Evaluations
     match /attendance/{attendanceId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isTimeKeeper() || isSupervisor() || isProjectManager();
     }
+    match /evaluations/{evaluationId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
+    }
 
     // 5. Payroll
     match /payroll/{payrollId} {
-      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isHRManager() || (isSignedIn() && incoming().employeeId == request.auth.uid);
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isHRManager() || (isSignedIn() && existing().employeeId == request.auth.uid);
       allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
     }
 
-    // 6. Materials & Inventory
+    // 6. Materials, Inventory & Audits
     match /materials/{materialId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /inventory/{inventoryId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+    }
+    match /inventoryAudits/{auditId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
@@ -144,20 +168,64 @@ service cloud.firestore {
       allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
 
-    // 8. Formwork Panels
+    // 8. Formwork Panels & Panel Logs
     match /formworkPanels/{panelId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
     }
+    match /panelMovementLogs/{logId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+    match /panelDamageReports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+    match /panelRepairRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
 
-    // 9. CAD Files
+    // 9. Overseas Shipments, Customs, Transfers & Receiving Reports
+    match /overseasShipments/{shipmentId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isFinanceManager();
+    }
+    match /customsRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isFinanceManager();
+    }
+    match /dispatchTransfers/{transferId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer();
+    }
+    match /siteReceivingReports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor();
+    }
+
+    // 10. CAD Files & Site Operational Logs
     match /cadFiles/{cadId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isProjectManager();
     }
-
-    // 10. Daily Reports
     match /dailyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+    match /progressLogs/{logId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+    match /qualityLogs/{logId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+    match /qualitySnags/{snagId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
+    }
+    match /safetyLogs/{logId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
     }
