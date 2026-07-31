@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
-import { auth, isFirebaseReady } from "../firebase";
+import { auth, db, isFirebaseReady } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
   createUserWithEmailAndPassword, 
@@ -11,6 +11,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult
 } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import { 
   Shield, 
   ShieldCheck,
@@ -245,7 +246,17 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     try {
       if (isFirebaseReady && auth) {
         try {
-          await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
+          const userCred = await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
+          if (userCred?.user?.uid && db) {
+            await setDoc(doc(db, "users", userCred.user.uid), {
+              displayName: regName.trim(),
+              email: regEmail.trim().toLowerCase(),
+              phoneNumber: regPhone.trim(),
+              role: "Pending",
+              status: "Pending",
+              createdAt: new Date().toISOString()
+            });
+          }
         } catch (fbErr: any) {
           if (fbErr.code === "auth/email-already-in-use") {
             setErrorMessage(isAmharic ? "ይህ ኢሜል አስቀድሞ ተመዝግቧል። እባክዎ በመግቢያ ገጽ ይግቡ።" : "This email address is already registered. Please login.");
