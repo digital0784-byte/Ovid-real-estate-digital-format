@@ -210,47 +210,48 @@ service cloud.firestore {
     }
     match /materialIssueRecords/{recordId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /materialReturnRecords/{recordId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /materialRequests/{requestId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /truckFleets/{fleetId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /supplierSchedules/{scheduleId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /sitePanelBreakdowns/{breakdownId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /dailyRequisitions/{reqId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /dailyConsumptionVariances/{varId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /requisitionAuditLogs/{logId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /dailyReturnReports/{repId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
     match /dailyConsolidatedReports/{repId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
     }
 
     // 10. CAD Files & Site Operational Logs

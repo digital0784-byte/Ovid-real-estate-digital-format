@@ -38,7 +38,7 @@ export interface AuditLog {
     latitude: number;
     longitude: number;
     accuracy?: number;
-    status: "acquired" | "failed" | "locating";
+    status: "acquired" | "failed" | "locating" | "denied" | "unavailable";
   };
 }
 
@@ -846,6 +846,33 @@ export interface RoleChangeRequest {
     browserOs: string;
     locationGps?: string;
   };
+}
+
+export interface PayrollRecord {
+  id: string;
+  workerId: string;
+  employeeId?: string;
+  workerName: string;
+  position: string;
+  department: string;
+  team: string;
+  project: string;
+  employmentType: "Daily Labourer" | "Contract" | "Permanent";
+  basicSalary: number;
+  attendanceDays: number;
+  totalWorkingHours: number;
+  overtimeHours: number;
+  overtimePayment: number;
+  undertimeHours: number;
+  undertimeDeduction: number;
+  allowances: number;
+  deductions: number;
+  netSalary: number;
+  status: "Draft" | "Pending Review" | "Pending Approval" | "Approved" | "Paid";
+  grade: "Grade A" | "Grade B" | "Grade C" | "Grade D";
+  period?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface RoleChangeAuditLog {

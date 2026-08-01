@@ -202,29 +202,57 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   const [selectedFlr, setSelectedFlr] = useState<number>(4);
   const [selectedZone, setSelectedZone] = useState<string>("Zone A");
 
-  // Mock auto GPS tracking simulation
+  // Real device GPS tracking
   const [gpsLoading, setGpsLoading] = useState<boolean>(false);
-  const [deviceGps, setDeviceGps] = useState<string>("9.0118° N, 38.7954° E");
-  const [deviceMapCoords, setDeviceMapCoords] = useState<string>("9.0118,38.7954");
+  const [deviceGps, setDeviceGps] = useState<string>("Acquiring location...");
+  const [deviceMapCoords, setDeviceMapCoords] = useState<string>("");
+  const [gpsError, setGpsError] = useState<string | null>(null);
 
-  const simulateGpsCapture = () => {
+  const captureRealGps = () => {
     setGpsLoading(true);
-    setTimeout(() => {
-      // Simulate real coordinate variance around Addis Ababa
-      const lat = (9.0100 + Math.random() * 0.02).toFixed(4);
-      const lng = (38.7900 + Math.random() * 0.02).toFixed(4);
-      setDeviceGps(`${lat}° N, ${lng}° E`);
-      setDeviceMapCoords(`${lat},${lng}`);
+    setGpsError(null);
+    if (typeof window === "undefined" || !navigator.geolocation) {
       setGpsLoading(false);
-      if (onLogAction) {
-        onLogAction("Captured Device GPS", `Automatically captured current precise coordinates: ${lat}, ${lng}`);
-      }
-    }, 800);
+      setGpsError("Geolocation is not supported by this browser.");
+      setDeviceGps("GPS Unavailable");
+      setDeviceMapCoords("");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = position.coords.latitude.toFixed(6);
+        const lng = position.coords.longitude.toFixed(6);
+        const acc = Math.round(position.coords.accuracy);
+        setDeviceGps(`${lat}° N, ${lng}° E (±${acc}m)`);
+        setDeviceMapCoords(`${lat},${lng}`);
+        setGpsLoading(false);
+        setGpsError(null);
+        if (onLogAction) {
+          onLogAction("Captured Device GPS", `Captured real device coordinates: ${lat}, ${lng} (accuracy: ${acc}m)`);
+        }
+      },
+      (error) => {
+        setGpsLoading(false);
+        let errMsg = "Unable to acquire device location.";
+        if (error.code === error.PERMISSION_DENIED) {
+          errMsg = "Location permission denied. Please allow location access to record GPS coordinates.";
+        } else if (error.code === error.POSITION_UNAVAILABLE) {
+          errMsg = "Location information is unavailable on this device.";
+        } else if (error.code === error.TIMEOUT) {
+          errMsg = "GPS location request timed out. Please try again.";
+        }
+        setGpsError(errMsg);
+        setDeviceGps("GPS Access Denied / Unavailable");
+        setDeviceMapCoords("");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   // Run automatically once on mount
   useEffect(() => {
-    simulateGpsCapture();
+    captureRealGps();
   }, []);
 
   // --- SITE REGISTRATION FORM STATES ---
@@ -622,18 +650,23 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
                             type="text" 
                             disabled
                             value={deviceGps}
-                            className="w-full text-[11px] font-mono font-bold text-slate-700 bg-slate-100 border border-slate-200 rounded-lg p-2 focus:outline-none"
+                            className={`w-full text-[11px] font-mono font-bold border rounded-lg p-2 focus:outline-none ${
+                              gpsError ? "bg-red-50 text-red-700 border-red-300" : "bg-slate-100 text-slate-700 border-slate-200"
+                            }`}
                           />
                           <button
                             type="button"
-                            onClick={simulateGpsCapture}
+                            onClick={captureRealGps}
                             disabled={gpsLoading}
-                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shrink-0 cursor-pointer"
-                            title="Auto Capturing Device GPS Coordinates"
+                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 shrink-0 cursor-pointer disabled:opacity-50"
+                            title="Capture Real Device GPS Coordinates"
                           >
                             <RefreshCw size={14} className={gpsLoading ? "animate-spin" : ""} />
                           </button>
                         </div>
+                        {gpsError && (
+                          <p className="text-[10px] text-red-600 font-semibold mt-1">{gpsError}</p>
+                        )}
                       </div>
                     </div>
 

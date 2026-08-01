@@ -29,7 +29,8 @@ import {
   DispatchTransfer,
   SiteReceivingReport,
   InventoryAuditRecord,
-  RegisteredSite
+  RegisteredSite,
+  PayrollRecord
 } from "../types";
 import {
   StoreMaterialItem,
@@ -673,5 +674,23 @@ export const DbService = {
   },
   async saveDailyConsolidatedReport(report: DailyConsolidatedReport): Promise<void> {
     await writeDocument<DailyConsolidatedReport>("dailyConsolidatedReports", report, initialDailyConsolidatedReports);
+  },
+
+  // 16. payroll (payroll)
+  async getPayrollRecords(): Promise<PayrollRecord[]> {
+    return fetchCollection<PayrollRecord>("payroll", []);
+  },
+  async savePayrollRecord(record: PayrollRecord): Promise<void> {
+    const docToSave: PayrollRecord = {
+      ...record,
+      employeeId: record.employeeId || record.workerId,
+      updatedAt: record.updatedAt || new Date().toISOString()
+    };
+    await writeDocument<PayrollRecord>("payroll", docToSave, []);
+  },
+  async savePayrollRecords(records: PayrollRecord[]): Promise<void> {
+    for (const record of records) {
+      await this.savePayrollRecord(record);
+    }
   }
 };

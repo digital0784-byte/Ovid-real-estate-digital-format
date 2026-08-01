@@ -240,6 +240,33 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [newWhCode, setNewWhCode] = useState("");
   const [newWhLoc, setNewWhLoc] = useState("");
   const [newWhGps, setNewWhGps] = useState("9.0200° N, 38.7500° E");
+  const [isCapturingWhGps, setIsCapturingWhGps] = useState(false);
+  const [whGpsError, setWhGpsError] = useState<string | null>(null);
+
+  const captureWarehouseGps = () => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setWhGpsError("Geolocation API is not supported by your browser");
+      return;
+    }
+    setIsCapturingWhGps(true);
+    setWhGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const latStr = pos.coords.latitude.toFixed(4);
+        const lngStr = pos.coords.longitude.toFixed(4);
+        const latDir = pos.coords.latitude >= 0 ? "N" : "S";
+        const lngDir = pos.coords.longitude >= 0 ? "E" : "W";
+        setNewWhGps(`${Math.abs(Number(latStr))}° ${latDir}, ${Math.abs(Number(lngStr))}° ${lngDir}`);
+        setIsCapturingWhGps(false);
+      },
+      (err) => {
+        setIsCapturingWhGps(false);
+        setNewWhGps("");
+        setWhGpsError(`Location required for warehouse registration - please enable GPS permission (${err.message})`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
   const [newWhManager, setNewWhManager] = useState("");
   const [newWhCapacity, setNewWhCapacity] = useState(5000);
   const [newWhMinStock, setNewWhMinStock] = useState(500);
@@ -4748,6 +4775,32 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   onChange={e => setNewWhLoc(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"
                 />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold">{t("Warehouse GPS Coordinates", "የመጋዘኑ ጂፒኤስ መጋጠሚያ")}</label>
+                  <button
+                    type="button"
+                    disabled={isCapturingWhGps}
+                    onClick={captureWarehouseGps}
+                    className="text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  >
+                    <MapPin size={10} />
+                    <span>{isCapturingWhGps ? (isAmharic ? "እየፈለገ ነው..." : "Acquiring...") : (isAmharic ? "የአሁኑን መገኛ ተጠቀም" : "Use My Current Location")}</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 9.0125° N, 38.7850° E"
+                  value={newWhGps}
+                  onChange={e => setNewWhGps(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 font-mono text-xs outline-none"
+                />
+                {whGpsError && (
+                  <p className="text-red-500 font-bold text-[10px] mt-1">{whGpsError}</p>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-3">

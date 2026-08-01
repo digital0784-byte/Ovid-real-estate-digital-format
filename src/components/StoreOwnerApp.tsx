@@ -492,6 +492,90 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([]);
   const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([]);
 
+  // Option (a): Derive sitePanelBreakdowns automatically from live formworkPanels data
+  const derivedSitePanelBreakdowns = useMemo<SitePanelBreakdown[]>(() => {
+    if (!dbPanels || dbPanels.length === 0) {
+      return sitePanelBreakdowns;
+    }
+
+    const groupMap: Record<string, {
+      siteName: string;
+      panelType: string;
+      dimensions: string;
+      totalAllocated: number;
+      installedCount: number;
+      inStoreCount: number;
+      damagedCount: number;
+      inTransitCount: number;
+      missingCount: number;
+      lastReportDate: string;
+      lastReporter: string;
+    }> = {};
+
+    dbPanels.forEach(panel => {
+      const siteName = panel.location || "Bole Heights Phase I";
+      const panelType = panel.type || "Wall Panel";
+      const dimensions = panel.size || "1200x600 mm";
+      const key = `${siteName}___${panelType}___${dimensions}`;
+
+      if (!groupMap[key]) {
+        groupMap[key] = {
+          siteName,
+          panelType,
+          dimensions,
+          totalAllocated: 0,
+          installedCount: 0,
+          inStoreCount: 0,
+          damagedCount: 0,
+          inTransitCount: 0,
+          missingCount: 0,
+          lastReportDate: panel.createdAt ? panel.createdAt.substring(0, 10) : new Date().toISOString().substring(0, 10),
+          lastReporter: panel.responsibleSupervisor || "Formwork Live System Sync"
+        };
+      }
+
+      const qty = panel.quantity || 1;
+      groupMap[key].totalAllocated += qty;
+
+      const statusStr = (panel.status || "").toLowerCase();
+      if (statusStr.includes("in_use") || statusStr.includes("use") || statusStr.includes("installed")) {
+        groupMap[key].installedCount += qty;
+      } else if (statusStr.includes("damaged") || statusStr.includes("repair")) {
+        groupMap[key].damagedCount += qty;
+      } else if (statusStr.includes("missing") || statusStr.includes("lost")) {
+        groupMap[key].missingCount += qty;
+      } else if (statusStr.includes("transit")) {
+        groupMap[key].inTransitCount += qty;
+      } else {
+        groupMap[key].inStoreCount += qty;
+      }
+    });
+
+    const derivedList: SitePanelBreakdown[] = Object.values(groupMap).map((item, idx) => {
+      const total = Math.max(1, item.totalAllocated);
+      const goodQty = item.installedCount + item.inStoreCount;
+      const conditionScore = Math.min(100, Math.round((goodQty / total) * 100));
+
+      return {
+        id: `DERIVED-SPB-${idx + 1}`,
+        siteName: item.siteName,
+        panelType: item.panelType,
+        dimensions: item.dimensions,
+        totalAllocated: item.totalAllocated,
+        installedCount: item.installedCount,
+        inStoreCount: item.inStoreCount,
+        damagedCount: item.damagedCount,
+        inTransitCount: item.inTransitCount,
+        missingCount: item.missingCount,
+        conditionScore,
+        lastReportDate: item.lastReportDate,
+        lastReporter: item.lastReporter
+      };
+    });
+
+    return derivedList.length > 0 ? derivedList : sitePanelBreakdowns;
+  }, [dbPanels, sitePanelBreakdowns]);
+
   const fetchSites = async () => {
     try {
       const sites = await DbService.getRegisteredSites();
@@ -1995,37 +2079,37 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">Total Allocated</span>
                 <span className="text-base font-black text-white mt-1 block">
-                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.totalAllocated, 0).toLocaleString()} Pcs
+                  {derivedSitePanelBreakdowns.reduce((acc, item) => acc + item.totalAllocated, 0).toLocaleString()} Pcs
                 </span>
               </div>
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">Installed On-Site</span>
                 <span className="text-base font-black text-emerald-400 mt-1 block">
-                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.installedCount, 0).toLocaleString()} Pcs
+                  {derivedSitePanelBreakdowns.reduce((acc, item) => acc + item.installedCount, 0).toLocaleString()} Pcs
                 </span>
               </div>
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">In Site Store</span>
                 <span className="text-base font-black text-cyan-400 mt-1 block">
-                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.inStoreCount, 0).toLocaleString()} Pcs
+                  {derivedSitePanelBreakdowns.reduce((acc, item) => acc + item.inStoreCount, 0).toLocaleString()} Pcs
                 </span>
               </div>
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">Damaged / Repair</span>
                 <span className="text-base font-black text-amber-400 mt-1 block">
-                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.damagedCount, 0).toLocaleString()} Pcs
+                  {derivedSitePanelBreakdowns.reduce((acc, item) => acc + item.damagedCount, 0).toLocaleString()} Pcs
                 </span>
               </div>
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">In Transit</span>
                 <span className="text-base font-black text-indigo-400 mt-1 block">
-                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.inTransitCount, 0).toLocaleString()} Pcs
+                  {derivedSitePanelBreakdowns.reduce((acc, item) => acc + item.inTransitCount, 0).toLocaleString()} Pcs
                 </span>
               </div>
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800">
                 <span className="text-[10px] text-slate-500 uppercase font-bold block">Missing / Lost</span>
                 <span className="text-base font-black text-rose-400 mt-1 block">
-                  {sitePanelBreakdowns.reduce((acc, item) => acc + item.missingCount, 0).toLocaleString()} Pcs
+                  {derivedSitePanelBreakdowns.reduce((acc, item) => acc + item.missingCount, 0).toLocaleString()} Pcs
                 </span>
               </div>
             </div>
@@ -2038,7 +2122,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </span>
                 <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-2.5 py-1 rounded-full border border-emerald-800 flex items-center space-x-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                  <span>Auto-Synced from Site Daily Reports</span>
+                  <span>Auto-Synced from Live Formwork Inventory</span>
                 </span>
               </div>
 
@@ -2059,7 +2143,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                    {sitePanelBreakdowns
+                    {derivedSitePanelBreakdowns
                       .filter(item => sitePanelFilterSite === "ALL" || item.siteName === sitePanelFilterSite)
                       .filter(item => sitePanelFilterType === "ALL" || item.panelType.toLowerCase().includes(sitePanelFilterType.toLowerCase()))
                       .map(item => (

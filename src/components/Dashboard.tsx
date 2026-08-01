@@ -16,7 +16,7 @@ import {
   MapPin,
   TrendingDown
 } from "lucide-react";
-import { Worker, Team, ProjectZone, AttendanceRecord, UserRole, PerformanceEvaluation } from "../types";
+import { Worker, Team, ProjectZone, AttendanceRecord, UserRole, PerformanceEvaluation, AluminumFormworkPanel, PanelMovementLog } from "../types";
 import { BiometricHeatmap } from "./BiometricHeatmap";
 
 interface DashboardProps {
@@ -30,6 +30,8 @@ interface DashboardProps {
   setActiveTab: (tab: string) => void;
   currentUserRole: UserRole;
   evaluations: PerformanceEvaluation[];
+  formworkPanels?: AluminumFormworkPanel[];
+  panelMovementLogs?: PanelMovementLog[];
   onAddAttendance?: (record: AttendanceRecord) => void;
 }
 
@@ -43,6 +45,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   setActiveTab,
   currentUserRole,
   evaluations,
+  formworkPanels = [],
+  panelMovementLogs = [],
   onAddAttendance
 }) => {
   // Compute Stats
@@ -119,15 +123,83 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const overallProgress = Math.round(totalPercentage / zones.length) || 0;
 
   // Formwork output data for interactive SVG chart (panel installation trend over last 5 days)
-  const panelOutputTrend = [
-    { day: "Mon", panels: 45 },
-    { day: "Tue", panels: 60 },
-    { day: "Wed", panels: 55 },
-    { day: "Thu", panels: 72 },
-    { day: "Fri", panels: 80 }
-  ];
+  const panelOutputTrend = useMemo(() => {
+    const days: { day: string; dateStr: string; panels: number }[] = [];
+    const now = new Date();
 
-  const maxPanels = 100;
+    // Generate last 5 days (chronological order)
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i);
+      const dateStr = d.toISOString().split("T")[0];
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      days.push({ day: dayName, dateStr, panels: 0 });
+    }
+
+    // Accumulate from movement logs
+    if (panelMovementLogs && panelMovementLogs.length > 0) {
+      panelMovementLogs.forEach((log) => {
+        if (!log.timestamp) return;
+        const logDate = log.timestamp.split("T")[0];
+        const match = days.find((d) => d.dateStr === logDate);
+        if (match) {
+          match.panels += 1;
+        }
+      });
+    }
+
+    // Accumulate from formwork panels
+    if (formworkPanels && formworkPanels.length > 0) {
+      formworkPanels.forEach((panel) => {
+        if (panel.createdAt) {
+          const panelDate = panel.createdAt.split("T")[0];
+          const match = days.find((d) => d.dateStr === panelDate);
+          if (match) {
+            match.panels += panel.quantity || 1;
+          }
+        }
+      });
+    }
+
+    const totalCalculatedPanels = days.reduce((sum, d) => sum + d.panels, 0);
+
+    // If zero matches for current date range (due to historical seed timestamps), map to recorded dates or spread recorded activity
+    if (totalCalculatedPanels === 0) {
+      const dateMap: Record<string, number> = {};
+      (panelMovementLogs || []).forEach((log) => {
+        if (log.timestamp) {
+          const d = log.timestamp.split("T")[0];
+          dateMap[d] = (dateMap[d] || 0) + 1;
+        }
+      });
+      (formworkPanels || []).forEach((p) => {
+        if (p.createdAt) {
+          const d = p.createdAt.split("T")[0];
+          dateMap[d] = (dateMap[d] || 0) + (p.quantity || 1);
+        }
+      });
+
+      const sortedDates = Object.keys(dateMap).sort();
+      if (sortedDates.length > 0) {
+        const recentDates = sortedDates.slice(-5);
+        return recentDates.map((dateStr) => {
+          const dObj = new Date(dateStr);
+          const dayName = isNaN(dObj.getTime()) ? dateStr : dObj.toLocaleDateString("en-US", { weekday: "short" });
+          return {
+            day: dayName,
+            panels: dateMap[dateStr] || 0
+          };
+        });
+      }
+    }
+
+    return days.map(({ day, panels }) => ({ day, panels }));
+  }, [panelMovementLogs, formworkPanels]);
+
+  const maxPanels = useMemo(() => {
+    const highest = Math.max(...panelOutputTrend.map((p) => p.panels), 0);
+    return Math.max(10, highest);
+  }, [panelOutputTrend]);
 
   return (
     <div className="space-y-6">
@@ -563,8 +635,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="relative h-48 w-full flex items-end justify-between px-2 pt-4 border-b border-slate-100">
             {/* Guide gridlines */}
             <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[10px] text-slate-300">
-              <div className="border-b border-dashed border-slate-100 w-full pt-1">100 Panels</div>
-              <div className="border-b border-dashed border-slate-100 w-full">50 Panels</div>
+              <div className="border-b border-dashed border-slate-100 w-full pt-1">{maxPanels} Panels</div>
+              <div className="border-b border-dashed border-slate-100 w-full">{Math.round(maxPanels / 2)} Panels</div>
               <div>0</div>
             </div>
 

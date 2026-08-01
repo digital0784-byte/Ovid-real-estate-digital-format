@@ -112,9 +112,6 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   // Simulation / Emulator controls state
   const [simulatedWorkerId, setSimulatedWorkerId] = useState(workers[0]?.id || "");
   const [verificationMethod, setVerificationMethod] = useState<"fingerprint" | "face">("fingerprint");
-  const [gpsPreset, setGpsPreset] = useState<"inside" | "outside">("inside");
-  const [simLat, setSimLat] = useState(9.0048);
-  const [simLng, setSimLng] = useState(38.7781);
   const [forceFail, setForceFail] = useState(false);
   const [failReasonPreset, setFailReasonPreset] = useState<"corrupted" | "unregistered">("corrupted");
 
@@ -151,17 +148,6 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     return () => clearInterval(timer);
   }, []);
 
-  // Update simulated GPS coordinates based on preset selection
-  useEffect(() => {
-    if (gpsPreset === "inside") {
-      setSimLat(9.0048);
-      setSimLng(38.7781); // Within 150m of (9.0049, 38.7783)
-    } else {
-      setSimLat(8.9806);
-      setSimLng(38.7905); // Bole Airport - ~4.1km away
-    }
-  }, [gpsPreset]);
-
   // Listen to network changes for real-time offline fallback on-site
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -184,10 +170,6 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
       window.removeEventListener("offline", handleOffline);
     };
   }, [onLogAction]);
-
-  // Compute live distance
-  const currentDistance = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
-  const isInsideGeofence = currentDistance <= allowedRadius;
 
   // Sound generator
   const playSound = (type: "scan" | "success" | "error") => {
@@ -302,6 +284,18 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   const handleBiometricTrigger = () => {
     if (isScanning) return;
 
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      playSound("error");
+      const errMsg = isAmharic
+        ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ ያብሩ!"
+        : "Location required for attendance - please enable GPS/location permission";
+      setConfirmationOverlay({
+        status: "failed",
+        reason: errMsg
+      });
+      return;
+    }
+
     setIsScanning(true);
     setScanProgress(0);
     setConfirmationOverlay(null);
@@ -314,46 +308,79 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
 
     playSound("scan");
 
-    // Scan progress simulation ticks
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 10;
-      setScanProgress(progress);
-      playSound("scan");
+    // Acquire real geolocation position
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const realLat = position.coords.latitude;
+        const realLng = position.coords.longitude;
+        const realDist = Math.round(getDistanceInMeters(realLat, realLng, geofenceLat, geofenceLng));
+        const isInside = realDist <= allowedRadius;
 
-      if (progress === 30) {
+        let progress = 0;
+        const interval = setInterval(() => {
+          progress += 10;
+          setScanProgress(progress);
+          playSound("scan");
+
+          if (progress === 30) {
+            setTerminalLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `🔍 የጣት አሻራ / የፊት መለያ በክፍል ተርሚናል ላይ በመፈለግ ላይ... (${verificationMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት ገጽታ"})`
+                : `🔍 Matching biometric template using local 1:N secure memory search (${verificationMethod === "fingerprint" ? "Fingerprint Ridge Reader" : "Face Recognition Geometry"})`
+            ]);
+          } else if (progress === 60) {
+            setTerminalLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `🛰️ የጂፒኤስ መገኛ መጋጠሚያዎች ተገኝተዋል፡ [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+                : `🛰️ Capturing hardware GPS geofence coordinates: [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+            ]);
+          } else if (progress === 80) {
+            setTerminalLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `📐 ከፕሮጀክቱ መካከለኛ ነጥብ የተሰላ ልዩነት፡ ${realDist}ሜ`
+                : `📐 Boundary calculations completed. Deviation from site center: ${realDist}m`
+            ]);
+          } else if (progress >= 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+              setIsScanning(false);
+              processAuthentication(realLat, realLng, realDist, isInside);
+            }, 150);
+          }
+        }, 200);
+      },
+      (error) => {
+        setIsScanning(false);
+        playSound("error");
+        const errMsg = isAmharic
+          ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ/ሎኬሽን ይፍቀዱ!"
+          : "Location required for attendance - please enable GPS/location permission";
+        setConfirmationOverlay({
+          status: "failed",
+          reason: errMsg
+        });
         setTerminalLogs(prev => [
           ...prev,
-          isAmharic
-            ? `🔍 የጣት አሻራ / የፊት መለያ በክፍል ተርሚናል ላይ በመፈለግ ላይ... (${verificationMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት ገጽታ"})`
-            : `🔍 Matching biometric template using local 1:N secure memory search (${verificationMethod === "fingerprint" ? "Fingerprint Ridge Reader" : "Face Recognition Geometry"})`
+          `❌ GPS Access Denied or Timed Out: Attendance blocked.`
         ]);
-      } else if (progress === 60) {
-        setTerminalLogs(prev => [
-          ...prev,
-          isAmharic
-            ? `🛰️ የጂፒኤስ መገኛ መጋጠሚያዎች ተገኝተዋል፡ [${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
-            : `🛰️ Capturing hardware GPS geofence coordinates: [${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
-        ]);
-      } else if (progress === 80) {
-        setTerminalLogs(prev => [
-          ...prev,
-          isAmharic
-            ? `📐 ከፕሮጀክቱ መካከለኛ ነጥብ የተሰላ ልዩነት፡ ${currentDistance}ሜ`
-            : `📐 Boundary calculations completed. Deviation from site center: ${currentDistance}m`
-        ]);
-      } else if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setIsScanning(false);
-          processAuthentication();
-        }, 150);
-      }
-    }, 200);
+        if (onLogAction) {
+          onLogAction("GPS Location Denied", "Attendance action blocked because real GPS location was denied or unavailable.");
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
   // High fidelity business logic processing
-  const processAuthentication = () => {
+  const processAuthentication = (
+    realLat: number,
+    realLng: number,
+    currentDistance: number,
+    isInsideGeofence: boolean
+  ) => {
     // 1. Check for Force Fail emulation
     if (forceFail) {
       playSound("error");
@@ -377,7 +404,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         "Unknown Person", 
         "Failed Authentication", 
         verificationMethod === "fingerprint" ? "Fingerprint" : "Face", 
-        { lat: simLat, lng: simLng }, 
+        { lat: realLat, lng: realLng }, 
         isInsideGeofence ? "Inside Site" : "Outside Site", 
         failReasonPreset === "corrupted" ? "Corrupted biometric format" : "Unenrolled biometric template"
       );
@@ -422,7 +449,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         worker.name,
         "Geofence Breach Rejected",
         verificationMethod === "fingerprint" ? "Fingerprint" : "Face",
-        { lat: simLat, lng: simLng },
+        { lat: realLat, lng: realLng },
         "Outside Site",
         `GPS violation: ${currentDistance}m out of bounds`
       );
@@ -459,7 +486,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
           worker.name,
           "Duplicate Check-In Blocked",
           verificationMethod === "fingerprint" ? "Fingerprint" : "Face",
-          { lat: simLat, lng: simLng },
+          { lat: realLat, lng: realLng },
           "Inside Site",
           "Duplicate check-in attempt rejected."
         );
@@ -489,7 +516,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
           worker.name,
           "Missing Check-In Blocked",
           verificationMethod === "fingerprint" ? "Fingerprint" : "Face",
-          { lat: simLat, lng: simLng },
+          { lat: realLat, lng: realLng },
           "Inside Site",
           "Attempted check-out with no matching morning check-in."
         );
@@ -518,7 +545,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
           worker.name,
           "Duplicate Check-Out Blocked",
           verificationMethod === "fingerprint" ? "Fingerprint" : "Face",
-          { lat: simLat, lng: simLng },
+          { lat: realLat, lng: realLng },
           "Inside Site",
           "Duplicate check-out attempt rejected."
         );
@@ -532,7 +559,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         worker,
         mode: kioskMode,
         method: verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
-        gpsCoordinates: { lat: simLat, lng: simLng },
+        gpsCoordinates: { lat: realLat, lng: realLng },
         timestamp: new Date(),
         gpsLocationString: isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `Digital Construction ERP Heights (${currentDistance}m deviation)`,
         isInside: true
@@ -560,7 +587,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         worker.name,
         `Queued Offline (${kioskMode === "check-in" ? "Check-In" : "Check-Out"})`,
         verificationMethod === "fingerprint" ? "Fingerprint" : "Face",
-        { lat: simLat, lng: simLng },
+        { lat: realLat, lng: realLng },
         "Inside Site",
         "Buffered in offline queue. Awaiting internet."
       );
@@ -568,7 +595,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     }
 
     // 6. Committing successful attendance directly online (Sync active)
-    commitAttendanceRecord(worker, kioskMode, verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION, { lat: simLat, lng: simLng }, currentTime, isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `Digital Construction ERP Heights (${currentDistance}m deviation)`, true);
+    commitAttendanceRecord(worker, kioskMode, verificationMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION, { lat: realLat, lng: realLng }, currentTime, isAmharic ? `ቦሌ ሃይትስ (ልዩነት፡ ${currentDistance}ሜ)` : `Digital Construction ERP Heights (${currentDistance}m deviation)`, true);
   };
 
   // Helper to construct, write and log a valid attendance record
@@ -1315,41 +1342,14 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
               </div>
             </div>
 
-            {/* 3. GPS Geolocation Presets */}
+            {/* 3. GPS Geolocation Telemetry */}
             <div className="space-y-1.5">
               <label className="text-[10px] uppercase font-black text-slate-400 block font-mono">
-                {isAmharic ? "፫. የሰራተኛው የጂፒኤስ መገኛ" : "3. GPS Telemetry Position"}
+                {isAmharic ? "፫. የሰራተኛው የጂፒኤስ መገኛ" : "3. Device GPS Hardware Status"}
               </label>
-              <div className="grid grid-cols-2 gap-2 bg-slate-50 p-1 rounded-xl border border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setGpsPreset("inside")}
-                  className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                    gpsPreset === "inside"
-                      ? "bg-emerald-600 text-white shadow-sm"
-                      : "bg-white text-slate-600 border border-slate-200/60"
-                  }`}
-                >
-                  <MapPin size={12} />
-                  <span>{isAmharic ? "ሳይት ውስጥ" : "Inside Site"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setGpsPreset("outside")}
-                  className={`py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-1 transition-all cursor-pointer ${
-                    gpsPreset === "outside"
-                      ? "bg-red-600 text-white shadow-sm"
-                      : "bg-white text-slate-600 border border-slate-200/60"
-                  }`}
-                >
-                  <AlertCircle size={12} />
-                  <span>{isAmharic ? "ከሳይት ውጭ" : "Outside Site"}</span>
-                </button>
-              </div>
-              <div className="text-[10px] text-slate-400 font-mono text-center">
-                {gpsPreset === "inside"
-                  ? (isAmharic ? "✓ ከፕሮጀክቱ ማዕከል ርቀት፡ 22ሜ" : "✓ Safe distance: 22m from Tower A")
-                  : (isAmharic ? "✗ ከፕሮጀክቱ ማዕከል ርቀት፡ 4.1ኪሜ" : "✗ Violation: 4.1km away (Bole Airport)")}
+              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 flex items-center space-x-2 text-emerald-600 font-mono text-[11px] font-bold">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                <span>{isAmharic ? "የቀጥታ መሳሪያ ጂፒኤስ ተዘጋጅቷል" : "Real Device GPS Active at Scan"}</span>
               </div>
             </div>
 

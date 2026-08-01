@@ -28,7 +28,9 @@ import {
   QualityLog, 
   UserRole,
   AuditLog,
-  SystemNotification
+  SystemNotification,
+  AluminumFormworkPanel,
+  PanelMovementLog
 } from "./types";
 
 // Component imports
@@ -127,6 +129,8 @@ export default function App() {
   const [safetyLogs, setSafetyLogs] = useState<SafetyLog[]>([]);
   const [qualitySnags, setQualitySnags] = useState<QualitySnag[]>([]);
   const [qualityLogs, setQualityLogs] = useState<QualityLog[]>([]);
+  const [formworkPanels, setFormworkPanels] = useState<AluminumFormworkPanel[]>([]);
+  const [panelMovementLogs, setPanelMovementLogs] = useState<PanelMovementLog[]>([]);
   const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -425,26 +429,26 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.HEAD_OFFICE]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.PROJECT_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.PROCUREMENT_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "enterpriseErp", "financeErp", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.QAQC_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "cadDrawing", "projectDocs"],
     [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "projectDocs"],
-    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub"],
     [UserRole.CLIENT_CONSULTANT]: ["dashboard", "notificationCenter", "customInputHub", "progress", "cadDrawing", "projectDocs"],
-    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "warehouseManagerApp", "attendance", "auditLog"],
+    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "attendance", "auditLog"],
     [UserRole.VISITOR]: ["dashboard", "notificationCenter", "customInputHub", "progress"]
   };
 
@@ -481,7 +485,9 @@ export default function App() {
           fetchedSnags,
           fetchedQuality,
           fetchedAudit,
-          fetchedNotifications
+          fetchedNotifications,
+          fetchedFormworkPanels,
+          fetchedPanelMovementLogs
         ] = await Promise.all([
           DbService.getWorkers(),
           DbService.getTeams(),
@@ -493,7 +499,9 @@ export default function App() {
           DbService.getQualitySnags(),
           DbService.getQualityLogs(),
           DbService.getAuditLogs(),
-          DbService.getNotifications()
+          DbService.getNotifications(),
+          DbService.getFormworkPanels(),
+          DbService.getPanelMovementLogs()
         ]);
         if (active) {
           setWorkers(fetchedWorkers);
@@ -507,6 +515,8 @@ export default function App() {
           setQualityLogs(fetchedQuality);
           setAuditLogs(fetchedAudit);
           setNotifications(fetchedNotifications);
+          setFormworkPanels(fetchedFormworkPanels);
+          setPanelMovementLogs(fetchedPanelMovementLogs);
         }
       } catch (e) {
         console.error("Error loading master datasets:", e);
@@ -873,14 +883,12 @@ export default function App() {
             DbService.addAuditLog({ ...newLog, gps }).catch(e => console.error(e));
           },
           (error) => {
-            console.warn("Geolocation failed/denied, utilizing high-fidelity simulated construction site coordinates", error);
-            const simulatedLat = parseFloat((9.011743 + (Math.random() - 0.5) * 0.0004).toFixed(6));
-            const simulatedLng = parseFloat((38.794651 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+            console.warn("Geolocation failed or denied:", error);
+            const statusVal = error.code === error.PERMISSION_DENIED ? ("denied" as const) : ("unavailable" as const);
             const gps = {
-              latitude: simulatedLat,
-              longitude: simulatedLng,
-              accuracy: 12,
-              status: "acquired" as const
+              latitude: 0,
+              longitude: 0,
+              status: statusVal
             };
             setAuditLogs((prevLogs) =>
               prevLogs.map((log) => (log.id === logId ? { ...log, gps } : log))
@@ -890,14 +898,11 @@ export default function App() {
           { enableHighAccuracy: true, timeout: 4500, maximumAge: 0 }
         );
       } else {
-        // No geolocation API, fallback directly
-        const simulatedLat = parseFloat((9.011743 + (Math.random() - 0.5) * 0.0004).toFixed(6));
-        const simulatedLng = parseFloat((38.794651 + (Math.random() - 0.5) * 0.0004).toFixed(6));
+        // No geolocation API available on device
         const gps = {
-          latitude: simulatedLat,
-          longitude: simulatedLng,
-          accuracy: 15,
-          status: "acquired" as const
+          latitude: 0,
+          longitude: 0,
+          status: "unavailable" as const
         };
         setAuditLogs((prevLogs) =>
           prevLogs.map((log) => (log.id === logId ? { ...log, gps } : log))
@@ -1724,6 +1729,8 @@ export default function App() {
             setActiveTab={setActiveTab}
             currentUserRole={currentUserRole}
             evaluations={evaluations}
+            formworkPanels={formworkPanels}
+            panelMovementLogs={panelMovementLogs}
             onAddAttendance={handleAddAttendance}
           />
         )}

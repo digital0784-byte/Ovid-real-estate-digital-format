@@ -91,9 +91,6 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   const [geofenceLat, setGeofenceLat] = useState(9.0049);
   const [geofenceLng, setGeofenceLng] = useState(38.7783);
   const [allowedRadius, setAllowedRadius] = useState(150); // in meters
-  const [gpsPreset, setGpsPreset] = useState<"inside" | "outside">("inside");
-  const [simLat, setSimLat] = useState(9.0048);
-  const [simLng, setSimLng] = useState(38.7781);
 
   // --- AUDIO FEEDBACK ---
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
@@ -155,17 +152,6 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   const [reportDimension, setReportDimension] = useState<"floor" | "zone" | "team" | "project">("floor");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
 
-  // Sync simulated GPS preset
-  useEffect(() => {
-    if (gpsPreset === "inside") {
-      setSimLat(9.0048);
-      setSimLng(38.7781); // ~15 meters distance
-    } else {
-      setSimLat(8.9806);
-      setSimLng(38.7905); // Bole Airport (~4.1km)
-    }
-  }, [gpsPreset]);
-
   // Listen to network changes for real-time offline fallback on-site
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -201,9 +187,6 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
               Math.sin(dLam / 2) * Math.sin(dLam / 2);
     return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   };
-
-  const currentDistance = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
-  const isInsideGeofence = currentDistance <= allowedRadius;
 
   // Sound Engine
   const playBeep = (type: "scan" | "success" | "error" | "sync") => {
@@ -327,7 +310,12 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     const worker = workers.find(w => w.id === selectedWorkerId);
     if (!worker) return;
 
-    // Strict Device Verification Mode simulation
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      playBeep("error");
+      alert(isAmharic ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ ያብሩ!" : "Location required for attendance - please enable GPS/location permission");
+      return;
+    }
+
     setIsScanning(true);
     setScanProgress(0);
     setScanLogs([
@@ -337,42 +325,75 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     ]);
     playBeep("scan");
 
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      setScanProgress(step * 20);
-      playBeep("scan");
+    // Acquire real device GPS
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const realLat = position.coords.latitude;
+        const realLng = position.coords.longitude;
+        const realDist = Math.round(getDistanceInMeters(realLat, realLng, geofenceLat, geofenceLng));
+        const isInside = realDist <= allowedRadius;
 
-      if (step === 2) {
-        setScanLogs(prev => [
-          ...prev,
-          isAmharic
-            ? `🔍 የባዮሜትሪክ መዛመጃ ፍለጋ በሂደት ላይ፡ [የማረጋገጫ ዘዴ: ${biometricMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት መለያ"}]`
-            : `🔍 Checking cryptographic templates mapping: [Hardware Method: ${biometricMethod === "fingerprint" ? "Fingerprint" : "Facial Structure"}]`
-        ]);
-      } else if (step === 3) {
-        setScanLogs(prev => [
-          ...prev,
-          isAmharic
-            ? `🛰️ የጂፒኤስ ሲግናል በማንበብ ላይ... [መጋጠሚያ: ${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
-            : `🛰️ Aquiring high-accuracy coordinates: [GPS Capture: ${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
-        ]);
-      } else if (step === 4) {
-        setScanLogs(prev => [
-          ...prev,
-          isAmharic
-            ? `🔐 የጂኦፌንስ ፍተሻ፡ ${currentDistance}ሜ ከማእከሉ (ፍቃድ፡ ${isInsideGeofence ? "ተፈቅዷል" : "ተከልክሏል"})`
-            : `🔐 Geofence proximity audit: ${currentDistance}m from center. Status: ${isInsideGeofence ? "AUTHORIZED" : "OUTSIDE SITE BOUNDARY"}`
-        ]);
-      } else if (step === 5) {
-        clearInterval(interval);
+        let step = 0;
+        const interval = setInterval(() => {
+          step++;
+          setScanProgress(step * 20);
+          playBeep("scan");
+
+          if (step === 2) {
+            setScanLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `🔍 የባዮሜትሪክ መዛመጃ ፍለጋ በሂደት ላይ፡ [የማረጋገጫ ዘዴ: ${biometricMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት መለያ"}]`
+                : `🔍 Checking cryptographic templates mapping: [Hardware Method: ${biometricMethod === "fingerprint" ? "Fingerprint" : "Facial Structure"}]`
+            ]);
+          } else if (step === 3) {
+            setScanLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `🛰️ የጂፒኤስ ሲግናል ተገኝቷል... [መጋጠሚያ: ${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+                : `🛰️ Acquired real GPS coordinates: [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+            ]);
+          } else if (step === 4) {
+            setScanLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `🔐 የጂኦፌንስ ፍተሻ፡ ${realDist}ሜ ከማእከሉ (ፍቃድ፡ ${isInside ? "ተፈቅዷል" : "ተከልክሏል"})`
+                : `🔐 Geofence proximity audit: ${realDist}m from center. Status: ${isInside ? "AUTHORIZED" : "OUTSIDE SITE BOUNDARY"}`
+            ]);
+          } else if (step === 5) {
+            clearInterval(interval);
+            setIsScanning(false);
+            processFinalKioskAttendance(worker, realLat, realLng, realDist, isInside);
+          }
+        }, 250);
+      },
+      (error) => {
         setIsScanning(false);
-        processFinalKioskAttendance(worker);
-      }
-    }, 250);
+        playBeep("error");
+        const errMsg = isAmharic
+          ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ/ሎኬሽን ይፍቀዱ!"
+          : "Location required for attendance - please enable GPS/location permission";
+        setScanResult({
+          success: false,
+          title: isAmharic ? "መዝገብ ውድቅ ተደርጓል (ጂፒኤስ የለም)" : "Attendance Rejected (Location Required)",
+          message: errMsg,
+          worker
+        });
+        if (onLogAction) {
+          onLogAction("GPS Location Denied", `${worker.name} attendance attempt blocked due to disabled GPS or permission error.`);
+        }
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
-  const processFinalKioskAttendance = (worker: Worker) => {
+  const processFinalKioskAttendance = (
+    worker: Worker,
+    realLat: number,
+    realLng: number,
+    currentDistance: number,
+    isInsideGeofence: boolean
+  ) => {
     const todayStr = new Date().toISOString().split("T")[0];
     const timeStr = new Date().toLocaleTimeString("en-US", { hour12: false });
 
@@ -423,7 +444,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         time: timeStr,
         date: todayStr,
         method: biometricMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
-        coordinates: { lat: simLat, lng: simLng },
+        coordinates: { lat: realLat, lng: realLng },
         distance: currentDistance
       };
 
@@ -485,7 +506,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         workingHours: 0,
         overtime: 0,
         status,
-        gpsCoordinates: { lat: simLat, lng: simLng },
+        gpsCoordinates: { lat: realLat, lng: realLng },
         deviceUsed: "Digital Construction ERP-KIOSK-PRO-01",
         verifiedBy: currentUserRole,
         gpsLocationString: `Bole Heights (${currentDistance}m)`
@@ -1161,34 +1182,10 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መገኛ ሲሙሌተር" : "GPS Preset Calibration"}</label>
-                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                  <button
-                    onClick={() => {
-                      setGpsPreset("inside");
-                      setScanResult(null);
-                    }}
-                    className={`py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
-                      gpsPreset === "inside" 
-                        ? "bg-emerald-600 text-white" 
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {isAmharic ? "ግቢ ውስጥ (ውስጥ)" : "Inside Site (Pass)"}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setGpsPreset("outside");
-                      setScanResult(null);
-                    }}
-                    className={`py-1.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
-                      gpsPreset === "outside" 
-                        ? "bg-amber-600 text-white" 
-                        : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    {isAmharic ? "ግቢ ውጭ (ውድቅ)" : "Outside (Geofence Alert)"}
-                  </button>
+                <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መሳሪያ ሁኔታ" : "Real Device Geolocation Status"}</label>
+                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center space-x-2 text-emerald-400 font-mono text-[11px]">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                  <span>{isAmharic ? "የቀጥታ መሳሪያ ጂፒኤስ ማረጋገጫ (ተዘጋጅቷል)" : "Hardware Geolocation (Live at Clock-In)"}</span>
                 </div>
               </div>
             </div>
@@ -1328,7 +1325,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
               <MapPin size={11} className="text-red-500 animate-pulse" />
               <span>GEOFENCE: {geofenceLat}°N, {geofenceLng}°E (R: {allowedRadius}m)</span>
             </span>
-            <span>SIMULATION DISTANCE: <strong className={isInsideGeofence ? "text-emerald-400 font-bold" : "text-amber-400 font-bold"}>{currentDistance}m</strong></span>
+            <span>HARDWARE GPS: <strong className="text-emerald-400 font-bold">REAL DEVICE SENSOR ACTIVE</strong></span>
           </div>
 
         </div>

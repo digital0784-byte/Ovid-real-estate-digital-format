@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   Building2, 
   Users, 
@@ -31,7 +31,8 @@ import {
   Sparkles,
   Award
 } from "lucide-react";
-import { Worker, UserRole, AttendanceRecord, AttendanceMethod } from "../types";
+import { Worker, UserRole, AttendanceRecord, AttendanceMethod, PayrollRecord } from "../types";
+import { DbService } from "../services/db";
 
 interface PayrollHubProps {
   workers: Worker[];
@@ -40,29 +41,8 @@ interface PayrollHubProps {
   currentUserRole: UserRole;
 }
 
-// Internal Interfaces for Extended Payroll State
-export interface PayrollRecord {
-  id: string;
-  workerId: string;
-  workerName: string;
-  position: string;
-  department: string;
-  team: string;
-  project: string;
-  employmentType: "Daily Labourer" | "Contract" | "Permanent";
-  basicSalary: number; // monthly or daily rate
-  attendanceDays: number;
-  totalWorkingHours: number;
-  overtimeHours: number;
-  overtimePayment: number;
-  undertimeHours: number;
-  undertimeDeduction: number;
-  allowances: number;
-  deductions: number;
-  netSalary: number;
-  status: "Draft" | "Pending Review" | "Pending Approval" | "Approved" | "Paid";
-  grade: "Grade A" | "Grade B" | "Grade C" | "Grade D";
-}
+// Re-export PayrollRecord for backward compatibility
+export type { PayrollRecord } from "../types";
 
 export interface DetailedCheckStamp {
   workerId: string;
@@ -103,6 +83,63 @@ export interface PayrollAuditLog {
   ip: string;
 }
 
+// Helper function to calculate live baseline records from workers and attendance props
+export function computeBaselinePayroll(workers: Worker[], attendance: AttendanceRecord[]): PayrollRecord[] {
+  return workers.map((w, index) => {
+    const employmentType = (w.employmentType?.includes("Labourer") || w.trade === "Carpenter" || w.trade === "Welder") 
+      ? "Daily Labourer" 
+      : (index % 3 === 0 ? "Permanent" : "Contract");
+
+    const basicSalary = employmentType === "Daily Labourer" 
+      ? 650 // daily wage
+      : (w.trade === "Steel Fixer" ? 18000 : 22000); // monthly base salary
+    
+    const attendanceDays = attendance.filter(a => a.workerId === w.id && a.status === "Present").length || (18 + (index % 6));
+    
+    const normalWorkingHours = attendanceDays * 8;
+    const overtimeHours = index % 4 === 0 ? 12 : (index % 5 === 1 ? 8 : 0);
+    const overtimeRate = employmentType === "Daily Labourer" ? (650 / 8) * 1.5 : (basicSalary / 200) * 1.5;
+    const overtimePayment = Math.round(overtimeHours * overtimeRate);
+    
+    const undertimeHours = index % 7 === 2 ? 6.5 : 0;
+    const undertimeRate = employmentType === "Daily Labourer" ? (650 / 8) : (basicSalary / 200);
+    const undertimeDeduction = Math.round(undertimeHours * undertimeRate);
+
+    const allowances = index % 5 === 0 ? 1500 : 0; // housing/transport allowances
+    const deductions = index % 8 === 0 ? 800 : 0; // tax, advances, safety gear losses
+
+    const basePayment = employmentType === "Daily Labourer" ? basicSalary * attendanceDays : basicSalary;
+    const netSalary = Math.round(basePayment + overtimePayment - undertimeDeduction + allowances - deductions);
+
+    const grade = index % 4 === 0 ? "Grade A" : (index % 4 === 1 ? "Grade B" : (index % 4 === 2 ? "Grade C" : "Grade D"));
+
+    return {
+      id: `PAY-${w.id}`,
+      workerId: w.id,
+      employeeId: w.id,
+      workerName: w.name,
+      position: w.position || w.trade,
+      department: w.department,
+      team: w.teamLeader || "Bole Heights Alpha",
+      project: w.assignedProject || "Bole Heights Site B1",
+      employmentType: employmentType as "Daily Labourer" | "Contract" | "Permanent",
+      basicSalary,
+      attendanceDays,
+      totalWorkingHours: normalWorkingHours + overtimeHours,
+      overtimeHours,
+      overtimePayment,
+      undertimeHours,
+      undertimeDeduction,
+      allowances,
+      deductions,
+      netSalary,
+      status: index % 6 === 0 ? "Draft" : (index % 6 === 1 ? "Pending Review" : "Approved"),
+      grade,
+      period: "July 2026"
+    };
+  });
+}
+
 export const PayrollHub: React.FC<PayrollHubProps> = ({
   workers,
   attendance,
@@ -124,9 +161,12 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   const [isSendingReport, setIsSendingReport] = useState(false);
   const [reportSentSuccess, setReportSentSuccess] = useState(false);
   
-  // Security Toggles
+  // Security Toggles & Cloud Persistence States
   const [encryptData, setEncryptData] = useState(false);
-  const [backupSuccess, setBackupSuccess] = useState<string | null>(null);
+  const [isLoadingCloud, setIsLoadingCloud] = useState(true);
+  const [isSavedToCloud, setIsSavedToCloud] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
   
   // Audit Logs State
   const [auditTrail, setAuditTrail] = useState<PayrollAuditLog[]>([
@@ -163,61 +203,33 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     setAuditTrail(prev => [newLog, ...prev]);
   };
 
-  // Prepopulate standard worker payroll profiles
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => {
-    return workers.map((w, index) => {
-      // Automatic calculations based on realistic baseline attributes
-      const employmentType = (w.employmentType?.includes("Labourer") || w.trade === "Carpenter" || w.trade === "Welder") 
-        ? "Daily Labourer" 
-        : (index % 3 === 0 ? "Permanent" : "Contract");
+  // State for payroll records - defaults to computed baseline, but loaded from Firestore if present
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => computeBaselinePayroll(workers, attendance));
 
-      const basicSalary = employmentType === "Daily Labourer" 
-        ? 650 // daily wage
-        : (w.trade === "Steel Fixer" ? 18000 : 22000); // monthly base salary
-      
-      const attendanceDays = attendance.filter(a => a.workerId === w.id && a.status === "Present").length || (18 + (index % 6));
-      
-      const normalWorkingHours = attendanceDays * 8;
-      const overtimeHours = index % 4 === 0 ? 12 : (index % 5 === 1 ? 8 : 0);
-      const overtimeRate = employmentType === "Daily Labourer" ? (650 / 8) * 1.5 : (basicSalary / 200) * 1.5;
-      const overtimePayment = Math.round(overtimeHours * overtimeRate);
-      
-      const undertimeHours = index % 7 === 2 ? 6.5 : 0;
-      const undertimeRate = employmentType === "Daily Labourer" ? (650 / 8) : (basicSalary / 200);
-      const undertimeDeduction = Math.round(undertimeHours * undertimeRate);
-
-      const allowances = index % 5 === 0 ? 1500 : 0; // housing/transport allowances
-      const deductions = index % 8 === 0 ? 800 : 0; // tax, advances, safety gear losses
-
-      const basePayment = employmentType === "Daily Labourer" ? basicSalary * attendanceDays : basicSalary;
-      const netSalary = Math.round(basePayment + overtimePayment - undertimeDeduction + allowances - deductions);
-
-      const grade = index % 4 === 0 ? "Grade A" : (index % 4 === 1 ? "Grade B" : (index % 4 === 2 ? "Grade C" : "Grade D"));
-
-      return {
-        id: `PAY-${w.id}`,
-        workerId: w.id,
-        workerName: w.name,
-        position: w.position || w.trade,
-        department: w.department,
-        team: w.teamLeader || "Bole Heights Alpha",
-        project: w.assignedProject || "Bole Heights Site B1",
-        employmentType: employmentType as "Daily Labourer" | "Contract" | "Permanent",
-        basicSalary,
-        attendanceDays,
-        totalWorkingHours: normalWorkingHours + overtimeHours,
-        overtimeHours,
-        overtimePayment,
-        undertimeHours,
-        undertimeDeduction,
-        allowances,
-        deductions,
-        netSalary,
-        status: index % 6 === 0 ? "Draft" : (index % 6 === 1 ? "Pending Review" : "Approved"),
-        grade
-      };
-    });
-  });
+  // Load existing saved payroll records from Firestore on mount
+  useEffect(() => {
+    let isMounted = true;
+    const loadPayrollFromFirestore = async () => {
+      try {
+        setIsLoadingCloud(true);
+        const savedRecords = await DbService.getPayrollRecords();
+        if (isMounted) {
+          if (savedRecords && savedRecords.length > 0) {
+            setPayrollRecords(savedRecords);
+            setIsSavedToCloud(true);
+          } else {
+            setIsSavedToCloud(false);
+          }
+        }
+      } catch (err) {
+        console.warn("Could not load payroll records from Firestore:", err);
+      } finally {
+        if (isMounted) setIsLoadingCloud(false);
+      }
+    };
+    loadPayrollFromFirestore();
+    return () => { isMounted = false; };
+  }, []);
 
   // Comprehensive 4-Point check stamps simulator
   const [checkStamps, setCheckStamps] = useState<DetailedCheckStamp[]>(() => {
@@ -373,46 +385,100 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     );
   };
 
-  const handleUpdateRecordStatus = (recordId: string, newStatus: PayrollRecord["status"]) => {
-    setPayrollRecords(prev => 
-      prev.map(r => {
-        if (r.id === recordId) {
-          addAuditLog("Record Status Changed", `Changed payroll status for ${r.workerName} to ${newStatus}`);
-          return { ...r, status: newStatus };
-        }
-        return r;
-      })
-    );
+  const handleUpdateRecordStatus = async (recordId: string, newStatus: PayrollRecord["status"]) => {
+    const updatedList = payrollRecords.map(r => {
+      if (r.id === recordId) {
+        return { 
+          ...r, 
+          status: newStatus,
+          employeeId: r.employeeId || r.workerId,
+          updatedAt: new Date().toISOString()
+        };
+      }
+      return r;
+    });
+    setPayrollRecords(updatedList);
+    const target = updatedList.find(r => r.id === recordId);
+    if (target) {
+      addAuditLog("Record Status Changed", `Changed payroll status for ${target.workerName} to ${newStatus}`);
+      try {
+        await DbService.savePayrollRecord(target);
+      } catch (err) {
+        console.warn("Error persisting updated record status to Firestore:", err);
+      }
+    }
   };
 
-  const handleApproveAllPayroll = () => {
-    if (currentUserRole !== UserRole.HEAD_OFFICE && currentUserRole !== UserRole.SUPERVISOR) {
-      alert("Access Denied: Only Head Office or Project Manager can approve the global payroll ledger.");
+  const handleFinalizePayrollPeriod = async () => {
+    if (currentUserRole !== UserRole.HEAD_OFFICE && currentUserRole !== UserRole.SUPERVISOR && currentUserRole !== UserRole.FINANCE_MANAGER && currentUserRole !== UserRole.HR_MANAGER && currentUserRole !== UserRole.SUPER_ADMIN) {
+      alert("Access Denied: Only Head Office, HR/Finance Manager, or Project Manager can finalize and save master payroll.");
       return;
     }
-    setPayrollRecords(prev => 
-      prev.map(r => ({ ...r, status: "Approved" }))
-    );
-    addAuditLog("Global Payroll Approved", "Approved all compiled draft and pending records.");
-    
-    // Add dynamic notification
-    const newNotif: PayrollNotification = {
-      id: `N-PAY-${Math.floor(100 + Math.random() * 900)}`,
-      type: "approved",
-      recipient: "All",
-      title: "July 2026 Salary Ledgers Approved",
-      message: "Global payroll calculation was officially signed-off by Head Office.",
-      timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
-      read: false
-    };
-    setNotifications(prev => [newNotif, ...prev]);
+    setIsSaving(true);
+    try {
+      const updated = payrollRecords.map(r => ({
+        ...r,
+        status: "Approved" as const,
+        period: "July 2026",
+        employeeId: r.employeeId || r.workerId,
+        updatedAt: new Date().toISOString()
+      }));
+      setPayrollRecords(updated);
+      await DbService.savePayrollRecords(updated);
+      setIsSavedToCloud(true);
+      addAuditLog("Global Payroll Finalized & Persisted", "Approved all payroll records and persisted to Firestore.");
+      setSyncStatusMessage(isAmharic ? "የጁላይ 2026 የደመወዝ መዝገብ በCloud Firestore ላይ ተቀምጧል!" : "July 2026 Master Payroll finalized & persisted to Cloud Firestore!");
+      
+      // Add dynamic notification
+      const newNotif: PayrollNotification = {
+        id: `N-PAY-${Math.floor(100 + Math.random() * 900)}`,
+        type: "approved",
+        recipient: "All",
+        title: "July 2026 Salary Ledgers Approved & Saved",
+        message: "Global payroll calculation was officially signed-off and saved to cloud database.",
+        timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
+        read: false
+      };
+      setNotifications(prev => [newNotif, ...prev]);
+
+      setTimeout(() => setSyncStatusMessage(null), 5000);
+    } catch (err) {
+      console.error("Error saving payroll records to Firestore:", err);
+      alert("Error saving payroll records to cloud database.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDisburseAllPayroll = () => {
-    setPayrollRecords(prev => 
-      prev.map(r => ({ ...r, status: "Paid" }))
-    );
-    addAuditLog("Global Disbursement Triggered", "Marked all payroll records as Paid/Disbursed via bank-link API.");
+  const handleDisburseAllPayroll = async () => {
+    setIsSaving(true);
+    try {
+      const updated = payrollRecords.map(r => ({ 
+        ...r, 
+        status: "Paid" as const, 
+        employeeId: r.employeeId || r.workerId, 
+        updatedAt: new Date().toISOString() 
+      }));
+      setPayrollRecords(updated);
+      await DbService.savePayrollRecords(updated);
+      setIsSavedToCloud(true);
+      addAuditLog("Global Disbursement Triggered", "Marked all payroll records as Paid and persisted to Firestore.");
+      setSyncStatusMessage(isAmharic ? "ሁሉም ክፍያዎች በባንክ እና በCloud Firestore ተመዝግበዋል" : "All disbursements recorded & saved to Cloud Firestore!");
+      setTimeout(() => setSyncStatusMessage(null), 5000);
+    } catch (err) {
+      console.error("Error disbursing payroll:", err);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleRecomputePayroll = () => {
+    if (window.confirm(isAmharic ? "የደመወዝ ስሌቱን እንደገና ከቅርብ ጊዜ የመገኘት መረጃ ለመስራት ይፈልጋሉ?" : "Recompute payroll calculations from live attendance data? This will recalculate draft records.")) {
+      const liveRecords = computeBaselinePayroll(workers, attendance);
+      setPayrollRecords(liveRecords);
+      setIsSavedToCloud(false);
+      addAuditLog("Payroll Recomputed", "Recalculated draft payroll ledger live from biometric attendance data.");
+    }
   };
 
   // Helper to encrypt/mask financial figures for security demonstration
@@ -422,14 +488,6 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       return "•••• ETB";
     }
     return "••••••";
-  };
-
-  const handleLocalBackup = () => {
-    setBackupSuccess("Backup completed successfully! Encrypted package sent to main cloud storage with MD5 Checksum: " + Math.random().toString(16).slice(2, 10).toUpperCase());
-    addAuditLog("Backup Triggered", "Automatic snapshot and SHA-256 backup executed.");
-    setTimeout(() => {
-      setBackupSuccess(null);
-    }, 4500);
   };
 
   // Filters
@@ -489,20 +547,38 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
               <span>{encryptData ? (isAmharic ? "ሚስጥራዊነት የበራ" : "Data Masking On") : (isAmharic ? "የፋይናንስ ደህንነት" : "Mask Financial Data")}</span>
             </button>
 
+            {/* Firestore Cloud Sync Status Indicator */}
+            <div className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 border ${
+              isSavedToCloud 
+                ? "bg-emerald-950/90 text-emerald-400 border-emerald-800/80" 
+                : "bg-amber-950/90 text-amber-400 border-amber-800/80"
+            }`}>
+              <Database size={13} className={isSavedToCloud ? "text-emerald-400" : "text-amber-400"} />
+              <span>
+                {isLoadingCloud 
+                  ? (isAmharic ? "በመጫን ላይ..." : "Checking Cloud Status...")
+                  : isSavedToCloud 
+                    ? (isAmharic ? "በCloud Firestore ተቀምጧል" : "Synced to Cloud Firestore") 
+                    : (isAmharic ? "ያልተቀመጠ ረቂቅ - ለማስቀመጥ አጽድቅ" : "Local draft - click Finalize to save")}
+              </span>
+            </div>
+
             <button
-              onClick={handleLocalBackup}
+              onClick={handleRecomputePayroll}
               className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer"
+              title="Recalculate live from attendance"
             >
-              <Database size={13} className="text-red-500" />
-              <span>{isAmharic ? "መረጃውን አስቀምጥ (Backup)" : "Secure Backup"}</span>
+              <RefreshCw size={13} className="text-slate-400" />
+              <span>{isAmharic ? "እንደገና አስላ" : "Recompute Live"}</span>
             </button>
 
             <button
-              onClick={handleApproveAllPayroll}
-              className="bg-red-600 hover:bg-red-700 text-white shadow-md px-4 py-1.5 rounded-lg text-xs font-black transition-all flex items-center space-x-1.5 cursor-pointer"
+              onClick={handleFinalizePayrollPeriod}
+              disabled={isSaving}
+              className="bg-red-600 hover:bg-red-700 text-white shadow-md px-4 py-1.5 rounded-lg text-xs font-black transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
             >
-              <CheckCircle2 size={13} />
-              <span>{isAmharic ? "ሁሉንም አፅድቅ" : "Approve Master Ledger"}</span>
+              {isSaving ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+              <span>{isAmharic ? "ደመወዝ አጽድቅ እና አስቀምጥ" : "Finalize & Save Roster"}</span>
             </button>
           </div>
         </div>
@@ -576,10 +652,10 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
         </div>
       </div>
 
-      {backupSuccess && (
+      {syncStatusMessage && (
         <div className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl p-4 text-xs font-bold flex items-center space-x-3 shadow-xs animate-pulse">
-          <Database size={16} className="text-emerald-400 shrink-0 animate-spin" />
-          <span>{backupSuccess}</span>
+          <Database size={16} className="text-emerald-400 shrink-0" />
+          <span>{syncStatusMessage}</span>
         </div>
       )}
 
