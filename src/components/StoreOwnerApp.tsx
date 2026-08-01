@@ -475,6 +475,23 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [registeredSitesList, setRegisteredSitesList] = useState<RegisteredSite[]>([]);
   const [loadingDb, setLoadingDb] = useState(true);
 
+  // 15 FIRESTORE-PERSISTED STORE OWNER STATE VARIABLES
+  const [storeItems, setStoreItems] = useState<StoreMaterialItem[]>([]);
+  const [receivingReports, setReceivingReports] = useState<MaterialReceivingReport[]>([]);
+  const [issueRecords, setIssueRecords] = useState<MaterialIssueRecord[]>([]);
+  const [returnRecords, setReturnRecords] = useState<MaterialReturnRecord[]>([]);
+  const [materialRequests, setMaterialRequests] = useState<MaterialRequestItem[]>([]);
+  const [auditRecords, setAuditRecords] = useState<StoreAuditRecord[]>([]);
+  const [truckFleets, setTruckFleets] = useState<TruckFleetItem[]>([]);
+  const [supplierSchedules, setSupplierSchedules] = useState<SupplierDeliverySchedule[]>([]);
+  const [interSiteTransfers, setInterSiteTransfers] = useState<InterSiteTransferVoucher[]>([]);
+  const [sitePanelBreakdowns, setSitePanelBreakdowns] = useState<SitePanelBreakdown[]>([]);
+  const [dailyRequisitions, setDailyRequisitions] = useState<DailyMaterialRequisition[]>([]);
+  const [dailyConsumptionVariances, setDailyConsumptionVariances] = useState<DailyConsumptionVariance[]>([]);
+  const [requisitionAuditLogs, setRequisitionAuditLogs] = useState<RequisitionAuditLog[]>([]);
+  const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([]);
+  const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([]);
+
   const fetchSites = async () => {
     try {
       const sites = await DbService.getRegisteredSites();
@@ -489,13 +506,61 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     const loadStoreData = async () => {
       try {
         setLoadingDb(true);
-        const [panels, sites] = await Promise.all([
+        const [
+          panels,
+          sites,
+          items,
+          recReports,
+          issRecords,
+          retRecords,
+          matRequests,
+          audits,
+          trucks,
+          suppliers,
+          transfers,
+          breakdowns,
+          reqs,
+          variances,
+          reqAuditLogs,
+          dailyReturns,
+          dailyConsolidated
+        ] = await Promise.all([
           DbService.getFormworkPanels(),
-          DbService.getRegisteredSites()
+          DbService.getRegisteredSites(),
+          DbService.getStoreItems(),
+          DbService.getReceivingReports(),
+          DbService.getIssueRecords(),
+          DbService.getReturnRecords(),
+          DbService.getMaterialRequests(),
+          DbService.getAuditRecords(),
+          DbService.getTruckFleets(),
+          DbService.getSupplierSchedules(),
+          DbService.getInterSiteTransfers(),
+          DbService.getSitePanelBreakdowns(),
+          DbService.getDailyRequisitions(),
+          DbService.getDailyConsumptionVariances(),
+          DbService.getRequisitionAuditLogs(),
+          DbService.getDailyReturnReports(),
+          DbService.getDailyConsolidatedReports()
         ]);
         if (active) {
-          setDbPanels(panels || []);
+          if (panels) setDbPanels(panels);
           if (sites) setRegisteredSitesList(sites);
+          if (items) setStoreItems(items);
+          if (recReports) setReceivingReports(recReports);
+          if (issRecords) setIssueRecords(issRecords);
+          if (retRecords) setReturnRecords(retRecords);
+          if (matRequests) setMaterialRequests(matRequests);
+          if (audits) setAuditRecords(audits);
+          if (trucks) setTruckFleets(trucks);
+          if (suppliers) setSupplierSchedules(suppliers);
+          if (transfers) setInterSiteTransfers(transfers);
+          if (breakdowns) setSitePanelBreakdowns(breakdowns);
+          if (reqs) setDailyRequisitions(reqs);
+          if (variances) setDailyConsumptionVariances(variances);
+          if (reqAuditLogs) setRequisitionAuditLogs(reqAuditLogs);
+          if (dailyReturns) setDailyReturnReports(dailyReturns);
+          if (dailyConsolidated) setDailyConsolidatedReports(dailyConsolidated);
           setLoadingDb(false);
         }
       } catch (err) {
@@ -517,458 +582,6 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       window.removeEventListener("storage", handleSync);
     };
   }, []);
-
-  // MASTER INVENTORY DATA (10 Categories)
-  const [storeItems, setStoreItems] = useState<StoreMaterialItem[]>([
-    { id: "MAT-001", category: "Cement", name: "Dangote OPC 42.5N Cement", code: "CEM-OPC-50", dimensions: "50kg Bag", unit: "Bags", totalStock: 1200, availableStock: 1050, reservedStock: 150, minThreshold: 300, warehouseLocation: "Store Shed A1", status: "In Stock" },
-    { id: "MAT-002", category: "Rebar", name: "High Tensile Deformed Steel Bar 16mm", code: "ST-REB-16", dimensions: "12m Length", unit: "Pcs", totalStock: 850, availableStock: 780, reservedStock: 70, minThreshold: 200, warehouseLocation: "Yard Bay 3", status: "In Stock" },
-    { id: "MAT-003", category: "Aluminum Panels", name: "Standard Wall Panel 1200x600", code: "AL-PNL-1260", dimensions: "1200mm x 600mm", unit: "Pcs", totalStock: 450, availableStock: 390, reservedStock: 60, minThreshold: 100, warehouseLocation: "Formwork Rack B1", status: "In Stock" },
-    { id: "MAT-004", category: "Beams", name: "H20 Timber Formwork Beam", code: "BM-H20-29", dimensions: "2.9m Length", unit: "Pcs", totalStock: 320, availableStock: 280, reservedStock: 40, minThreshold: 80, warehouseLocation: "Store Shed B2", status: "In Stock" },
-    { id: "MAT-005", category: "Props", name: "Heavy Duty Adjustable Steel Prop 3.5m", code: "PRP-STL-35", dimensions: "2.0m - 3.5m", unit: "Pcs", totalStock: 600, availableStock: 520, reservedStock: 80, minThreshold: 150, warehouseLocation: "Yard Bay 1", status: "In Stock" },
-    { id: "MAT-006", category: "Brackets", name: "K-Plate & Wall Tie Assembly", code: "BRK-KPL-01", dimensions: "Standard", unit: "Sets", totalStock: 2500, availableStock: 2100, reservedStock: 400, minThreshold: 500, warehouseLocation: "Bins C1-C4", status: "In Stock" },
-    { id: "MAT-007", category: "Plywood", name: "Film Faced Shuttering Plywood 18mm", code: "PLY-FLM-18", dimensions: "2440x1220mm", unit: "Sheets", totalStock: 180, availableStock: 45, reservedStock: 135, minThreshold: 60, warehouseLocation: "Store Shed A2", status: "Low Stock" },
-    { id: "MAT-008", category: "Tools", name: "Bosch Heavy Rotary Hammer Drill", code: "TL-DRILL-02", dimensions: "1100W SDS-Plus", unit: "Units", totalStock: 14, availableStock: 12, reservedStock: 2, minThreshold: 5, warehouseLocation: "Tool Vault 1", status: "In Stock" },
-    { id: "MAT-009", category: "Consumables", name: "Formwork Release Oil / Mould Agent", code: "CNS-OIL-200", dimensions: "200L Drum", unit: "Drums", totalStock: 8, availableStock: 2, reservedStock: 6, minThreshold: 3, warehouseLocation: "Chemical Shed", status: "Low Stock" },
-    { id: "MAT-010", category: "Spare Parts", name: "Panel Alignment Pin & Wedge Sets", code: "SPR-PIN-WDG", dimensions: "Box of 200", unit: "Boxes", totalStock: 45, availableStock: 38, reservedStock: 7, minThreshold: 10, warehouseLocation: "Bins D1", status: "In Stock" }
-  ]);
-
-  // MATERIAL RECEIVING REPORTS
-  const [receivingReports, setReceivingReports] = useState<MaterialReceivingReport[]>([
-    {
-      id: "REC-2026-101",
-      materialName: "Standard Wall Panel 1200x600",
-      materialType: "Aluminum Formwork",
-      dimensions: "1200x600mm",
-      quantity: 120,
-      unit: "Pcs",
-      source: "Warehouse",
-      batchNumber: "BATCH-2026-AL08",
-      bundleNumber: "BNDL-402",
-      serialNumber: "SN-AL-8890-8910",
-      qrCode: "QR-REC-101-AL",
-      deliveryDate: "2026-07-20 09:30",
-      driverName: "Getachew Zewde",
-      truckPlate: "ET-3-89021",
-      gpsLocation: "9.0102° N, 38.7612° E (Bole Site Store)",
-      receivedBy: "Abebe Storekeeper",
-      signatureSigned: true,
-      photoUploaded: true
-    },
-    {
-      id: "REC-2026-102",
-      materialName: "Dangote OPC 42.5N Cement",
-      materialType: "Cement",
-      dimensions: "50kg Bags",
-      quantity: 400,
-      unit: "Bags",
-      source: "Supplier",
-      batchNumber: "CEM-DANG-092",
-      bundleNumber: "PALLET-12",
-      serialNumber: "N/A",
-      qrCode: "QR-REC-102-CEM",
-      deliveryDate: "2026-07-21 08:15",
-      driverName: "Teshome Bikila",
-      truckPlate: "ET-3-44102",
-      gpsLocation: "9.0102° N, 38.7612° E",
-      receivedBy: "Abebe Storekeeper",
-      signatureSigned: true,
-      photoUploaded: true
-    }
-  ]);
-
-  // MATERIAL ISSUE RECORDS
-  const [issueRecords, setIssueRecords] = useState<MaterialIssueRecord[]>([
-    {
-      id: "ISS-2026-301",
-      receiverName: "Alemayehu Kebede",
-      receiverRole: "Section Head",
-      department: "Structural Civil Team",
-      siteName: "Bole Heights Phase I",
-      building: "Building A",
-      floor: "Floor 4",
-      zone: "Zone 2",
-      materialName: "K-Plate & Wall Tie Assembly",
-      quantity: 350,
-      unit: "Sets",
-      issueDate: "2026-07-21 10:00",
-      qrScanned: true,
-      gpsLocation: "9.0105° N, 38.7615° E",
-      signatureSigned: true
-    },
-    {
-      id: "ISS-2026-302",
-      receiverName: "Fikru Tolossa",
-      receiverRole: "Gang Chief",
-      department: "Formwork Gang B",
-      siteName: "Bole Heights Phase I",
-      building: "Building A",
-      floor: "Floor 4",
-      zone: "Zone 1",
-      materialName: "Heavy Duty Adjustable Steel Prop 3.5m",
-      quantity: 80,
-      unit: "Pcs",
-      issueDate: "2026-07-21 11:20",
-      qrScanned: true,
-      gpsLocation: "9.0105° N, 38.7615° E",
-      signatureSigned: true
-    }
-  ]);
-
-  // MATERIAL RETURN RECORDS
-  const [returnRecords, setReturnRecords] = useState<MaterialReturnRecord[]>([
-    {
-      id: "RET-2026-05",
-      materialName: "Standard Wall Panel 1200x600",
-      quantity: 24,
-      returnedBy: "Kassa Hunegn (Supervisor)",
-      condition: "Needs Cleaning",
-      returnDate: "2026-07-20 16:45",
-      notes: "Concrete slurry residue on face. Sent to cleaning station."
-    },
-    {
-      id: "RET-2026-06",
-      materialName: "Heavy Duty Adjustable Steel Prop 3.5m",
-      quantity: 4,
-      returnedBy: "Yohannes Bekele (Team Leader)",
-      condition: "Needs Repair",
-      returnDate: "2026-07-21 09:10",
-      notes: "Pin thread bent during stripping. Maintenance scheduled."
-    }
-  ]);
-
-  // MATERIAL REQUEST WORKFLOW
-  const [materialRequests, setMaterialRequests] = useState<MaterialRequestItem[]>([
-    {
-      id: "REQ-2026-88",
-      requesterName: "Sintayehu Alula",
-      requesterRole: "Site Engineer",
-      siteName: "Bole Heights Phase I",
-      building: "Building B",
-      floor: "Floor 2",
-      zone: "Zone 1",
-      materialName: "Film Faced Shuttering Plywood 18mm",
-      requestedQty: 30,
-      unit: "Sheets",
-      purpose: "Beam side shuttering for high span slab",
-      status: "Pending",
-      requestDate: "2026-07-21 08:30"
-    },
-    {
-      id: "REQ-2026-89",
-      requesterName: "Fikru Tolossa",
-      requesterRole: "Gang Chief",
-      siteName: "Bole Heights Phase I",
-      building: "Building A",
-      floor: "Floor 5",
-      zone: "Zone 1",
-      materialName: "Panel Alignment Pin & Wedge Sets",
-      requestedQty: 5,
-      unit: "Boxes",
-      purpose: "Wall formwork locking hardware",
-      status: "Approved",
-      requestDate: "2026-07-21 09:15"
-    }
-  ]);
-
-  // STORE AUDIT RECORDS
-  const [auditRecords, setAuditRecords] = useState<StoreAuditRecord[]>([
-    {
-      id: "AUD-2026-01",
-      auditType: "Daily Count",
-      itemName: "Dangote OPC 42.5N Cement",
-      physicalCount: 1200,
-      systemCount: 1200,
-      discrepancy: 0,
-      auditorName: "Internal Auditor Girma",
-      auditDate: "2026-07-21 07:00",
-      status: "Balanced"
-    },
-    {
-      id: "AUD-2026-02",
-      auditType: "Weekly Count",
-      itemName: "K-Plate & Wall Tie Assembly",
-      physicalCount: 2480,
-      systemCount: 2500,
-      discrepancy: -20,
-      auditorName: "Store Manager Abebe",
-      auditDate: "2026-07-20 18:00",
-      status: "Discrepancy Detected"
-    }
-  ]);
-
-  // WAREHOUSE MANAGER DASHBOARD STATES
-  const [truckFleets, setTruckFleets] = useState<TruckFleetItem[]>([
-    {
-      id: "TRK-101",
-      truckPlate: "ET-3-11029",
-      driverName: "Mulugeta Tadesse",
-      driverPhone: "+251-911-203940",
-      cargoType: "Dangote OPC Cement & Steel Props",
-      cargoQty: "500 Bags + 50 Props",
-      origin: "Central Warehouse Yard 01",
-      destination: "Bole Heights Phase 1 Site Store",
-      status: "En Route",
-      speedKmH: 42,
-      eta: "14:30 (In 15 Mins)",
-      departureTime: "13:10",
-      routeProgress: 75,
-      gpsCoordinates: "9.0211° N, 38.7502° E",
-      gatePassId: "GP-882-ET11029"
-    },
-    {
-      id: "TRK-102",
-      truckPlate: "ET-3-89021",
-      driverName: "Getachew Zewde",
-      driverPhone: "+251-912-883019",
-      cargoType: "Aluminum Wall Panels (1200x600)",
-      cargoQty: "120 Pcs",
-      origin: "Central Warehouse Yard 01",
-      destination: "Saris Project Site Store",
-      status: "At Gate",
-      speedKmH: 0,
-      eta: "Arrived at Gate",
-      departureTime: "12:30",
-      routeProgress: 100,
-      gpsCoordinates: "8.9890° N, 38.7420° E",
-      gatePassId: "GP-883-ET89021"
-    },
-    {
-      id: "TRK-103",
-      truckPlate: "ET-3-44102",
-      driverName: "Teshome Bikila",
-      driverPhone: "+251-913-445012",
-      cargoType: "Deformed Steel Rebar 16mm",
-      cargoQty: "40 Tons",
-      origin: "Akaki Steel Yard Depot",
-      destination: "Central Warehouse Yard 01",
-      status: "En Route",
-      speedKmH: 55,
-      eta: "15:00 (In 35 Mins)",
-      departureTime: "13:45",
-      routeProgress: 45,
-      gpsCoordinates: "8.9500° N, 38.7900° E",
-      gatePassId: "GP-884-ET44102"
-    },
-    {
-      id: "TRK-104",
-      truckPlate: "ET-3-99201",
-      driverName: "Kifle Worku",
-      driverPhone: "+251-914-771102",
-      cargoType: "Film Faced Shuttering Plywood 18mm",
-      cargoQty: "300 Sheets",
-      origin: "Central Warehouse Yard 01",
-      destination: "Mercato Tower Project Site",
-      status: "Loading",
-      speedKmH: 0,
-      eta: "Departing 14:45",
-      departureTime: "14:45",
-      routeProgress: 10,
-      gpsCoordinates: "9.0300° N, 38.7400° E",
-      gatePassId: "GP-885-ET99201"
-    }
-  ]);
-
-  const [supplierSchedules, setSupplierSchedules] = useState<SupplierDeliverySchedule[]>([
-    {
-      id: "SUP-2026-401",
-      poNumber: "PO-2026-8801",
-      supplierName: "Meso Metal & Aluminum Mfg PLC",
-      materialName: "Aluminum Formwork Accessories (Pins & Wedges)",
-      quantity: 5000,
-      unit: "Sets",
-      expectedArrival: "Today 15:30",
-      deliveryBay: "Central Yard Bay B",
-      contactPerson: "Ato Tadesse",
-      phone: "+251-911-334455",
-      status: "En Route",
-      gatePassCode: "GP-SUP-401"
-    },
-    {
-      id: "SUP-2026-402",
-      poNumber: "PO-2026-8802",
-      supplierName: "Derba MIDROC Cement PLC",
-      materialName: "OPC 42.5N Cement Bags",
-      quantity: 600,
-      unit: "Bags",
-      expectedArrival: "Today 16:30",
-      deliveryBay: "Central Yard Bay A",
-      contactPerson: "Ato Yonas",
-      phone: "+251-912-556677",
-      status: "Scheduled",
-      gatePassCode: "GP-SUP-402"
-    }
-  ]);
-
-  const [interSiteTransfers, setInterSiteTransfers] = useState<InterSiteTransferVoucher[]>([
-    {
-      id: "TRF-2026-001",
-      voucherNo: "TRF-VO-9901",
-      sourceSite: "Central Warehouse Yard",
-      destinationSite: "Bole Heights Site Store",
-      materialName: "H20 Timber Formwork Beams 2.9m",
-      quantity: 320,
-      unit: "Pcs",
-      driverName: "Mulugeta Tadesse",
-      truckPlate: "ET-3-11029",
-      transferDate: "2026-07-21 13:10",
-      status: "In Transit",
-      approvedBy: "Eng. Dawit Tesfaye (Warehouse Mgr)",
-      notes: "High priority slab casting transfer"
-    },
-    {
-      id: "TRF-2026-002",
-      voucherNo: "TRF-VO-9902",
-      sourceSite: "Central Warehouse Yard",
-      destinationSite: "Saris Project Site Store",
-      materialName: "Aluminum Wall Panels 1200x600",
-      quantity: 120,
-      unit: "Pcs",
-      driverName: "Getachew Zewde",
-      truckPlate: "ET-3-89021",
-      transferDate: "2026-07-21 12:30",
-      status: "Dispatched",
-      approvedBy: "Eng. Dawit Tesfaye (Warehouse Mgr)",
-      notes: "Core wall shuttering package"
-    },
-    {
-      id: "TRF-2026-003",
-      voucherNo: "TRF-VO-9903",
-      sourceSite: "Saris Project Site Store",
-      destinationSite: "Mercato Project Site Store",
-      materialName: "Adjustable Heavy Duty Steel Props 3.5m",
-      quantity: 150,
-      unit: "Pcs",
-      driverName: "Hailemariam Assefa",
-      truckPlate: "ET-3-33201",
-      transferDate: "2026-07-21 10:15",
-      status: "Verified & Received",
-      approvedBy: "Eng. Solomon Tadesse (Project Mgr)",
-      notes: "Inter-site redistribution verified at gate"
-    },
-    {
-      id: "TRF-2026-004",
-      voucherNo: "TRF-VO-9904",
-      sourceSite: "Central Warehouse Yard",
-      destinationSite: "Kazanchis Commercial Hub",
-      materialName: "K-Plate & Wall Tie Assembly Sets",
-      quantity: 500,
-      unit: "Sets",
-      driverName: "Tewodros Kassaye",
-      truckPlate: "ET-3-77402",
-      transferDate: "2026-07-21 14:00",
-      status: "Pending Approval",
-      approvedBy: "Pending HQ Verification"
-    }
-  ]);
-
-  // CROSS-SITE FORMWORK PANEL & ACCESSORIES BREAKDOWN STATE
-  const [sitePanelBreakdowns, setSitePanelBreakdowns] = useState<SitePanelBreakdown[]>([
-    {
-      id: "SPB-001",
-      siteName: "Bole Heights Phase I",
-      panelType: "Standard Wall Panel 1200x600",
-      dimensions: "1200mm x 600mm",
-      totalAllocated: 450,
-      installedCount: 320,
-      inStoreCount: 110,
-      damagedCount: 12,
-      inTransitCount: 0,
-      missingCount: 8,
-      conditionScore: 95.5,
-      lastReportDate: "2026-07-22 08:30",
-      lastReporter: "Alemayehu Kebede (Section Head)"
-    },
-    {
-      id: "SPB-002",
-      siteName: "Bole Heights Phase I",
-      panelType: "Column Panel 1200x400",
-      dimensions: "1200mm x 400mm",
-      totalAllocated: 280,
-      installedCount: 210,
-      inStoreCount: 62,
-      damagedCount: 5,
-      inTransitCount: 0,
-      missingCount: 3,
-      conditionScore: 96.8,
-      lastReportDate: "2026-07-22 08:30",
-      lastReporter: "Fikru Tolossa (Gang Chief)"
-    },
-    {
-      id: "SPB-003",
-      siteName: "Kazanchis Financial Tower",
-      panelType: "Standard Wall Panel 1200x600",
-      dimensions: "1200mm x 600mm",
-      totalAllocated: 600,
-      installedCount: 480,
-      inStoreCount: 95,
-      damagedCount: 15,
-      inTransitCount: 0,
-      missingCount: 10,
-      conditionScore: 94.2,
-      lastReportDate: "2026-07-22 09:15",
-      lastReporter: "Kassa Hunegn (Supervisor)"
-    },
-    {
-      id: "SPB-004",
-      siteName: "Kazanchis Financial Tower",
-      panelType: "Deck Panel 1200x600",
-      dimensions: "1200mm x 600mm",
-      totalAllocated: 520,
-      installedCount: 400,
-      inStoreCount: 100,
-      damagedCount: 12,
-      inTransitCount: 0,
-      missingCount: 8,
-      conditionScore: 95.0,
-      lastReportDate: "2026-07-22 09:15",
-      lastReporter: "Yohannes Bekele (Team Leader)"
-    },
-    {
-      id: "SPB-005",
-      siteName: "Gotera Interchange Project",
-      panelType: "Standard Wall Panel 1200x600",
-      dimensions: "1200mm x 600mm",
-      totalAllocated: 380,
-      installedCount: 260,
-      inStoreCount: 90,
-      damagedCount: 18,
-      inTransitCount: 10,
-      missingCount: 2,
-      conditionScore: 92.8,
-      lastReportDate: "2026-07-21 17:00",
-      lastReporter: "Birhanu Tesfa (Gang Chief)"
-    },
-    {
-      id: "SPB-006",
-      siteName: "CMC Residential Complex",
-      panelType: "Inner Corner Profile 1200x150",
-      dimensions: "1200mm x 150mm",
-      totalAllocated: 200,
-      installedCount: 150,
-      inStoreCount: 42,
-      damagedCount: 6,
-      inTransitCount: 0,
-      missingCount: 2,
-      conditionScore: 96.0,
-      lastReportDate: "2026-07-21 16:45",
-      lastReporter: "Chala Bekele (Gang Chief)"
-    },
-    {
-      id: "SPB-007",
-      siteName: "Kilinto Industrial Zone",
-      panelType: "Alignment Pin & Wedge Sets",
-      dimensions: "16mm Heavy Duty",
-      totalAllocated: 1500,
-      installedCount: 1100,
-      inStoreCount: 320,
-      damagedCount: 45,
-      inTransitCount: 0,
-      missingCount: 35,
-      conditionScore: 91.5,
-      lastReportDate: "2026-07-21 18:00",
-      lastReporter: "Abebe Kebede (Site Store Owner)"
-    }
-  ]);
 
   const [sitePanelFilterSite, setSitePanelFilterSite] = useState<string>("ALL");
   const [sitePanelFilterType, setSitePanelFilterType] = useState<string>("ALL");
@@ -1017,154 +630,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     }
   ]);
 
-  // DAILY MATERIAL REQUISITION STATE (Morning Requisitions)
-  const [dailyRequisitions, setDailyRequisitions] = useState<DailyMaterialRequisition[]>([
-    {
-      id: "REQ-20260722-001",
-      date: "2026-07-22",
-      requestedAt: "06:15 AM",
-      projectName: "Bole Heights Commercial Tower",
-      siteName: "Bole Heights Phase I",
-      buildingNumber: "Bldg 01",
-      blockNumber: "Block A",
-      floorNumber: "Floor 4",
-      zoneNumber: "Zone 2",
-      requestedBy: "Fikru Tolossa",
-      employeeId: "EMP-4091",
-      jobPosition: "Gang Chief",
-      submissionMode: "Mobile App",
-      materialName: "Aluminum Formwork Pin & Wedge Set (16mm)",
-      materialType: "Formwork Accessory",
-      materialSize: "16mm Heavy Duty",
-      unit: "Sets",
-      quantityRequested: 400,
-      quantityIssued: 400,
-      purposeOfUse: "Wall formwork assembly for Zone 2 shear wall concrete pour",
-      workType: "Wall",
-      priority: "Normal",
-      expectedReturnDate: "2026-07-23",
-      status: "Approved",
-      approvedBy: "Eng. Kassa Hunegn (Supervisor)",
-      issuedBy: "Abebe Storekeeper",
-      stockAvailability: "In Stock",
-      qrScanVerified: true,
-      receiverSignature: "Signed (Fikru Tolossa - Fingerprint Auth)",
-      gpsLocation: "8.9806° N, 38.7578° E",
-      pinsQty: 150,
-      wedgesQty: 250,
-      tieRodsQty: 80,
-      conduitsQty: 40,
-      blocksQty: 0,
-      floorItemsQty: 30,
-      notes: "High priority wall formwork erection for Zone 2 concrete pouring"
-    },
-    {
-      id: "REQ-20260722-002",
-      date: "2026-07-22",
-      requestedAt: "06:45 AM",
-      projectName: "Kazanchis Financial Tower",
-      siteName: "Kazanchis Financial Tower",
-      buildingNumber: "Tower 01",
-      blockNumber: "Block 1",
-      floorNumber: "Floor 8",
-      zoneNumber: "Zone 1",
-      requestedBy: "Tiruneh Girma",
-      employeeId: "EMP-5102",
-      jobPosition: "Team Leader",
-      submissionMode: "Tablet",
-      materialName: "High Strength Tie Rods 1200mm & Waterstop Nuts",
-      materialType: "Formwork Accessory",
-      materialSize: "1200mm x 16mm",
-      unit: "Pcs",
-      quantityRequested: 250,
-      quantityIssued: 0,
-      purposeOfUse: "Slab formwork decking & prop bracing for heavy beam casting",
-      workType: "Slab",
-      priority: "Urgent",
-      expectedReturnDate: "2026-07-24",
-      status: "Pending Approval",
-      approvedBy: "Awaiting Supervisor & Section Head Approval",
-      issuedBy: "Pending",
-      stockAvailability: "In Stock",
-      qrScanVerified: false,
-      receiverSignature: "Pending Signature",
-      gpsLocation: "9.0182° N, 38.7631° E",
-      pinsQty: 200,
-      wedgesQty: 350,
-      tieRodsQty: 120,
-      conduitsQty: 60,
-      blocksQty: 0,
-      floorItemsQty: 50,
-      notes: "Slab formwork decking & prop bracing"
-    }
-  ]);
-
-  // DAILY END-OF-DAY CONSUMPTION VARIANCE STATE
-  const [dailyConsumptionVariances, setDailyConsumptionVariances] = useState<DailyConsumptionVariance[]>([
-    {
-      id: "VAR-20260722-01",
-      requisitionId: "REQ-20260722-001",
-      date: "2026-07-22",
-      siteName: "Bole Heights Phase I",
-      blockNumber: "Block A",
-      floorNumber: "Floor 4",
-      materialName: "Aluminum Formwork Pin & Wedge Set",
-      jobPosition: "Gang Chief",
-      requestedBy: "Fikru Tolossa",
-      quantityRequested: 400,
-      quantityIssued: 400,
-      quantityUsed: 385,
-      quantityReturned: 10,
-      quantityLost: 3,
-      quantityDamaged: 2,
-      quantityRemaining: 0,
-      varianceQty: 0,
-      variancePercent: 1.25,
-      varianceStatus: "Acceptable Tolerance",
-      reportedBy: "Fikru Tolossa (Gang Chief)",
-      verifiedByStorekeeper: true
-    }
-  ]);
-
-  // PERMANENT REQUISITION AUDIT LOG STATE
-  const [requisitionAuditLogs, setRequisitionAuditLogs] = useState<RequisitionAuditLog[]>([
-    {
-      id: "AUD-REQ-901",
-      requisitionId: "REQ-20260722-001",
-      action: "REQUEST_CREATED",
-      performedBy: "Fikru Tolossa (EMP-4091)",
-      jobPosition: "Gang Chief",
-      timestamp: "2026-07-22 06:15:22",
-      gpsLocation: "8.9806° N, 38.7578° E",
-      digitalSignature: "SIG-ETH-88201-OK",
-      details: "Created requisition REQ-20260722-001 for 400 Pcs Pin & Wedge Sets (Mobile App)",
-      ledgerDelta: "0 Pcs (Pending Approval)"
-    },
-    {
-      id: "AUD-REQ-902",
-      requisitionId: "REQ-20260722-001",
-      action: "APPROVAL_GRANTED",
-      performedBy: "Eng. Kassa Hunegn (EMP-2010)",
-      jobPosition: "Supervisor",
-      timestamp: "2026-07-22 06:22:10",
-      gpsLocation: "8.9806° N, 38.7578° E",
-      digitalSignature: "SIG-ETH-99302-SUP",
-      details: "Supervisor approved requisition REQ-20260722-001 after stock verification",
-      ledgerDelta: "400 Pcs Reserved in Site Store"
-    },
-    {
-      id: "AUD-REQ-903",
-      requisitionId: "REQ-20260722-001",
-      action: "MATERIAL_ISSUED_QR",
-      performedBy: "Abebe Storekeeper (EMP-1002)",
-      jobPosition: "Store Owner",
-      timestamp: "2026-07-22 06:30:45",
-      gpsLocation: "8.9806° N, 38.7578° E",
-      digitalSignature: "SIG-ETH-77401-STORE",
-      details: "Materials issued via Bluetooth Barcode Scanner & receiver fingerprint signature captured. Live notification sent to HQ & Warehouse.",
-      ledgerDelta: "-400 Pcs Site Store Stock"
-    }
-  ]);
+  // EVENING DISMANTLING & RETURN REPORT STATE
+  const [selectedPhotoReturn, setSelectedPhotoReturn] = useState<DailyReturnReport | null>(null);
 
   const [showNewRequisitionModal, setShowNewRequisitionModal] = useState(false);
   const [newReqForm, setNewReqForm] = useState({
@@ -1197,100 +664,6 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   });
 
   // EVENING DISMANTLING & RETURN REPORT STATE
-  const [selectedPhotoReturn, setSelectedPhotoReturn] = useState<DailyReturnReport | null>(null);
-  const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([
-    {
-      id: "RET-20260721-001",
-      requisitionId: "REQ-20260721-098",
-      date: "2026-07-21",
-      siteName: "Bole Heights Phase I",
-      blockNumber: "Block A",
-      floorNumber: "Floor 3",
-      gangChiefName: "Fikru Tolossa",
-      siteStoreOwnerName: "Abebe Storekeeper",
-      status: "With Damage",
-      pinsReturned: 142,
-      pinsLost: 5,
-      pinsDamaged: 3,
-      wedgesReturned: 240,
-      wedgesLost: 8,
-      wedgesDamaged: 2,
-      tieRodsReturned: 75,
-      tieRodsLost: 3,
-      tieRodsDamaged: 2,
-      conduitsReturned: 38,
-      conduitsLost: 1,
-      conduitsDamaged: 1,
-      damageDescription: "2 Tie rods bent during wedge pin removal. 3 pins head mushroomed.",
-      photoUploaded: true,
-      photoEvidence: true,
-      photoUrl: "https://images.unsplash.com/photo-1541888946425-d81bb19240f5?w=800&auto=format&fit=crop",
-      gangChiefSigned: true,
-      storeOwnerSigned: true,
-      returnedAt: "05:45 PM"
-    },
-    {
-      id: "RET-20260722-002",
-      requisitionId: "REQ-20260722-104",
-      date: "2026-07-22",
-      siteName: "Kazanchis Financial Tower",
-      blockNumber: "Block B",
-      floorNumber: "Floor 6",
-      gangChiefName: "Yosef Assefa",
-      siteStoreOwnerName: "Abebe Storekeeper",
-      status: "With Damage",
-      pinsReturned: 180,
-      pinsLost: 2,
-      pinsDamaged: 4,
-      wedgesReturned: 310,
-      wedgesLost: 4,
-      wedgesDamaged: 1,
-      tieRodsReturned: 90,
-      tieRodsLost: 1,
-      tieRodsDamaged: 3,
-      conduitsReturned: 45,
-      conduitsLost: 0,
-      conduitsDamaged: 2,
-      damageDescription: "Micro-fracture detected on 4 pins after concrete stripping cycle.",
-      photoUploaded: true,
-      photoEvidence: true,
-      photoUrl: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop",
-      gangChiefSigned: true,
-      storeOwnerSigned: true,
-      returnedAt: "05:15 PM"
-    },
-    {
-      id: "RET-20260722-003",
-      requisitionId: "REQ-20260722-108",
-      date: "2026-07-22",
-      siteName: "Gotera Interchange Project",
-      blockNumber: "Section 1",
-      floorNumber: "Pier 2",
-      gangChiefName: "Tadesse Melaku",
-      siteStoreOwnerName: "Abebe Storekeeper",
-      status: "Fully Returned",
-      pinsReturned: 120,
-      pinsLost: 0,
-      pinsDamaged: 0,
-      wedgesReturned: 200,
-      wedgesLost: 0,
-      wedgesDamaged: 0,
-      tieRodsReturned: 60,
-      tieRodsLost: 0,
-      tieRodsDamaged: 0,
-      conduitsReturned: 30,
-      conduitsLost: 0,
-      conduitsDamaged: 0,
-      damageDescription: "All formwork accessories dismantled in pristine condition.",
-      photoUploaded: true,
-      photoEvidence: true,
-      photoUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop",
-      gangChiefSigned: true,
-      storeOwnerSigned: true,
-      returnedAt: "05:50 PM"
-    }
-  ]);
-
   const [showNewReturnModal, setShowNewReturnModal] = useState(false);
   const [newReturnForm, setNewReturnForm] = useState({
     requisitionId: "REQ-20260722-001",
@@ -1363,6 +736,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     };
 
     setDailyRequisitions(prev => [newReq, ...prev]);
+    DbService.saveDailyRequisition(newReq);
 
     // Append Audit Trail
     const newAudit: RequisitionAuditLog = {
@@ -1378,6 +752,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       ledgerDelta: requiresApproval ? "0 Pcs (Pending Approval)" : `-${newReqForm.quantityRequested} Pcs Reserved`
     };
     setRequisitionAuditLogs(prev => [newAudit, ...prev]);
+    DbService.saveRequisitionAuditLog(newAudit);
 
     setShowNewRequisitionModal(false);
     onLogAction?.("Morning Requisition Created", `Submitted morning requisition ${newReq.id} for ${newReq.blockNumber} ${newReq.floorNumber} by ${newReq.jobPosition} ${newReq.requestedBy}`);
@@ -1416,41 +791,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       returnedAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
     setDailyReturnReports(prev => [newRet, ...prev]);
+    DbService.saveDailyReturnReport(newRet);
     setShowNewReturnModal(false);
     onLogAction?.("Evening Return Audit Logged", `Logged dismantling return audit ${newRet.id} for requisition ${newRet.requisitionId}`);
   };
-
-  // DAILY CONSOLIDATED AUTO-REPORTS STATE (Transmitted live to Warehouse & HQ)
-  const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([
-    {
-      id: "DCR-20260721-BOLE",
-      date: "2026-07-21",
-      siteName: "Bole Heights Phase I",
-      projectName: "Commercial Tower & Apartments",
-      siteStoreOwner: "Abebe Storekeeper",
-      totalRequisitions: 8,
-      totalReturns: 8,
-      totalItemsIssued: 1450,
-      totalItemsReturned: 1395,
-      totalItemsLost: 35,
-      totalItemsDamaged: 20,
-      totalLossValueETB: 14500,
-      totalDamageValueETB: 8200,
-      sentToWarehouseAt: "2026-07-21 18:30",
-      sentToHeadOfficeAt: "2026-07-21 18:30",
-      syncStatus: "Auto-Synced to HQ & Warehouse",
-      materialSummaries: [
-        { materialName: "Pins (ፒን 16mm)", openingStock: 500, received: 200, issued: 150, returned: 142, lost: 5, damaged: 3, closingStock: 490, unit: "Pcs" },
-        { materialName: "Wedges (ዌጅ Standard)", openingStock: 800, received: 300, issued: 250, returned: 240, lost: 8, damaged: 2, closingStock: 840, unit: "Pcs" },
-        { materialName: "Tie Rods (ታይሮድ 1.5m)", openingStock: 200, received: 100, issued: 80, returned: 75, lost: 3, damaged: 2, closingStock: 215, unit: "Pcs" },
-        { materialName: "Conduits (ኮንድት PVC)", openingStock: 150, received: 50, issued: 40, returned: 38, lost: 1, damaged: 1, closingStock: 159, unit: "Pcs" }
-      ],
-      blockSummaries: [
-        { blockNumber: "Block A", pinsIssued: 80, pinsLost: 3, wedgesIssued: 130, wedgesLost: 4, tieRodsIssued: 45, tieRodsLost: 2, blocksUsed: 150 },
-        { blockNumber: "Block B", pinsIssued: 70, pinsLost: 2, wedgesIssued: 120, wedgesLost: 4, tieRodsIssued: 35, tieRodsLost: 1, blocksUsed: 150 }
-      ]
-    }
-  ]);
 
   // WAREHOUSE DASHBOARD SEARCH & FILTERS
   const [warehouseSearch, setWarehouseSearch] = useState("");
@@ -1496,45 +840,74 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   // WAREHOUSE MANAGER ACTIONS & SIMULATIONS
   const handleSimulateFleetMovement = () => {
-    setTruckFleets(prev => prev.map(trk => {
-      if (trk.status === "En Route") {
-        const nextProgress = Math.min(100, trk.routeProgress + 15);
-        const nextStatus = nextProgress >= 100 ? "At Gate" : "En Route";
-        return {
-          ...trk,
-          routeProgress: nextProgress,
-          status: nextStatus,
-          speedKmH: nextProgress >= 100 ? 0 : Math.floor(35 + Math.random() * 25),
-          eta: nextProgress >= 100 ? "Arrived at Gate" : `In ${Math.max(2, 20 - Math.floor(nextProgress / 5))} Mins`
-        };
-      }
-      return trk;
-    }));
+    setTruckFleets(prev => {
+      const updated = prev.map(trk => {
+        if (trk.status === "En Route") {
+          const nextProgress = Math.min(100, trk.routeProgress + 15);
+          const nextStatus = nextProgress >= 100 ? "At Gate" : "En Route";
+          return {
+            ...trk,
+            routeProgress: nextProgress,
+            status: nextStatus,
+            speedKmH: nextProgress >= 100 ? 0 : Math.floor(35 + Math.random() * 25),
+            eta: nextProgress >= 100 ? "Arrived at Gate" : `In ${Math.max(2, 20 - Math.floor(nextProgress / 5))} Mins`
+          };
+        }
+        return trk;
+      });
+      DbService.saveTruckFleets(updated);
+      return updated;
+    });
     onLogAction?.("Fleet Telemetry Updated", "Updated live GPS progression for trucks en route");
   };
 
   const handleMarkTruckAtGate = (truckId: string) => {
-    setTruckFleets(prev => prev.map(t => t.id === truckId ? { ...t, status: "At Gate", routeProgress: 100, speedKmH: 0, eta: "Arrived at Gate" } : t));
+    setTruckFleets(prev => {
+      const updated = prev.map(t => t.id === truckId ? { ...t, status: "At Gate" as const, routeProgress: 100, speedKmH: 0, eta: "Arrived at Gate" } : t);
+      const target = updated.find(t => t.id === truckId);
+      if (target) DbService.saveTruckFleet(target);
+      return updated;
+    });
     onLogAction?.("Truck Gate Arrival", `Truck ${truckId} marked as arrived at gate.`);
   };
 
   const handleMarkTruckDelivered = (truckId: string) => {
-    setTruckFleets(prev => prev.map(t => t.id === truckId ? { ...t, status: "Delivered", speedKmH: 0 } : t));
+    setTruckFleets(prev => {
+      const updated = prev.map(t => t.id === truckId ? { ...t, status: "Delivered" as const, speedKmH: 0 } : t);
+      const target = updated.find(t => t.id === truckId);
+      if (target) DbService.saveTruckFleet(target);
+      return updated;
+    });
     onLogAction?.("Truck Cargo Delivered", `Cargo on truck ${truckId} delivered and offloaded.`);
   };
 
   const handleApproveTransferVoucher = (voucherId: string) => {
-    setInterSiteTransfers(prev => prev.map(trf => trf.id === voucherId ? { ...trf, status: "In Transit", approvedBy: "Eng. Dawit (Warehouse Mgr)" } : trf));
+    setInterSiteTransfers(prev => {
+      const updated = prev.map(trf => trf.id === voucherId ? { ...trf, status: "In Transit" as const, approvedBy: "Eng. Dawit (Warehouse Mgr)" } : trf);
+      const target = updated.find(t => t.id === voucherId);
+      if (target) DbService.saveInterSiteTransfer(target);
+      return updated;
+    });
     onLogAction?.("Transfer Voucher Approved", `Approved inter-site transfer voucher ${voucherId}`);
   };
 
   const handleConfirmTransferReceived = (voucherId: string) => {
-    setInterSiteTransfers(prev => prev.map(trf => trf.id === voucherId ? { ...trf, status: "Verified & Received" } : trf));
+    setInterSiteTransfers(prev => {
+      const updated = prev.map(trf => trf.id === voucherId ? { ...trf, status: "Verified & Received" as const } : trf);
+      const target = updated.find(t => t.id === voucherId);
+      if (target) DbService.saveInterSiteTransfer(target);
+      return updated;
+    });
     onLogAction?.("Transfer Received Verified", `Verified inter-site transfer receipt for voucher ${voucherId}`);
   };
 
   const handleMarkSupplierArrived = (supId: string) => {
-    setSupplierSchedules(prev => prev.map(s => s.id === supId ? { ...s, status: "Arrived Gate" } : s));
+    setSupplierSchedules(prev => {
+      const updated = prev.map(s => s.id === supId ? { ...s, status: "Arrived Gate" as const } : s);
+      const target = updated.find(s => s.id === supId);
+      if (target) DbService.saveSupplierSchedule(target);
+      return updated;
+    });
     onLogAction?.("Supplier Delivery Arrived", `Supplier shipment ${supId} arrived at main warehouse gate.`);
   };
 
@@ -1542,20 +915,30 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     const shipment = supplierSchedules.find(s => s.id === supId);
     if (!shipment) return;
 
-    setSupplierSchedules(prev => prev.map(s => s.id === supId ? { ...s, status: "Inspected & Received" } : s));
+    setSupplierSchedules(prev => {
+      const updated = prev.map(s => s.id === supId ? { ...s, status: "Inspected & Received" as const } : s);
+      const target = updated.find(s => s.id === supId);
+      if (target) DbService.saveSupplierSchedule(target);
+      return updated;
+    });
 
     // Automatically credit central store stock
-    setStoreItems(prev => prev.map(item => {
-      if (item.name.toLowerCase().includes(shipment.materialName.toLowerCase()) || shipment.materialName.toLowerCase().includes(item.category.toLowerCase())) {
-        return {
-          ...item,
-          totalStock: item.totalStock + shipment.quantity,
-          availableStock: item.availableStock + shipment.quantity,
-          status: "In Stock"
-        };
-      }
-      return item;
-    }));
+    setStoreItems(prev => {
+      const updated = prev.map(item => {
+        if (item.name.toLowerCase().includes(shipment.materialName.toLowerCase()) || shipment.materialName.toLowerCase().includes(item.category.toLowerCase())) {
+          const newItem = {
+            ...item,
+            totalStock: item.totalStock + shipment.quantity,
+            availableStock: item.availableStock + shipment.quantity,
+            status: "In Stock" as const
+          };
+          DbService.saveStoreItem(newItem);
+          return newItem;
+        }
+        return item;
+      });
+      return updated;
+    });
 
     onLogAction?.("Supplier Cargo Inspected & Received", `Inspected & credited ${shipment.quantity} ${shipment.unit} of ${shipment.materialName} to central inventory.`);
   };
@@ -1580,6 +963,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       gatePassId: `GP-${Math.floor(880 + Math.random() * 100)}-${dispatchTruckForm.truckPlate.replace(/[^A-Z0-9]/gi, "")}`
     };
     setTruckFleets(prev => [newTruck, ...prev]);
+    DbService.saveTruckFleet(newTruck);
     setShowDispatchTruckModal(false);
     onLogAction?.("Truck Dispatched", `Dispatched ${newTruck.truckPlate} with ${newTruck.cargoType} to ${newTruck.destination}`);
   };
@@ -1602,6 +986,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       notes: newTransferForm.notes
     };
     setInterSiteTransfers(prev => [newTrf, ...prev]);
+    DbService.saveInterSiteTransfer(newTrf);
     setShowNewTransferModal(false);
     onLogAction?.("Inter-Site Transfer Voucher Created", `Created transfer ${newTrf.voucherNo} from ${newTrf.sourceSite} to ${newTrf.destinationSite}`);
   };
@@ -1623,6 +1008,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       gatePassCode: `GP-SUP-${Math.floor(400 + Math.random() * 99)}`
     };
     setSupplierSchedules(prev => [newSup, ...prev]);
+    DbService.saveSupplierSchedule(newSup);
     setShowNewSupplierModal(false);
     onLogAction?.("Supplier Delivery Scheduled", `Scheduled delivery PO ${newSup.poNumber} from ${newSup.supplierName}`);
   };
@@ -1772,19 +1158,25 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     };
 
     setReceivingReports(prev => [newReport, ...prev]);
+    DbService.saveReceivingReport(newReport);
 
     // Automatically update stock
-    setStoreItems(prev => prev.map(item => {
-      if (item.name.toLowerCase().includes(receiveForm.materialName.toLowerCase())) {
-        return {
-          ...item,
-          totalStock: item.totalStock + Number(receiveForm.quantity),
-          availableStock: item.availableStock + Number(receiveForm.quantity),
-          status: "In Stock"
-        };
-      }
-      return item;
-    }));
+    setStoreItems(prev => {
+      const updated = prev.map(item => {
+        if (item.name.toLowerCase().includes(receiveForm.materialName.toLowerCase())) {
+          const newItem = {
+            ...item,
+            totalStock: item.totalStock + Number(receiveForm.quantity),
+            availableStock: item.availableStock + Number(receiveForm.quantity),
+            status: "In Stock" as const
+          };
+          DbService.saveStoreItem(newItem);
+          return newItem;
+        }
+        return item;
+      });
+      return updated;
+    });
 
     setShowReceiveModal(false);
     onLogAction?.("Material Received", `Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName}`);
@@ -1811,31 +1203,47 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     };
 
     setIssueRecords(prev => [newIssue, ...prev]);
+    DbService.saveIssueRecord(newIssue);
 
     // Automatically reduce stock
-    setStoreItems(prev => prev.map(item => {
-      if (item.name.toLowerCase().includes(issueForm.materialName.toLowerCase())) {
-        const newAvail = Math.max(0, item.availableStock - Number(issueForm.quantity));
-        return {
-          ...item,
-          availableStock: newAvail,
-          status: newAvail <= item.minThreshold ? "Low Stock" : "In Stock"
-        };
-      }
-      return item;
-    }));
+    setStoreItems(prev => {
+      const updated = prev.map(item => {
+        if (item.name.toLowerCase().includes(issueForm.materialName.toLowerCase())) {
+          const newAvail = Math.max(0, item.availableStock - Number(issueForm.quantity));
+          const newItem = {
+            ...item,
+            availableStock: newAvail,
+            status: (newAvail <= item.minThreshold ? "Low Stock" : "In Stock") as "Low Stock" | "In Stock" | "Out of Stock" | "Critical"
+          };
+          DbService.saveStoreItem(newItem);
+          return newItem;
+        }
+        return item;
+      });
+      return updated;
+    });
 
     setShowIssueModal(false);
     onLogAction?.("Material Issued", `Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName}`);
   };
 
   const handleApproveRequest = (reqId: string) => {
-    setMaterialRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: "Approved" } : r));
+    setMaterialRequests(prev => {
+      const updated = prev.map(r => r.id === reqId ? { ...r, status: "Approved" as const } : r);
+      const target = updated.find(r => r.id === reqId);
+      if (target) DbService.saveMaterialRequest(target);
+      return updated;
+    });
     onLogAction?.("Approve Material Request", `Approved request ${reqId}`);
   };
 
   const handleRejectRequest = (reqId: string) => {
-    setMaterialRequests(prev => prev.map(r => r.id === reqId ? { ...r, status: "Rejected" } : r));
+    setMaterialRequests(prev => {
+      const updated = prev.map(r => r.id === reqId ? { ...r, status: "Rejected" as const } : r);
+      const target = updated.find(r => r.id === reqId);
+      if (target) DbService.saveMaterialRequest(target);
+      return updated;
+    });
     onLogAction?.("Reject Material Request", `Rejected request ${reqId}`);
   };
 

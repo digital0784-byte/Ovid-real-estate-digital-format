@@ -1,6 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { DbService } from "./services/db";
+import { auth, db, isFirebaseReady } from "./firebase";
+import { onAuthStateChanged, signOut } from "firebase/auth";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { 
   initialWorkers, 
   initialTeams, 
@@ -103,6 +106,16 @@ import {
   Store
 } from "lucide-react";
 
+export interface UserProfile {
+  uid: string;
+  displayName: string;
+  role: UserRole | string;
+  status: string;
+  email: string;
+  phoneNumber?: string;
+  createdAt?: string;
+}
+
 export default function App() {
   // Master State Arrays loaded dynamically from DbService
   const [workers, setWorkers] = useState<Worker[]>([]);
@@ -149,6 +162,8 @@ export default function App() {
   const [notifications, setNotifications] = useState<SystemNotification[]>([]);
 
   // Security and Authentication session states
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
     if (typeof window !== "undefined") {
       return localStorage.getItem("erp_is_authenticated") === "true";
@@ -158,6 +173,119 @@ export default function App() {
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(10);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [loginMetadata, setLoginMetadata] = useState<{ loginTime: string; device: string; ip: string; gps: string } | null>(null);
+
+  // Firebase Auth listener and real-time Firestore user profile synchronization (/users/{uid})
+  useEffect(() => {
+    if (!isFirebaseReady || !auth) {
+      setIsAuthLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (firebaseUser) {
+        setIsAuthenticated(true);
+        setIsAuthLoading(true);
+
+        if (db) {
+          const userDocRef = doc(db, "users", firebaseUser.uid);
+          const unsubProfile = onSnapshot(
+            userDocRef,
+            (docSnap) => {
+              if (docSnap.exists()) {
+                const data = docSnap.data();
+                const profile: UserProfile = {
+                  uid: firebaseUser.uid,
+                  displayName: data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
+                  role: (data.role as UserRole) || UserRole.WORKER,
+                  status: data.status || "Pending",
+                  email: data.email || firebaseUser.email || "",
+                  phoneNumber: data.phoneNumber || firebaseUser.phoneNumber || "",
+                  createdAt: data.createdAt
+                };
+                setCurrentUserProfile(profile);
+                if (data.role && data.role !== "Pending") {
+                  setCurrentUserRole(data.role as UserRole);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("erp_current_user_role", data.role);
+                  }
+                }
+              } else {
+                const profile: UserProfile = {
+                  uid: firebaseUser.uid,
+                  displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User",
+                  role: "Pending",
+                  status: "Pending",
+                  email: firebaseUser.email || "",
+                  phoneNumber: firebaseUser.phoneNumber || ""
+                };
+                setCurrentUserProfile(profile);
+              }
+              setIsAuthLoading(false);
+            },
+            (error) => {
+              console.error("User profile snapshot error:", error);
+              setIsAuthLoading(false);
+            }
+          );
+          return () => unsubProfile();
+        } else {
+          setIsAuthLoading(false);
+        }
+      } else {
+        setIsAuthenticated(false);
+        setCurrentUserProfile(null);
+        setIsAuthLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    if (auth && auth.currentUser) {
+      try {
+        await signOut(auth);
+      } catch (err) {
+        console.error("Error signing out from Firebase Auth:", err);
+      }
+    }
+    setIsAuthenticated(false);
+    setCurrentUserProfile(null);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("erp_is_authenticated");
+      localStorage.removeItem("erp_current_user_role");
+    }
+    logAction("User Logged Out", "Operator requested secure closure of acting session.");
+  };
+
+  const handleRefreshProfile = async () => {
+    if (auth?.currentUser && db) {
+      setIsAuthLoading(true);
+      try {
+        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
+        if (snap.exists()) {
+          const data = snap.data();
+          const profile: UserProfile = {
+            uid: auth.currentUser.uid,
+            displayName: data.displayName || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Authenticated User",
+            role: (data.role as UserRole) || UserRole.WORKER,
+            status: data.status || "Pending",
+            email: data.email || auth.currentUser.email || "",
+            phoneNumber: data.phoneNumber || auth.currentUser.phoneNumber || "",
+            createdAt: data.createdAt
+          };
+          setCurrentUserProfile(profile);
+          if (data.role && data.role !== "Pending") {
+            setCurrentUserRole(data.role as UserRole);
+          }
+        }
+      } catch (err) {
+        console.error("Error refreshing user profile:", err);
+      } finally {
+        setIsAuthLoading(false);
+      }
+    }
+  };
 
   // Multi-Language Translation Map
   const translations: Record<string, Record<string, string>> = {
@@ -325,8 +453,19 @@ export default function App() {
     return translations[lang][key] || key;
   };
 
-  // Load master datasets from the real database service
+  const isPendingUser = isAuthenticated && (
+    currentUserProfile?.status === "Pending" || 
+    currentUserProfile?.role === "Pending" || 
+    currentUserRole === ("Pending" as any)
+  );
+
+  // Load master datasets from the real database service ONLY when user is authenticated & authorized
   React.useEffect(() => {
+    if (!isAuthenticated || isPendingUser) {
+      setIsLoading(false);
+      return;
+    }
+
     let active = true;
     async function loadAllData() {
       try {
@@ -381,11 +520,11 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [isAuthenticated, isPendingUser]);
 
   // Handle real-time workers list update from DbService or cross-component registrations
   React.useEffect(() => {
-    if (typeof window === "undefined") return;
+    if (typeof window === "undefined" || !isAuthenticated || isPendingUser) return;
 
     const syncWorkersList = async () => {
       try {
@@ -405,7 +544,7 @@ export default function App() {
       window.removeEventListener("workers_updated", syncWorkersList);
       window.removeEventListener("storage", syncWorkersList);
     };
-  }, []);
+  }, [isAuthenticated, isPendingUser]);
 
   // Handle window online/offline events for unstable network indicator
   React.useEffect(() => {
@@ -671,28 +810,20 @@ export default function App() {
     const newLog: AuditLog = {
       id: logId,
       timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
-      userId: activeRole === UserRole.HEAD_OFFICE ? "HO-01" :
-              activeRole === UserRole.PROJECT_MANAGER ? "PM-01" :
-              activeRole === UserRole.SECTION_HEAD ? "SH-01" :
-              activeRole === UserRole.SUPERVISOR ? "SV-01" :
-              activeRole === UserRole.SITE_ENGINEER ? "SE-01" :
-              activeRole === UserRole.SURVEYOR ? "SR-01" :
-              activeRole === UserRole.TIME_KEEPER ? "TK-01" :
-              activeRole === UserRole.TEAM_LEADER ? "TL-01" :
-              activeRole === UserRole.GANG_CHIEF ? "GC-01" :
-              activeRole === UserRole.WAREHOUSE_MANAGER ? "WM-01" :
-              activeRole === UserRole.STORE_MANAGER ? "SM-01" : "W-101",
-      userName: activeRole === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem (Head Office Admin)" :
-                activeRole === UserRole.PROJECT_MANAGER ? "Eng. Dawit (Project Manager)" :
-                activeRole === UserRole.SECTION_HEAD ? "Alemayehu Kebede (Section Head)" :
-                activeRole === UserRole.SUPERVISOR ? "Kassa Hunegn (Supervisor)" :
-                activeRole === UserRole.SITE_ENGINEER ? "Sintayehu Alula (Site Engineer)" :
-                activeRole === UserRole.SURVEYOR ? "Tadesse Chala (Surveyor)" :
-                activeRole === UserRole.TIME_KEEPER ? "Abebe Girma (Time Keeper)" :
-                activeRole === UserRole.TEAM_LEADER ? "Yohannes Bekele (Team Leader)" :
-                activeRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" :
-                activeRole === UserRole.WAREHOUSE_MANAGER ? "Mulugeta Assefa (Warehouse Manager)" :
-                activeRole === UserRole.STORE_MANAGER ? "Abebe Worku (Store Manager)" : "Bekele Tesfaye (Worker)",
+      userId: currentUserProfile?.uid || (
+        activeRole === UserRole.HEAD_OFFICE ? "HO-01" :
+        activeRole === UserRole.PROJECT_MANAGER ? "PM-01" :
+        activeRole === UserRole.SECTION_HEAD ? "SH-01" :
+        activeRole === UserRole.SUPERVISOR ? "SV-01" :
+        activeRole === UserRole.SITE_ENGINEER ? "SE-01" :
+        activeRole === UserRole.SURVEYOR ? "SR-01" :
+        activeRole === UserRole.TIME_KEEPER ? "TK-01" :
+        activeRole === UserRole.TEAM_LEADER ? "TL-01" :
+        activeRole === UserRole.GANG_CHIEF ? "GC-01" :
+        activeRole === UserRole.WAREHOUSE_MANAGER ? "WM-01" :
+        activeRole === UserRole.STORE_MANAGER ? "SM-01" : "W-101"
+      ),
+      userName: currentUserProfile?.displayName ? `${currentUserProfile.displayName} (${currentUserProfile.role})` : `${activeRole} User`,
       role: activeRole,
       action,
       details
@@ -920,6 +1051,29 @@ export default function App() {
     logAction("Construction Team Created", `Registered team "${team.name}" in department ${team.department}`);
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans relative overflow-hidden">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+        <div className="relative z-10 flex flex-col items-center space-y-6 max-w-md px-6 text-center">
+          <div className="p-4 bg-red-600/10 border border-red-500/30 text-red-500 rounded-2xl shadow-xl shadow-red-600/10 animate-pulse">
+            <RefreshCw size={40} className="animate-spin text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-white leading-tight">
+              {isAmharic ? "የተጠቃሚ መለያ በማረጋገጥ ላይ..." : "Authenticating User Profile..."}
+            </h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed font-mono">
+              {isAmharic 
+                ? "እባክዎ የደመና መለያዎ እና የፍቃድ ደረጃዎ እስኪረጋገጥ ድረስ ይጠብቁ..." 
+                : "Synchronizing auth session & user profile snapshot from Firestore..."}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <LoginScreen
@@ -927,17 +1081,28 @@ export default function App() {
         onLanguageToggle={() => setIsAmharic(!isAmharic)}
         auditLogsCount={auditLogs.length}
         onLoginSuccess={(role, method, loginLog) => {
-          // Instantly unlock and enter the ERP
+          // Unlock ERP session
           setCurrentUserRole(role);
           setIsAuthenticated(true);
           setLoginMetadata(loginLog);
+
+          if (!auth?.currentUser && !currentUserProfile) {
+            setCurrentUserProfile({
+              uid: "demo-" + role,
+              displayName: `${role} User`,
+              role: role,
+              status: "Active",
+              email: `${role.toLowerCase()}@ovid.et`
+            });
+          }
+
           if (typeof window !== "undefined") {
             localStorage.setItem("erp_is_authenticated", "true");
             localStorage.setItem("erp_current_user_role", role);
           }
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${role} | Metadata: ${JSON.stringify(loginLog)}`, role);
 
-          // Fetch fresh data in the background without blocking the login transition
+          // Fetch fresh data in the background
           Promise.all([
             DbService.getWorkers(),
             DbService.getAuditLogs(),
@@ -951,6 +1116,70 @@ export default function App() {
           });
         }}
       />
+    );
+  }
+
+  if (isPendingUser) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans relative overflow-hidden p-6">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+        
+        <div className="relative z-10 max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 text-center">
+          <div className="w-16 h-16 bg-amber-500/10 border border-amber-500/30 text-amber-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10">
+            <ShieldAlert size={32} />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] uppercase font-black tracking-widest text-amber-500 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
+              {isAmharic ? "መለያ በማጽደቅ ሂደት ላይ" : "Account Pending Approval"}
+            </span>
+            <h2 className="text-xl font-extrabold text-white tracking-tight">
+              {isAmharic ? "እንኳን ደህና መጡ!" : "Welcome to Digital Construction ERP"}
+            </h2>
+            <p className="text-sm font-semibold text-slate-300">
+              {currentUserProfile?.displayName || auth?.currentUser?.email || "User"}
+            </p>
+          </div>
+
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80 text-left space-y-2 text-xs font-sans">
+            <div className="flex justify-between border-b border-slate-800 pb-2">
+              <span className="text-slate-500">{isAmharic ? "ኢሜል:" : "Email:"}</span>
+              <span className="font-mono text-slate-300">{currentUserProfile?.email || auth?.currentUser?.email || "N/A"}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-800 pb-2">
+              <span className="text-slate-500">{isAmharic ? "ስልክ:" : "Phone:"}</span>
+              <span className="font-mono text-slate-300">{currentUserProfile?.phoneNumber || "N/A"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">{isAmharic ? "የስርዓት ሚና:" : "System Role:"}</span>
+              <span className="font-bold text-amber-400 font-mono">Pending</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed font-sans">
+            {isAmharic 
+              ? "የመለያ ጥያቄዎ በተሳካ ሁኔታ ተመዝግቧል። የዋና መስሪያ ቤት አስተዳዳሪ ወይም የሰው ኃይል ኃላፊ የስራ ድርሻዎን ሲያፀድቁ የመተግበሪያው አገልግሎት ወዲያውኑ ይከፈታል።" 
+              : "Your registration was successful. An Administrator or HR Manager must assign your system role before access to the ERP dashboard is granted."}
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              onClick={handleRefreshProfile}
+              className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-red-600/20"
+            >
+              <RefreshCw size={14} />
+              <span>{isAmharic ? "ሁኔታውን አድስ" : "Check Status"}</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer border border-slate-700"
+            >
+              <Lock size={14} />
+              <span>{isAmharic ? "ውጣ" : "Sign Out"}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -1006,24 +1235,33 @@ export default function App() {
               </div>
               <div className="text-left leading-none pr-2">
                 <span className="text-[9px] text-slate-400 block uppercase font-bold tracking-wider flex items-center gap-1">
-                  {isAmharic ? "የተጠቃሚ መለያ (የተቆለፈ)" : "Active Profile (Locked)"}
+                  {isAmharic ? "የተጠቃሚ መለያ" : "Active Profile"}
                 </span>
                 <div className="text-xs font-bold font-sans text-slate-700 mt-0.5">
-                  {currentUserRole === UserRole.HEAD_OFFICE && (isAmharic ? "ዋና መስሪያ ቤት (Nuriye Ahmed Adem)" : "Head Office - Nuriye Ahmed Adem")}
-                  {currentUserRole === UserRole.PROJECT_MANAGER && (isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ (Eng. Dawit)" : "Project Manager - Eng. Dawit")}
-                  {currentUserRole === UserRole.SECTION_HEAD && (isAmharic ? "የክፍል ኃላፊ (Alemayehu Kebede)" : "Section Head - Alemayehu Kebede")}
-                  {currentUserRole === UserRole.SUPERVISOR && (isAmharic ? "ሱፐርቫይዘር (Kassa Hunegn)" : "Supervisor - Kassa Hunegn")}
-                  {currentUserRole === UserRole.SITE_ENGINEER && (isAmharic ? "ሳይት መሃንዲስ (Sintayehu Alula)" : "Site Engineer - Sintayehu Alula")}
-                  {currentUserRole === UserRole.SURVEYOR && (isAmharic ? "ሰርቬየር (Tadesse Chala)" : "Surveyor - Tadesse Chala")}
-                  {currentUserRole === UserRole.TEAM_LEADER && (isAmharic ? "የስራ ቡድን መሪ (Yohannes Bekele)" : "Team Leader - Yohannes Bekele")}
-                  {currentUserRole === UserRole.GANG_CHIEF && (isAmharic ? "ጋንግ ቺፍ / ፎርማን (Fikru Tolossa)" : "Gang Chief - Fikru Tolossa")}
-                  {currentUserRole === UserRole.TIME_KEEPER && (isAmharic ? "የመገኘት ተቆጣጣሪ (Abebe Girma)" : "Time Keeper - Abebe Girma")}
-                  {currentUserRole === UserRole.WORKER && (isAmharic ? "ሳይት ሰራተኛ (Bekele Tesfaye)" : "Worker - Bekele Tesfaye")}
-                  {currentUserRole === UserRole.SUPER_ADMIN && (isAmharic ? "ሱፐር አድሚን (Super Admin)" : "Super Admin")}
-                  {currentUserRole === UserRole.WAREHOUSE_MANAGER && (isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Mulugeta Assefa)" : "Warehouse Manager - Mulugeta Assefa")}
-                  {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የሳይት ስቶር አቃቤ (Store Manager)" : "Store Manager")}
-                  {currentUserRole === UserRole.HR_MANAGER && (isAmharic ? "የሰው ኃይል ኃላፊ (HR Manager)" : "HR Manager")}
-                  {currentUserRole === UserRole.FINANCE_MANAGER && (isAmharic ? "የፋይናንስ ኃላፊ (Finance Manager)" : "Finance Manager")}
+                  {currentUserProfile?.displayName || (
+                    <>
+                      {currentUserRole === UserRole.HEAD_OFFICE && (isAmharic ? "ዋና መስሪያ ቤት" : "Head Office Admin")}
+                      {currentUserRole === UserRole.PROJECT_MANAGER && (isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ" : "Project Manager")}
+                      {currentUserRole === UserRole.SECTION_HEAD && (isAmharic ? "የክፍል ኃላፊ" : "Section Head")}
+                      {currentUserRole === UserRole.SUPERVISOR && (isAmharic ? "ሱፐርቫይዘር" : "Supervisor")}
+                      {currentUserRole === UserRole.SITE_ENGINEER && (isAmharic ? "ሳይት መሃንዲስ" : "Site Engineer")}
+                      {currentUserRole === UserRole.SURVEYOR && (isAmharic ? "ሰርቬየር" : "Surveyor")}
+                      {currentUserRole === UserRole.TEAM_LEADER && (isAmharic ? "የስራ ቡድን መሪ" : "Team Leader")}
+                      {currentUserRole === UserRole.GANG_CHIEF && (isAmharic ? "ጋንግ ቺፍ / ፎርማን" : "Gang Chief")}
+                      {currentUserRole === UserRole.TIME_KEEPER && (isAmharic ? "የመገኘት ተቆጣጣሪ" : "Time Keeper")}
+                      {currentUserRole === UserRole.WORKER && (isAmharic ? "ሳይት ሰራተኛ" : "Worker")}
+                      {currentUserRole === UserRole.SUPER_ADMIN && (isAmharic ? "ሱፐር አድሚን" : "Super Admin")}
+                      {currentUserRole === UserRole.WAREHOUSE_MANAGER && (isAmharic ? "የመጋዘን ሥራ አስኪያጅ" : "Warehouse Manager")}
+                      {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የሳይት ስቶር አቃቤ" : "Store Manager")}
+                      {currentUserRole === UserRole.HR_MANAGER && (isAmharic ? "የሰው ኃይል ኃላፊ" : "HR Manager")}
+                      {currentUserRole === UserRole.FINANCE_MANAGER && (isAmharic ? "የፋይናንስ ኃላፊ" : "Finance Manager")}
+                    </>
+                  )}
+                  {currentUserProfile?.role && (
+                    <span className="text-[10px] text-slate-500 font-normal ml-1">
+                      ({currentUserProfile.role})
+                    </span>
+                  )}
                 </div>
               </div>
             </div>
@@ -1063,14 +1301,7 @@ export default function App() {
 
             {/* Manual Logout Button */}
             <button
-              onClick={() => {
-                setIsAuthenticated(false);
-                if (typeof window !== "undefined") {
-                  localStorage.removeItem("erp_is_authenticated");
-                  localStorage.removeItem("erp_current_user_role");
-                }
-                logAction("User Logged Out", "Operator requested secure closure of acting token.");
-              }}
+              onClick={handleLogout}
               className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-black transition-all flex items-center space-x-1 cursor-pointer"
               title="End Secure Token"
             >
@@ -1707,19 +1938,7 @@ export default function App() {
           <FormworkManagement
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
-            currentUserName={
-              currentUserRole === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem (Head Office Admin)" :
-              currentUserRole === UserRole.PROJECT_MANAGER ? "Eng. Dawit (Project Manager)" :
-              currentUserRole === UserRole.SECTION_HEAD ? "Alemayehu Kebede (Section Head)" :
-              currentUserRole === UserRole.SUPERVISOR ? "Kassa Hunegn (Supervisor)" :
-              currentUserRole === UserRole.SITE_ENGINEER ? "Sintayehu Alula (Site Engineer)" :
-              currentUserRole === UserRole.SURVEYOR ? "Tadesse Chala (Surveyor)" :
-              currentUserRole === UserRole.TIME_KEEPER ? "Abebe Girma (Time Keeper)" :
-              currentUserRole === UserRole.TEAM_LEADER ? "Yohannes Bekele (Team Leader)" :
-              currentUserRole === UserRole.GANG_CHIEF ? "Fikru Tolossa (Gang Chief)" :
-              currentUserRole === UserRole.WAREHOUSE_MANAGER ? "Mulugeta Assefa (Warehouse Manager)" :
-              currentUserRole === UserRole.STORE_MANAGER ? "Abebe Worku (Store Manager)" : "Bekele Tesfaye (Worker)"
-            }
+            currentUserName={currentUserProfile?.displayName || `${currentUserRole} User`}
           />
         )}
 

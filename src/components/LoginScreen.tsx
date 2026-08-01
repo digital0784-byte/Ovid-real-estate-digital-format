@@ -34,7 +34,8 @@ import {
   Laptop,
   UserPlus,
   UserCheck,
-  Briefcase
+  Briefcase,
+  ChevronDown
 } from "lucide-react";
 
 const formatToE164 = (phone: string): string => {
@@ -1012,7 +1013,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         {isAmharic ? "ድርጅታዊ ኢሜል አድራሻ" : "Corporate Email Address"}
                       </label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                        <Mail className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                         <input
                           type="email"
                           value={resetEmail}
@@ -1059,7 +1060,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                             {isAmharic ? "ድርጅታዊ ኢሜል አድራሻ" : "Corporate Email Address"}
                           </label>
                           <div className="relative">
-                            <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                            <Mail className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                             <input
                               type="email"
                               value={email}
@@ -1075,7 +1076,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                             {isAmharic ? "ይለፍ ቃል" : "Secure Password"}
                           </label>
                           <div className="relative">
-                            <Lock className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                            <Lock className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                             <input
                               type="password"
                               value={password}
@@ -1110,7 +1111,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                           {isAmharic ? "የሞባይል ስልክ ቁጥር" : "Registered Mobile Number"}
                         </label>
                         <div className="relative">
-                          <Phone className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                          <Phone className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                           <input
                             type="text"
                             value={phoneNumber}
@@ -1135,7 +1136,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                             </button>
                           </label>
                           <div className="relative">
-                            <KeyRound className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                            <KeyRound className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                             <input
                               type="text"
                               maxLength={6}
@@ -1156,7 +1157,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         {isAmharic ? "የኩባንያ መታወቂያ / ሰራተኛ መለያ ቁጥር" : "Company Employee Identity ID"}
                       </label>
                       <div className="relative">
-                        <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                        <User className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                         <input
                           type="text"
                           value={employeeId}
@@ -1415,7 +1416,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     {isAmharic ? "ሙሉ ስም" : "Full Name"}
                   </label>
                   <div className="relative">
-                    <User className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <User className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                     <input
                       type="text"
                       value={regName}
@@ -1432,7 +1433,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     {isAmharic ? "ስልክ ቁጥር" : "Phone Number"}
                   </label>
                   <div className="relative">
-                    <Phone className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <Phone className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                     <input
                       type="text"
                       value={regPhone}
@@ -1449,7 +1450,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     {isAmharic ? "ኢሜል አድራሻ" : "Email Address"}
                   </label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <Mail className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                     <input
                       type="email"
                       value={regEmail}
@@ -1466,7 +1467,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     {isAmharic ? "የይለፍ ቃል (Password)" : "Password"}
                   </label>
                   <div className="relative">
-                    <Lock className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <Lock className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                     <input
                       type="password"
                       value={regPassword}
@@ -1483,11 +1484,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     {isAmharic ? "በድርጅቱ ውስጥ ያለው የስራ ድርሻ (ሚና)" : "Job Role / Position in Organization"}
                   </label>
                   <div className="relative">
-                    <Briefcase className="absolute left-3 top-2.5 text-slate-500" size={16} />
+                    <Briefcase className="absolute left-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                     <select
                       value={regRole}
                       onChange={(e) => setRegRole(e.target.value as UserRole)}
-                      className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none"
+                      className="w-full pl-9 pr-9 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none cursor-pointer relative z-0"
                     >
                       {[
                         { role: UserRole.SUPER_ADMIN, label: isAmharic ? "ዋና አድሚን (Super Admin)" : "Super Admin" },
@@ -1520,6 +1521,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         </option>
                       ))}
                     </select>
+                    <ChevronDown className="absolute right-3 top-2.5 text-slate-500 pointer-events-none z-10" size={16} />
                   </div>
                 </div>
               </div>

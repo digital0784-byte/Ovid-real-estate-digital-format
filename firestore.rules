@@ -208,6 +208,50 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor();
     }
+    match /materialIssueRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /materialReturnRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /materialRequests/{requestId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /truckFleets/{fleetId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /supplierSchedules/{scheduleId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /sitePanelBreakdowns/{breakdownId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /dailyRequisitions/{reqId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /dailyConsumptionVariances/{varId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /requisitionAuditLogs/{logId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /dailyReturnReports/{repId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /dailyConsolidatedReports/{repId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
 
     // 10. CAD Files & Site Operational Logs
     match /cadFiles/{cadId} {

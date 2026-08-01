@@ -1,4 +1,4 @@
-import { db, isFirebaseReady } from "../firebase";
+import { db, auth, isFirebaseReady } from "../firebase";
 import { NotificationService } from "./notificationService";
 import { 
   collection, 
@@ -31,6 +31,23 @@ import {
   InventoryAuditRecord,
   RegisteredSite
 } from "../types";
+import {
+  StoreMaterialItem,
+  MaterialReceivingReport,
+  MaterialIssueRecord,
+  MaterialReturnRecord,
+  MaterialRequestItem,
+  StoreAuditRecord,
+  TruckFleetItem,
+  SupplierDeliverySchedule,
+  InterSiteTransferVoucher,
+  SitePanelBreakdown,
+  DailyMaterialRequisition,
+  DailyConsumptionVariance,
+  RequisitionAuditLog,
+  DailyReturnReport,
+  DailyConsolidatedReport
+} from "../components/StoreOwnerApp";
 import { 
   initialWorkers, 
   initialTeams, 
@@ -53,6 +70,23 @@ import {
   initialInventoryAudits,
   initialRegisteredSites
 } from "../data";
+import {
+  initialStoreItems,
+  initialReceivingReports,
+  initialIssueRecords,
+  initialReturnRecords,
+  initialMaterialRequests,
+  initialStoreAuditRecords,
+  initialTruckFleets,
+  initialSupplierSchedules,
+  initialInterSiteTransfers,
+  initialSitePanelBreakdowns,
+  initialDailyRequisitions,
+  initialDailyConsumptionVariances,
+  initialRequisitionAuditLogs,
+  initialDailyReturnReports,
+  initialDailyConsolidatedReports
+} from "../data/storeOwnerData";
 
 interface OutboxItem {
   id: string;
@@ -133,7 +167,7 @@ class OfflineCacheAndOutboxEngine {
   }
 
   public async flushOutbox(): Promise<void> {
-    if (!isFirebaseReady || !db || typeof window === "undefined") return;
+    if (!isFirebaseReady || !db || !auth?.currentUser || typeof window === "undefined") return;
     try {
       const outboxKey = this.getOutboxKey();
       const existing = localStorage.getItem(outboxKey);
@@ -172,7 +206,7 @@ if (typeof window !== "undefined") {
 
 // Unified Primary Data Fetcher & Modifier (Firestore is primary source of truth)
 async function fetchCollection<T extends { id: string }>(collectionName: string, defaultData: T[]): Promise<T[]> {
-  if (isFirebaseReady && db) {
+  if (isFirebaseReady && db && auth?.currentUser) {
     try {
       const colRef = collection(db, collectionName);
       const snapshot = await getDocs(colRef);
@@ -193,7 +227,7 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
   offlineEngine.updateCacheItem<T>(collectionName, item, defaultData);
 
   // 2. Primary Firestore sync or Outbox Queue
-  if (isFirebaseReady && db) {
+  if (isFirebaseReady && db && auth?.currentUser) {
     try {
       await setDoc(doc(db, collectionName, item.id), item, { merge: true });
     } catch (err) {
@@ -208,7 +242,7 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
 async function removeDocument<T extends { id: string }>(collectionName: string, id: string, defaultData: T[]): Promise<void> {
   offlineEngine.deleteCacheItem<T>(collectionName, id, defaultData);
 
-  if (isFirebaseReady && db) {
+  if (isFirebaseReady && db && auth?.currentUser) {
     try {
       await deleteDoc(doc(db, collectionName, id));
     } catch (err) {
@@ -503,5 +537,141 @@ export const DbService = {
   },
   async deleteRegisteredSite(id: string): Promise<void> {
     await removeDocument<RegisteredSite>("registeredSites", id, initialRegisteredSites);
+  },
+
+  // === GENERIC COLLECTION HELPERS ===
+  fetchCollection,
+  writeDocument,
+  removeDocument,
+
+  // === 15 STORE OWNER DATASETS ===
+  // 1. storeItems (materials)
+  async getStoreItems(): Promise<StoreMaterialItem[]> {
+    return fetchCollection<StoreMaterialItem>("materials", initialStoreItems);
+  },
+  async saveStoreItem(item: StoreMaterialItem): Promise<void> {
+    await writeDocument<StoreMaterialItem>("materials", item, initialStoreItems);
+  },
+  async saveStoreItems(items: StoreMaterialItem[]): Promise<void> {
+    for (const item of items) {
+      await writeDocument<StoreMaterialItem>("materials", item, initialStoreItems);
+    }
+  },
+
+  // 2. receivingReports (siteReceivingReports)
+  async getReceivingReports(): Promise<MaterialReceivingReport[]> {
+    return fetchCollection<MaterialReceivingReport>("siteReceivingReports", initialReceivingReports);
+  },
+  async saveReceivingReport(report: MaterialReceivingReport): Promise<void> {
+    await writeDocument<MaterialReceivingReport>("siteReceivingReports", report, initialReceivingReports);
+  },
+
+  // 3. issueRecords (materialIssueRecords)
+  async getIssueRecords(): Promise<MaterialIssueRecord[]> {
+    return fetchCollection<MaterialIssueRecord>("materialIssueRecords", initialIssueRecords);
+  },
+  async saveIssueRecord(record: MaterialIssueRecord): Promise<void> {
+    await writeDocument<MaterialIssueRecord>("materialIssueRecords", record, initialIssueRecords);
+  },
+
+  // 4. returnRecords (materialReturnRecords)
+  async getReturnRecords(): Promise<MaterialReturnRecord[]> {
+    return fetchCollection<MaterialReturnRecord>("materialReturnRecords", initialReturnRecords);
+  },
+  async saveReturnRecord(record: MaterialReturnRecord): Promise<void> {
+    await writeDocument<MaterialReturnRecord>("materialReturnRecords", record, initialReturnRecords);
+  },
+
+  // 5. materialRequests (materialRequests)
+  async getMaterialRequests(): Promise<MaterialRequestItem[]> {
+    return fetchCollection<MaterialRequestItem>("materialRequests", initialMaterialRequests);
+  },
+  async saveMaterialRequest(request: MaterialRequestItem): Promise<void> {
+    await writeDocument<MaterialRequestItem>("materialRequests", request, initialMaterialRequests);
+  },
+
+  // 6. auditRecords (inventoryAudits)
+  async getAuditRecords(): Promise<StoreAuditRecord[]> {
+    return fetchCollection<StoreAuditRecord>("inventoryAudits", initialStoreAuditRecords);
+  },
+  async saveAuditRecord(audit: StoreAuditRecord): Promise<void> {
+    await writeDocument<StoreAuditRecord>("inventoryAudits", audit, initialStoreAuditRecords);
+  },
+
+  // 7. truckFleets (truckFleets)
+  async getTruckFleets(): Promise<TruckFleetItem[]> {
+    return fetchCollection<TruckFleetItem>("truckFleets", initialTruckFleets);
+  },
+  async saveTruckFleet(fleet: TruckFleetItem): Promise<void> {
+    await writeDocument<TruckFleetItem>("truckFleets", fleet, initialTruckFleets);
+  },
+  async saveTruckFleets(fleets: TruckFleetItem[]): Promise<void> {
+    for (const f of fleets) {
+      await writeDocument<TruckFleetItem>("truckFleets", f, initialTruckFleets);
+    }
+  },
+
+  // 8. supplierSchedules (supplierSchedules)
+  async getSupplierSchedules(): Promise<SupplierDeliverySchedule[]> {
+    return fetchCollection<SupplierDeliverySchedule>("supplierSchedules", initialSupplierSchedules);
+  },
+  async saveSupplierSchedule(schedule: SupplierDeliverySchedule): Promise<void> {
+    await writeDocument<SupplierDeliverySchedule>("supplierSchedules", schedule, initialSupplierSchedules);
+  },
+
+  // 9. interSiteTransfers (dispatchTransfers)
+  async getInterSiteTransfers(): Promise<InterSiteTransferVoucher[]> {
+    return fetchCollection<InterSiteTransferVoucher>("dispatchTransfers", initialInterSiteTransfers);
+  },
+  async saveInterSiteTransfer(transfer: InterSiteTransferVoucher): Promise<void> {
+    await writeDocument<InterSiteTransferVoucher>("dispatchTransfers", transfer, initialInterSiteTransfers);
+  },
+
+  // 10. sitePanelBreakdowns (sitePanelBreakdowns)
+  async getSitePanelBreakdowns(): Promise<SitePanelBreakdown[]> {
+    return fetchCollection<SitePanelBreakdown>("sitePanelBreakdowns", initialSitePanelBreakdowns);
+  },
+  async saveSitePanelBreakdown(breakdown: SitePanelBreakdown): Promise<void> {
+    await writeDocument<SitePanelBreakdown>("sitePanelBreakdowns", breakdown, initialSitePanelBreakdowns);
+  },
+
+  // 11. dailyRequisitions (dailyRequisitions)
+  async getDailyRequisitions(): Promise<DailyMaterialRequisition[]> {
+    return fetchCollection<DailyMaterialRequisition>("dailyRequisitions", initialDailyRequisitions);
+  },
+  async saveDailyRequisition(requisition: DailyMaterialRequisition): Promise<void> {
+    await writeDocument<DailyMaterialRequisition>("dailyRequisitions", requisition, initialDailyRequisitions);
+  },
+
+  // 12. dailyConsumptionVariances (dailyConsumptionVariances)
+  async getDailyConsumptionVariances(): Promise<DailyConsumptionVariance[]> {
+    return fetchCollection<DailyConsumptionVariance>("dailyConsumptionVariances", initialDailyConsumptionVariances);
+  },
+  async saveDailyConsumptionVariance(variance: DailyConsumptionVariance): Promise<void> {
+    await writeDocument<DailyConsumptionVariance>("dailyConsumptionVariances", variance, initialDailyConsumptionVariances);
+  },
+
+  // 13. requisitionAuditLogs (requisitionAuditLogs)
+  async getRequisitionAuditLogs(): Promise<RequisitionAuditLog[]> {
+    return fetchCollection<RequisitionAuditLog>("requisitionAuditLogs", initialRequisitionAuditLogs);
+  },
+  async saveRequisitionAuditLog(log: RequisitionAuditLog): Promise<void> {
+    await writeDocument<RequisitionAuditLog>("requisitionAuditLogs", log, initialRequisitionAuditLogs);
+  },
+
+  // 14. dailyReturnReports (dailyReturnReports)
+  async getDailyReturnReports(): Promise<DailyReturnReport[]> {
+    return fetchCollection<DailyReturnReport>("dailyReturnReports", initialDailyReturnReports);
+  },
+  async saveDailyReturnReport(report: DailyReturnReport): Promise<void> {
+    await writeDocument<DailyReturnReport>("dailyReturnReports", report, initialDailyReturnReports);
+  },
+
+  // 15. dailyConsolidatedReports (dailyConsolidatedReports)
+  async getDailyConsolidatedReports(): Promise<DailyConsolidatedReport[]> {
+    return fetchCollection<DailyConsolidatedReport>("dailyConsolidatedReports", initialDailyConsolidatedReports);
+  },
+  async saveDailyConsolidatedReport(report: DailyConsolidatedReport): Promise<void> {
+    await writeDocument<DailyConsolidatedReport>("dailyConsolidatedReports", report, initialDailyConsolidatedReports);
   }
 };
