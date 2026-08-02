@@ -77,6 +77,7 @@ export interface Worker {
   qrCode?: string;
   faceRecognitionData?: string;
   fingerprint?: string;
+  attendancePin?: string;
   status: "Active" | "Inactive";
   teamId: string;
   skills?: string; // e.g. "Formwork Assembly, Blueprint Reading"

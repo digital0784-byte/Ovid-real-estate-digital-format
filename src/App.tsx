@@ -105,7 +105,9 @@ import {
   Smartphone,
   Rocket,
   Briefcase,
-  Store
+  Store,
+  MapPin,
+  MapPinOff
 } from "lucide-react";
 
 export interface UserProfile {
@@ -177,6 +179,45 @@ export default function App() {
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(10);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [loginMetadata, setLoginMetadata] = useState<{ loginTime: string; device: string; ip: string; gps: string } | null>(null);
+
+  // App-wide Location permission gate states & tracking
+  const [isCheckingLocation, setIsCheckingLocation] = useState<boolean>(false);
+  const [locationGranted, setLocationGranted] = useState<boolean | null>(null);
+  const [locationCoords, setLocationCoords] = useState<{ lat: number; lng: number; timestamp: string } | null>(null);
+
+  const requestLocationPermission = React.useCallback(() => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setLocationGranted(false);
+      setIsCheckingLocation(false);
+      return;
+    }
+
+    setIsCheckingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setLocationCoords({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          timestamp: new Date().toISOString()
+        });
+        setLocationGranted(true);
+        setIsCheckingLocation(false);
+      },
+      (error) => {
+        console.warn("Location permission denied or error:", error);
+        setLocationGranted(false);
+        setIsCheckingLocation(false);
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+    );
+  }, []);
+
+  // Trigger location permission check once authenticated
+  useEffect(() => {
+    if (isAuthenticated && !isAuthLoading && locationGranted === null && !isCheckingLocation) {
+      requestLocationPermission();
+    }
+  }, [isAuthenticated, isAuthLoading, locationGranted, isCheckingLocation, requestLocationPermission]);
 
   // Firebase Auth listener and real-time Firestore user profile synchronization (/users/{uid})
   useEffect(() => {
@@ -255,6 +296,9 @@ export default function App() {
     }
     setIsAuthenticated(false);
     setCurrentUserProfile(null);
+    setLocationGranted(null);
+    setIsCheckingLocation(false);
+    setLocationCoords(null);
     if (typeof window !== "undefined") {
       localStorage.removeItem("erp_is_authenticated");
       localStorage.removeItem("erp_current_user_role");
@@ -1090,6 +1134,8 @@ export default function App() {
           setCurrentUserRole(role);
           setIsAuthenticated(true);
           setLoginMetadata(loginLog);
+          setLocationGranted(null);
+          setIsCheckingLocation(false);
 
           if (!auth?.currentUser && !currentUserProfile) {
             setCurrentUserProfile({
@@ -1121,6 +1167,93 @@ export default function App() {
           });
         }}
       />
+    );
+  }
+
+  // App-wide Location Permission Gate
+  if (isCheckingLocation || (isAuthenticated && locationGranted === null)) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans relative overflow-hidden p-6">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+        <div className="relative z-10 flex flex-col items-center space-y-6 max-w-md px-6 text-center">
+          <div className="p-4 bg-red-600/10 border border-red-500/30 text-red-500 rounded-2xl shadow-xl shadow-red-600/10 animate-pulse">
+            <RefreshCw size={40} className="animate-spin text-red-500" />
+          </div>
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-white leading-tight">
+              {isAmharic ? "የመገኛ ቦታ ፍቃድን በማረጋገጥ ላይ..." : "Checking location access..."}
+            </h2>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed font-mono">
+              {isAmharic 
+                ? "እባክዎ መተግበሪያው የብራውዘርዎን መገኛ ቦታ (GPS) ፍቃድ እንዲያረጋግጥ ይፍቀዱ..." 
+                : "Requesting browser location permission & coordinates verification..."}
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (locationGranted === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans relative overflow-hidden p-6">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+        
+        <div className="relative z-10 max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-6 text-center">
+          <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 text-red-500 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-red-500/10">
+            <MapPinOff size={32} />
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-[10px] uppercase font-black tracking-widest text-red-500 bg-red-500/10 px-2.5 py-1 rounded-full border border-red-500/20">
+              {isAmharic ? "የመገኛ ቦታ ፍቃድ ተከልክሏል" : "Location Access Required"}
+            </span>
+            <h2 className="text-xl font-extrabold text-white tracking-tight">
+              {isAmharic ? "የቦታ ፍቃድ ያስፈልጋል" : "Location Access Required"}
+            </h2>
+            <p className="text-sm font-semibold text-slate-300">
+              {currentUserProfile?.displayName || auth?.currentUser?.email || "Authenticated User"}
+            </p>
+          </div>
+
+          <div className="bg-slate-950/70 p-4 rounded-xl border border-slate-800/80 text-left space-y-2 text-xs font-sans">
+            <div className="flex justify-between border-b border-slate-800 pb-2">
+              <span className="text-slate-500">{isAmharic ? "ሁኔታ:" : "Status:"}</span>
+              <span className="font-mono text-red-400 font-bold">{isAmharic ? "ተከልክሏል / አይገኝም" : "Permission Denied / Unavailable"}</span>
+            </div>
+            <div className="flex justify-between border-b border-slate-800 pb-2">
+              <span className="text-slate-500">{isAmharic ? "የስርዓት ደህንነት:" : "Security Level:"}</span>
+              <span className="font-mono text-slate-300">Mandatory Geofence Check</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-500">{isAmharic ? "ተጠቃሚ:" : "User Role:"}</span>
+              <span className="font-bold text-slate-200 font-mono">{currentUserRole}</span>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 leading-relaxed font-sans">
+            {isAmharic 
+              ? "ይህንን የዲጂታል ኮንስትራክሽን ERP ሲስተም ለመጠቀም የብራውዘርዎን መገኛ ቦታ (Location) ፍቃድ መፍቀድ ግዴታ ነው። እባክዎ በብራውዘርዎ ቅንብር ላይ ቦታ መፍቀድዎን ያረጋግጡና ድጋሚ ይሞክሩ።" 
+              : "Location access is required to use this system for site security, geofencing, and attendance validation. Please enable location permissions in your browser and click Retry."}
+          </p>
+
+          <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <button
+              onClick={requestLocationPermission}
+              className="flex-1 bg-red-600 hover:bg-red-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-red-600/20"
+            >
+              <RefreshCw size={14} />
+              <span>{isAmharic ? "ድጋሚ ሞክር" : "Retry"}</span>
+            </button>
+            <button
+              onClick={handleLogout}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer border border-slate-700"
+            >
+              <span>{isAmharic ? "ዘጋ" : "Log Out"}</span>
+            </button>
+          </div>
+        </div>
+      </div>
     );
   }
 

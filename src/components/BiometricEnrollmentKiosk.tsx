@@ -29,7 +29,8 @@ import {
   UserCheck,
   Building2,
   Layers,
-  Award
+  Award,
+  KeyRound
 } from "lucide-react";
 import { Worker, AttendanceRecord, AttendanceMethod, UserRole } from "../types";
 
@@ -104,25 +105,14 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   const [enrollSupervisor, setEnrollSupervisor] = useState("Eng. Yoseph");
   const [enrollPhoto, setEnrollPhoto] = useState("https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150&h=150&fit=crop");
   
-  // Biometric registration simulations
-  const [registeringBiometric, setRegisteringBiometric] = useState<"none" | "fingerprint" | "face">("none");
-  const [registrationProgress, setRegistrationProgress] = useState(0);
-  const [enrolledFingerprintHash, setEnrolledFingerprintHash] = useState("");
-  const [enrolledFaceHash, setEnrolledFaceHash] = useState("");
+  // Kiosk PIN & Scan state
+  const [enrollPin, setEnrollPin] = useState("");
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinFailedAttempts, setPinFailedAttempts] = useState(0);
+  const [pinLockoutUntil, setPinLockoutUntil] = useState<number | null>(null);
 
-  // Auto-generate fresh ID on load
-  useEffect(() => {
-    if (!enrollId) {
-      const nextIdNum = 100 + workers.length + 1;
-      setEnrollId(`ERP-W-${nextIdNum}`);
-    }
-  }, [workers, enrollId]);
-
-  // ----------------------------------------------------
   // KIOSK SCREEN STATE
-  // ----------------------------------------------------
   const [kioskAction, setKioskAction] = useState<"in" | "out">("in");
-  const [kioskMethod, setKioskMethod] = useState<"fingerprint" | "face">("fingerprint");
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [kioskLogs, setKioskLogs] = useState<string[]>([]);
@@ -228,36 +218,6 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   };
 
   // ----------------------------------------------------
-  // SIMULATE BIOMETRIC HARWARE REGISTRATION
-  // ----------------------------------------------------
-  const handleRegisterBiometric = (method: "fingerprint" | "face") => {
-    if (registeringBiometric !== "none") return;
-    setRegisteringBiometric(method);
-    setRegistrationProgress(0);
-    playBeep("scan");
-
-    let prog = 0;
-    const interval = setInterval(() => {
-      prog += 20;
-      setRegistrationProgress(prog);
-      playBeep("scan");
-      if (prog >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          const generatedHash = `0x${Math.random().toString(16).substring(2, 10).toUpperCase()}`;
-          if (method === "fingerprint") {
-            setEnrolledFingerprintHash(generatedHash);
-          } else {
-            setEnrolledFaceHash(generatedHash);
-          }
-          setRegisteringBiometric("none");
-          playBeep("success");
-        }, 150);
-      }
-    }, 300);
-  };
-
-  // ----------------------------------------------------
   // ENROLL SUBMIT
   // ----------------------------------------------------
   const handleEnrollSubmit = (e: React.FormEvent) => {
@@ -269,16 +229,10 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       return;
     }
 
-    if (!enrolledFingerprintHash && !enrolledFaceHash) {
-      playBeep("error");
-      alert(isAmharic 
-        ? "እባክዎን መጀመሪያ ቢያንስ አንድ የባዮሜትሪክ መረጃ (የጣት አሻራ ወይም የፊት መለያ) ያስመዝግቡ!" 
-        : "Please enroll at least one biometric record (fingerprint or face) first!");
-      return;
-    }
+    const assignedPin = enrollPin.trim() || Math.floor(1000 + (workers.length * 7 + 101) % 8999).toString();
 
     const newWorker: Worker = {
-      id: enrollId,
+      id: enrollId || `ERP-W-${100 + workers.length + 1}`,
       name: enrollName,
       photo: enrollPhoto,
       company: enrollCompany,
@@ -292,8 +246,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       teamLeader: enrollLeader,
       gangChief: enrollChief,
       supervisor: enrollSupervisor,
-      fingerprint: enrolledFingerprintHash || undefined,
-      faceRecognitionData: enrolledFaceHash || undefined,
+      attendancePin: assignedPin,
       status: "Active",
       teamId: "T-01"
     };
@@ -303,8 +256,8 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
     // Log to audit log
     if (onLogAction) {
       onLogAction(
-        "Biometric Profile Enrolled", 
-        `Enrolled worker ${newWorker.name} (${newWorker.id}) with fingerprint ${enrolledFingerprintHash || "N/A"} and face ${enrolledFaceHash || "N/A"}.`
+        "Worker Enrolled with PIN", 
+        `Enrolled worker ${newWorker.name} (${newWorker.id}) with PIN [${assignedPin}].`
       );
     }
 
@@ -315,129 +268,159 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       type: "success",
       title: isAmharic ? "ምዝገባው በተሳካ ሁኔታ ተጠናቋል!" : "Enrollment Successful!",
       message: isAmharic 
-        ? `ሰራተኛው ${enrollName} [${enrollId}] በባዮሜትሪክ መዝገብ ውስጥ ተካቷል። አሁን የመገኘት መቆጣጠሪያ ኪዮስክን መጠቀም ይችላል።`
-        : `Employee ${enrollName} [${enrollId}] is registered with secure biometric credentials. Ready for self-attendance.`
+        ? `ሰራተኛው ${enrollName} [${newWorker.id}] በፒን [${assignedPin}] ተመዝግቧል። አሁን በኪዮስክ መግባት ይችላል።`
+        : `Employee ${enrollName} [${newWorker.id}] enrolled with PIN [${assignedPin}]. Ready for PIN attendance.`
     });
 
     // Reset Form
     setEnrollName("");
-    setEnrolledFingerprintHash("");
-    setEnrolledFaceHash("");
+    setEnrollPin("");
     setEnrollId(""); // Will regenerate on next cycle
     setActiveMode("kiosk"); // Switch to kiosk to test immediately
   };
 
   // ----------------------------------------------------
-  // AUTOMATIC EMPLOYEE IDENTIFICATION & CLOCKING
+  // AUTOMATIC PIN VERIFICATION & CLOCKING
   // ----------------------------------------------------
-  const triggerKioskScan = (simulatedWorkerId?: string) => {
+  const triggerKioskScan = () => {
     if (isScanning) return;
     setFeedback(null);
 
-    // Identify which worker is scanning
-    let identifiedWorker: Worker | undefined;
-    if (simulatedWorkerId) {
-      identifiedWorker = workers.find(w => w.id === simulatedWorkerId);
-    } else {
-      // In a real kiosk, placing a finger on the sensor matches the fingerprint.
-      // For simulator simplicity, we choose a random worker from enrolled ones if none prdigital_construction_erped,
-      // but to let users interact, we display quick-tap employee badges on the side.
-      const enrolledWorkers = workers.filter(w => w.fingerprint || w.faceRecognitionData);
-      if (enrolledWorkers.length === 0) {
-        playBeep("error");
+    // 1. Lockout Check (5 failed attempts within 2 minutes)
+    if (pinLockoutUntil && Date.now() < pinLockoutUntil) {
+      const remainingSecs = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
+      playBeep("error");
+      setFeedback({
+        type: "error",
+        title: isAmharic ? "መግባት ተከልክሏል (መቆለፊያ)" : "Access Locked Out",
+        message: isAmharic 
+          ? `በርካታ የተሳሳቱ ፒን ሙከራዎች ተደርገዋል። እባክዎን ${remainingSecs} ሰከንድ ይቆዩ።`
+          : `Too many failed PIN attempts. Access locked for ${remainingSecs} seconds.`
+      });
+      return;
+    }
+
+    // 2. Require PIN entry
+    if (!enteredPin.trim()) {
+      playBeep("error");
+      setFeedback({
+        type: "error",
+        title: isAmharic ? "ፒን አልገባም" : "PIN Required",
+        message: isAmharic ? "እባክዎን የሰራተኛ ፒን ቁጥር ያስገቡ!" : "Please enter worker 4-6 digit PIN!"
+      });
+      return;
+    }
+
+    // 3. Match worker by PIN (reject with generic "Invalid PIN" message on mismatch, do not reveal worker or close match)
+    const identifiedWorker = workers.find(w => w.attendancePin === enteredPin.trim() || w.id.replace("ERP-W-", "") === enteredPin.trim());
+    if (!identifiedWorker) {
+      playBeep("error");
+      const nextFail = pinFailedAttempts + 1;
+      setPinFailedAttempts(nextFail);
+      if (nextFail >= 5) {
+        setPinLockoutUntil(Date.now() + 120000); // 2 minute lockout
+        setPinFailedAttempts(0);
         setFeedback({
           type: "error",
-          title: isAmharic ? "የተመዘገቡ ባዮሜትሪክስ የሉም" : "No Enrolled Biometrics Found",
+          title: isAmharic ? "መግባት ተከልክሏል (5 የተሳሳቱ ሙከራዎች)" : "PIN Lockout Initiated",
           message: isAmharic 
-            ? "መጀመሪያ በ 'አዲስ ሰራተኛ ምዝገባ' ገጽ ላይ ሄደው አዲስ ሰራተኛ ይመዝግቡ።"
-            : "Please enroll employees in the 'Enroll' tab before attempting to use the self-attendance kiosk."
+            ? "5 ጊዜ የተሳሳተ ፒን ተገብቷል። ለ 2 ደቂቃዎች ታግደዋል።" 
+            : "5 consecutive invalid PIN attempts. Access locked out for 2 minutes."
         });
-        return;
+      } else {
+        setFeedback({
+          type: "error",
+          title: isAmharic ? "የተሳሳተ ፒን" : "Invalid PIN",
+          message: isAmharic 
+            ? `የተሳሳተ የፒን ቁጥር። እባክዎን እንደገና ይሞክሩ (ቀሪ ሙከራ፡ ${5 - nextFail})`
+            : `Invalid PIN. Please try again (${5 - nextFail} attempts remaining before lockout).`
+        });
       }
-      // Pick random
-      identifiedWorker = enrolledWorkers[Math.floor(Math.random() * enrolledWorkers.length)];
+      return;
     }
 
-    if (!identifiedWorker) return;
+    // Reset failed attempts on valid PIN
+    setPinFailedAttempts(0);
+    setPinLockoutUntil(null);
 
-    // Check if the selected worker actually has the chosen biometric enrolled
-    if (kioskMethod === "fingerprint" && !identifiedWorker.fingerprint) {
+    // Acquire real GPS position for distance check
+    if (typeof window === "undefined" || !navigator.geolocation) {
       playBeep("error");
       setFeedback({
         type: "error",
-        title: isAmharic ? "የጣት አሻራ አልተመዘገበም" : "No Fingerprint Enrolled",
-        message: isAmharic 
-          ? `${identifiedWorker.name} የጣት አሻራ መረጃ አልተመዘገበለትም! እባክዎን በፊቱ መለያ ይሞክሩ።`
-          : `${identifiedWorker.name} does not have a fingerprint profile registered yet.`
+        title: isAmharic ? "ጂፒኤስ የለም" : "Location Required",
+        message: isAmharic ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ ያብሩ!" : "Location required for attendance - please enable GPS/location permission"
       });
       return;
     }
 
-    if (kioskMethod === "face" && !identifiedWorker.faceRecognitionData) {
-      playBeep("error");
-      setFeedback({
-        type: "error",
-        title: isAmharic ? "የፊት ገጽታ አልተመዘገበም" : "No Face Profile Enrolled",
-        message: isAmharic 
-          ? `${identifiedWorker.name} የፊት ገጽታ መረጃ አልተመዘገበለትም! እባክዎን በጣት አሻራ ይሞክሩ።`
-          : `${identifiedWorker.name} does not have face recognition data registered.`
-      });
-      return;
-    }
-
-    // Start scanner simulation
     setIsScanning(true);
     setScanProgress(0);
     setKioskLogs([
-      isAmharic ? "⚡ ባዮሜትሪክ ዳሳሽ ነቅቷል..." : "⚡ Biometric sensor contact initiated...",
+      isAmharic ? "⚡ ፒን ተረጋግጧል... የጂፒኤስ ፍተሻ በሂደት ላይ..." : "⚡ PIN verified. Acquiring real device location...",
     ]);
     playBeep("scan");
 
-    let step = 0;
-    const interval = setInterval(() => {
-      step++;
-      setScanProgress(step * 20);
-      playBeep("scan");
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const realLat = position.coords.latitude;
+        const realLng = position.coords.longitude;
+        const realDist = Math.round(getDistanceInMeters(realLat, realLng, geofenceLat, geofenceLng));
+        const isInsideSite = realDist <= allowedRadius;
 
-      if (step === 2) {
-        setKioskLogs(prev => [
-          ...prev,
-          isAmharic 
-            ? `🔍 ባዮሜትሪክስ እየተነበበ ነው... [ዘዴ: ${kioskMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት መለያ"}]`
-            : `🔍 Reading biometric array ridges... [Mode: ${kioskMethod === "fingerprint" ? "Fingerprint" : "Facial Map"}]`
-        ]);
-      } else if (step === 3) {
-        setKioskLogs(prev => [
-          ...prev,
-          isAmharic 
-            ? "🛰️ የጂፒኤስ መገኛ ፍተሻ በሂደት ላይ ነው..."
-            : `🛰️ Aquiring high-accuracy geofence coordinates: [${simLat.toFixed(5)}°N, ${simLng.toFixed(5)}°E]`
-        ]);
-      } else if (step === 4) {
-        setKioskLogs(prev => [
-          ...prev,
-          isAmharic
-            ? `🖥️ የባዮሜትሪክ ዳታቤዝ ፍለጋ... ሰራተኛ ተገኝቷል፡ ${identifiedWorker?.name}`
-            : `🖥️ Database query matching hash: Success! Identified Employee: ${identifiedWorker?.name}`
-        ]);
-      } else if (step === 5) {
-        clearInterval(interval);
+        let step = 0;
+        const interval = setInterval(() => {
+          step++;
+          setScanProgress(step * 25);
+          playBeep("scan");
+
+          if (step === 2) {
+            setKioskLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `🛰️ የጂፒኤስ መጋጠሚያ፡ [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+                : `🛰️ Acquired GPS coordinates: [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+            ]);
+          } else if (step === 3) {
+            setKioskLogs(prev => [
+              ...prev,
+              isAmharic
+                ? `📐 ርቀት ከሳይቱ መካከለኛ፡ ${realDist}ሜ (ፍቃድ፡ ${isInsideSite ? "ተፈቅዷል" : "ውጭ"})`
+                : `📐 Distance to geofence center: ${realDist}m (Status: ${isInsideSite ? "Inside Site" : "Outside Boundary"})`
+            ]);
+          } else if (step >= 4) {
+            clearInterval(interval);
+            setIsScanning(false);
+            processAttendanceResult(identifiedWorker, realLat, realLng, realDist, isInsideSite);
+          }
+        }, 200);
+      },
+      (error) => {
         setIsScanning(false);
-        setTimeout(() => {
-          finalizeKioskAttendance(identifiedWorker!);
-        }, 150);
-      }
-    }, 200);
+        playBeep("error");
+        setFeedback({
+          type: "error",
+          title: isAmharic ? "ጂፒኤስ ተከልክሏል" : "Location Denied",
+          message: isAmharic
+            ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ ይፍቀዱ!"
+            : "Location required for attendance - please enable GPS permission",
+          worker: identifiedWorker
+        });
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
   };
 
-  const finalizeKioskAttendance = (worker: Worker) => {
+  const processAttendanceResult = (
+    worker: Worker,
+    realLat: number,
+    realLng: number,
+    deviation: number,
+    isInsideBoundary: boolean
+  ) => {
     const now = new Date();
     const formattedDate = now.toISOString().split("T")[0];
     const formattedTime = now.toLocaleTimeString("en-US", { hour12: false });
-
-    // GPS evaluation
-    const deviation = Math.round(getDistanceInMeters(simLat, simLng, geofenceLat, geofenceLng));
-    const isInsideBoundary = deviation <= allowedRadius;
 
     // Check duplicate check-ins or check-outs
     const existing = attendance.find(a => a.workerId === worker.id && a.date === formattedDate);
@@ -466,8 +449,8 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
         type: kioskAction,
         time: formattedTime,
         date: formattedDate,
-        method: kioskMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
-        gpsCoordinates: { lat: simLat, lng: simLng },
+        method: AttendanceMethod.FINGERPRINT,
+        gpsCoordinates: { lat: realLat, lng: realLng },
         deviation,
         gpsStatus: isInsideBoundary ? "Inside Site" : "Outside Site"
       };
@@ -541,11 +524,11 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
         date: formattedDate,
         checkIn: formattedTime,
         checkOut: null,
-        method: kioskMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
+        method: AttendanceMethod.FINGERPRINT,
         workingHours: 0,
         overtime: 0,
         status: status,
-        gpsCoordinates: { lat: simLat, lng: simLng },
+        gpsCoordinates: { lat: realLat, lng: realLng },
         deviceUsed: "Digital Construction ERP-KIOSK-01",
         verifiedBy: currentUserRole,
         gpsLocationString: `Bole Heights (${deviation}m)`
@@ -967,41 +950,14 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   </div>
                 </div>
 
-                {/* Biometric Scan Device Toggle */}
+                {/* PIN Verification Mode Status */}
                 <div className="space-y-1.5">
                   <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block">
-                    {isAmharic ? "የማረጋገጫ ዘዴ" : "BIOMETRIC AUTH HARDWARE"}
+                    {isAmharic ? "የማረጋገጫ ዘዴ" : "VERIFICATION SYSTEM"}
                   </span>
-                  <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-2xl border border-slate-800 w-full sm:w-60">
-                    <button
-                      onClick={() => {
-                        setKioskMethod("fingerprint");
-                        setFeedback(null);
-                      }}
-                      className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all ${
-                        kioskMethod === "fingerprint" 
-                          ? "bg-slate-800 text-white" 
-                          : "text-slate-500 hover:text-white"
-                      }`}
-                    >
-                      <Fingerprint size={13} />
-                      <span>{isAmharic ? "ጣት አሻራ" : "Fingerprint"}</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setKioskMethod("face");
-                        setFeedback(null);
-                      }}
-                      className={`py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all ${
-                        kioskMethod === "face" 
-                          ? "bg-slate-800 text-white" 
-                          : "text-slate-500 hover:text-white"
-                      }`}
-                    >
-                      <ScanLine size={13} />
-                      <span>{isAmharic ? "የፊት ገጽታ" : "Face Scan"}</span>
-                    </button>
+                  <div className="flex items-center space-x-2 bg-slate-950 px-3 py-2 rounded-2xl border border-slate-800 text-xs text-slate-300 font-bold font-mono">
+                    <KeyRound size={14} className="text-red-400" />
+                    <span>{isAmharic ? "የፒን ቁጥር ማረጋገጫ (PIN Auth)" : "PIN Verification Terminal"}</span>
                   </div>
                 </div>
 
@@ -1009,48 +965,87 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
             </div>
 
             {/* CORE SCANNER ZONE */}
-            <div className="my-8 flex flex-col items-center justify-center text-center">
+            <div className="my-6 flex flex-col items-center justify-center text-center">
               
-              {/* Scan Aura Ring */}
-              <div className="relative flex items-center justify-center mb-6">
-                <div className={`absolute w-40 h-40 rounded-full border-2 border-dashed transition-all duration-700 ${
-                  isScanning ? "border-red-500 animate-[spin_5s_linear_infinite]" : "border-slate-850"
-                }`}></div>
-                
-                <button
-                  onClick={() => triggerKioskScan()}
-                  disabled={isScanning}
-                  className={`relative w-28 h-28 rounded-full flex flex-col items-center justify-center border-2 transition-all duration-300 shadow-xl group cursor-pointer ${
-                    isScanning 
-                      ? "bg-slate-950 border-red-500 shadow-red-900/10" 
-                      : "bg-slate-950 hover:bg-slate-900 border-slate-800 active:scale-95 text-slate-400"
-                  }`}
-                >
-                  {isScanning && (
-                    <div className="absolute inset-0 bg-red-600/10 rounded-full animate-ping pointer-events-none"></div>
-                  )}
+              {/* PIN Keypad Display inside Kiosk */}
+              <div className="w-full max-w-xs space-y-3 mb-4">
+                <span className="text-[10px] uppercase font-mono tracking-widest text-slate-400 block font-bold">
+                  {isAmharic ? "የሰራተኛ ፒን ቁጥር ያስገቡ" : "ENTER WORKER ATTENDANCE PIN"}
+                </span>
 
-                  {isScanning && (
-                    <div className="absolute w-24 h-0.5 bg-red-500 left-1.5 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-[bounce_1.5s_infinite] z-20"></div>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={enteredPin}
+                    onChange={(e) => setEnteredPin(e.target.value)}
+                    placeholder="••••"
+                    className="bg-slate-950 border border-slate-700 rounded-2xl px-4 py-3 text-center tracking-[0.4em] font-mono text-xl font-black text-white w-full focus:outline-none focus:border-red-500 shadow-inner"
+                  />
+                  {enteredPin && (
+                    <button
+                      type="button"
+                      onClick={() => setEnteredPin("")}
+                      className="px-3.5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-bold shrink-0 cursor-pointer"
+                    >
+                      {isAmharic ? "አጽዳ" : "Clear"}
+                    </button>
                   )}
+                </div>
 
-                  {kioskMethod === "fingerprint" ? (
-                    <Fingerprint size={42} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600 group-hover:scale-105 transition-all"} />
-                  ) : (
-                    <ScanLine size={42} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600 group-hover:scale-105 transition-all"} />
-                  )}
-
-                  <span className="text-[8px] uppercase tracking-widest font-black text-slate-500 mt-2 block font-mono">
-                    {isScanning ? "IDENTIFYING..." : "TOUCH SENSOR"}
-                  </span>
-                </button>
+                {/* 3x4 Keypad */}
+                <div className="grid grid-cols-3 gap-1.5 pt-1">
+                  {["1","2","3","4","5","6","7","8","9","C","0","⌫"].map((btn) => (
+                    <button
+                      key={btn}
+                      type="button"
+                      onClick={() => {
+                        if (btn === "C") {
+                          setEnteredPin("");
+                        } else if (btn === "⌫") {
+                          setEnteredPin(prev => prev.slice(0, -1));
+                        } else {
+                          if (enteredPin.length < 6) {
+                            setEnteredPin(prev => prev + btn);
+                          }
+                        }
+                      }}
+                      className="py-2 bg-slate-800/80 hover:bg-slate-750 border border-slate-700 text-white rounded-xl font-mono text-sm font-bold active:scale-95 transition-all cursor-pointer"
+                    >
+                      {btn}
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {/* Verify & Clock Button */}
+              <button
+                onClick={() => triggerKioskScan()}
+                disabled={isScanning}
+                className={`relative px-8 py-3.5 rounded-2xl flex items-center justify-center gap-2 border font-extrabold text-sm transition-all duration-300 shadow-xl cursor-pointer ${
+                  isScanning 
+                    ? "bg-slate-950 border-red-500 text-red-400 opacity-80" 
+                    : "bg-red-600 hover:bg-red-500 border-red-500 text-white active:scale-95 shadow-red-900/30"
+                }`}
+              >
+                {isScanning ? (
+                  <>
+                    <RefreshCw size={18} className="animate-spin" />
+                    <span>{isAmharic ? "በማረጋገጥ ላይ..." : "VERIFYING GPS & PIN..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <KeyRound size={18} />
+                    <span>{isAmharic ? "ፒን አረጋግጥ እና መዝግብ" : "VERIFY PIN & CLOCK ATTENDANCE"}</span>
+                  </>
+                )}
+              </button>
 
               {/* Progress bar */}
               {isScanning && (
-                <div className="w-56 space-y-1.5 animate-fadeIn mb-4">
+                <div className="w-56 space-y-1.5 animate-fadeIn mt-4 mb-4">
                   <div className="flex justify-between text-[9px] font-mono text-slate-500">
-                    <span>QUERYING SYSTEM</span>
+                    <span>VERIFYING ATTENDANCE</span>
                     <span>{scanProgress}%</span>
                   </div>
                   <div className="w-full h-1 bg-slate-950 rounded-full overflow-hidden border border-slate-850">
@@ -1182,7 +1177,12 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   return (
                     <button
                       key={worker.id}
-                      onClick={() => triggerKioskScan(worker.id)}
+                      onClick={() => {
+                        if (worker.attendancePin) {
+                          setEnteredPin(worker.attendancePin);
+                        }
+                        setFeedback(null);
+                      }}
                       className={`w-full p-2.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer hover:border-red-500 hover:bg-red-50/10 group ${
                         rec?.checkIn ? "border-emerald-100 bg-emerald-50/20" : "border-slate-100 bg-slate-50/50"
                       }`}
@@ -1298,86 +1298,31 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                 </button>
               </div>
 
-              {/* HARDWARE REGISTRATORS */}
-              <div className="w-full space-y-2.5 pt-3 border-t border-slate-200">
-                <span className="text-[10px] uppercase font-black text-slate-400 text-center block tracking-wider">
-                  {isAmharic ? "ባዮሜትሪክ መረጃዎችን መቅረጫ" : "Biometric Device Capture"}
+              {/* WORKER PIN ASSIGNMENT */}
+              <div className="w-full space-y-2 pt-3 border-t border-slate-200">
+                <span className="text-[10px] uppercase font-black text-slate-500 text-center block tracking-wider font-mono">
+                  {isAmharic ? "የመገኘት ፒን ቁጥር (4-6 አሃዝ)" : "Attendance Security PIN"}
                 </span>
 
-                {/* Fingerprint Capture Trigger */}
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => handleRegisterBiometric("fingerprint")}
-                    disabled={registeringBiometric !== "none"}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 border cursor-pointer transition-all ${
-                      enrolledFingerprintHash 
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                        : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
-                    }`}
-                  >
-                    <Fingerprint size={14} className={registeringBiometric === "fingerprint" ? "animate-pulse text-red-500" : ""} />
-                    <span>
-                      {registeringBiometric === "fingerprint" 
-                        ? (isAmharic ? "ጣት በመቅረጽ ላይ..." : "Capturing ridgelines...")
-                        : enrolledFingerprintHash 
-                          ? (isAmharic ? "✓ አሻራ ተቀርጿል" : "✓ Fingerprint Enrolled") 
-                          : (isAmharic ? "የጣት አሻራ ቅረጽ" : "Enroll Fingerprint")}
-                    </span>
-                  </button>
-                  {enrolledFingerprintHash && (
-                    <span className="block text-[9px] font-mono text-center text-slate-400">
-                      Hash ID: {enrolledFingerprintHash}
-                    </span>
-                  )}
-                </div>
+                <input
+                  type="text"
+                  maxLength={6}
+                  value={enrollPin}
+                  onChange={(e) => setEnrollPin(e.target.value)}
+                  placeholder={isAmharic ? "ለምሳሌ፡ 4821 (ባዶ ከሆነ በራስ-ሰር ይፈጠራል)" : "e.g. 4821 (auto-generated if empty)"}
+                  className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-center font-mono font-extrabold text-sm text-slate-800 focus:outline-none focus:border-red-500"
+                />
 
-                {/* Face Capture Trigger */}
-                <div className="space-y-1">
-                  <button
-                    type="button"
-                    onClick={() => handleRegisterBiometric("face")}
-                    disabled={registeringBiometric !== "none"}
-                    className={`w-full py-2.5 rounded-xl text-xs font-bold flex items-center justify-center space-x-2 border cursor-pointer transition-all ${
-                      enrolledFaceHash 
-                        ? "bg-emerald-50 border-emerald-200 text-emerald-700" 
-                        : "bg-white hover:bg-slate-100 border-slate-200 text-slate-700"
-                    }`}
-                  >
-                    <ScanLine size={14} className={registeringBiometric === "face" ? "animate-pulse text-red-500" : ""} />
-                    <span>
-                      {registeringBiometric === "face" 
-                        ? (isAmharic ? "ፊት በመቅረጽ ላይ..." : "Scanning face maps...")
-                        : enrolledFaceHash 
-                          ? (isAmharic ? "✓ የፊት መለያ ተቀርጿል" : "✓ Facial Map Enrolled") 
-                          : (isAmharic ? "የፊት ገጽታ ቅረጽ" : "Enroll Facial Recognition")}
-                    </span>
-                  </button>
-                  {enrolledFaceHash && (
-                    <span className="block text-[9px] font-mono text-center text-slate-400">
-                      Hash ID: {enrolledFaceHash}
-                    </span>
-                  )}
-                </div>
-
-                {/* Progress bar */}
-                {registeringBiometric !== "none" && (
-                  <div className="space-y-1 pt-1.5">
-                    <div className="flex justify-between text-[9px] font-mono text-slate-400">
-                      <span>HARDWARE CAPTURE</span>
-                      <span>{registrationProgress}%</span>
-                    </div>
-                    <div className="w-full h-1 bg-slate-200 rounded-full overflow-hidden">
-                      <div className="h-full bg-red-600 transition-all duration-200" style={{ width: `${registrationProgress}%` }}></div>
-                    </div>
-                  </div>
-                )}
-
+                <p className="text-[10px] text-slate-400 text-center leading-tight">
+                  {isAmharic 
+                    ? "ሰራተኛው በኪዮስክ መቆጣጠሪያ ላይ ለመግባት የሚጠቀምበት ምስጢራዊ ፒን ቁጥር።" 
+                    : "Unique 4-6 digit PIN used by the worker for kiosk self-attendance clock-in."}
+                </p>
               </div>
 
             </div>
 
-            {/* COLUMN 2 & 3: FORM FLIEDS */}
+            {/* COLUMN 2 & 3: FORM FIELDS */}
             <div className="md:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
               
               {/* Employee ID */}

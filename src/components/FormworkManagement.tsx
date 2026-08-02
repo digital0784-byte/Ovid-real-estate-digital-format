@@ -242,31 +242,6 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [newWhGps, setNewWhGps] = useState("9.0200° N, 38.7500° E");
   const [isCapturingWhGps, setIsCapturingWhGps] = useState(false);
   const [whGpsError, setWhGpsError] = useState<string | null>(null);
-
-  const captureWarehouseGps = () => {
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      setWhGpsError("Geolocation API is not supported by your browser");
-      return;
-    }
-    setIsCapturingWhGps(true);
-    setWhGpsError(null);
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const latStr = pos.coords.latitude.toFixed(4);
-        const lngStr = pos.coords.longitude.toFixed(4);
-        const latDir = pos.coords.latitude >= 0 ? "N" : "S";
-        const lngDir = pos.coords.longitude >= 0 ? "E" : "W";
-        setNewWhGps(`${Math.abs(Number(latStr))}° ${latDir}, ${Math.abs(Number(lngStr))}° ${lngDir}`);
-        setIsCapturingWhGps(false);
-      },
-      (err) => {
-        setIsCapturingWhGps(false);
-        setNewWhGps("");
-        setWhGpsError(`Location required for warehouse registration - please enable GPS permission (${err.message})`);
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
-  };
   const [newWhManager, setNewWhManager] = useState("");
   const [newWhCapacity, setNewWhCapacity] = useState(5000);
   const [newWhMinStock, setNewWhMinStock] = useState(500);
@@ -4783,7 +4758,29 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   <button
                     type="button"
                     disabled={isCapturingWhGps}
-                    onClick={captureWarehouseGps}
+                    onClick={() => {
+                      if (!navigator.geolocation) {
+                        setWhGpsError("Geolocation is not supported by your browser");
+                        return;
+                      }
+                      setIsCapturingWhGps(true);
+                      setWhGpsError(null);
+                      navigator.geolocation.getCurrentPosition(
+                        (pos) => {
+                          const latStr = pos.coords.latitude.toFixed(4);
+                          const lngStr = pos.coords.longitude.toFixed(4);
+                          const latDir = pos.coords.latitude >= 0 ? "N" : "S";
+                          const lngDir = pos.coords.longitude >= 0 ? "E" : "W";
+                          setNewWhGps(`${Math.abs(Number(latStr))}° ${latDir}, ${Math.abs(Number(lngStr))}° ${lngDir}`);
+                          setIsCapturingWhGps(false);
+                        },
+                        (err) => {
+                          setIsCapturingWhGps(false);
+                          setWhGpsError(isAmharic ? `የጂፒኤስ መረጃ ማግኘት አልተቻለም: ${err.message}` : `GPS acquisition failed: ${err.message}`);
+                        },
+                        { enableHighAccuracy: true, timeout: 10000 }
+                      );
+                    }}
                     className="text-[10px] bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 px-2 py-0.5 rounded font-bold flex items-center gap-1 cursor-pointer transition-colors"
                   >
                     <MapPin size={10} />

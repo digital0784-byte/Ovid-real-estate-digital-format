@@ -110,7 +110,9 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   const [showHelp, setShowHelp] = useState(false);
   
   // Simulation / Emulator controls state
-  const [simulatedWorkerId, setSimulatedWorkerId] = useState(workers[0]?.id || "");
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinFailedAttempts, setPinFailedAttempts] = useState(0);
+  const [pinLockoutUntil, setPinLockoutUntil] = useState<number | null>(null);
   const [verificationMethod, setVerificationMethod] = useState<"fingerprint" | "face">("fingerprint");
   const [forceFail, setForceFail] = useState(false);
   const [failReasonPreset, setFailReasonPreset] = useState<"corrupted" | "unregistered">("corrupted");
@@ -280,9 +282,62 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     }
   };
 
-  // Master click trigger for the central biometric button
+  // Master click trigger for the central PIN attendance button
   const handleBiometricTrigger = () => {
     if (isScanning) return;
+
+    // 1. Lockout Check (5 failed attempts within 2 minutes)
+    if (pinLockoutUntil && Date.now() < pinLockoutUntil) {
+      const remainingSecs = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
+      playSound("error");
+      setConfirmationOverlay({
+        status: "failed",
+        reason: isAmharic
+          ? `በርካታ የተሳሳቱ ፒን ሙከራዎች ተደርገዋል። እባክዎን ${remainingSecs} ሰከንድ ይቆዩ።`
+          : `Too many failed PIN attempts. Access locked for ${remainingSecs} seconds.`
+      });
+      return;
+    }
+
+    // 2. PIN validation
+    if (!enteredPin.trim()) {
+      playSound("error");
+      setConfirmationOverlay({
+        status: "failed",
+        reason: isAmharic ? "እባክዎን የሰራተኛ ፒን ቁጥር ያስገቡ!" : "Please enter worker 4-6 digit PIN!"
+      });
+      return;
+    }
+
+    // 3. Worker lookup by PIN (generic Invalid PIN error on mismatch, no worker details leaked)
+    const matchedWorker = workers.find(w => w.attendancePin === enteredPin.trim() || w.id.replace("ERP-W-", "") === enteredPin.trim());
+    if (!matchedWorker) {
+      playSound("error");
+      const nextFail = pinFailedAttempts + 1;
+      setPinFailedAttempts(nextFail);
+      if (nextFail >= 5) {
+        setPinLockoutUntil(Date.now() + 120000); // 2 min lockout
+        setPinFailedAttempts(0);
+        setConfirmationOverlay({
+          status: "failed",
+          reason: isAmharic 
+            ? "5 ጊዜ የተሳሳተ ፒን ተገብቷል። ለ 2 ደቂቃዎች ታግደዋል።" 
+            : "5 consecutive invalid PIN attempts. Access locked out for 2 minutes."
+        });
+      } else {
+        setConfirmationOverlay({
+          status: "failed",
+          reason: isAmharic 
+            ? `የተሳሳተ የፒን ቁጥር። እባክዎን እንደገና ይሞክሩ (ቀሪ ሙከራ፡ ${5 - nextFail})`
+            : `Invalid PIN. Please try again (${5 - nextFail} attempts remaining before lockout).`
+        });
+      }
+      return;
+    }
+
+    // Reset failed attempts on valid PIN
+    setPinFailedAttempts(0);
+    setPinLockoutUntil(null);
 
     if (typeof window === "undefined" || !navigator.geolocation) {
       playSound("error");
@@ -302,8 +357,8 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     setTerminalLogs(prev => [
       ...prev,
       isAmharic 
-        ? "⚙️ የባዮሜትሪክ ሞጁል በመዘጋጀት ላይ ነው..." 
-        : "⚙️ Initializing secure OS biometric pipeline..."
+        ? "⚙️ የፒን ማረጋገጫ ተጠናቋል... የጂፒኤስ ፍተሻ በመከናወን ላይ..." 
+        : "⚙️ PIN verification authenticated. Acquiring real device GPS..."
     ]);
 
     playSound("scan");
@@ -318,23 +373,16 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
 
         let progress = 0;
         const interval = setInterval(() => {
-          progress += 10;
+          progress += 20;
           setScanProgress(progress);
           playSound("scan");
 
-          if (progress === 30) {
-            setTerminalLogs(prev => [
-              ...prev,
-              isAmharic
-                ? `🔍 የጣት አሻራ / የፊት መለያ በክፍል ተርሚናል ላይ በመፈለግ ላይ... (${verificationMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት ገጽታ"})`
-                : `🔍 Matching biometric template using local 1:N secure memory search (${verificationMethod === "fingerprint" ? "Fingerprint Ridge Reader" : "Face Recognition Geometry"})`
-            ]);
-          } else if (progress === 60) {
+          if (progress === 40) {
             setTerminalLogs(prev => [
               ...prev,
               isAmharic
                 ? `🛰️ የጂፒኤስ መገኛ መጋጠሚያዎች ተገኝተዋል፡ [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
-                : `🛰️ Capturing hardware GPS geofence coordinates: [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
+                : `🛰️ Capturing real device GPS coordinates: [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
             ]);
           } else if (progress === 80) {
             setTerminalLogs(prev => [
@@ -347,10 +395,10 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
             clearInterval(interval);
             setTimeout(() => {
               setIsScanning(false);
-              processAuthentication(realLat, realLng, realDist, isInside);
+              processAuthentication(matchedWorker, realLat, realLng, realDist, isInside);
             }, 150);
           }
-        }, 200);
+        }, 150);
       },
       (error) => {
         setIsScanning(false);
@@ -376,6 +424,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
 
   // High fidelity business logic processing
   const processAuthentication = (
+    worker: Worker,
     realLat: number,
     realLng: number,
     currentDistance: number,
@@ -408,17 +457,6 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         isInsideGeofence ? "Inside Site" : "Outside Site", 
         failReasonPreset === "corrupted" ? "Corrupted biometric format" : "Unenrolled biometric template"
       );
-      return;
-    }
-
-    // 2. Identify the employee from the simulated worker selection
-    const worker = workers.find(w => w.id === simulatedWorkerId);
-    if (!worker) {
-      playSound("error");
-      setConfirmationOverlay({
-        status: "failed",
-        reason: isAmharic ? "ማረጋገጫው አልተሳካም: ሰራተኛው አልተገኘም" : "Verification Failed: Simulated employee profile not found."
-      });
       return;
     }
 
@@ -1270,39 +1308,72 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
               </p>
             </div>
 
-            {/* 1. Simulated Worker finger Selection */}
-            <div className="space-y-1">
-              <label className="text-[10px] uppercase font-black text-slate-400 block font-mono">
-                {isAmharic ? "፩. በፓዱ ላይ የሚቀመጠው አሻራ (ሰራተኛ)" : "1. Sim Finger / Face Template"}
+            {/* 1. Worker PIN Verification Keypad */}
+            <div className="space-y-2">
+              <label className="text-[10px] uppercase font-black text-slate-500 block font-mono">
+                {isAmharic ? "፩. የሰራተኛ ፒን ቁጥር (4-6 አሃዝ)" : "1. Enter Worker Attendance PIN"}
               </label>
-              <select
-                value={simulatedWorkerId}
-                onChange={e => setSimulatedWorkerId(e.target.value)}
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl p-2.5 font-bold text-slate-800 text-xs focus:bg-white focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
-              >
-                {workers.map(w => (
-                  <option key={w.id} value={w.id}>
-                    {w.name} ({w.id})
-                  </option>
-                ))}
-              </select>
+              
+              <div className="flex items-center space-x-2">
+                <input
+                  type="password"
+                  maxLength={6}
+                  value={enteredPin}
+                  onChange={(e) => setEnteredPin(e.target.value)}
+                  placeholder="••••"
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-center tracking-[0.3em] font-mono text-base font-extrabold text-slate-800 w-full focus:outline-none focus:border-red-500"
+                />
+                {enteredPin && (
+                  <button
+                    type="button"
+                    onClick={() => setEnteredPin("")}
+                    className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold shrink-0"
+                  >
+                    {isAmharic ? "አጽዳ" : "Clear"}
+                  </button>
+                )}
+              </div>
 
-              {/* Mini Selected Worker Preview */}
+              {/* 3x4 Keypad Buttons */}
+              <div className="grid grid-cols-3 gap-1 pt-1 max-w-[200px] mx-auto">
+                {["1","2","3","4","5","6","7","8","9","C","0","⌫"].map((btn) => (
+                  <button
+                    key={btn}
+                    type="button"
+                    onClick={() => {
+                      if (btn === "C") {
+                        setEnteredPin("");
+                      } else if (btn === "⌫") {
+                        setEnteredPin(prev => prev.slice(0, -1));
+                      } else {
+                        if (enteredPin.length < 6) {
+                          setEnteredPin(prev => prev + btn);
+                        }
+                      }
+                    }}
+                    className="py-1.5 bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 rounded-lg font-mono text-xs font-bold active:scale-95 transition-all"
+                  >
+                    {btn}
+                  </button>
+                ))}
+              </div>
+
+              {/* Matched Worker Indicator (Internal lookup info) */}
               {(() => {
-                const selectedW = workers.find(w => w.id === simulatedWorkerId);
-                if (!selectedW) return null;
-                const hierarchy = getWorkerMetaData(selectedW.id);
+                const matchedW = workers.find(w => w.attendancePin === enteredPin.trim() || w.id.replace("ERP-W-", "") === enteredPin.trim());
+                if (!matchedW || !enteredPin) return null;
+                const hierarchy = getWorkerMetaData(matchedW.id);
                 return (
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center gap-3 mt-1.5 animate-fadeIn">
+                  <div className="bg-emerald-50 p-2.5 rounded-xl border border-emerald-200 flex items-center gap-3 mt-1.5 animate-fadeIn">
                     <img 
-                      src={selectedW.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop"} 
-                      alt={selectedW.name} 
-                      className="w-9 h-9 rounded-full object-cover border border-slate-200"
+                      src={matchedW.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop"} 
+                      alt={matchedW.name} 
+                      className="w-9 h-9 rounded-full object-cover border border-emerald-300"
                       referrerPolicy="no-referrer"
                     />
                     <div className="min-w-0 text-[10px]">
-                      <span className="font-extrabold text-slate-850 block truncate leading-tight">{selectedW.name}</span>
-                      <span className="text-slate-400 block font-mono mt-0.5">{selectedW.trade} • {hierarchy.team}</span>
+                      <span className="font-extrabold text-emerald-900 block truncate leading-tight">✓ {matchedW.name}</span>
+                      <span className="text-emerald-700 block font-mono mt-0.5">{matchedW.trade} • {hierarchy.team}</span>
                     </div>
                   </div>
                 );

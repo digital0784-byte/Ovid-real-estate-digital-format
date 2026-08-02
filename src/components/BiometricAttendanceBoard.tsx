@@ -34,7 +34,8 @@ import {
   WifiOff,
   Briefcase,
   Layers,
-  Award
+  Award,
+  KeyRound
 } from "lucide-react";
 import { Worker, AttendanceRecord, AttendanceMethod, UserRole } from "../types";
 import { 
@@ -96,8 +97,9 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
 
   // --- ACTIVE CONTROLLER STATES ---
-  const [selectedWorkerId, setSelectedWorkerId] = useState("");
-  const [biometricMethod, setBiometricMethod] = useState<"fingerprint" | "face">("fingerprint");
+  const [enteredPin, setEnteredPin] = useState("");
+  const [pinFailedAttempts, setPinFailedAttempts] = useState(0);
+  const [pinLockoutUntil, setPinLockoutUntil] = useState<number | null>(null);
   const [clockAction, setClockAction] = useState<"in" | "out">("in");
   
   // --- SCANNING SIMULATION STATE ---
@@ -299,16 +301,63 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     setNotifications(prev => [newNotif, ...prev]);
   };
 
-  // --- AUTOMATIC BIOMETRIC IDENTIFICATION ---
+  // --- AUTOMATIC PIN IDENTIFICATION ---
   const handleStartBiometricScan = () => {
-    if (!selectedWorkerId) {
+    // Check if lockout active (5 failed attempts within 2 minutes)
+    if (pinLockoutUntil && Date.now() < pinLockoutUntil) {
+      const remainingSecs = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
       playBeep("error");
-      alert(isAmharic ? "እባክዎን መጀመሪያ ሰራተኛ ይምረጡ!" : "Please select an employee first!");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "መግባት ተከልክሏል (መቆለፊያ)" : "Access Locked Out",
+        message: isAmharic 
+          ? `በርካታ የተሳሳቱ ፒን ሙከራዎች ተደርገዋል። እባክዎን ${remainingSecs} ሰከንድ ይቆዩ።`
+          : `Too many failed PIN attempts. Access locked out for ${remainingSecs} seconds.`
+      });
       return;
     }
 
-    const worker = workers.find(w => w.id === selectedWorkerId);
-    if (!worker) return;
+    if (!enteredPin.trim()) {
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "ፒን አልገባም" : "PIN Required",
+        message: isAmharic ? "እባክዎን የሰራተኛ ፒን ቁጥር ያስገቡ!" : "Please enter your 4-6 digit worker PIN!"
+      });
+      return;
+    }
+
+    // Match worker by attendancePin (reject with generic Invalid PIN message on mismatch, no worker leak)
+    const worker = workers.find(w => w.attendancePin === enteredPin.trim() || (w.id.replace("ERP-W-", "") === enteredPin.trim()));
+    if (!worker) {
+      playBeep("error");
+      const nextFail = pinFailedAttempts + 1;
+      setPinFailedAttempts(nextFail);
+      if (nextFail >= 5) {
+        setPinLockoutUntil(Date.now() + 120000); // 2 minute lockout
+        setPinFailedAttempts(0);
+        setScanResult({
+          success: false,
+          title: isAmharic ? "መግባት ተከልክሏል (5 የተሳሳቱ ሙከራዎች)" : "PIN Lockout Initiated",
+          message: isAmharic 
+            ? "5 ጊዜ የተሳሳተ ፒን ተገብቷል። ለ 2 ደቂቃዎች ታግደዋል።" 
+            : "5 consecutive invalid PIN attempts. Access locked out for 2 minutes."
+        });
+      } else {
+        setScanResult({
+          success: false,
+          title: isAmharic ? "የተሳሳተ ፒን" : "Invalid PIN",
+          message: isAmharic 
+            ? `የተሳሳተ የፒን ቁጥር። እባክዎን እንደገና ይሞክሩ (ቀሪ ሙከራ፡ ${5 - nextFail})`
+            : `Invalid PIN. Please try again (${5 - nextFail} attempts remaining before lockout).`
+        });
+      }
+      return;
+    }
+
+    // Reset failed attempts on success
+    setPinFailedAttempts(0);
+    setPinLockoutUntil(null);
 
     if (typeof window === "undefined" || !navigator.geolocation) {
       playBeep("error");
@@ -320,8 +369,8 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     setScanProgress(0);
     setScanLogs([
       isAmharic 
-        ? "⚡ የባዮሜትሪክ ሃርድዌር መገኛ ተገኝቷል... ግንኙነት እየተፈጠረ ነው።" 
-        : "⚡ Biometric hardware handshake initialized. Establishing secure state..."
+        ? "⚡ የፒን ማረጋገጫ ተጠናቋል... የጂፒኤስ ግንኙነት እየተፈጠረ ነው።" 
+        : "⚡ PIN verification authenticated. Initializing real device GPS handshake..."
     ]);
     playBeep("scan");
 
@@ -343,8 +392,8 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
             setScanLogs(prev => [
               ...prev,
               isAmharic
-                ? `🔍 የባዮሜትሪክ መዛመጃ ፍለጋ በሂደት ላይ፡ [የማረጋገጫ ዘዴ: ${biometricMethod === "fingerprint" ? "የጣት አሻራ" : "የፊት መለያ"}]`
-                : `🔍 Checking cryptographic templates mapping: [Hardware Method: ${biometricMethod === "fingerprint" ? "Fingerprint" : "Facial Structure"}]`
+                ? `🔍 የፒን ማረጋገጫ ፍለጋ በሂደት ላይ...`
+                : `🔍 Verification: Validating PIN against registered worker roster...`
             ]);
           } else if (step === 3) {
             setScanLogs(prev => [
@@ -443,7 +492,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         type: clockAction,
         time: timeStr,
         date: todayStr,
-        method: biometricMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
+        method: AttendanceMethod.FINGERPRINT,
         coordinates: { lat: realLat, lng: realLng },
         distance: currentDistance
       };
@@ -502,7 +551,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         date: todayStr,
         checkIn: timeStr,
         checkOut: null,
-        method: biometricMethod === "fingerprint" ? AttendanceMethod.FINGERPRINT : AttendanceMethod.FACE_RECOGNITION,
+        method: AttendanceMethod.FINGERPRINT,
         workingHours: 0,
         overtime: 0,
         status,
@@ -531,7 +580,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
       );
 
       if (onLogAction) {
-        onLogAction("Biometric Check-In", `${worker.name} clocked in successfully via ${biometricMethod}.`);
+        onLogAction("PIN Verification Check-In", `${worker.name} clocked in successfully via PIN entry.`);
       }
 
     } else {
@@ -1120,72 +1169,86 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                 </div>
               </div>
 
-              {/* Hardware Biometric selector */}
+              {/* PIN Verification Badge */}
               <div className="space-y-1.5">
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block">
-                  {isAmharic ? "የማረጋገጫ ዘዴ" : "BIOMETRIC AUTH METHOD"}
+                  {isAmharic ? "የማረጋገጫ ዘዴ" : "VERIFICATION SYSTEM"}
                 </span>
-                <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 w-full sm:w-60">
-                  <button
-                    onClick={() => {
-                      setBiometricMethod("fingerprint");
-                      setScanResult(null);
-                    }}
-                    className={`py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all ${
-                      biometricMethod === "fingerprint" 
-                        ? "bg-slate-800 text-white" 
-                        : "text-slate-500 hover:text-white"
-                    }`}
-                  >
-                    <Fingerprint size={12} />
-                    <span>{isAmharic ? "ጣት አሻራ" : "Fingerprint"}</span>
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      setBiometricMethod("face");
-                      setScanResult(null);
-                    }}
-                    className={`py-2 rounded-lg text-xs font-bold flex items-center justify-center space-x-2 cursor-pointer transition-all ${
-                      biometricMethod === "face" 
-                        ? "bg-slate-800 text-white" 
-                        : "text-slate-500 hover:text-white"
-                    }`}
-                  >
-                    <ScanLine size={12} />
-                    <span>{isAmharic ? "የፊት ገጽታ" : "Face Scan"}</span>
-                  </button>
+                <div className="flex items-center space-x-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-300 font-bold font-mono">
+                  <KeyRound size={14} className="text-red-400" />
+                  <span>{isAmharic ? "የፒን ቁጥር ማረጋገጫ (PIN Verification)" : "PIN Verification Keypad"}</span>
                 </div>
               </div>
 
             </div>
 
-            {/* Simulated GPS calibration & worker quick pick */}
+            {/* PIN Entry Keypad & GPS Status */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 text-xs">
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold block">{isAmharic ? "ሰራተኛ ይምረጡ (ለመመዝገቢያ)" : "Select Worker to Simulate Biometric Scanner"}</label>
-                <select
-                  value={selectedWorkerId}
-                  onChange={(e) => {
-                    setSelectedWorkerId(e.target.value);
-                    setScanResult(null);
-                  }}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-200 focus:outline-none focus:border-red-500 font-medium cursor-pointer"
-                >
-                  <option value="">-- {isAmharic ? "ሰራተኛ ይምረጡ" : "Choose Employee"} --</option>
-                  {workers.map(w => (
-                    <option key={w.id} value={w.id}>
-                      {w.name} ({w.id}) - {w.trade}
-                    </option>
+              <div className="space-y-2">
+                <label className="text-slate-400 font-bold block">
+                  {isAmharic ? "የሰራተኛ ፒን ቁጥር (4-6 አሃዝ)" : "Worker Attendance PIN Keypad"}
+                </label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="password"
+                    maxLength={6}
+                    value={enteredPin}
+                    onChange={(e) => {
+                      setEnteredPin(e.target.value);
+                      setScanResult(null);
+                    }}
+                    placeholder="••••"
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center tracking-[0.3em] font-mono text-base font-extrabold text-white w-full focus:outline-none focus:border-red-500"
+                  />
+                  {enteredPin && (
+                    <button
+                      type="button"
+                      onClick={() => setEnteredPin("")}
+                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold shrink-0"
+                    >
+                      {isAmharic ? "አጽዳ" : "Clear"}
+                    </button>
+                  )}
+                </div>
+                
+                {/* 3x4 Keypad */}
+                <div className="grid grid-cols-3 gap-1 pt-1 max-w-[220px]">
+                  {["1","2","3","4","5","6","7","8","9","C","0","⌫"].map((btn) => (
+                    <button
+                      key={btn}
+                      type="button"
+                      onClick={() => {
+                        setScanResult(null);
+                        if (btn === "C") {
+                          setEnteredPin("");
+                        } else if (btn === "⌫") {
+                          setEnteredPin(prev => prev.slice(0, -1));
+                        } else {
+                          if (enteredPin.length < 6) {
+                            setEnteredPin(prev => prev + btn);
+                          }
+                        }
+                      }}
+                      className="py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-850 text-white rounded-lg font-mono text-xs font-bold active:scale-95 transition-all"
+                    >
+                      {btn}
+                    </button>
                   ))}
-                </select>
+                </div>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መሳሪያ ሁኔታ" : "Real Device Geolocation Status"}</label>
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center space-x-2 text-emerald-400 font-mono text-[11px]">
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                  <span>{isAmharic ? "የቀጥታ መሳሪያ ጂፒኤስ ማረጋገጫ (ተዘጋጅቷል)" : "Hardware Geolocation (Live at Clock-In)"}</span>
+              <div className="space-y-3 flex flex-col justify-between">
+                <div className="space-y-1.5">
+                  <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መሳሪያ ሁኔታ" : "Real Device Geolocation Status"}</label>
+                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center space-x-2 text-emerald-400 font-mono text-[11px]">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                    <span>{isAmharic ? "የቀጥታ መሳሪያ ጂፒኤስ ማረጋገጫ (ተዘጋጅቷል)" : "Hardware Geolocation (Live at Clock-In)"}</span>
+                  </div>
+                </div>
+
+                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+                  <span className="font-mono text-slate-300 font-bold block">{isAmharic ? "📌 ፒን መመሪያ:" : "📌 PIN Instructions:"}</span>
+                  <p>{isAmharic ? "እባክዎን የ 4-6 አሃዝ ፒን ቁጥርዎን በመተየብ 'አረጋግጥ እና አስገባ' የሚለውን ቁልፍ ይጫኑ።" : "Type your 4-6 digit PIN, then press the verification button below."}</p>
                 </div>
               </div>
             </div>
@@ -1214,11 +1277,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                   <div className="absolute w-20 h-0.5 bg-red-500 left-1.5 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-[bounce_1.4s_infinite] z-20"></div>
                 )}
 
-                {biometricMethod === "fingerprint" ? (
-                  <Fingerprint size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
-                ) : (
-                  <ScanLine size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
-                )}
+                <ShieldCheck size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
 
                 <span className="text-[7px] uppercase tracking-widest font-black text-slate-500 mt-2 block font-mono">
                   {isScanning ? "VERIFYING..." : "PRESS SENSOR"}
@@ -1293,11 +1352,9 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                           <span className="text-slate-300">FL {scanResult.worker.floor} • {scanResult.worker.zone}</span>
                         </div>
                         <div>
-                          <span className="block text-slate-500 text-[7px] uppercase">HARDWARE HASH</span>
-                          <span className="text-slate-400">
-                            {biometricMethod === "fingerprint" 
-                              ? `F_TEMP_0x${scanResult.worker.id.replace("ERP-W-","")}`
-                              : `F_FACE_0x${scanResult.worker.id.replace("ERP-W-","")}`}
+                          <span className="block text-slate-500 text-[7px] uppercase">VERIFICATION METHOD</span>
+                          <span className="text-slate-300 font-bold">
+                            PIN Auth Verified (••••)
                           </span>
                         </div>
                       </div>
