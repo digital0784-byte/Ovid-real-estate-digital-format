@@ -115,7 +115,7 @@ const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
     userEmail: "tigist.h@buildsync.et",
     phoneNumber: "+251 911 990 123",
     currentRole: UserRole.ASSEMBLER,
-    requestedRole: UserRole.QAQC_ENGINEER,
+    requestedRole: UserRole.SITE_ENGINEER,
     reason: "Requested self-service role upgrade following diploma completion.",
     status: "Rejected",
     requestedBy: "Tigist Haile",

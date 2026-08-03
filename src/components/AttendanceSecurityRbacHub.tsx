@@ -127,20 +127,6 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
       "Cannot access unassigned site stores"
     ]
   },
-  [UserRole.PROCUREMENT_MANAGER]: {
-    title: "6. Procurement Manager",
-    category: "Financial & Procurement",
-    description: "Vendor procurement, purchase orders & material supply chains.",
-    canDo: [
-      "Manage Purchase Requisitions & Vendor Quotes",
-      "Process Purchase Orders & Material Deliveries",
-      "Track Supplier Performance & Material Costs"
-    ],
-    cannotDo: [
-      "Cannot edit biometric attendance records",
-      "Cannot modify engineering CAD blueprints"
-    ]
-  },
   [UserRole.PROJECT_MANAGER]: {
     title: "7. Project Manager",
     category: "Site & Field Operations",
@@ -211,20 +197,6 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
     cannotDo: [
       "Cannot edit financial payroll or worker salaries",
       "Cannot approve warehouse material requisitions"
-    ]
-  },
-  [UserRole.QAQC_ENGINEER]: {
-    title: "12. QA/QC Engineer",
-    category: "Engineering & Quality",
-    description: "Quality assurance, concrete testing & snag list resolution.",
-    canDo: [
-      "Generate Quality Inspection Reports & Snag Lists",
-      "Issue Non-Conformance Reports (NCR)",
-      "Inspect Material Quality, Concrete Slump & Formwork Quality"
-    ],
-    cannotDo: [
-      "Cannot bypass safety hazard shutdowns",
-      "Cannot modify financial budget allocations"
     ]
   },
   [UserRole.HSE_OFFICER]: {
@@ -312,19 +284,6 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
       "Cannot modify warehouse inventory quantities"
     ]
   },
-  [UserRole.CLIENT_CONSULTANT]: {
-    title: "19. Client / Consultant",
-    category: "External & Audit",
-    description: "External stakeholder transparency & approved progress review.",
-    canDo: [
-      "View Approved Project Progress Reports & Milestone Photos",
-      "View Approved CAD Drawings & Inspection Summaries"
-    ],
-    cannotDo: [
-      "Cannot access internal financial payroll or worker wage details",
-      "Cannot view unapproved internal drafts or cost ledgers"
-    ]
-  },
   [UserRole.AUDITOR]: {
     title: "20. Auditor",
     category: "External & Audit",
@@ -337,18 +296,6 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
     cannotDo: [
       "STRICTLY FORBIDDEN from creating, editing, or deleting any records",
       "Cannot modify system parameters or configuration"
-    ]
-  },
-  [UserRole.VISITOR]: {
-    title: "21. Visitor",
-    category: "External & Audit",
-    description: "Restricted guest access to pre-approved public information.",
-    canDo: [
-      "Access explicitly pre-approved public project summaries"
-    ],
-    cannotDo: [
-      "Cannot access operational data, attendance, payroll, or warehouse",
-      "Cannot view confidential structural CAD drawings"
     ]
   }
 };

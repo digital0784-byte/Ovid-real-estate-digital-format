@@ -57,7 +57,6 @@ const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.TIME_KEEPER, nameEn: "Time Keeper", nameAm: "የሰዓት ተቆጣጣሪ (ታይም ኪፐር)" },
   { role: UserRole.ASSEMBLER, nameEn: "Assembler", nameAm: "ተገጣጣሚ ሠራተኛ (አሰምብለር)" },
   { role: UserRole.FINANCE_MANAGER, nameEn: "Finance Manager", nameAm: "የሒሳብና ፋይናንስ ሥራ አስኪያጅ" },
-  { role: UserRole.QAQC_ENGINEER, nameEn: "QA/QC Engineer", nameAm: "የጥራት ቁጥጥር መሐንዲስ" },
   { role: UserRole.HSE_OFFICER, nameEn: "HSE Officer", nameAm: "የደህንነትና አካባቢ ጥበቃ ኃላፊ" },
   { role: UserRole.DRIVER, nameEn: "Driver", nameAm: "የተሽከርካሪ አሽከርካሪ" },
   { role: UserRole.SURVEYOR, nameEn: "Surveyor", nameAm: "የመሬት ልኬታ መሐንዲስ (ሱርቬየር)" },

@@ -394,7 +394,6 @@ export const CustomInputGovernanceHub: React.FC<CustomInputGovernanceHubProps> =
                 <button onClick={() => onSwitchRole(UserRole.TEAM_LEADER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Team Leader</button>
                 <button onClick={() => onSwitchRole(UserRole.TIME_KEEPER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Time Keeper</button>
                 <button onClick={() => onSwitchRole(UserRole.GANG_CHIEF)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Gang Chief</button>
-                <button onClick={() => onSwitchRole(UserRole.QAQC_ENGINEER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">QA/QC Engineer</button>
                 <button onClick={() => onSwitchRole(UserRole.HSE_OFFICER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">HSE Officer</button>
               </div>
             </div>

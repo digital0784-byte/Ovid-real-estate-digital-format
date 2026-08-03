@@ -1497,7 +1497,6 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },
                         { role: UserRole.SUPERVISOR, label: isAmharic ? "ተቆጣጣሪ (Supervisor)" : "Supervisor" },
                         { role: UserRole.SITE_ENGINEER, label: isAmharic ? "የሳይት መሃንዲስ (Site Engineer)" : "Site Engineer" },
-                        { role: UserRole.QAQC_ENGINEER, label: isAmharic ? "የጥራት ቁጥጥር መሐንዲስ (QA/QC Engineer)" : "QA/QC Engineer" },
                         { role: UserRole.HSE_OFFICER, label: isAmharic ? "የደህንነት ኃላፊ (HSE Officer)" : "HSE Officer" },
                         { role: UserRole.SURVEYOR, label: isAmharic ? "ሰርቬየር (Surveyor)" : "Surveyor" },
                         { role: UserRole.TIME_KEEPER, label: isAmharic ? "የሰዓት ተቆጣጣሪ (Time Keeper)" : "Time Keeper" },
@@ -1509,12 +1508,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.STORE_MANAGER, label: isAmharic ? "የስቶር ማናጀር (Store Manager)" : "Store Manager" },
                         { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል ሥራ አስኪያጅ (HR Manager)" : "HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
-                        { role: UserRole.PROCUREMENT_MANAGER, label: isAmharic ? "የግዥ ሥራ አስኪያጅ (Procurement Manager)" : "Procurement Manager" },
                         { role: UserRole.DRIVER, label: isAmharic ? "የተሽከርካሪ አሽከርካሪ (Driver)" : "Driver" },
-                        { role: UserRole.CLIENT_CONSULTANT, label: isAmharic ? "አማካሪ / ደንበኛ (Client / Consultant)" : "Client / Consultant" },
                         { role: UserRole.AUDITOR, label: isAmharic ? "ኦዲተር (Auditor)" : "Auditor" },
-                        { role: UserRole.WORKER, label: isAmharic ? "መደበኛ ሰራተኛ (Worker)" : "Worker" },
-                        { role: UserRole.VISITOR, label: isAmharic ? "ጎብኚ (Visitor)" : "Visitor" }
+                        { role: UserRole.WORKER, label: isAmharic ? "መደበኛ ሰራተኛ (Worker)" : "Worker" }
                       ].map((opt) => (
                         <option key={opt.role} value={opt.role} className="bg-slate-900 text-white text-xs">
                           {opt.label}

@@ -249,7 +249,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
 
   // --- ROLE-BASED ACCESS CONTROL (RBAC) AUTHORIZATION RULES ---
   const isFullAccess = currentUserRole === UserRole.FINANCE_MANAGER || currentUserRole === UserRole.SUPER_ADMIN;
-  const isExecutiveReadOnly = currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.CLIENT_CONSULTANT || currentUserRole === UserRole.AUDITOR;
+  const isExecutiveReadOnly = currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.AUDITOR;
   const isWarehouseManager = currentUserRole === UserRole.WAREHOUSE_MANAGER || currentUserRole === UserRole.STORE_OWNER;
   const isProjectManager = currentUserRole === UserRole.PROJECT_MANAGER;
 

@@ -487,13 +487,9 @@ export default function App() {
     [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.PROCUREMENT_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "enterpriseErp", "financeErp", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.QAQC_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "cadDrawing", "projectDocs"],
     [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "projectDocs"],
     [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub"],
-    [UserRole.CLIENT_CONSULTANT]: ["dashboard", "notificationCenter", "customInputHub", "progress", "cadDrawing", "projectDocs"],
-    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "attendance", "auditLog"],
-    [UserRole.VISITOR]: ["dashboard", "notificationCenter", "customInputHub", "progress"]
+    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "attendance", "auditLog"]
   };
 
   const t = (key: string): string => {
