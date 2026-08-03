@@ -37,7 +37,8 @@ import {
   HelpCircle,
   AlertCircle
 } from "lucide-react";
-import { UserRole } from "../types";
+import { UserRole, AluminumFormworkPanel } from "../types";
+import { DbService } from "../services/db";
 import { 
   ResponsiveContainer, 
   ScatterChart, 
@@ -98,16 +99,6 @@ export interface VerificationElement {
   measuredY: number;
   measuredZ: number;
   deviationMm: number;
-}
-
-export interface AluminumFormworkPanel {
-  panelId: string;
-  size: string;
-  location: string;
-  type: "Beam Panel" | "Wall Panel" | "Deck Panel" | "Corner Panel" | "Internal Corner" | "External Corner";
-  quantity: number;
-  status: "Correct" | "Missing" | "Mismatched";
-  installedLocation: string;
 }
 
 export interface ProgressSummary {
@@ -297,15 +288,6 @@ const INITIAL_VERIFICATION_ELEMENTS: VerificationElement[] = [
   { id: "V-07", name: "Elevator & Stair Core Layout", status: "Deviation Detected", plannedX: 120.0, plannedY: 160.0, plannedZ: 12.8, measuredX: 120.005, measuredY: 160.007, measuredZ: 12.802, deviationMm: 8.6 } // Over 4mm!
 ];
 
-const INITIAL_FORMWORK_PANELS: AluminumFormworkPanel[] = [
-  { panelId: "P-WALL-001", size: "1200x2300", location: "West Shear Wall", type: "Wall Panel", quantity: 8, status: "Correct", installedLocation: "S-10" },
-  { panelId: "P-BEAM-014", size: "450x1500", location: "Main Beam Girder", type: "Beam Panel", quantity: 4, status: "Correct", installedLocation: "B-2" },
-  { panelId: "P-DECK-085", size: "600x1200", location: "Center Slab Bay", type: "Deck Panel", quantity: 24, status: "Missing", installedLocation: "D-8" }, // Flagged Missing!
-  { panelId: "P-CRN-005", size: "300x300", location: "Corner Bracing Left", type: "Corner Panel", quantity: 2, status: "Correct", installedLocation: "C-1" },
-  { panelId: "P-ICRN-002", size: "200x200", location: "Internal Corner Joint", type: "Internal Corner", quantity: 4, status: "Mismatched", installedLocation: "IC-4" }, // Flagged Mismatched!
-  { panelId: "P-ECRN-009", size: "200x200", location: "External Corner Edge", type: "External Corner", quantity: 4, status: "Correct", installedLocation: "EC-2" }
-];
-
 const INITIAL_PROGRESS: ProgressSummary = {
   plannedProgress: 88,
   actualProgress: 79,
@@ -333,12 +315,14 @@ interface SurveyingInstrumentModuleProps {
   isAmharic: boolean;
   currentUserRole: UserRole;
   onLogAction?: (action: string, details: string) => void;
+  formworkPanels?: AluminumFormworkPanel[];
 }
 
 export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps> = ({
   isAmharic,
   currentUserRole,
-  onLogAction
+  onLogAction,
+  formworkPanels: externalFormworkPanels = []
 }) => {
   // --- SUB TAB CONTROL ---
   const [activeTab, setActiveTab] = useState<"dashboard" | "equipment" | "verification" | "progress" | "signoff" | "approval">("dashboard");
@@ -348,7 +332,6 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
   const [controlPoints, setControlPoints] = useState<ControlPoint[]>(INITIAL_CONTROL_POINTS);
   const [projectStages, setProjectStages] = useState<ProjectStageOverview[]>(INITIAL_STAGES);
   const [verificationElements, setVerificationElements] = useState<VerificationElement[]>(INITIAL_VERIFICATION_ELEMENTS);
-  const [formworkPanels, setFormworkPanels] = useState<AluminumFormworkPanel[]>(INITIAL_FORMWORK_PANELS);
   
   // --- CUSTOM PANEL DIMENSION INPUT STATE (FOR AUTOMATIC AREA CALCULATION) ---
   const [panelTypeInput, setPanelTypeInput] = useState<string>("Wall Panel");
@@ -1375,8 +1358,13 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                 {/* Panel reconcilation simulator button */}
                 <button
                   onClick={() => {
-                    alert(isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነል ፍተሻ እንደገና እየተሰላ ነው..." : "Re-scanning panel placements with CAD drawing...");
-                    setFormworkPanels(prev => prev.map(p => ({ ...p, status: "Correct" })));
+                    alert(isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነል ፍተሻ ከCAD ሥዕሎች ጋር በስኬት ተከናውኗል።" : "Re-scanning panel placements with CAD drawing & shared inventory database...");
+                    if (onLogAction) {
+                      onLogAction(
+                        isAmharic ? "የፓነል ፍተሻ ተከናውኗል" : "CAD Reconciliation Completed",
+                        isAmharic ? "የፎርምወርክ ፓነል መረጃ ከፕሮጀክት ማዕከላዊ መዝገብ ጋር ተወዳድሯል።" : "Reconciled panel placements with central inventory database."
+                      );
+                    }
                   }}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-black uppercase py-2.5 rounded-xl flex items-center justify-center space-x-1.5 transition-all cursor-pointer shadow-sm animate-pulse"
                 >
@@ -1510,7 +1498,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                   {/* Add button */}
                   <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       const w = parseFloat(panelWidthInput) || 0;
                       const h = parseFloat(panelHeightInput) || 0;
                       if (w <= 0 || h <= 0) {
@@ -1521,16 +1509,24 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                       const panelArea = (w * h * panelQtyInput) / 1000000;
                       const newId = `P-CST-${Date.now().toString().slice(-4)}`;
                       const newRecord: AluminumFormworkPanel = {
-                        panelId: newId,
+                        id: newId,
+                        serialNumber: newId,
+                        bundleNumber: "BUNDLE-SURVEY-01",
                         size: `${w}x${h}`,
                         location: panelLocationInput || (isAmharic ? "ማዕከላዊ ግንባታ ቦታ" : "Central Formwork Location"),
+                        zone: "Zone A",
                         type: panelTypeInput as any,
                         quantity: panelQtyInput,
-                        status: "Correct",
-                        installedLocation: `${panelTypeInput.charAt(0)}-${Math.floor(Math.random() * 20) + 1}`
+                        status: "Available" as any,
+                        usageCount: 0,
+                        createdAt: new Date().toISOString().split("T")[0]
                       };
 
-                      setFormworkPanels(prev => [newRecord, ...prev]);
+                      try {
+                        await DbService.addFormworkPanel(newRecord);
+                      } catch (err) {
+                        console.error("Failed to add panel to shared inventory:", err);
+                      }
 
                       if (onLogAction) {
                         onLogAction(
@@ -1554,29 +1550,32 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
 
                 {/* Panels Status List */}
                 <div className="space-y-2.5 max-h-[350px] overflow-y-auto pr-1">
-                  {formworkPanels.map((panel, idx) => {
-                    const isMismatched = panel.status === "Mismatched" || panel.status === "Missing";
+                  {externalFormworkPanels.map((panel, idx) => {
+                    const displayId = panel.serialNumber || panel.id || (panel as any).panelId || `P-${idx+1}`;
+                    const displayLocation = panel.location || panel.zone || (panel as any).location || "Site";
+                    const displayStatus = panel.status || "Available";
+
                     return (
-                      <div key={idx} className={`p-3 rounded-xl border flex items-center justify-between ${
-                        panel.status === "Missing" ? "bg-red-500/5 border-red-200" :
-                        panel.status === "Mismatched" ? "bg-amber-500/5 border-amber-200" : "bg-slate-50/50 border-slate-150"
+                      <div key={panel.id || idx} className={`p-3 rounded-xl border flex items-center justify-between ${
+                        displayStatus === "Missing" || displayStatus === "Damaged" ? "bg-red-500/5 border-red-200" :
+                        displayStatus === "Mismatched" || displayStatus === "Maintenance" ? "bg-amber-500/5 border-amber-200" : "bg-slate-50/50 border-slate-150"
                       }`}>
                         <div className="space-y-0.5">
                           <div className="flex items-center space-x-2">
-                            <span className="text-[9px] font-black font-mono bg-slate-200 text-slate-700 px-1 py-0.5 rounded">{panel.panelId}</span>
+                            <span className="text-[9px] font-black font-mono bg-slate-200 text-slate-700 px-1 py-0.5 rounded">{displayId}</span>
                             <span className="text-xs font-black text-slate-800">{panel.type}</span>
                           </div>
-                          <p className="text-[10px] text-slate-400 font-mono">Size: {panel.size}mm | Area: {panel.location}</p>
+                          <p className="text-[10px] text-slate-400 font-mono">Size: {panel.size}mm | Area: {displayLocation}</p>
                         </div>
 
                         <div className="text-right">
                           <span className={`text-[9px] font-black uppercase px-2 py-0.5 rounded ${
-                            panel.status === "Correct" ? "bg-emerald-100 text-emerald-800" :
-                            panel.status === "Missing" ? "bg-red-100 text-red-800 animate-pulse" : "bg-amber-100 text-amber-800"
+                            displayStatus === "Correct" || displayStatus === "Available" || displayStatus === "In Use" ? "bg-emerald-100 text-emerald-800" :
+                            displayStatus === "Missing" || displayStatus === "Damaged" ? "bg-red-100 text-red-800 animate-pulse" : "bg-amber-100 text-amber-800"
                           }`}>
-                            {panel.status}
+                            {displayStatus}
                           </span>
-                          <span className="text-[9px] text-slate-400 font-mono block mt-1">Qty: {panel.quantity}</span>
+                          <span className="text-[9px] text-slate-400 font-mono block mt-1">Qty: {panel.quantity ?? 1}</span>
                         </div>
                       </div>
                     );

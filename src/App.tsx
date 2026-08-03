@@ -2059,6 +2059,7 @@ export default function App() {
           <SurveyingInstrumentModule
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            formworkPanels={formworkPanels}
             onLogAction={(action, details) => logAction(action, details)}
           />
         )}

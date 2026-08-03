@@ -294,10 +294,9 @@ export function SecuritySettingsHub({
 
   // --- USER SETTINGS STATES ---
   const [profileName, setProfileName] = useState(
-    currentUserProfile?.displayName ||
-    ((currentUserRole as string) === UserRole.HEAD_OFFICE ? "Head Office Admin" :
+    (currentUserRole as string) === UserRole.HEAD_OFFICE ? "Head Office Admin" :
     (currentUserRole as string) === UserRole.PROJECT_MANAGER ? "Eng. Dawit" :
-    (currentUserRole as string) === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Super Admin Operator")
+    (currentUserRole as string) === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Super Admin Operator"
   );
   const [profilePhone, setProfilePhone] = useState("0910097862/0920843843");
   const [profileEmail, setProfileEmail] = useState("mejennur669@gmail.com");

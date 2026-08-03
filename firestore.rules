@@ -166,7 +166,7 @@ service cloud.firestore {
     // 7. Equipment & Vehicles
     match /equipment/{equipmentId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor();
     }
     match /vehicles/{vehicleId} {
       allow read: if isSignedIn();
@@ -319,14 +319,10 @@ service cloud.firestore {
     match /invitations/{inviteId} {
       allow read, write: if isSuperAdmin() || isHeadOffice() || isHRManager();
     }
-    // 16. Enterprise ERP Hub Collections (Procurement, Equipment, Feedbacks, Appraisals)
+    // 16. Enterprise ERP Hub Collections (Procurement, Feedbacks, Appraisals)
     match /procurements/{procId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager() || isFinanceManager();
-    }
-    match /equipment/{eqId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
     }
     match /employeeFeedbacks/{feedbackId} {
       allow read: if isSignedIn();
