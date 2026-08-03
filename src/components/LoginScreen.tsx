@@ -1421,7 +1421,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       type="text"
                       value={regName}
                       onChange={(e) => setRegName(e.target.value)}
-                      placeholder="e.g. Nuriye Ahmed Adem"
+                      placeholder="e.g. Abebe Bikila"
                       className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
                     />
                   </div>
@@ -1595,8 +1595,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         <p>© {new Date().getFullYear()} Digital Construction ERP System Engineering Division. All rights reserved.</p>
         <p className="text-slate-400 font-bold">
           {isAmharic 
-            ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
-            : "Admin App developed by: Nuriye Ahmed Adem"} 
+            ? "የአድሚን መተግበሪያ በዲጂታል ኮንስትራክሽን ኢአርፒ የተገነባ" 
+            : "Admin App developed by: Digital Construction ERP Engineering"} 
           {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843
         </p>
         <p className="text-[10px] text-slate-600">

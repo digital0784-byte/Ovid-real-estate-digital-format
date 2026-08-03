@@ -2319,8 +2319,8 @@ export default function App() {
           <p>© {new Date().getFullYear()} Digital Construction ERP System. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
           <p className="font-semibold text-slate-500">
             {isAmharic 
-              ? "የአድሚን መተግበሪያ በአልሚው፡ ኑሪዬ አህመድ አደም የተገነባ" 
-              : "Admin App developed by: Nuriye Ahmed Adem"} 
+              ? `የአድሚን መተግበሪያ በ${currentUserProfile?.displayName || "ዲጂታል ኮንስትራክሽን ኢአርፒ"} የተገነባ` 
+              : `Admin App developed by: ${currentUserProfile?.displayName || "Digital Construction ERP Engineering"}`} 
             {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862 / 0920843843
           </p>
           <p className="font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>

@@ -66,7 +66,7 @@ const CATEGORIES_LIST: CustomInputCategory[] = [
 export const CustomInputGovernanceHub: React.FC<CustomInputGovernanceHubProps> = ({
   isAmharic = true,
   currentUserRole = UserRole.SUPER_ADMIN,
-  currentUserName = "Nuriye Ahmed Adem (Admin)",
+  currentUserName = "System Admin",
   onLogAction,
   onSwitchRole
 }) => {

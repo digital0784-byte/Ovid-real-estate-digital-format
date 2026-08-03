@@ -68,7 +68,7 @@ export const MasterPanelSelector: React.FC<MasterPanelSelectorProps> = ({
   existingSerials = [],
   isAmharic = false,
   currentUserRole = "Head Office",
-  currentUserName = "Nuriye Ahmed Adem",
+  currentUserName = "System Admin",
   showAdminAddOption = true,
 }) => {
   // 4-Step state

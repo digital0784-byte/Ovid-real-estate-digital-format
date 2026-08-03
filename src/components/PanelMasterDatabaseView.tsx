@@ -50,7 +50,7 @@ interface PanelMasterDatabaseViewProps {
 export const PanelMasterDatabaseView: React.FC<PanelMasterDatabaseViewProps> = ({
   isAmharic = false,
   currentUserRole = "Head Office",
-  currentUserName = "Nuriye Ahmed Adem",
+  currentUserName = "System Admin",
 }) => {
   // Filters & State
   const [searchTerm, setSearchTerm] = useState("");

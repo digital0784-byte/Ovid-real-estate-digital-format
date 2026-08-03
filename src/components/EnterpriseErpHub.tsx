@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
+import { DbService } from "../services/db";
 import {
   Boxes,
   Truck,
@@ -85,7 +86,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   currentUserProfile,
   onLogAction
 }) => {
-  const currentAdminName = currentUserProfile?.displayName || "Nuriye Ahmed Adem";
+  const currentAdminName = currentUserProfile?.displayName || "System Admin";
   const [activeSubTab, setActiveSubTab] = useState<string>("executive");
 
   // --- FLUTTER & AI ENGINE SIMULATION STATE ---
@@ -439,10 +440,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- 3. PROCUREMENT STATE ---
   const [procurements, setProcurements] = useState([
-    { id: "PR-304", item: "M20 Heavy Tie-Rods (High Tensile)", qty: "1,500 Pcs", cost: "ETB 240,000", supplier: "Ethio-Steel Ltd", status: "Approved", date: "2026-07-08", approvalBy: "Nuriye Ahmed Adem" },
+    { id: "PR-304", item: "M20 Heavy Tie-Rods (High Tensile)", qty: "1,500 Pcs", cost: "ETB 240,000", supplier: "Ethio-Steel Ltd", status: "Approved", date: "2026-07-08", approvalBy: currentAdminName },
     { id: "PR-303", item: "Aluminum Formwork Pin Wedges", qty: "10,000 Pcs", cost: "ETB 95,000", supplier: "Global Fasteners PLC", status: "Goods Received", date: "2026-07-06", approvalBy: "Eng. Dawit" },
-    { id: "PR-302", item: "High Performance Formwork Release Agent", qty: "10 Drums", cost: "ETB 115,000", supplier: "Nile Chemicals Co.", status: "Payment Completed", date: "2026-07-02", approvalBy: "Nuriye Ahmed Adem" },
-    { id: "PR-301", item: "Steel Props Adjusting Sleeves", qty: "300 Pcs", cost: "ETB 180,000", supplier: "Bole Structural Casting", status: "Pending Approval", date: "2026-07-09", approvalBy: "Awaiting Nuriye" }
+    { id: "PR-302", item: "High Performance Formwork Release Agent", qty: "10 Drums", cost: "ETB 115,000", supplier: "Nile Chemicals Co.", status: "Payment Completed", date: "2026-07-02", approvalBy: currentAdminName },
+    { id: "PR-301", item: "Steel Props Adjusting Sleeves", qty: "300 Pcs", cost: "ETB 180,000", supplier: "Bole Structural Casting", status: "Pending Approval", date: "2026-07-09", approvalBy: "Awaiting Approval" }
   ]);
 
   const [newPrItem, setNewPrItem] = useState({ item: "", qty: "", cost: "", supplier: "" });
@@ -459,7 +460,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- 5. QUALITY CONTROL STATE ---
   const [qualityControls, setQualityControls] = useState([
-    { id: "QC-801", type: "Concrete Pour Checklist", zone: "B1-Floor 4-Zone A", checklist: "Pre-pour slump 120mm, Cover blocks 25mm, Rebars clean", status: "Passed & Signed", approvedBy: "Nuriye Ahmed Adem", date: "2026-07-08" },
+    { id: "QC-801", type: "Concrete Pour Checklist", zone: "B1-Floor 4-Zone A", checklist: "Pre-pour slump 120mm, Cover blocks 25mm, Rebars clean", status: "Passed & Signed", approvedBy: currentAdminName, date: "2026-07-08" },
     { id: "QC-802", type: "Formwork Inspection", zone: "B1-Floor 4-Zone B", checklist: "Wall panel verticality check, wedge pin engagement > 98%", status: "NCR Issued (2mm variance)", approvedBy: "Eng. Dawit", date: "2026-07-09" },
     { id: "QC-803", type: "Reinforcement Inspection", zone: "B1-Floor 4-Zone B", checklist: "Tension lap length checks (50D compliance), links spacing", status: "Pending Check", approvedBy: "Alemayehu Kebede", date: "2026-07-09" }
   ]);
@@ -478,7 +479,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- 7. DOCUMENT MANAGEMENT STATE ---
   const [documents, setDocuments] = useState([
-    { id: "CAD-101", name: "FormworkLayout_Floor4_B1.dwg", type: "CAD Drawing", ver: "v2.4", syncDate: "2026-07-08", approval: "Approved by Nuriye" },
+    { id: "CAD-101", name: "FormworkLayout_Floor4_B1.dwg", type: "CAD Drawing", ver: "v2.4", syncDate: "2026-07-08", approval: "Approved by Admin" },
     { id: "SD-304", name: "CornerBracket_AssemblyDetail_Shop.pdf", type: "Shop Drawing", ver: "v1.2", syncDate: "2026-07-05", approval: "Approved by Eng. Dawit" },
     { id: "MTS-501", name: "MethodStatement_HighRiseFormwork_Digital Construction ERP.pdf", type: "Method Statement", ver: "v3.0", syncDate: "2026-06-15", approval: "Lead Admin Signed" },
     { id: "RFI-221", name: "RFI_SlabConduits_Elect_ZoneB.docx", type: "RFI", ver: "v1.0", syncDate: "2026-07-09", approval: "Awaiting Consultant" }
@@ -488,7 +489,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- 8. COMMUNICATION CENTER STATE ---
   const [chats, setChats] = useState([
-    { id: 1, sender: "Nuriye Ahmed Adem (Admin)", text: "Team, we have 2 ready mix trucks incoming for Floor 4 Column Pour. Ensure stripping is finished on Area B.", time: "09:12 AM" },
+    { id: 1, sender: `${currentAdminName} (Admin)`, text: "Team, we have 2 ready mix trucks incoming for Floor 4 Column Pour. Ensure stripping is finished on Area B.", time: "09:12 AM" },
     { id: 2, sender: "Eng. Dawit (PM)", text: "Confirming. Wedge pins are secure on Block B1-A. Surveyors have aligned verticality.", time: "09:14 AM" },
     { id: 3, sender: "Kassa Hunegn (Supervisor)", text: "Assembly Team Alpha is checking pins now. Scraping panels complete.", time: "09:18 AM" }
   ]);
@@ -571,10 +572,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // Req 15: Work Permit Management
   const [permits, setPermits] = useState([
-    { id: "PER-801", type: "Hot Work", zone: "Block B1-Floor 4-Zone A", requestedBy: "Chala B. (Welder Lead)", approvedBy: "Nuriye Ahmed Adem", expiry: "2026-07-09 18:00", status: "Active", alerts: "No alerts" },
+    { id: "PER-801", type: "Hot Work", zone: "Block B1-Floor 4-Zone A", requestedBy: "Chala B. (Welder Lead)", approvedBy: currentAdminName, expiry: "2026-07-09 18:00", status: "Active", alerts: "No alerts" },
     { id: "PER-802", type: "Height Work", zone: "Tower Crane MC125 Boom Support", requestedBy: "Kassahun T. (Crane Op)", approvedBy: "Eng. Dawit", expiry: "2026-07-10 12:00", status: "Approved", alerts: "Alert: Winds forecast 25+ km/h tomorrow" },
     { id: "PER-803", type: "Excavation", zone: "Tower B2 Gate Base Foundation", requestedBy: "Mulugeta S. (Gangs Chief)", approvedBy: "Alemayehu Kebede", expiry: "2026-07-08 17:00", status: "Expired", alerts: "Expired: Auto-archived" },
-    { id: "PER-804", type: "Crane Lifting", zone: "Heavy Bundle Unloading Yard", requestedBy: "Yoseph H. (Supervisor)", approvedBy: "Nuriye Ahmed Adem", expiry: "2026-07-09 17:30", status: "Active", alerts: "No alerts" },
+    { id: "PER-804", type: "Crane Lifting", zone: "Heavy Bundle Unloading Yard", requestedBy: "Yoseph H. (Supervisor)", approvedBy: currentAdminName, expiry: "2026-07-09 17:30", status: "Active", alerts: "No alerts" },
     { id: "PER-805", type: "Confined Space", zone: "Block B1 Sewer Connection Tank", requestedBy: "Zewdu A. (Plumber Lead)", approvedBy: "Pending", expiry: "2026-07-10 18:00", status: "Pending Approval", alerts: "Check oxygen levels before entry" },
     { id: "PER-806", type: "Concrete Pour", zone: "Block B1-Floor 5-Slab Base", requestedBy: "Fikru T. (Concrete Supervisor)", approvedBy: "Pending", expiry: "2026-07-11 18:00", status: "Pending Approval", alerts: "Awaiting slump report" },
     { id: "PER-807", type: "Formwork Removal", zone: "Block B1-Floor 3-Zone B Column", requestedBy: "Kassa H. (Formwork Lead)", approvedBy: "Eng. Dawit", expiry: "2026-07-09 12:00", status: "Active", alerts: "Cure cycle verified 72 Hrs" }
@@ -736,6 +737,31 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     automaticDailyCloudBackup: "Enabled (Scheduled at 03:00 AM daily)"
   });
 
+  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, & Appraisals
+  useEffect(() => {
+    let active = true;
+    const fetchEnterpriseData = async () => {
+      try {
+        const [dbProc, dbEq, dbFeed, dbAppr] = await Promise.all([
+          DbService.getProcurements(procurements),
+          DbService.getEquipmentLogs(equipment),
+          DbService.getEmployeeFeedbacks(feedbacks),
+          DbService.getPerformanceAppraisals(appraisals)
+        ]);
+        if (active) {
+          if (dbProc && dbProc.length > 0) setProcurements(dbProc);
+          if (dbEq && dbEq.length > 0) setEquipment(dbEq);
+          if (dbFeed && dbFeed.length > 0) setFeedbacks(dbFeed);
+          if (dbAppr && dbAppr.length > 0) setAppraisals(dbAppr);
+        }
+      } catch (err) {
+        console.error("Failed loading Enterprise ERP Firestore collections:", err);
+      }
+    };
+    fetchEnterpriseData();
+    return () => { active = false; };
+  }, []);
+
   // --- PHASE 3 STATE EXPANSION ---
   const [selectedCompany, setSelectedCompany] = useState<string>("Digital Construction ERP PLC");
   
@@ -847,7 +873,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       id: `REQ-${Math.floor(100 + Math.random() * 900)}`,
       workflowId: wf.id,
       workflowName: wf.name,
-      initiator: "Eng. Nuriye Ahmed",
+      initiator: currentAdminName,
       project: "Bole Heights Block B1",
       details: simTriggerDetails,
       levels: stages,
@@ -1024,7 +1050,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     });
   };
 
-  const handleAddProcurement = (e: React.FormEvent) => {
+  const handleAddProcurement = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newPrItem.item) return;
     const newPr = {
@@ -1032,11 +1058,16 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       item: newPrItem.item,
       qty: newPrItem.qty || "100 Pcs",
       cost: newPrItem.cost || "ETB 50,000",
-      supplier: newPrItem.supplier || "Local Prdigital_construction_erper",
+      supplier: newPrItem.supplier || "Local Provider",
       status: "Pending Approval",
       date: new Date().toISOString().split("T")[0],
-      approvalBy: "Awaiting Nuriye"
+      approvalBy: "Awaiting Approval"
     };
+    try {
+      await DbService.addProcurement(newPr);
+    } catch (err) {
+      console.error("Failed to persist procurement request:", err);
+    }
     setProcurements([newPr, ...procurements]);
     onLogAction("Purchase Request Issued", `Item: ${newPrItem.item} from ${newPrItem.supplier}`);
     setNewPrItem({ item: "", qty: "", cost: "", supplier: "" });
@@ -1050,7 +1081,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       type: newHseReport.type,
       topic: newHseReport.topic,
       attendees: newHseReport.type.includes("Meeting") ? 30 : 0,
-      supervisor: "Nuriye Ahmed Adem",
+      supervisor: currentAdminName,
       status: "Reported / Open Action",
       date: new Date().toISOString().split("T")[0]
     };
@@ -1064,7 +1095,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     if (!chatInput.trim()) return;
     const msg = {
       id: Date.now(),
-      sender: "Nuriye Ahmed Adem (Admin)",
+      sender: `${currentAdminName} (Admin)`,
       text: chatInput,
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -1075,7 +1106,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   const triggerBroadcastAlert = (isEmergency: boolean) => {
     const text = isEmergency 
-      ? "EMERGENCY EVACUATION SIMULATION: Drill initiated by Lead Admin Nuriye Ahmed Adem." 
+      ? `EMERGENCY EVACUATION SIMULATION: Drill initiated by Lead Admin ${currentAdminName}.` 
       : "ANNOUNCEMENT: Head Office audit starting tomorrow at 08:00 AM.";
     const msg = {
       id: Date.now(),
@@ -1106,13 +1137,22 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     setNewTruck({ volume: "8 m³", supplier: "Mugher ReadyMix", slump: "120mm", status: "Gate In" });
   };
 
-  const handleApprovePr = (id: string) => {
-    setProcurements(prev => prev.map(p => {
+  const handleApprovePr = async (id: string) => {
+    const updatedPrs = procurements.map(p => {
       if (p.id === id) {
-        return { ...p, status: "Approved", approvalBy: "Nuriye Ahmed Adem" };
+        return { ...p, status: "Approved", approvalBy: currentAdminName };
       }
       return p;
-    }));
+    });
+    const targetPr = updatedPrs.find(p => p.id === id);
+    if (targetPr) {
+      try {
+        await DbService.addProcurement(targetPr);
+      } catch (err) {
+        console.error("Failed to update procurement in Firestore:", err);
+      }
+    }
+    setProcurements(updatedPrs);
     onLogAction("Procurement Request Approved", `Approved PR ID ${id} by Lead Admin.`);
   };
 
@@ -1185,14 +1225,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           </h2>
           <p className="text-xs text-slate-300 max-w-xl">
             {isAmharic 
-              ? "የሲስተም አበልጻጊ እና ዋና አድሚን፡ ኑሪዬ አህመድ አደም። የቁጥጥር ስልጣን ሙሉ በሙሉ ክፍት ነው።" 
-              : "System Architect & Lead Admin: Nuriye Ahmed Adem. Real-time control and synchronization module enabled."}
+              ? `የሲስተም አበልጻጊ እና ዋና አድሚን፡ ${currentAdminName}። የቁጥጥር ስልጣን ሙሉ በሙሉ ክፍት ነው።` 
+              : `System Architect & Lead Admin: ${currentAdminName}. Real-time control and synchronization module enabled.`}
           </p>
         </div>
         <div className="flex items-center gap-3">
           <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700 font-mono text-[10px] space-y-0.5">
             <p className="text-slate-400 text-[9px]">{isAmharic ? "ዋና አስተዳዳሪ" : "LEAD ADMINISTRATOR"}</p>
-            <p className="text-red-400 font-black">Nuriye Ahmed Adem</p>
+            <p className="text-red-400 font-black">{currentAdminName}</p>
             <p className="text-slate-300 text-[9px]">0910097862 / 0920843843</p>
           </div>
         </div>
@@ -1971,9 +2011,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4 h-fit">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "የዕለት አጠቃቀምና ነዳጅ ፍጆታ መመዝገቢያ" : "Log Daily Usage & Diagnostics"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
-                setEquipment(prev => prev.map(eq => {
+                const updatedEq = equipment.map(eq => {
                   if (eq.id === newEqLog.eqId) {
                     return {
                       ...eq,
@@ -1983,8 +2023,17 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     };
                   }
                   return eq;
-                }));
-                onLogAction("Machinery Log Submited", `Log entered for machinery ${newEqLog.eqId}: Fuel: ${newEqLog.fuelUsed}L, Usage: ${newEqLog.usageHrs} Hrs`);
+                });
+                const targetEq = updatedEq.find(eq => eq.id === newEqLog.eqId);
+                if (targetEq) {
+                  try {
+                    await DbService.addEquipmentLog(targetEq);
+                  } catch (err) {
+                    console.error("Failed to persist equipment log to Firestore:", err);
+                  }
+                }
+                setEquipment(updatedEq);
+                onLogAction("Machinery Log Submitted", `Log entered for machinery ${newEqLog.eqId}: Fuel: ${newEqLog.fuelUsed}L, Usage: ${newEqLog.usageHrs} Hrs`);
                 setNewEqLog({ eqId: "EQ-01", fuelUsed: 45, usageHrs: 8, reportText: "" });
               }} className="space-y-3">
                 <div>
@@ -2313,7 +2362,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   type: newQc.type,
                   zone: newQc.zone,
                   checklist: newQc.checklist,
-                  approvedBy: "Nuriye Ahmed Adem",
+                  approvedBy: currentAdminName,
                   status: newQc.status,
                   date: new Date().toISOString().split("T")[0]
                 };
@@ -2607,7 +2656,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                 <div className="p-4 flex-grow overflow-y-auto space-y-3 font-semibold text-xs">
                   {chats.map((chat) => {
-                    const isAdmin = chat.sender.includes("Nuriye");
+                    const isAdmin = chat.sender.includes("Admin") || chat.sender.includes(currentAdminName);
                     const isSystemAlert = chat.sender.includes("ALERT");
                     return (
                       <div key={chat.id} className={`flex flex-col ${isAdmin ? "items-end" : "items-start"}`}>
@@ -2964,7 +3013,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
                   <span className="text-slate-400">Acting User:</span>
-                  <span className="text-red-600 font-bold">Nuriye Ahmed Adem</span>
+                  <span className="text-red-600 font-bold">{currentAdminName}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
                   <span className="text-slate-400">Session Limit:</span>
@@ -3171,8 +3220,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           {p.status === "Pending Approval" ? (
                             <button
                               onClick={() => {
-                                setPermits(prev => prev.map(item => item.id === p.id ? { ...item, status: "Active", approvedBy: "Nuriye Ahmed Adem", alerts: "No alerts" } : item));
-                                onLogAction("Approve Work Permit", `Approved ${p.type} Permit ID ${p.id} by Nuriye Ahmed.`);
+                                setPermits(prev => prev.map(item => item.id === p.id ? { ...item, status: "Active", approvedBy: currentAdminName, alerts: "No alerts" } : item));
+                                onLogAction("Approve Work Permit", `Approved ${p.type} Permit ID ${p.id} by ${currentAdminName}.`);
                                 alert(`Permit ${p.id} has been fully APPROVED and is now ACTIVE.`);
                               }}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-2 py-1 rounded font-bold cursor-pointer mr-1 transition-all"
@@ -4035,7 +4084,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               </div>
               <button
                 onClick={() => {
-                  alert("BI executive summary report dispatched to Nuriye Ahmed Adem's administrative email.");
+                  alert(`BI executive summary report dispatched to ${currentAdminName}'s administrative email.`);
                   onLogAction("Dispatched BI Report", "Emailed BI analysis digest to mejennur669@gmail.com");
                 }}
                 className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded py-2 font-bold cursor-pointer transition-all"
@@ -4424,7 +4473,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <div className="bg-gradient-to-br from-red-950 to-slate-950 p-4 rounded-xl border border-red-500/30 text-white space-y-2">
                 <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest">DEVELOPER DETAILS & CREDITS</p>
                 <div className="space-y-1">
-                  <h4 className="text-sm font-black tracking-tight">Nuriye Ahmed Adem</h4>
+                  <h4 className="text-sm font-black tracking-tight">{currentAdminName}</h4>
                   <p className="text-[11px] text-slate-300 font-medium">Full Stack ERP Architect</p>
                   <p className="text-[11px] font-mono text-red-400">0910097862 / 0920843843</p>
                   <p className="text-[11px] font-mono text-slate-400 font-semibold">mejennur669@gmail.com</p>
@@ -6383,7 +6432,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                 onClick={() => {
                                   if (!adminCommentText) return;
                                   const comment = {
-                                    author: "Nuriye Ahmed Adem (HQ Lead)",
+                                    author: `${currentAdminName} (HQ Lead)`,
                                     role: "Super Admin",
                                     text: adminCommentText,
                                     date: new Date().toISOString().replace('T', ' ').substring(0, 16)

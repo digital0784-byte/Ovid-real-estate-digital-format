@@ -746,7 +746,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     }));
 
     if (onLogAction) {
-      onLogAction("CAD Approval", `Head Office Admin Nuriye approved ${drawingToApprove.filename} as published template.`);
+      onLogAction("CAD Approval", `Head Office Admin approved ${drawingToApprove.filename} as published template.`);
     }
 
     triggerRealTimeSync("approval");

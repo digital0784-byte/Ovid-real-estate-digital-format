@@ -319,5 +319,22 @@ service cloud.firestore {
     match /invitations/{inviteId} {
       allow read, write: if isSuperAdmin() || isHeadOffice() || isHRManager();
     }
+    // 16. Enterprise ERP Hub Collections (Procurement, Equipment, Feedbacks, Appraisals)
+    match /procurements/{procId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager() || isFinanceManager();
+    }
+    match /equipment/{eqId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+    }
+    match /employeeFeedbacks/{feedbackId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+    match /performanceAppraisals/{appraisalId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
+    }
   }
 }

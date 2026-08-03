@@ -223,7 +223,7 @@ interface FinanceErpHubProps {
 export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ 
   isAmharic, 
   currentUserRole = UserRole.FINANCE_MANAGER,
-  currentUserName = "Nuriye Ahmed Adem (Finance Manager)",
+  currentUserName = "System Admin (Finance Manager)",
   workers = [],
   attendance = [],
   teams = [],
@@ -372,7 +372,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
 
   const [expenses, setExpenses] = useState<Expense[]>([
     { id: "EXP-01", category: "Material", amount: 8500000, date: "2026-07-02", vendor: "Mugher Cement PLC", description: "C30 Pre-mix Bulk Supply Bole Site", project: "Bole Heights Phase I", costCenter: "CC-101 Material", approvedBy: "Eng. Dawit" },
-    { id: "EXP-02", category: "Labor", amount: 4200000, date: "2026-07-05", vendor: "BuildSync Payroll Ledger", description: "Formwork gang floor 4 assembly wages", project: "Bole Heights Phase I", costCenter: "CC-102 Workforce", approvedBy: "Nuriye Ahmed Adem" },
+    { id: "EXP-02", category: "Labor", amount: 4200000, date: "2026-07-05", vendor: "BuildSync Payroll Ledger", description: "Formwork gang floor 4 assembly wages", project: "Bole Heights Phase I", costCenter: "CC-102 Workforce", approvedBy: "Finance Director" },
     { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Cranes Ethiopia", description: "Tower crane monthly mobilization & lease", project: "Bole Heights Phase I", costCenter: "CC-103 Machinery", approvedBy: "Mulugeta Assefa" },
     { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Engineers", description: "Consultant structural milestone inspection fee", project: "Bole Heights Phase I", costCenter: "CC-104 Supervision", approvedBy: "Eng. Dawit" },
     { id: "EXP-05", category: "Material", amount: 9400000, date: "2026-07-12", vendor: "Ethio Steel Mills", description: "High-Tensile Reinforcement Rebar 16mm & 20mm", project: "Yeka Hills Estate", costCenter: "CC-101 Material", approvedBy: "Abebe Worku" }

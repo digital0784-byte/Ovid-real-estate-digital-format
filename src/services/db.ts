@@ -711,5 +711,37 @@ export const DbService = {
     for (const record of records) {
       await this.savePayrollRecord(record);
     }
+  },
+
+  // 17. procurements
+  async getProcurements(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("procurements", defaultItems);
+  },
+  async addProcurement(item: any): Promise<void> {
+    await writeDocument<any>("procurements", item, []);
+  },
+
+  // 18. equipment
+  async getEquipmentLogs(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("equipment", defaultItems);
+  },
+  async addEquipmentLog(item: any): Promise<void> {
+    await writeDocument<any>("equipment", item, []);
+  },
+
+  // 19. employeeFeedbacks
+  async getEmployeeFeedbacks(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("employeeFeedbacks", defaultItems);
+  },
+  async addEmployeeFeedback(item: any): Promise<void> {
+    await writeDocument<any>("employeeFeedbacks", item, []);
+  },
+
+  // 20. performanceAppraisals
+  async getPerformanceAppraisals(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("performanceAppraisals", defaultItems);
+  },
+  async addPerformanceAppraisal(item: any): Promise<void> {
+    await writeDocument<any>("performanceAppraisals", item, []);
   }
 };

@@ -294,9 +294,10 @@ export function SecuritySettingsHub({
 
   // --- USER SETTINGS STATES ---
   const [profileName, setProfileName] = useState(
-    (currentUserRole as string) === UserRole.HEAD_OFFICE ? "Nuriye Ahmed Adem" :
+    currentUserProfile?.displayName ||
+    ((currentUserRole as string) === UserRole.HEAD_OFFICE ? "Head Office Admin" :
     (currentUserRole as string) === UserRole.PROJECT_MANAGER ? "Eng. Dawit" :
-    (currentUserRole as string) === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Super Admin Operator"
+    (currentUserRole as string) === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Super Admin Operator")
   );
   const [profilePhone, setProfilePhone] = useState("0910097862/0920843843");
   const [profileEmail, setProfileEmail] = useState("mejennur669@gmail.com");
@@ -577,7 +578,7 @@ export function SecuritySettingsHub({
           <div className="space-y-1 text-slate-700">
             <div>
               <span className="text-slate-400">{isAmharic ? "ስም:" : "Name:"}</span>{" "}
-              <span className="font-bold text-slate-900">Nuriye Ahmed Adem</span>
+              <span className="font-bold text-slate-900">{profileName}</span>
             </div>
             <div>
               <span className="text-slate-400">{isAmharic ? "ኢሜይል:" : "Email:"}</span>{" "}
