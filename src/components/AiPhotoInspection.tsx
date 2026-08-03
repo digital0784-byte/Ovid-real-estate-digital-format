@@ -27,7 +27,7 @@ import {
   Zap,
   Video
 } from "lucide-react";
-import { UserRole, ProjectZone } from "../types";
+import { UserRole, ProjectZone, Worker, DailyProgressLog } from "../types";
 
 interface AiPhotoInspectionProps {
   isAmharic: boolean;
@@ -35,6 +35,8 @@ interface AiPhotoInspectionProps {
   zones: ProjectZone[];
   onUpdateZone?: (zone: ProjectZone) => void;
   onLogAction?: (action: string, details: string) => void;
+  workers?: Worker[];
+  progressLogs?: DailyProgressLog[];
 }
 
 // Interfaces for our AI Photo Module
@@ -100,7 +102,9 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
   currentUserRole,
   zones,
   onUpdateZone,
-  onLogAction
+  onLogAction,
+  workers = [],
+  progressLogs = []
 }) => {
   // Preset demo construction photos to make uploading super fun & instant
   const presetPhotos = [

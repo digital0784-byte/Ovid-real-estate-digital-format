@@ -724,7 +724,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     id: "NOTIF-SYS-01",
     title: "BuildSync ERP v4.8 Update Applied Successfully",
     titleAm: "የቢልድሲንክ ኢአርፒ v4.8 ሥርዓት ማሻሻያ በስኬት ተጠናቋል",
-    description: "Includes AI Custom Input Auto-Learning, Real-time FCM Notifications, and Biometric Geo-fencing.",
+    description: "Includes AI Custom Input Auto-Learning, In-App Notifications (Real-Time), and Biometric Geo-fencing.",
     descriptionAm: "የኤአይ ብጁ መረጃዎች ትምህርት፣ የእውነተኛ ጊዜ ማስታወቂያዎችና የባዮሜትሪክ ጂኦ-ፌንሲንግ አዲስ ማሻሻያዎችን ያካተተ ነው።",
     category: "System Update Notifications",
     priority: "Low",
@@ -747,6 +747,65 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     actionTab: "dashboard"
   }
 ];
+
+export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotification {
+  if (!rawNotif) {
+    return {
+      id: `NOTIF-${Date.now()}`,
+      title: "System Notification",
+      description: "",
+      category: "System Update Notifications",
+      priority: "Medium",
+      status: "Unread",
+      projectName: "Global System",
+      sender: "System Engine",
+      receiver: "All Users",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
+      date: new Date().toISOString().slice(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      timestamp: Date.now()
+    };
+  }
+
+  if (rawNotif.category && rawNotif.description && rawNotif.status) {
+    return rawNotif as EnterpriseNotification;
+  }
+
+  const isRead = !!(rawNotif.read || (rawNotif.readBy && rawNotif.readBy.length > 0));
+  const dateObj = rawNotif.timestamp ? new Date(rawNotif.timestamp) : new Date();
+
+  return {
+    id: rawNotif.id || `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    title: rawNotif.title || rawNotif.type || "System Notification",
+    titleAm: rawNotif.titleAm || rawNotif.title,
+    description: rawNotif.message || rawNotif.description || "",
+    descriptionAm: rawNotif.descriptionAm || rawNotif.message || "",
+    category: (rawNotif.category as NotificationCategory) || "System Update Notifications",
+    priority: (rawNotif.priority as NotificationPriority) || "Medium",
+    status: (rawNotif.status as NotificationStatus) || (isRead ? "Read" : "Unread"),
+    projectName: rawNotif.projectName || "Global System",
+    siteName: rawNotif.siteName || "Main Site",
+    sender: rawNotif.sender || "System Engine",
+    senderRole: rawNotif.senderRole || "System",
+    receiver: rawNotif.receiver || "All ERP Users",
+    targetRoles: rawNotif.targetRoles || [
+      UserRole.SUPER_ADMIN,
+      UserRole.HEAD_OFFICE,
+      UserRole.PROJECT_MANAGER,
+      UserRole.SITE_ENGINEER,
+      UserRole.STORE_MANAGER,
+      UserRole.WAREHOUSE_MANAGER,
+      UserRole.WORKER
+    ],
+    date: dateObj.toISOString().slice(0, 10),
+    time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    timestamp: typeof rawNotif.timestamp === "number" ? rawNotif.timestamp : dateObj.getTime(),
+    isAiGenerated: !!rawNotif.isAiGenerated,
+    readBy: rawNotif.readBy || (isRead ? ["all"] : []),
+    deliveryChannels: rawNotif.deliveryChannels || { inApp: true, push: false, email: false, sms: false },
+    actionTab: rawNotif.actionTab || "dashboard"
+  };
+}
 
 type NotificationListener = (notifications: EnterpriseNotification[]) => void;
 
@@ -789,9 +848,10 @@ export class NotificationService {
   // Filter notifications according to RBAC role and assigned project
   public static getNotificationsForRoleAndProject(
     role: UserRole | string,
-    projectName?: string
+    projectName?: string,
+    customList?: EnterpriseNotification[]
   ): EnterpriseNotification[] {
-    const all = this.getNotifications();
+    const all = customList || this.getNotifications();
     const roleStr = String(role);
 
     return all.filter(n => {

@@ -30,7 +30,8 @@ import {
   SiteReceivingReport,
   InventoryAuditRecord,
   RegisteredSite,
-  PayrollRecord
+  PayrollRecord,
+  Expense
 } from "../types";
 import {
   StoreMaterialItem,
@@ -398,13 +399,18 @@ export const DbService = {
   },
 
   // === SYSTEM NOTIFICATIONS ===
-  async getNotifications(): Promise<SystemNotification[]> {
-    const defaultNotifs: SystemNotification[] = [
+  async getNotifications(): Promise<any[]> {
+    const defaultNotifs: any[] = [
       {
         id: "n-1",
         type: "Zone Delay",
         title: "Zone C Schedule Warning",
         message: "Zone C Concrete casting is delayed by 3.5 days against standard cycle layout times.",
+        description: "Zone C Concrete casting is delayed by 3.5 days against standard cycle layout times.",
+        category: "Project Progress Notifications",
+        priority: "High",
+        status: "Unread",
+        projectName: "Addis Ababa Tower Block A",
         timestamp: new Date().toISOString(),
         read: false
       },
@@ -413,19 +419,24 @@ export const DbService = {
         type: "Safety Alert",
         title: "PPE Defects Detected",
         message: "Supervisor reported 3 PPE defects during active shifts on Floor 4.",
+        description: "Supervisor reported 3 PPE defects during active shifts on Floor 4.",
+        category: "HSE Notifications",
+        priority: "Critical",
+        status: "Unread",
+        projectName: "Addis Ababa Tower Block A",
         timestamp: new Date().toISOString(),
         read: false
       }
     ];
-    return fetchCollection<SystemNotification>("notifications", defaultNotifs);
+    return fetchCollection<any>("notifications", defaultNotifs);
   },
 
-  async addNotification(notif: SystemNotification): Promise<void> {
-    await writeDocument<SystemNotification>("notifications", notif, []);
+  async addNotification(notif: any): Promise<void> {
+    await writeDocument<any>("notifications", notif, []);
   },
 
-  async updateNotification(notif: SystemNotification): Promise<void> {
-    await writeDocument<SystemNotification>("notifications", notif, []);
+  async updateNotification(notif: any): Promise<void> {
+    await writeDocument<any>("notifications", notif, []);
   },
 
   // === AUDIT LOGS ===
@@ -538,6 +549,14 @@ export const DbService = {
   },
   async deleteRegisteredSite(id: string): Promise<void> {
     await removeDocument<RegisteredSite>("registeredSites", id, initialRegisteredSites);
+  },
+
+  // === EXPENSES ===
+  async getExpenses(): Promise<Expense[]> {
+    return fetchCollection<Expense>("expenses", []);
+  },
+  async addExpense(expense: Expense): Promise<void> {
+    await writeDocument<Expense>("expenses", expense, []);
   },
 
   // === GENERIC COLLECTION HELPERS ===

@@ -328,17 +328,19 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     const fetchAllData = async () => {
       try {
         setLoadingDbData(true);
-        const [z, att, wrk, repairs, panels] = await Promise.all([
+        const [z, att, wrk, repairs, panels, dbExpenses] = await Promise.all([
           DbService.getZones(),
           DbService.getAttendance(),
           DbService.getWorkers(),
           DbService.getPanelRepairRecords(),
-          DbService.getFormworkPanels()
+          DbService.getFormworkPanels(),
+          DbService.getExpenses()
         ]);
         if (active) {
           if (z && z.length > 0) setZonesList(z);
           if (att && att.length > 0) setAttendanceRecordList(att);
           if (wrk && wrk.length > 0) setWorkersList(wrk);
+          if (dbExpenses && dbExpenses.length > 0) setExpenses(dbExpenses);
           setRepairRecordsList(repairs || []);
           setFormworkPanelsList(panels || []);
           setLoadingDbData(false);
@@ -571,7 +573,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     onLogAction?.("Allocate Budget", `Added ETB ${newAlloc.allocated} to ${newAlloc.category}`);
   };
 
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFullAccess) return;
     const newExp: Expense = {
@@ -585,6 +587,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       costCenter: expenseForm.costCenter,
       approvedBy: currentUserName
     };
+    try {
+      await DbService.addExpense(newExp);
+    } catch (err) {
+      console.error("Failed to persist expense:", err);
+    }
     setExpenses(prev => [newExp, ...prev]);
     setShowExpenseForm(false);
     onLogAction?.("Log Expense", `Recorded cost of ETB ${newExp.amount} from ${newExp.vendor}`);

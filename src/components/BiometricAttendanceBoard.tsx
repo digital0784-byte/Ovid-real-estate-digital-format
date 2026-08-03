@@ -328,7 +328,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     }
 
     // Match worker by attendancePin (reject with generic Invalid PIN message on mismatch, no worker leak)
-    const worker = workers.find(w => w.attendancePin === enteredPin.trim() || (w.id.replace("ERP-W-", "") === enteredPin.trim()));
+    const worker = workers.find(w => w.attendancePin === enteredPin.trim());
     if (!worker) {
       playBeep("error");
       const nextFail = pinFailedAttempts + 1;

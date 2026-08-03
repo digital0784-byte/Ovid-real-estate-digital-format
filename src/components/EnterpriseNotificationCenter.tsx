@@ -43,13 +43,16 @@ import {
   UserRole, 
   NotificationFilterState 
 } from "../types";
-import { NotificationService } from "../services/notificationService";
+import { NotificationService, adaptToEnterpriseNotification } from "../services/notificationService";
 
 interface EnterpriseNotificationCenterProps {
   currentUserRole: UserRole | string;
   selectedProject: string;
   onNavigateToTab?: (tabName: string) => void;
   onLogAudit?: (action: string, details: string) => void;
+  systemNotifications?: any[];
+  onMarkAsRead?: (id: string) => void;
+  onMarkAllAsRead?: () => void;
 }
 
 const ALL_CATEGORIES: NotificationCategory[] = [
@@ -90,7 +93,10 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   currentUserRole,
   selectedProject,
   onNavigateToTab,
-  onLogAudit
+  onLogAudit,
+  systemNotifications,
+  onMarkAsRead,
+  onMarkAllAsRead
 }) => {
   const [notifications, setNotifications] = useState<EnterpriseNotification[]>([]);
   const [selectedNotif, setSelectedNotif] = useState<EnterpriseNotification | null>(null);
@@ -119,17 +125,27 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
     sms: false
   });
 
-  // Subscribe to NotificationService
+  // Subscribe to NotificationService & sync real systemNotifications
   useEffect(() => {
-    const unsubscribe = NotificationService.subscribe(() => {
+    if (systemNotifications && systemNotifications.length > 0) {
+      const adapted = systemNotifications.map(n => adaptToEnterpriseNotification(n));
       const filtered = NotificationService.getNotificationsForRoleAndProject(
         currentUserRole,
-        selectedProject
+        selectedProject,
+        adapted
       );
       setNotifications(filtered);
-    });
-    return () => unsubscribe();
-  }, [currentUserRole, selectedProject]);
+    } else {
+      const unsubscribe = NotificationService.subscribe(() => {
+        const filtered = NotificationService.getNotificationsForRoleAndProject(
+          currentUserRole,
+          selectedProject
+        );
+        setNotifications(filtered);
+      });
+      return () => unsubscribe();
+    }
+  }, [systemNotifications, currentUserRole, selectedProject]);
 
   // Sync project filter if top dropdown changes
   useEffect(() => {
@@ -248,6 +264,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   // Actions
   const handleMarkAllRead = () => {
     NotificationService.markAllAsRead(currentUserRole, selectedProject);
+    if (onMarkAllAsRead) onMarkAllAsRead();
     if (onLogAudit) onLogAudit("NOTIFICATIONS_MARK_ALL_READ", `Role: ${currentUserRole}, Project: ${selectedProject}`);
   };
 
@@ -255,15 +272,18 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
     switch (action) {
       case "read":
         NotificationService.markAsRead(notif.id);
+        if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "unread":
         NotificationService.markAsUnread(notif.id);
         break;
       case "ack":
         NotificationService.acknowledge(notif.id);
+        if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "complete":
         NotificationService.markAsCompleted(notif.id);
+        if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "snooze":
         NotificationService.snooze(notif.id, 4);
@@ -345,7 +365,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                   </h1>
                   <span className="px-2.5 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full flex items-center space-x-1">
                     <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-                    <span>Real-Time FCM Active</span>
+                    <span>In-App Notifications (Real-Time)</span>
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 mt-0.5">
@@ -857,13 +877,14 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
       </div>
 
       {/* AI Generator Simulator Modal */}
+      {/* Trigger Test Notification Modal */}
       {showAiGeneratorModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-amber-500/40 rounded-2xl max-w-xl w-full p-6 space-y-5 shadow-2xl animate-in zoom-in-95">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center space-x-2 text-amber-400">
                 <Sparkles className="w-5 h-5" />
-                <h3 className="font-black text-lg text-white">BuildSync AI Alert Generator</h3>
+                <h3 className="font-black text-lg text-white">Send Test Notification (Admin Only)</h3>
               </div>
               <button
                 onClick={() => setShowAiGeneratorModal(false)}
@@ -874,7 +895,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             </div>
 
             <p className="text-xs text-slate-300">
-              Select an automated AI alert type below to trigger live real-time simulation across all authorized user views and FCM push listeners:
+              Select an automated alert type below to send a test notification across all authorized user views in real-time:
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
@@ -941,7 +962,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <div className="space-y-3">
               {[
                 { key: "inApp", label: "In-App Notification Center", icon: Bell, desc: "Real-time popover & top bar bell badge" },
-                { key: "push", label: "Firebase Push Notifications (FCM)", icon: Radio, desc: "Mobile & browser instant alerts" },
+                { key: "push", label: "In-App System Alerts", icon: Radio, desc: "Instant in-app notification alerts" },
                 { key: "email", label: "Email Notifications", icon: Mail, desc: "Digest and critical instant emails" },
                 { key: "sms", label: "SMS Urgent Alerts", icon: MessageSquare, desc: "SMS for critical safety & budget overruns" }
               ].map(ch => (

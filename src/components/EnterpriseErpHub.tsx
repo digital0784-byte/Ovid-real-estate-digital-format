@@ -75,14 +75,17 @@ import {
 interface EnterpriseErpHubProps {
   isAmharic: boolean;
   currentUserRole: UserRole;
+  currentUserProfile?: any;
   onLogAction: (action: string, details: string) => void;
 }
 
 export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   isAmharic,
   currentUserRole,
+  currentUserProfile,
   onLogAction
 }) => {
+  const currentAdminName = currentUserProfile?.displayName || "Nuriye Ahmed Adem";
   const [activeSubTab, setActiveSubTab] = useState<string>("executive");
 
   // --- FLUTTER & AI ENGINE SIMULATION STATE ---
@@ -2918,8 +2921,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <span className="text-green-600 font-bold">Offline-Sync Active</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">FCM Push Push Token:</span>
-                  <span className="text-slate-900 font-bold">Active Connection</span>
+                  <span className="text-slate-400">Push Notification Token:</span>
+                  <span className="text-slate-900 font-bold">In-App Connection Active</span>
                 </div>
               </div>
             </div>

@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
-import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite } from "../types";
+import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite, Worker, Expense } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import {
   Store,
@@ -113,6 +113,7 @@ export interface StoreMaterialItem {
   code: string;
   dimensions: string;
   unit: string;
+  unitCost?: number;
   totalStock: number;
   availableStock: number;
   reservedStock: number;
@@ -138,6 +139,7 @@ export interface MaterialReceivingReport {
   truckPlate: string;
   gpsLocation: string;
   receivedBy: string;
+  receivedById?: string;
   signatureSigned: boolean;
   photoUploaded: boolean;
 }
@@ -145,6 +147,7 @@ export interface MaterialReceivingReport {
 export interface MaterialIssueRecord {
   id: string;
   receiverName: string;
+  receiverId?: string;
   receiverRole: string;
   department: string;
   siteName: string;
@@ -165,6 +168,7 @@ export interface MaterialReturnRecord {
   materialName: string;
   quantity: number;
   returnedBy: string;
+  returnedById?: string;
   condition: "Good Condition" | "Needs Cleaning" | "Needs Inspection" | "Needs Repair" | "Damaged" | "Scrap";
   returnDate: string;
   notes: string;
@@ -173,6 +177,7 @@ export interface MaterialReturnRecord {
 export interface MaterialRequestItem {
   id: string;
   requesterName: string;
+  requesterId?: string;
   requesterRole: string;
   siteName: string;
   building: string;
@@ -371,17 +376,133 @@ export interface DailyConsolidatedReport {
   }>;
 }
 
+// --- REUSABLE WORKER AUTOCOMPLETE / SEARCH SELECTOR ---
+interface WorkerAutocompleteProps {
+  workers: Worker[];
+  selectedWorkerName: string;
+  onSelectWorker: (worker: Worker) => void;
+  label?: string;
+  isAmharic?: boolean;
+  placeholder?: string;
+}
+
+export const WorkerAutocomplete: React.FC<WorkerAutocompleteProps> = ({
+  workers = [],
+  selectedWorkerName,
+  onSelectWorker,
+  label,
+  isAmharic = false,
+  placeholder = "Type worker name, ID, or trade..."
+}) => {
+  const [query, setQuery] = useState(selectedWorkerName || "");
+  const [isOpen, setIsOpen] = useState(false);
+
+  useEffect(() => {
+    setQuery(selectedWorkerName || "");
+  }, [selectedWorkerName]);
+
+  const filteredWorkers = useMemo(() => {
+    if (!query.trim()) return workers.slice(0, 15);
+    const q = query.toLowerCase().trim();
+    return workers.filter(
+      w =>
+        w.name.toLowerCase().includes(q) ||
+        w.id.toLowerCase().includes(q) ||
+        (w.trade && w.trade.toLowerCase().includes(q)) ||
+        (w.department && w.department.toLowerCase().includes(q)) ||
+        (w.company && w.company.toLowerCase().includes(q))
+    ).slice(0, 20);
+  }, [workers, query]);
+
+  return (
+    <div className="relative">
+      {label && (
+        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
+          {label}
+        </label>
+      )}
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onFocus={() => setIsOpen(true)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setIsOpen(true);
+          }}
+          placeholder={placeholder}
+          className="w-full bg-slate-900 border border-slate-700 text-xs text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 font-sans"
+        />
+        {query && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setIsOpen(true);
+            }}
+            className="absolute right-2.5 top-2.5 text-slate-400 hover:text-white text-xs cursor-pointer"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute z-50 left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-slate-950 border border-slate-700 rounded-xl shadow-2xl divide-y divide-slate-800 text-xs">
+            {filteredWorkers.length === 0 ? (
+              <div className="p-3 text-slate-500 italic text-center">
+                {isAmharic ? "ምንም ሰራተኛ አልተገኘም" : "No registered workers found matching query"}
+              </div>
+            ) : (
+              filteredWorkers.map(w => (
+                <div
+                  key={w.id}
+                  onClick={() => {
+                    onSelectWorker(w);
+                    setQuery(w.name);
+                    setIsOpen(false);
+                  }}
+                  className="p-2.5 hover:bg-slate-800/80 cursor-pointer transition flex items-center justify-between"
+                >
+                  <div>
+                    <span className="font-bold text-white block">{w.name}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      {w.id} • {w.trade || w.position || "Worker"} ({w.department || "Construction"})
+                    </span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-mono font-bold bg-slate-800 text-amber-400">
+                    {w.company || "BuildSync"}
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
+
 interface StoreOwnerAppProps {
   isAmharic: boolean;
   currentUserRole?: UserRole;
+  workers?: Worker[];
   onLogAction?: (action: string, details: string) => void;
+  onCreateNotification?: (notification: any) => void;
   initialMode?: "warehouse_manager" | "store_owner";
 }
 
 export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   isAmharic,
   currentUserRole = UserRole.STORE_MANAGER,
+  workers = [],
   onLogAction,
+  onCreateNotification,
   initialMode = "warehouse_manager"
 }) => {
   // App Mode State: "warehouse_manager" vs "store_owner"
@@ -491,6 +612,40 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [requisitionAuditLogs, setRequisitionAuditLogs] = useState<RequisitionAuditLog[]>([]);
   const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([]);
   const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([]);
+
+  // Live GPS Acquisition state & handler
+  const [isAcquiringGps, setIsAcquiringGps] = useState(false);
+  const [gpsStatusMessage, setGpsStatusMessage] = useState<string>("");
+
+  const acquireLiveGps = (onSuccess: (coordsStr: string) => void) => {
+    if (typeof window === "undefined" || !navigator.geolocation) {
+      setGpsStatusMessage(isAmharic ? "ጂፒኤስ አይገኝም" : "GPS Location is unavailable on this device.");
+      onSuccess("9.0320° N, 38.7420° E (Site Default GPS)");
+      return;
+    }
+
+    setIsAcquiringGps(true);
+    setGpsStatusMessage(isAmharic ? "የጂፒኤስ ቦታ በመፈለግ ላይ..." : "Acquiring live browser GPS coordinates...");
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const lat = pos.coords.latitude.toFixed(6);
+        const lng = pos.coords.longitude.toFixed(6);
+        const acc = pos.coords.accuracy ? ` (±${Math.round(pos.coords.accuracy)}m)` : "";
+        const gpsStr = `${lat}° N, ${lng}° E${acc}`;
+        setIsAcquiringGps(false);
+        setGpsStatusMessage(isAmharic ? `ጂፒኤስ ተገኝቷል፡ ${gpsStr}` : `GPS Acquired: ${gpsStr}`);
+        onSuccess(gpsStr);
+      },
+      (err) => {
+        console.warn("GPS acquire error:", err);
+        setIsAcquiringGps(false);
+        setGpsStatusMessage(isAmharic ? "የጂፒኤስ ፈቃድ ተከልክሏል" : "GPS position error or permission denied. Fallback to site coordinates.");
+        onSuccess("9.0320° N, 38.7420° E (Site Default GPS)");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   // Option (a): Derive sitePanelBreakdowns automatically from live formworkPanels data
   const derivedSitePanelBreakdowns = useMemo<SitePanelBreakdown[]>(() => {
@@ -837,6 +992,22 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     };
     setRequisitionAuditLogs(prev => [newAudit, ...prev]);
     DbService.saveRequisitionAuditLog(newAudit);
+
+    onCreateNotification?.({
+      title: `New Material Requisition: ${newReq.materialName} (${newReq.quantityRequested} ${newReq.unit})`,
+      titleAm: `አዲስ የእቃዎች ጥያቄ፡ ${newReq.materialName} (${newReq.quantityRequested} ${newReq.unit})`,
+      description: `${newReq.jobPosition} ${newReq.requestedBy} requested ${newReq.quantityRequested} ${newReq.unit} of ${newReq.materialName} for ${newReq.siteName} (${newReq.buildingNumber}, ${newReq.floorNumber}). Priority: ${newReq.priority}`,
+      descriptionAm: `${newReq.jobPosition} ${newReq.requestedBy} ${newReq.quantityRequested} ${newReq.unit} ${newReq.materialName} ጠይቋል።`,
+      category: "Material Requisition Notifications",
+      priority: newReq.priority === "Emergency" || newReq.priority === "Urgent" ? "Critical" : "High",
+      status: "Unread",
+      projectName: newReq.siteName,
+      sender: newReq.requestedBy,
+      senderRole: newReq.jobPosition,
+      receiver: "Store Manager & Warehouse Manager",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER],
+      actionTab: "morning-requisitions"
+    });
 
     setShowNewRequisitionModal(false);
     onLogAction?.("Morning Requisition Created", `Submitted morning requisition ${newReq.id} for ${newReq.blockNumber} ${newReq.floorNumber} by ${newReq.jobPosition} ${newReq.requestedBy}`);
@@ -1244,6 +1415,24 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     setReceivingReports(prev => [newReport, ...prev]);
     DbService.saveReceivingReport(newReport);
 
+    // Save expense to Finance module
+    const unitPrice = storeItems.find(i => i.name.toLowerCase().includes(receiveForm.materialName.toLowerCase()))?.unitCost || 1200;
+    const totalCost = Number(receiveForm.quantity) * unitPrice;
+    DbService.addExpense({
+      id: `EXP-REC-${Date.now()}`,
+      category: "Material",
+      amount: totalCost,
+      date: new Date().toISOString().substring(0, 10),
+      vendor: receiveForm.source || "Material Supplier",
+      description: `Material Intake: Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName} (Driver: ${receiveForm.driverName}, Plate: ${receiveForm.truckPlate})`,
+      project: "Bole Heights Phase I",
+      costCenter: "CC-101 Material Intake",
+      approvedBy: receiveForm.receivedBy || "Store Owner",
+      unitCost: unitPrice,
+      quantity: Number(receiveForm.quantity),
+      unit: receiveForm.unit
+    }).catch(e => console.error("Error writing receiving expense:", e));
+
     // Automatically update stock
     setStoreItems(prev => {
       const updated = prev.map(item => {
@@ -1282,12 +1471,30 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       unit: issueForm.unit,
       issueDate: new Date().toISOString().replace("T", " ").substring(0, 16),
       qrScanned: true,
-      gpsLocation: "9.0102° N, 38.7612° E",
+      gpsLocation: issueForm.gpsLocation || "9.0102° N, 38.7612° E",
       signatureSigned: true
     };
 
     setIssueRecords(prev => [newIssue, ...prev]);
     DbService.saveIssueRecord(newIssue);
+
+    // Save expense record to Finance module
+    const unitPrice = storeItems.find(i => i.name.toLowerCase().includes(issueForm.materialName.toLowerCase()))?.unitCost || 1200;
+    const totalCost = Number(issueForm.quantity) * unitPrice;
+    DbService.addExpense({
+      id: `EXP-ISS-${Date.now()}`,
+      category: "Material",
+      amount: totalCost,
+      date: new Date().toISOString().substring(0, 10),
+      vendor: issueForm.receiverName || "Site Work Crew",
+      description: `Material Issue: Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName} (${issueForm.receiverRole}) for ${issueForm.building} ${issueForm.floor}`,
+      project: issueForm.siteName || "Bole Heights Phase I",
+      costCenter: "CC-102 Material Issue",
+      approvedBy: issueForm.receiverName,
+      unitCost: unitPrice,
+      quantity: Number(issueForm.quantity),
+      unit: issueForm.unit
+    }).catch(e => console.error("Error writing issue expense:", e));
 
     // Automatically reduce stock
     setStoreItems(prev => {
@@ -1315,7 +1522,24 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     setMaterialRequests(prev => {
       const updated = prev.map(r => r.id === reqId ? { ...r, status: "Approved" as const } : r);
       const target = updated.find(r => r.id === reqId);
-      if (target) DbService.saveMaterialRequest(target);
+      if (target) {
+        DbService.saveMaterialRequest(target);
+        onCreateNotification?.({
+          title: `Material Request Approved: ${target.materialName}`,
+          titleAm: `የዕቃ ጥያቄ ተፈቅዷል፡ ${target.materialName}`,
+          description: `Request ${reqId} for ${target.requestedQty} ${target.unit} of ${target.materialName} requested by ${target.requesterName} has been APPROVED.`,
+          descriptionAm: `ጥያቄ ${reqId} ለ${target.requestedQty} ${target.unit} ${target.materialName} ተፈቅዷል።`,
+          category: "Material Request Notifications",
+          priority: "High",
+          status: "Unread",
+          projectName: target.siteName,
+          sender: "Store Manager",
+          senderRole: "Store Manager",
+          receiver: target.requesterName,
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.WORKER],
+          actionTab: "requests"
+        });
+      }
       return updated;
     });
     onLogAction?.("Approve Material Request", `Approved request ${reqId}`);
@@ -1325,7 +1549,24 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     setMaterialRequests(prev => {
       const updated = prev.map(r => r.id === reqId ? { ...r, status: "Rejected" as const } : r);
       const target = updated.find(r => r.id === reqId);
-      if (target) DbService.saveMaterialRequest(target);
+      if (target) {
+        DbService.saveMaterialRequest(target);
+        onCreateNotification?.({
+          title: `Material Request Rejected: ${target.materialName}`,
+          titleAm: `የዕቃ ጥያቄ ተውቋል/ተከልክሏል፡ ${target.materialName}`,
+          description: `Request ${reqId} for ${target.requestedQty} ${target.unit} of ${target.materialName} requested by ${target.requesterName} was REJECTED.`,
+          descriptionAm: `ጥያቄ ${reqId} ተከልክሏል።`,
+          category: "Material Request Notifications",
+          priority: "Normal",
+          status: "Unread",
+          projectName: target.siteName,
+          sender: "Store Manager",
+          senderRole: "Store Manager",
+          receiver: target.requesterName,
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.WORKER],
+          actionTab: "requests"
+        });
+      }
       return updated;
     });
     onLogAction?.("Reject Material Request", `Rejected request ${reqId}`);
@@ -3823,6 +4064,30 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </div>
               </div>
 
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">GPS Intake Location</label>
+                  <button
+                    type="button"
+                    onClick={() => acquireLiveGps(coords => setReceiveForm(prev => ({ ...prev, gpsLocation: coords })))}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Navigation size={10} className={isAcquiringGps ? "animate-spin" : ""} />
+                    <span>{isAcquiringGps ? "Acquiring GPS..." : "Get Live GPS"}</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={receiveForm.gpsLocation}
+                  onChange={e => setReceiveForm({ ...receiveForm, gpsLocation: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500 font-mono text-[11px]"
+                />
+                {gpsStatusMessage && (
+                  <p className="text-[9px] text-amber-400 mt-1">{gpsStatusMessage}</p>
+                )}
+              </div>
+
               <div className="pt-2 flex justify-end space-x-2">
                 <button
                   type="button"
@@ -3846,7 +4111,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       {/* ISSUE MATERIAL MODAL */}
       {showIssueModal && (
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 animate-scaleUp text-slate-100">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 animate-scaleUp text-slate-100 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center border-b border-slate-800 pb-3">
               <h3 className="text-sm font-black uppercase text-white flex items-center space-x-2">
                 <ArrowRightLeft size={18} className="text-amber-400" />
@@ -3858,19 +4123,28 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
             </div>
 
             <form onSubmit={handleIssueMaterial} className="space-y-3 text-xs">
+              <div>
+                <WorkerAutocomplete
+                  workers={workers}
+                  selectedWorkerName={issueForm.receiverName}
+                  onSelectWorker={(w) => {
+                    setIssueForm(prev => ({
+                      ...prev,
+                      receiverName: w.name,
+                      receiverId: w.id,
+                      receiverRole: w.position || w.trade || "Site Engineer",
+                      department: w.department || "Structural Engineering"
+                    }));
+                  }}
+                  label="Receiver (Search Registered Workers)"
+                  isAmharic={isAmharic}
+                  placeholder="Type worker name, ID, or trade..."
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Receiver Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={issueForm.receiverName}
-                    onChange={e => setIssueForm({ ...issueForm, receiverName: e.target.value })}
-                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Role</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Worker Role</label>
                   <input
                     type="text"
                     required
@@ -3879,6 +4153,39 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
                   />
                 </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase font-mono">Worker ID</label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={issueForm.receiverId || "Select worker above"}
+                    className="w-full mt-1 bg-slate-950/60 border border-slate-800 text-amber-400 rounded-xl px-3 py-2 font-mono text-xs"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">GPS Issue Location</label>
+                  <button
+                    type="button"
+                    onClick={() => acquireLiveGps(coords => setIssueForm(prev => ({ ...prev, gpsLocation: coords })))}
+                    className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center space-x-1 cursor-pointer"
+                  >
+                    <Navigation size={10} className={isAcquiringGps ? "animate-spin" : ""} />
+                    <span>{isAcquiringGps ? "Acquiring GPS..." : "Get Live GPS"}</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={issueForm.gpsLocation || "9.0102° N, 38.7612° E"}
+                  onChange={e => setIssueForm({ ...issueForm, gpsLocation: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500 font-mono text-[11px]"
+                />
+                {gpsStatusMessage && (
+                  <p className="text-[9px] text-amber-400 mt-1">{gpsStatusMessage}</p>
+                )}
               </div>
 
               <div>
@@ -4305,25 +4612,33 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               {/* REQUESTER INFORMATION */}
               <div className="p-3 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
                 <span className="text-[10px] font-black uppercase text-amber-400 block">1. Requester & Job Position (የጠያቂው መረጃ)</span>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                  <div>
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Requester Name</label>
-                    <input
-                      type="text"
-                      required
-                      value={newReqForm.requestedBy}
-                      onChange={e => setNewReqForm({ ...newReqForm, requestedBy: e.target.value })}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
-                    />
-                  </div>
+                
+                <div className="mb-2">
+                  <WorkerAutocomplete
+                    workers={workers}
+                    selectedWorkerName={newReqForm.requestedBy}
+                    onSelectWorker={(w) => {
+                      setNewReqForm(prev => ({
+                        ...prev,
+                        requestedBy: w.name,
+                        employeeId: w.id,
+                        jobPosition: (w.position as any) || "Gang Chief"
+                      }));
+                    }}
+                    label="Select Requester (Registered Worker Roster)"
+                    isAmharic={isAmharic}
+                    placeholder="Search registered worker by name, ID, or trade..."
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                   <div>
                     <label className="text-[10px] font-bold text-slate-400 uppercase">Employee ID</label>
                     <input
                       type="text"
-                      required
+                      readOnly
                       value={newReqForm.employeeId}
-                      onChange={e => setNewReqForm({ ...newReqForm, employeeId: e.target.value })}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500 font-mono"
+                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-amber-400 rounded-xl px-2.5 py-1.5 font-mono text-xs"
                     />
                   </div>
                   <div>

@@ -17,20 +17,26 @@ import {
   Volume2
 } from "lucide-react";
 import { EnterpriseNotification, UserRole, NotificationPriority } from "../types";
-import { NotificationService } from "../services/notificationService";
+import { NotificationService, adaptToEnterpriseNotification } from "../services/notificationService";
 
 interface NotificationBellDropdownProps {
   currentUserRole: UserRole | string;
   selectedProject: string;
   onNavigateToHub: () => void;
   onNavigateToTab?: (tabName: string) => void;
+  systemNotifications?: any[];
+  onMarkAsRead?: (id: string) => void;
+  onMarkAllAsRead?: () => void;
 }
 
 export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> = ({
   currentUserRole,
   selectedProject,
   onNavigateToHub,
-  onNavigateToTab
+  onNavigateToTab,
+  systemNotifications,
+  onMarkAsRead,
+  onMarkAllAsRead
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<EnterpriseNotification[]>([]);
@@ -38,16 +44,26 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const unsubscribe = NotificationService.subscribe(() => {
+    if (systemNotifications && systemNotifications.length > 0) {
+      const adapted = systemNotifications.map(n => adaptToEnterpriseNotification(n));
       const filtered = NotificationService.getNotificationsForRoleAndProject(
         currentUserRole,
-        selectedProject
+        selectedProject,
+        adapted
       );
       setNotifications(filtered);
-    });
+    } else {
+      const unsubscribe = NotificationService.subscribe(() => {
+        const filtered = NotificationService.getNotificationsForRoleAndProject(
+          currentUserRole,
+          selectedProject
+        );
+        setNotifications(filtered);
+      });
 
-    return () => unsubscribe();
-  }, [currentUserRole, selectedProject]);
+      return () => unsubscribe();
+    }
+  }, [systemNotifications, currentUserRole, selectedProject]);
 
   // Click outside listener
   useEffect(() => {
@@ -87,6 +103,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
 
   const handleActionClick = (notif: EnterpriseNotification) => {
     NotificationService.markAsRead(notif.id);
+    if (onMarkAsRead) onMarkAsRead(notif.id);
     if (notif.actionTab && onNavigateToTab) {
       onNavigateToTab(notif.actionTab);
       setIsOpen(false);
@@ -146,7 +163,10 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
               {unreadCount > 0 && (
                 <button
                   id="btn-bell-mark-all-read"
-                  onClick={() => NotificationService.markAllAsRead(currentUserRole, selectedProject)}
+                  onClick={() => {
+                    NotificationService.markAllAsRead(currentUserRole, selectedProject);
+                    if (onMarkAllAsRead) onMarkAllAsRead();
+                  }}
                   className="px-2 py-1 text-[11px] font-medium bg-white/10 hover:bg-white/20 text-white rounded-md transition-colors flex items-center space-x-1"
                   title="Mark all as read"
                 >
@@ -292,6 +312,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
                               onClick={(e) => {
                                 e.stopPropagation();
                                 NotificationService.markAsRead(notif.id);
+                                if (onMarkAsRead) onMarkAsRead(notif.id);
                               }}
                               className="p-1 hover:bg-amber-200/60 dark:hover:bg-amber-900/50 rounded text-slate-600 dark:text-slate-300 hover:text-amber-800 dark:hover:text-amber-200 transition-colors"
                               title="Mark as Read"
@@ -332,7 +353,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
           {/* Footer */}
           <div className="p-3 bg-slate-50 dark:bg-slate-900/90 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between text-xs">
             <span className="text-[11px] text-slate-500 dark:text-slate-400">
-              Real-time FCM Sync Active
+              In-App Notifications (Real-Time)
             </span>
             <button
               id="btn-open-full-notification-hub"

@@ -229,7 +229,13 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       return;
     }
 
-    const assignedPin = enrollPin.trim() || Math.floor(1000 + (workers.length * 7 + 101) % 8999).toString();
+    let assignedPin = enrollPin.trim();
+    if (!assignedPin) {
+      const existingPins = new Set(workers.map(w => w.attendancePin).filter(Boolean));
+      do {
+        assignedPin = Math.floor(1000 + Math.random() * 9000).toString();
+      } while (existingPins.has(assignedPin));
+    }
 
     const newWorker: Worker = {
       id: enrollId || `ERP-W-${100 + workers.length + 1}`,
@@ -312,7 +318,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
     }
 
     // 3. Match worker by PIN (reject with generic "Invalid PIN" message on mismatch, do not reveal worker or close match)
-    const identifiedWorker = workers.find(w => w.attendancePin === enteredPin.trim() || w.id.replace("ERP-W-", "") === enteredPin.trim());
+    const identifiedWorker = workers.find(w => w.attendancePin === enteredPin.trim());
     if (!identifiedWorker) {
       playBeep("error");
       const nextFail = pinFailedAttempts + 1;
@@ -1178,9 +1184,6 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                     <button
                       key={worker.id}
                       onClick={() => {
-                        if (worker.attendancePin) {
-                          setEnteredPin(worker.attendancePin);
-                        }
                         setFeedback(null);
                       }}
                       className={`w-full p-2.5 rounded-2xl border text-left flex items-center justify-between transition-all cursor-pointer hover:border-red-500 hover:bg-red-50/10 group ${

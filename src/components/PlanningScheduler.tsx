@@ -34,7 +34,7 @@ import {
   FileCheck2,
   HelpCircle
 } from "lucide-react";
-import { ProjectZone, ConstructionScheduleItem, UserRole, DrawingItem } from "../types";
+import { ProjectZone, ConstructionScheduleItem, UserRole, DrawingItem, Worker, DailyProgressLog } from "../types";
 import { 
   ResponsiveContainer, 
   BarChart, 
@@ -58,6 +58,8 @@ interface PlanningSchedulerProps {
   isAmharic: boolean;
   t: (key: string) => string;
   currentUserRole: UserRole;
+  workers?: Worker[];
+  progressLogs?: DailyProgressLog[];
 }
 
 export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
@@ -66,7 +68,9 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
   onAddZone,
   isAmharic,
   t,
-  currentUserRole
+  currentUserRole,
+  workers = [],
+  progressLogs = []
 }) => {
   // Check permission for zone creation and planning (Section Head, Supervisor, Team Leader, and higher Admins)
   const canManageZones = useMemo(() => {

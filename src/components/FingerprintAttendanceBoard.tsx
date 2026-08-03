@@ -310,7 +310,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     }
 
     // 3. Worker lookup by PIN (generic Invalid PIN error on mismatch, no worker details leaked)
-    const matchedWorker = workers.find(w => w.attendancePin === enteredPin.trim() || w.id.replace("ERP-W-", "") === enteredPin.trim());
+    const matchedWorker = workers.find(w => w.attendancePin === enteredPin.trim());
     if (!matchedWorker) {
       playSound("error");
       const nextFail = pinFailedAttempts + 1;
@@ -1360,7 +1360,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
 
               {/* Matched Worker Indicator (Internal lookup info) */}
               {(() => {
-                const matchedW = workers.find(w => w.attendancePin === enteredPin.trim() || w.id.replace("ERP-W-", "") === enteredPin.trim());
+                const matchedW = workers.find(w => w.attendancePin === enteredPin.trim());
                 if (!matchedW || !enteredPin) return null;
                 const hierarchy = getWorkerMetaData(matchedW.id);
                 return (

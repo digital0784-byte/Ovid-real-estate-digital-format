@@ -664,10 +664,9 @@ export default function App() {
     };
   }, [isAuthenticated, lastActivity, sessionTimeoutMinutes]);
 
-  // Poll notifications in the background for Admin and Head Office to receive real-time updates
+  // Poll notifications in the background for all authenticated users to receive real-time updates
   React.useEffect(() => {
     if (!isAuthenticated) return;
-    if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserRole !== UserRole.HEAD_OFFICE) return;
 
     const interval = setInterval(async () => {
       try {
@@ -1081,6 +1080,78 @@ export default function App() {
     }
   };
 
+  const handleCreateNotification = React.useCallback(async (notifData: any) => {
+    try {
+      if (NotificationService && NotificationService.createNotification) {
+        NotificationService.createNotification(notifData);
+      }
+      const sysNotif: SystemNotification = {
+        id: `n-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        type: "Inspection Due",
+        title: notifData.title || "Material Event",
+        message: notifData.description || notifData.title || "",
+        timestamp: new Date().toISOString(),
+        read: false
+      };
+      await DbService.addNotification(sysNotif);
+      setNotifications((prev) => [sysNotif, ...prev]);
+    } catch (err) {
+      console.error("Error creating notification in App.tsx:", err);
+    }
+  }, []);
+
+  const handleMarkAsReadNotification = React.useCallback(async (id: string) => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => {
+        if (n.id === id) {
+          const currentReadBy = Array.isArray(n.readBy) ? n.readBy : [];
+          const newReadBy = currentReadBy.includes(currentUserRole)
+            ? currentReadBy
+            : [...currentReadBy, currentUserRole];
+          return {
+            ...n,
+            read: true,
+            status: "Read",
+            readBy: newReadBy
+          };
+        }
+        return n;
+      });
+
+      const target = updated.find((n) => n.id === id);
+      if (target) {
+        DbService.updateNotification(target).catch((e) =>
+          console.error("Error updating notification in Firestore:", e)
+        );
+      }
+      return updated;
+    });
+  }, [currentUserRole]);
+
+  const handleMarkAllAsReadNotifications = React.useCallback(async () => {
+    setNotifications((prev) => {
+      const updated = prev.map((n) => {
+        const currentReadBy = Array.isArray(n.readBy) ? n.readBy : [];
+        const newReadBy = currentReadBy.includes(currentUserRole)
+          ? currentReadBy
+          : [...currentReadBy, currentUserRole];
+        return {
+          ...n,
+          read: true,
+          status: "Read",
+          readBy: newReadBy
+        };
+      });
+
+      updated.forEach((n) => {
+        DbService.updateNotification(n).catch((e) =>
+          console.error("Error updating notification in Firestore:", e)
+        );
+      });
+      return updated;
+    });
+  }, [currentUserRole]);
+
   const handleUpdateWorker = async (updatedWorker: Worker) => {
     setWorkers((prev) => prev.map((w) => (w.id === updatedWorker.id ? updatedWorker : w)));
     await DbService.updateWorker(updatedWorker);
@@ -1425,6 +1496,9 @@ export default function App() {
               selectedProject={selectedProject || "ALL"}
               onNavigateToHub={() => setActiveTab("notificationCenter")}
               onNavigateToTab={(tabName) => setActiveTab(tabName)}
+              systemNotifications={notifications}
+              onMarkAsRead={handleMarkAsReadNotification}
+              onMarkAllAsRead={handleMarkAllAsReadNotifications}
             />
 
             {/* Language toggle widget */}
@@ -1885,6 +1959,7 @@ export default function App() {
           <EnterpriseErpHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
             onLogAction={(action, details) => logAction(action, details)}
           />
         )}
@@ -2062,6 +2137,8 @@ export default function App() {
             isAmharic={isAmharic}
             t={t}
             currentUserRole={currentUserRole}
+            workers={workers}
+            progressLogs={progressLogs}
           />
         )}
 
@@ -2127,6 +2204,8 @@ export default function App() {
             zones={zones}
             onUpdateZone={handleUpdateZone}
             onLogAction={(action, details) => logAction(action, details)}
+            workers={workers}
+            progressLogs={progressLogs}
           />
         )}
 
@@ -2194,6 +2273,9 @@ export default function App() {
             selectedProject={selectedProject || "ALL"}
             onNavigateToTab={(tabName) => setActiveTab(tabName)}
             onLogAudit={(action, details) => logAction(action, details)}
+            systemNotifications={notifications}
+            onMarkAsRead={handleMarkAsReadNotification}
+            onMarkAllAsRead={handleMarkAllAsReadNotifications}
           />
         )}
 
@@ -2212,8 +2294,10 @@ export default function App() {
           <StoreOwnerApp
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            workers={workers}
             initialMode="warehouse_manager"
             onLogAction={(action, details) => logAction(action, details)}
+            onCreateNotification={handleCreateNotification}
           />
         )}
 
@@ -2221,8 +2305,10 @@ export default function App() {
           <StoreOwnerApp
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            workers={workers}
             initialMode="store_owner"
             onLogAction={(action, details) => logAction(action, details)}
+            onCreateNotification={handleCreateNotification}
           />
         )}
       </main>

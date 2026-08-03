@@ -94,6 +94,21 @@ export interface Team {
   averageProductivity: number; // sq.m or panels per day
 }
 
+export interface Expense {
+  id: string;
+  category: "Material" | "Labor" | "Equipment" | "Overhead" | "Subcontractor";
+  amount: number;
+  date: string;
+  vendor: string;
+  description: string;
+  project: string;
+  costCenter: string;
+  approvedBy: string;
+  unitCost?: number;
+  quantity?: number;
+  unit?: string;
+}
+
 export interface AttendanceRecord {
   id: string;
   workerId: string;
@@ -297,11 +312,24 @@ export interface QualityLog {
 
 export interface SystemNotification {
   id: string;
-  type: "Late Worker" | "Absent Worker" | "Zone Delay" | "Inspection Due" | "Concrete Due" | "Target Missed" | "Safety Alert" | "New Registrant";
+  type: string;
   title: string;
   message: string;
   timestamp: string;
   read: boolean;
+  readBy?: string[];
+  category?: NotificationCategory | string;
+  priority?: NotificationPriority | string;
+  status?: NotificationStatus | string;
+  projectName?: string;
+  siteName?: string;
+  sender?: string;
+  senderRole?: string;
+  receiver?: string;
+  targetRoles?: (UserRole | string)[];
+  actionTab?: string;
+  titleAm?: string;
+  descriptionAm?: string;
 }
 
 export interface AIPredictionsResult {
@@ -799,6 +827,7 @@ export interface EnterpriseNotification {
   actionTab?: string;
   actionPayload?: Record<string, any>;
   tags?: string[];
+  readBy?: string[];
 }
 
 export interface NotificationFilterState {
