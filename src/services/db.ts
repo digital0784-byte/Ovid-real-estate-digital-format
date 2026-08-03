@@ -743,5 +743,38 @@ export const DbService = {
   },
   async addPerformanceAppraisal(item: any): Promise<void> {
     await writeDocument<any>("performanceAppraisals", item, []);
+  },
+
+  // === BATCH A: Enterprise ERP Collections ===
+  // 1. materials (reuses existing "materials" collection)
+  async getMaterials(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("materials", defaultItems);
+  },
+  async addMaterial(item: any): Promise<void> {
+    await writeDocument<any>("materials", item, []);
+  },
+
+  // 2. hseLogs (reuses existing "safetyLogs" collection)
+  async getHseLogs(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("safetyLogs", defaultItems);
+  },
+  async addHseLog(item: any): Promise<void> {
+    await writeDocument<any>("safetyLogs", item, []);
+  },
+
+  // 3. qualityControls (reuses existing "qualityLogs" collection)
+  async getQualityControls(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("qualityLogs", defaultItems);
+  },
+  async addQualityControl(item: any): Promise<void> {
+    await writeDocument<any>("qualityLogs", item, []);
+  },
+
+  // 4. concreteTrucks (new "concreteTruckLogs" collection)
+  async getConcreteTrucks(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("concreteTruckLogs", defaultItems);
+  },
+  async addConcreteTruck(item: any): Promise<void> {
+    await writeDocument<any>("concreteTruckLogs", item, []);
   }
 };

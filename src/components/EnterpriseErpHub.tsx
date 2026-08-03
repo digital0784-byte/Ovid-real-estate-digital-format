@@ -737,22 +737,30 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     automaticDailyCloudBackup: "Enabled (Scheduled at 03:00 AM daily)"
   });
 
-  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, & Appraisals
+  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, Appraisals, & Batch A
   useEffect(() => {
     let active = true;
     const fetchEnterpriseData = async () => {
       try {
-        const [dbProc, dbEq, dbFeed, dbAppr] = await Promise.all([
+        const [dbProc, dbEq, dbFeed, dbAppr, dbMat, dbHse, dbQc, dbTrucks] = await Promise.all([
           DbService.getProcurements(procurements),
           DbService.getEquipmentLogs(equipment),
           DbService.getEmployeeFeedbacks(feedbacks),
-          DbService.getPerformanceAppraisals(appraisals)
+          DbService.getPerformanceAppraisals(appraisals),
+          DbService.getMaterials(materials),
+          DbService.getHseLogs(hseLogs),
+          DbService.getQualityControls(qualityControls),
+          DbService.getConcreteTrucks(concreteTrucks)
         ]);
         if (active) {
           if (dbProc && dbProc.length > 0) setProcurements(dbProc);
           if (dbEq && dbEq.length > 0) setEquipment(dbEq);
           if (dbFeed && dbFeed.length > 0) setFeedbacks(dbFeed);
           if (dbAppr && dbAppr.length > 0) setAppraisals(dbAppr);
+          if (dbMat && dbMat.length > 0) setMaterials(dbMat);
+          if (dbHse && dbHse.length > 0) setHseLogs(dbHse);
+          if (dbQc && dbQc.length > 0) setQualityControls(dbQc);
+          if (dbTrucks && dbTrucks.length > 0) setConcreteTrucks(dbTrucks);
         }
       } catch (err) {
         console.error("Failed loading Enterprise ERP Firestore collections:", err);
@@ -949,20 +957,22 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   };
 
   // --- Helper to handle sub-actions ---
-  const handleAddMaterial = (e: React.FormEvent) => {
+  const handleAddMaterial = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMatItem.name) return;
     const isReceiving = newMatItem.type === "Receiving";
     const delta = isReceiving ? newMatItem.qty : -newMatItem.qty;
 
+    let targetItem: any = null;
     setMaterials(prev => {
       const idx = prev.findIndex(m => m.name.toLowerCase() === newMatItem.name.toLowerCase());
       if (idx > -1) {
         const copy = [...prev];
-        copy[idx].qty = Math.max(0, copy[idx].qty + delta);
+        copy[idx] = { ...copy[idx], qty: Math.max(0, copy[idx].qty + delta) };
+        targetItem = copy[idx];
         return copy;
       } else {
-        return [...prev, {
+        const newItem = {
           id: `MAT-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
           name: newMatItem.name,
           code: `ACC-${newMatItem.name.substring(0, 3).toUpperCase()}`,
@@ -971,9 +981,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           bundleId: `BUN-CUST-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
           cleaning: "Clean",
           repair: "Ready"
-        }];
+        };
+        targetItem = newItem;
+        return [...prev, newItem];
       }
     });
+
+    if (targetItem) {
+      await DbService.addMaterial(targetItem);
+    }
 
     onLogAction(`Warehouse ${newMatItem.type}`, `Adjusted ${newMatItem.name} by ${delta} units. Notes: ${newMatItem.notes || "N/A"}`);
     setNewMatItem({ name: "", qty: 100, minQty: 50, type: "Receiving", notes: "" });
@@ -1073,7 +1089,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     setNewPrItem({ item: "", qty: "", cost: "", supplier: "" });
   };
 
-  const handleAddHseReport = (e: React.FormEvent) => {
+  const handleAddHseReport = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newHseReport.topic) return;
     const newHse = {
@@ -1085,6 +1101,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       status: "Reported / Open Action",
       date: new Date().toISOString().split("T")[0]
     };
+    try {
+      await DbService.addHseLog(newHse);
+    } catch (err) {
+      console.error("Failed to persist HSE log:", err);
+    }
     setHseLogs([newHse, ...hseLogs]);
     onLogAction(`HSE ${newHseReport.type} Logged`, `Details: ${newHseReport.topic}`);
     setNewHseReport({ topic: "", type: "Incident Report", details: "" });
@@ -1119,7 +1140,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     alert(text);
   };
 
-  const handleAddTruck = (e: React.FormEvent) => {
+  const handleAddTruck = async (e: React.FormEvent) => {
     e.preventDefault();
     const trk = {
       id: `CON-TRK-${Date.now().toString().slice(-2)}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -1132,6 +1153,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       status: newTruck.status,
       cureDays: 0
     };
+    try {
+      await DbService.addConcreteTruck(trk);
+    } catch (err) {
+      console.error("Failed to persist concrete truck log:", err);
+    }
     setConcreteTrucks([trk, ...concreteTrucks]);
     onLogAction("Concrete Truck Logged", `Arrival of truck from ${newTruck.supplier}, volume ${newTruck.volume}`);
     setNewTruck({ volume: "8 m³", supplier: "Mugher ReadyMix", slump: "120mm", status: "Gate In" });
@@ -2354,7 +2380,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4 h-fit">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ የጥራት ፍተሻ መጠየቂያ መመዝገቢያ" : "Log QC Inspection Action"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newQc.checklist) return;
                 const entry = {
@@ -2366,6 +2392,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   status: newQc.status,
                   date: new Date().toISOString().split("T")[0]
                 };
+                try {
+                  await DbService.addQualityControl(entry);
+                } catch (err) {
+                  console.error("Failed to persist QC inspection:", err);
+                }
                 setQualityControls([entry, ...qualityControls]);
                 onLogAction("QC Inspection Registered", `Scope: ${newQc.type} at ${newQc.zone}`);
                 setNewQc({ type: "Aluminum Formwork Inspection", zone: "B1-Floor 4-Zone C", status: "Pending Check", checklist: "" });

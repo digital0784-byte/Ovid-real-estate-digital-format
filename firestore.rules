@@ -279,6 +279,10 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isSiteEngineer() || isSupervisor() || isProjectManager();
     }
+    match /concreteTruckLogs/{truckId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+    }
 
     // 11. Notifications
     match /notifications/{notifId} {
