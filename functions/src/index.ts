@@ -77,6 +77,13 @@ export const setUserRole = functions.https.onCall(async (data, context) => {
     throw new functions.https.HttpsError("invalid-argument", "Missing required arguments: targetUid and newRole.");
   }
 
+  if (newRole === "Super Admin" && !isSuperAdmin) {
+    throw new functions.https.HttpsError(
+      "permission-denied",
+      "Only Super Admin can assign the Super Admin role."
+    );
+  }
+
   // Set custom user claims in Firebase Auth
   await admin.auth().setCustomUserClaims(targetUid, { role: newRole });
 

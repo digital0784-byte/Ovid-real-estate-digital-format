@@ -94,10 +94,12 @@ service cloud.firestore {
         request.resource.data.status == 'Pending' &&
         request.resource.data.keys().hasOnly(['displayName', 'email', 'phoneNumber', 'role', 'status', 'createdAt'])
       );
-      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
-        isOwner(userId) &&
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'customClaims'])
-      );
+      allow update: if isSuperAdmin() ||
+        ((isHeadOffice() || isHRManager()) && request.resource.data.role != 'Super Admin') ||
+        (
+          isOwner(userId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'customClaims'])
+        );
       allow delete: if isSuperAdmin();
     }
 
