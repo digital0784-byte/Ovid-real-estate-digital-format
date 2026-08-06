@@ -493,24 +493,34 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs,
-    [UserRole.SITE_ENGINEER]: allTabs,
-    [UserRole.SUPERVISOR]: allTabs,
-    [UserRole.TIME_KEEPER]: allTabs,
-    [UserRole.TEAM_LEADER]: allTabs,
-    [UserRole.GANG_CHIEF]: allTabs,
-    [UserRole.ASSEMBLER]: allTabs,
-    [UserRole.WAREHOUSE_MANAGER]: allTabs,
-    [UserRole.STORE_OWNER]: allTabs,
-    [UserRole.STORE_MANAGER]: allTabs,
-    [UserRole.WORKER]: allTabs,
-    [UserRole.HR_MANAGER]: allTabs,
-    [UserRole.FINANCE_MANAGER]: allTabs,
-    [UserRole.SECTION_HEAD]: allTabs,
-    [UserRole.SURVEYOR]: allTabs,
-    [UserRole.HSE_OFFICER]: allTabs,
-    [UserRole.DRIVER]: allTabs,
-    [UserRole.AUDITOR]: allTabs
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "subcontractorPortal", "mobileApps"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "subcontractorPortal", "mobileApps"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "mobileApps"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "formworkManagement", "mobileApps"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "safetyQuality", "siteLayout", "formworkManagement", "mobileApps"],
+    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "formworkManagement", "mobileApps"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp", "formworkManagement", "enterpriseErp", "projectDocs", "mobileApps", "launchReadiness"],
+    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "formworkManagement", "projectDocs", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "formworkManagement", "projectDocs", "mobileApps"],
+    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "mobileApps"],
+    [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "formworkManagement", "subcontractorPortal", "mobileApps"],
+    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps"],
+    [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "mobileApps"],
+    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "workerProfiles", "attendance", "projectDocs", "mobileApps"]
   };
+
+  const hasAccess = (tab: string): boolean => {
+    return tabPermissions[currentUserRole]?.includes(tab) ?? false;
+  };
+
+  React.useEffect(() => {
+    if (currentUserRole && tabPermissions[currentUserRole] && !tabPermissions[currentUserRole].includes(activeTab)) {
+      setActiveTab("dashboard");
+    }
+  }, [currentUserRole, activeTab]);
 
   const t = (key: string): string => {
     const lang = isAmharic ? "am" : "en";
@@ -2474,107 +2484,119 @@ export default function App() {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
-                    <button
-                      onClick={() => { setActiveTab("dashboard"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "dashboard" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Activity size={18} />
+                    {hasAccess("dashboard") && (
+                      <button
+                        onClick={() => { setActiveTab("dashboard"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "dashboard" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Activity size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "1. ዳሽቦርድ" : "1. Dashboard"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "1. ዳሽቦርድ" : "1. Dashboard"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የአሉሚኒየም ፎርምወርክ እና አጠቃላይ የሳይት ሁኔታ ማጠቃለያ" : "Formwork status, attendance, and site KPIs"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የአሉሚኒየም ፎርምወርክ እና አጠቃላይ የሳይት ሁኔታ ማጠቃለያ" : "Formwork status, attendance, and site KPIs"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("workerProfiles"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "workerProfiles" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Users size={18} />
+                    {hasAccess("workerProfiles") && (
+                      <button
+                        onClick={() => { setActiveTab("workerProfiles"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "workerProfiles" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Users size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "2. የሰራተኞች መገለጫዎች" : "2. Worker Profiles"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "2. የሰራተኞች መገለጫዎች" : "2. Worker Profiles"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሰራተኞች መረጃ፣ ምዝገባ እና የሰው ኃይል (HR) ማኔጅመንት" : "Staff Directory, IDs, trades, and HR operations"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሰራተኞች መረጃ፣ ምዝገባ እና የሰው ኃይል (HR) ማኔጅመንት" : "Staff Directory, IDs, trades, and HR operations"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("customInputHub"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "customInputHub" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <PlusCircle size={18} />
+                    {hasAccess("customInputHub") && (
+                      <button
+                        onClick={() => { setActiveTab("customInputHub"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "customInputHub" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <PlusCircle size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "3. የመረጃ ግብአት ማዕከል" : "3. Data Input Hub"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "3. የመረጃ ግብአት ማዕከል" : "3. Data Input Hub"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "አዳዲስ መረጃዎችን፣ ዕቃዎችንና ሪፖርቶችን ማስገቢያ" : "Custom input forms for quick data entry"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "አዳዲስ መረጃዎችን፣ ዕቃዎችንና ሪፖርቶችን ማስገቢያ" : "Custom input forms for quick data entry"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("notificationCenter"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "notificationCenter" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Bell size={18} />
+                    {hasAccess("notificationCenter") && (
+                      <button
+                        onClick={() => { setActiveTab("notificationCenter"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "notificationCenter" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Bell size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "4. ማስታወቂያዎች ማዕከል" : "4. Notifications Center"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "4. ማስታወቂያዎች ማዕከል" : "4. Notifications Center"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሲስተም መልእክቶች፣ ጥያቄዎችና ማስጠንቀቂያዎች" : "System notifications, alerts & task messages"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሲስተም መልእክቶች፣ ጥያቄዎችና ማስጠንቀቂያዎች" : "System notifications, alerts & task messages"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("admin"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "admin" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Settings size={18} />
+                    {hasAccess("admin") && (
+                      <button
+                        onClick={() => { setActiveTab("admin"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "admin" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Settings size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "5. የአድሚን ማፅደቂያ ቦርድ" : "5. Admin Role Approval"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "5. የአድሚን ማፅደቂያ ቦርድ" : "5. Admin Role Approval"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የአዲስ ተመዝጋቢዎች ድርሻ ማፅደቅ እና የደህንነት ቅንብሮች" : "User role approvals, permissions & security hub"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የአዲስ ተመዝጋቢዎች ድርሻ ማፅደቅ እና የደህንነት ቅንብሮች" : "User role approvals, permissions & security hub"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("securitySettings"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "securitySettings" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Shield size={18} />
+                    {hasAccess("securitySettings") && (
+                      <button
+                        onClick={() => { setActiveTab("securitySettings"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "securitySettings" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Shield size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "6. ደህንነት እና ምርጫዎች" : "6. Security & Settings"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "6. ደህንነት እና ምርጫዎች" : "6. Security & Settings"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሲስተም ደህንነት፣ ፓስወርድና ፍቃዶች" : "Security policies, PIN codes & app preferences"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሲስተም ደህንነት፣ ፓስወርድና ፍቃዶች" : "Security policies, PIN codes & app preferences"}
+                        </p>
+                      </button>
+                    )}
 
                   </div>
                 </div>
@@ -2587,107 +2609,119 @@ export default function App() {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
-                    <button
-                      onClick={() => { setActiveTab("warehouseManagerApp"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "warehouseManagerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Building2 size={18} />
+                    {hasAccess("warehouseManagerApp") && (
+                      <button
+                        onClick={() => { setActiveTab("warehouseManagerApp"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "warehouseManagerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Building2 size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "7. የመጋዘን አስተዳዳሪ" : "7. Warehouse Manager App"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "7. የመጋዘን አስተዳዳሪ" : "7. Warehouse Manager App"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነሎች፣ መለዋወጫዎችና መጋዘን" : "Warehouse stock, panel transfers and inventory"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነሎች፣ መለዋወጫዎችና መጋዘን" : "Warehouse stock, panel transfers and inventory"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("storeOwnerApp"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "storeOwnerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Store size={18} />
+                    {hasAccess("storeOwnerApp") && (
+                      <button
+                        onClick={() => { setActiveTab("storeOwnerApp"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "storeOwnerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Store size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "8. የሳይት ስቶር አቃቤ" : "8. Store Owner App"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "8. የሳይት ስቶር አቃቤ" : "8. Store Owner App"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሳይት ስቶር መሳሪያዎች፣ የዕቃዎች ጥያቄና ወጪ" : "Site store issuance, tool checkouts & stock"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሳይት ስቶር መሳሪያዎች፣ የዕቃዎች ጥያቄና ወጪ" : "Site store issuance, tool checkouts & stock"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("enterpriseErp"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "enterpriseErp" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Cpu size={18} />
+                    {hasAccess("enterpriseErp") && (
+                      <button
+                        onClick={() => { setActiveTab("enterpriseErp"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "enterpriseErp" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Cpu size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "9. ኢንተርፕራይዝ ERP Suite" : "9. Enterprise ERP Suite"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "9. ኢንተርፕራይዝ ERP Suite" : "9. Enterprise ERP Suite"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የዋና መስሪያ ቤት አጠቃላይ የኢንተርፕራይዝ ሲስተም" : "Centralized corporate executive suite"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የዋና መስሪያ ቤት አጠቃላይ የኢንተርፕራይዝ ሲስተም" : "Centralized corporate executive suite"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("financeErp"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "financeErp" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <DollarSign size={18} />
+                    {hasAccess("financeErp") && (
+                      <button
+                        onClick={() => { setActiveTab("financeErp"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "financeErp" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <DollarSign size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "10. የፋይናንስ ERP Hub" : "10. Finance ERP Hub"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "10. የፋይናንስ ERP Hub" : "10. Finance ERP Hub"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የደመወዝ ክፍያ (Payroll)፣ በጀትና የገንዘብ ወጪዎች" : "Payroll processing, budgets & expense management"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የደመወዝ ክፍያ (Payroll)፣ በጀትና የገንዘብ ወጪዎች" : "Payroll processing, budgets & expense management"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("headOfficeSync"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "headOfficeSync" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Database size={18} />
+                    {hasAccess("headOfficeSync") && (
+                      <button
+                        onClick={() => { setActiveTab("headOfficeSync"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "headOfficeSync" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Database size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "11. የደመና መረጃ ሲንክ" : "11. Real-Time Cloud Sync"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "11. የደመና መረጃ ሲንክ" : "11. Real-Time Cloud Sync"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የዋና መስሪያ ቤትና የሳይቶች አውቶማቲክ መረጃ ማመሳሰያ" : "Real-time cross-site cloud synchronization"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የዋና መስሪያ ቤትና የሳይቶች አውቶማቲክ መረጃ ማመሳሰያ" : "Real-time cross-site cloud synchronization"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("auditLog"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "auditLog" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <ShieldCheck size={18} />
+                    {hasAccess("auditLog") && (
+                      <button
+                        onClick={() => { setActiveTab("auditLog"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "auditLog" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <ShieldCheck size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "12. ኦዲት መዝገብ (Audit Log)" : "12. Audit Log"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "12. ኦዲት መዝገብ (Audit Log)" : "12. Audit Log"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የተከናወኑ ስራዎች፣ ለውጦችና የደህንነት ኦዲት መዝገብ" : "System changes, security logs & action history"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የተከናወኑ ስራዎች፣ ለውጦችና የደህንነት ኦዲት መዝገብ" : "System changes, security logs & action history"}
+                        </p>
+                      </button>
+                    )}
 
                   </div>
                 </div>
@@ -2700,107 +2734,119 @@ export default function App() {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
-                    <button
-                      onClick={() => { setActiveTab("formworkManagement"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "formworkManagement" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Grid size={18} />
+                    {hasAccess("formworkManagement") && (
+                      <button
+                        onClick={() => { setActiveTab("formworkManagement"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "formworkManagement" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Grid size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "13. አሉሚኒየም ፎርምወርክ" : "13. Formwork Management"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "13. አሉሚኒየም ፎርምወርክ" : "13. Formwork Management"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የፓነሎች ገጠማ፣ ማንሳት (Stripping) እና የቦታዎች ቁጥጥር" : "Panel tracking, erection, stripping & maintenance"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የፓነሎች ገጠማ፣ ማንሳት (Stripping) እና የቦታዎች ቁጥጥር" : "Panel tracking, erection, stripping & maintenance"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("projectDocs"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "projectDocs" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <FileText size={18} />
+                    {hasAccess("projectDocs") && (
+                      <button
+                        onClick={() => { setActiveTab("projectDocs"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "projectDocs" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <FileText size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "14. የፕሮጀክት ሰነዶች & CAD" : "14. Project Docs & CAD"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "14. የፕሮጀክት ሰነዶች & CAD" : "14. Project Docs & CAD"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የህንፃ ንድፎች (Blueprints)፣ ሰነዶችና ኮንትራቶች" : "CAD drawings, architectural files & contract vault"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የህንፃ ንድፎች (Blueprints)፣ ሰነዶችና ኮንትራቶች" : "CAD drawings, architectural files & contract vault"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("cadDrawing"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "cadDrawing" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <FileText size={18} />
+                    {hasAccess("cadDrawing") && (
+                      <button
+                        onClick={() => { setActiveTab("cadDrawing"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "cadDrawing" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <FileText size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "15. የካድ ንድፎች እና ፎቶዎች" : "15. CAD Drawings & Photos"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "15. የካድ ንድፎች እና ፎቶዎች" : "15. CAD Drawings & Photos"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የካድ ንድፎች፣ ዲዛይኖችና የሳይት ፎቶዎች" : "Architectural CAD plans & daily site photos"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የካድ ንድፎች፣ ዲዛይኖችና የሳይት ፎቶዎች" : "Architectural CAD plans & daily site photos"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("siteLayout"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "siteLayout" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Compass size={18} />
+                    {hasAccess("siteLayout") && (
+                      <button
+                        onClick={() => { setActiveTab("siteLayout"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "siteLayout" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Compass size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "16. የሳይት ሌይአውት (Site Layout)" : "16. Site Layout"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "16. የሳይት ሌይአውት (Site Layout)" : "16. Site Layout"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የህንፃዎች፣ ብሎኮችና ዞኖች አቀማመጥ ንድፍ" : "Interactive building 3D/2D zone layout map"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የህንፃዎች፣ ብሎኮችና ዞኖች አቀማመጥ ንድፍ" : "Interactive building 3D/2D zone layout map"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("surveying"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "surveying" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Compass size={18} />
+                    {hasAccess("surveying") && (
+                      <button
+                        onClick={() => { setActiveTab("surveying"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "surveying" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Compass size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "17. ሰርቬይንግ እና ኮንክሪት" : "17. Surveying & Concrete"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "17. ሰርቬይንግ እና ኮንክሪት" : "17. Surveying & Concrete"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሰርቬይንግ ልኬቶችና የኮንክሪት ሙሌት ዝግጁነት" : "Surveying coordinates, levels & concrete pouring checks"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሰርቬይንግ ልኬቶችና የኮንክሪት ሙሌት ዝግጁነት" : "Surveying coordinates, levels & concrete pouring checks"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("subcontractorPortal"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "subcontractorPortal" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Briefcase size={18} />
+                    {hasAccess("subcontractorPortal") && (
+                      <button
+                        onClick={() => { setActiveTab("subcontractorPortal"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "subcontractorPortal" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Briefcase size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "18. ንዑስ ተቋራጭ ፖርታል" : "18. Subcontractor Portal"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "18. ንዑስ ተቋራጭ ፖርታል" : "18. Subcontractor Portal"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የንዑስ ተቋራጮች ስራዎች፣ ክፍያዎችና ውሎች" : "Subcontractor task tracking & progress claims"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የንዑስ ተቋራጮች ስራዎች፣ ክፍያዎችና ውሎች" : "Subcontractor task tracking & progress claims"}
+                        </p>
+                      </button>
+                    )}
 
                   </div>
                 </div>
@@ -2813,107 +2859,119 @@ export default function App() {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
-                    <button
-                      onClick={() => { setActiveTab("attendance"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "attendance" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Fingerprint size={18} />
+                    {hasAccess("attendance") && (
+                      <button
+                        onClick={() => { setActiveTab("attendance"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "attendance" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Fingerprint size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "19. የመገኘት መዝገብ" : "19. Attendance & Clock-In"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "19. የመገኘት መዝገብ" : "19. Attendance & Clock-In"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሰራተኞች እለታዊ የመግቢያና መውጫ ሰዓት መቆጣጠሪያ" : "Clock in/out logs, biometric scans & timesheets"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሰራተኞች እለታዊ የመግቢያና መውጫ ሰዓት መቆጣጠሪያ" : "Clock in/out logs, biometric scans & timesheets"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("biometricKiosk"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "biometricKiosk" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <ScanLine size={18} />
+                    {hasAccess("biometricKiosk") && (
+                      <button
+                        onClick={() => { setActiveTab("biometricKiosk"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "biometricKiosk" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <ScanLine size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "20. ባዮሜትሪክ ኪዮስክ" : "20. Biometric Kiosk Scanner"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "20. ባዮሜትሪክ ኪዮስክ" : "20. Biometric Kiosk Scanner"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "ለሳይት በር ፈጣን የሰራተኞች ባዮሜትሪክ መመዝገቢያ" : "High-speed site entrance biometric terminal"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "ለሳይት በር ፈጣን የሰራተኞች ባዮሜትሪክ መመዝገቢያ" : "High-speed site entrance biometric terminal"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("fingerprintBoard"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "fingerprintBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Fingerprint size={18} />
+                    {hasAccess("fingerprintBoard") && (
+                      <button
+                        onClick={() => { setActiveTab("fingerprintBoard"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "fingerprintBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Fingerprint size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "21. የጣት አሻራ ቦርድ" : "21. Fingerprint Attendance Board"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "21. የጣት አሻራ ቦርድ" : "21. Fingerprint Attendance Board"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የአካባቢና የሃርድዌር የጣት አሻራ መሳሪያዎች ማገናኛ" : "Hardware scanner integration & live fingerprint board"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የአካባቢና የሃርድዌር የጣት አሻራ መሳሪያዎች ማገናኛ" : "Hardware scanner integration & live fingerprint board"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("biometricBoard"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "biometricBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Fingerprint size={18} />
+                    {hasAccess("biometricBoard") && (
+                      <button
+                        onClick={() => { setActiveTab("biometricBoard"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "biometricBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Fingerprint size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "22. ባዮሜትሪክ ቦርድ" : "22. Biometric Board"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "22. ባዮሜትሪክ ቦርድ" : "22. Biometric Board"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የፊትና የጣት አሻራ መረጃዎች ማእከላዊ መከታተያ" : "Biometric profile logs & attendance verification"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የፊትና የጣት አሻራ መረጃዎች ማእከላዊ መከታተያ" : "Biometric profile logs & attendance verification"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("planning"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "planning" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Calendar size={18} />
+                    {hasAccess("planning") && (
+                      <button
+                        onClick={() => { setActiveTab("planning"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "planning" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Calendar size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "23. የግንባታ እቅድ & Gantt" : "23. Planning & Gantt Scheduler"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "23. የግንባታ እቅድ & Gantt" : "23. Planning & Gantt Scheduler"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የግንባታ ጊዜ ሰሌዳ፣ ፕሮጀክት እቅድና ጋንት ቻርት" : "Construction milestone scheduling & Gantt charts"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የግንባታ ጊዜ ሰሌዳ፣ ፕሮጀክት እቅድና ጋንት ቻርት" : "Construction milestone scheduling & Gantt charts"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("progress"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "progress" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Layers size={18} />
+                    {hasAccess("progress") && (
+                      <button
+                        onClick={() => { setActiveTab("progress"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "progress" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Layers size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "24. ዕለታዊ የዕድገት መዝገብ" : "24. Daily Progress Logs"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "24. ዕለታዊ የዕድገት መዝገብ" : "24. Daily Progress Logs"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "ዕለታዊ የተከናወኑ የፎርምወርክና የህንፃ ስራዎች" : "Daily site activity reporting & progress metrics"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "ዕለታዊ የተከናወኑ የፎርምወርክና የህንፃ ስራዎች" : "Daily site activity reporting & progress metrics"}
+                        </p>
+                      </button>
+                    )}
 
                   </div>
                 </div>
@@ -2926,107 +2984,119 @@ export default function App() {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
-                    <button
-                      onClick={() => { setActiveTab("aiInspection"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "aiInspection" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-rose-500/10 text-rose-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Camera size={18} />
+                    {hasAccess("aiInspection") && (
+                      <button
+                        onClick={() => { setActiveTab("aiInspection"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "aiInspection" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-rose-500/10 text-rose-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Camera size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "25. አይአይ ፎቶ ቁጥጥር" : "25. AI Photo Inspection"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "25. አይአይ ፎቶ ቁጥጥር" : "25. AI Photo Inspection"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "በፎቶግራፍ የፎርምወርክ ጥራትና የኮንክሪት ሙሌት በምስል ማረጋገጫ" : "AI site image analysis & automated quality audits"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "በፎቶግራፍ የፎርምወርክ ጥራትና የኮንክሪት ሙሌት በምስል ማረጋገጫ" : "AI site image analysis & automated quality audits"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("predictions"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "predictions" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-rose-500/10 text-rose-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Sparkles size={18} />
+                    {hasAccess("predictions") && (
+                      <button
+                        onClick={() => { setActiveTab("predictions"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "predictions" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-rose-500/10 text-rose-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Sparkles size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "26. አይአይ ትንበያዎች" : "26. AI Predictive Analytics"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "26. አይአይ ትንበያዎች" : "26. AI Predictive Analytics"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የግንባታ ጊዜና የወጪ አይአይ ትንበያዎች" : "AI risk forecasts, delay predictions & productivity models"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የግንባታ ጊዜና የወጪ አይአይ ትንበያዎች" : "AI risk forecasts, delay predictions & productivity models"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("performance"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "performance" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <UserCheck size={18} />
+                    {hasAccess("performance") && (
+                      <button
+                        onClick={() => { setActiveTab("performance"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "performance" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <UserCheck size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "27. የሰራተኞች ግምገማ" : "27. Performance Evaluation"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "27. የሰራተኞች ግምገማ" : "27. Performance Evaluation"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሰራተኞችና የቡድኖች ውጤታማነት ደረጃ" : "Worker KPIs, productivity leaderboards & evaluations"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሰራተኞችና የቡድኖች ውጤታማነት ደረጃ" : "Worker KPIs, productivity leaderboards & evaluations"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("safetyQuality"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "safetyQuality" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <ShieldAlert size={18} />
+                    {hasAccess("safetyQuality") && (
+                      <button
+                        onClick={() => { setActiveTab("safetyQuality"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "safetyQuality" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <ShieldAlert size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "28. ደህንነት እና ጥራት" : "28. Safety & Quality"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "28. ደህንነት እና ጥራት" : "28. Safety & Quality"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የደህንነት አደጋዎችና የጥራት ጉድለቶች መዝገብ" : "Safety incidents, snag lists & HSE compliance"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የደህንነት አደጋዎችና የጥራት ጉድለቶች መዝገብ" : "Safety incidents, snag lists & HSE compliance"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("mobileApps"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "mobileApps" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Smartphone size={18} />
+                    {hasAccess("mobileApps") && (
+                      <button
+                        onClick={() => { setActiveTab("mobileApps"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "mobileApps" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Smartphone size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "29. የሞባይል መተግበሪያዎች" : "29. Mobile Apps Suite"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "29. የሞባይል መተግበሪያዎች" : "29. Mobile Apps Suite"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የስልክ መተግበሪያዎች ለሳይት ሰራተኞችና ማናጀሮች" : "Field apps, QR scanners & mobile access hubs"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የስልክ መተግበሪያዎች ለሳይት ሰራተኞችና ማናጀሮች" : "Field apps, QR scanners & mobile access hubs"}
+                        </p>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() => { setActiveTab("launchReadiness"); setShowModulesMenu(false); }}
-                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "launchReadiness" ? "bg-orange-950/40 border-orange-500 shadow-md shadow-orange-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3 mb-2">
-                        <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Rocket size={18} />
+                    {hasAccess("launchReadiness") && (
+                      <button
+                        onClick={() => { setActiveTab("launchReadiness"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "launchReadiness" ? "bg-orange-950/40 border-orange-500 shadow-md shadow-orange-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Rocket size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "30. ማስጀመሪያ ዝግጁነት" : "30. Launch Readiness"}</span>
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "30. ማስጀመሪያ ዝግጁነት" : "30. Launch Readiness"}</span>
-                      </div>
-                      <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሲስተም ዝግጁነትና የቀጥታ ስራ ማስጀመሪያ መፈተሻ" : "Deployment checks, production readiness & system diagnostics"}
-                      </p>
-                    </button>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሲስተም ዝግጁነትና የቀጥታ ስራ ማስጀመሪያ መፈተሻ" : "Deployment checks, production readiness & system diagnostics"}
+                        </p>
+                      </button>
+                    )}
 
                   </div>
                 </div>
