@@ -114,6 +114,7 @@ export interface UserProfile {
   uid: string;
   displayName: string;
   role: UserRole | string;
+  requestedRole?: UserRole | string;
   status: string;
   email: string;
   phoneNumber?: string;
@@ -232,6 +233,7 @@ export default function App() {
                   uid: firebaseUser.uid,
                   displayName: data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
                   role: (data.role as UserRole) || UserRole.WORKER,
+                  requestedRole: data.requestedRole || "",
                   status: data.status || "Pending",
                   email: data.email || firebaseUser.email || "",
                   phoneNumber: data.phoneNumber || firebaseUser.phoneNumber || "",
@@ -320,6 +322,7 @@ export default function App() {
             uid: auth.currentUser.uid,
             displayName: data.displayName || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Authenticated User",
             role: (data.role as UserRole) || UserRole.WORKER,
+            requestedRole: data.requestedRole || "",
             status: data.status || "Pending",
             email: data.email || auth.currentUser.email || "",
             phoneNumber: data.phoneNumber || auth.currentUser.phoneNumber || "",
@@ -1276,9 +1279,13 @@ export default function App() {
               <span className="text-slate-500">{isAmharic ? "ስልክ:" : "Phone:"}</span>
               <span className="font-mono text-slate-300">{currentUserProfile?.phoneNumber || "N/A"}</span>
             </div>
+            <div className="flex justify-between border-b border-slate-800 pb-2">
+              <span className="text-slate-500">{isAmharic ? "የተጠየቀው የስራ ድርሻ:" : "Requested Role:"}</span>
+              <span className="font-bold text-amber-400 font-mono">{currentUserProfile?.requestedRole || "N/A"}</span>
+            </div>
             <div className="flex justify-between">
-              <span className="text-slate-500">{isAmharic ? "የስርዓት ሚና:" : "System Role:"}</span>
-              <span className="font-bold text-amber-400 font-mono">Pending</span>
+              <span className="text-slate-500">{isAmharic ? "የስርዓት ሁኔታ:" : "System Status:"}</span>
+              <span className="font-bold text-amber-400 font-mono">Pending Approval</span>
             </div>
           </div>
 

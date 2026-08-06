@@ -88,18 +88,13 @@ service cloud.firestore {
     // 1. Users collection
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
-        isOwner(userId) &&
-        request.resource.data.role == 'Pending' &&
-        request.resource.data.status == 'Pending' &&
-        request.resource.data.keys().hasOnly(['displayName', 'email', 'phoneNumber', 'role', 'status', 'createdAt'])
+      allow create: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (
+        isSuperAdmin() ||
+        isHeadOffice() ||
+        isHRManager() ||
+        isOwner(userId)
       );
-      allow update: if isSuperAdmin() ||
-        ((isHeadOffice() || isHRManager()) && request.resource.data.role != 'Super Admin') ||
-        (
-          isOwner(userId) &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status', 'customClaims'])
-        );
       allow delete: if isSuperAdmin();
     }
 

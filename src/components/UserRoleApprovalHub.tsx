@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { UserRole, RoleChangeRequest, RoleChangeAuditLog, RoleChangeRequestDoc } from "../types";
 import { RoleChangeApprovalService } from "../services/roleChangeApprovalService";
+import { db, isFirebaseReady } from "../firebase";
+import { collection, getDocs } from "firebase/firestore";
 import { 
   ShieldCheck, 
   ShieldAlert, 
@@ -109,9 +111,54 @@ export function UserRoleApprovalHub({
     refreshData();
   }, []);
 
-  const refreshData = () => {
-    setRequests(RoleChangeApprovalService.getRequests());
+  const refreshData = async () => {
+    const localReqs = RoleChangeApprovalService.getRequests();
     setAuditLogs(RoleChangeApprovalService.getAuditLogs());
+
+    if (isFirebaseReady && db) {
+      try {
+        const usersSnap = await getDocs(collection(db, "users"));
+        const firestoreReqs: RoleChangeRequest[] = [];
+        usersSnap.forEach((docSnap) => {
+          const u = docSnap.data();
+          if (u.status === "Pending" || u.role === "Pending") {
+            const userId = docSnap.id;
+            const exists = localReqs.some(r => r.userId === userId || r.userEmail === u.email);
+            if (!exists) {
+              firestoreReqs.push({
+                id: `RCR-FS-${userId.slice(0, 6)}`,
+                userId: userId,
+                userName: u.displayName || u.email || "Registered User",
+                userEmail: u.email || "",
+                phoneNumber: u.phoneNumber || "",
+                currentRole: u.role || "Pending",
+                requestedRole: u.requestedRole || "Worker",
+                reason: isAmharic 
+                  ? `በሊንክ የተመዘገበ አዲስ ተጠቃሚ። የተጠየቀ የስራ ድርሻ፡ ${u.requestedRole || "ያልተገለጸ"}` 
+                  : `New self-registered user via link. Requested Role: ${u.requestedRole || "Unspecified"}`,
+                supportingDocuments: [],
+                status: "Pending Approval",
+                requestedBy: u.displayName || u.email || "Self Registration",
+                requestedByRole: "Pending User",
+                requestedDate: u.createdAt ? u.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
+                requestedTime: "Registration",
+                deviceInfo: {
+                  ip: "Web Registration",
+                  deviceType: "Browser Client",
+                  browserOs: typeof navigator !== "undefined" ? navigator.userAgent : "Web Browser"
+                }
+              });
+            }
+          }
+        });
+        setRequests([...firestoreReqs, ...localReqs]);
+      } catch (err) {
+        console.warn("Could not fetch pending users from Firestore:", err);
+        setRequests(localReqs);
+      }
+    } else {
+      setRequests(localReqs);
+    }
   };
 
   // Submit Request Form Handler

@@ -866,7 +866,7 @@ export interface RoleChangeRequest {
   approvedDate?: string;
   approvedTime?: string;
   rejectionReason?: string;
-  deviceInfo: {
+  deviceInfo?: {
     ip: string;
     deviceType: string;
     browserOs: string;

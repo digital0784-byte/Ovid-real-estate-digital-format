@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
+import { RoleChangeApprovalService } from "../services/roleChangeApprovalService";
 import { auth, db, isFirebaseReady } from "../firebase";
 import { 
   signInWithEmailAndPassword, 
@@ -254,6 +255,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
               email: regEmail.trim().toLowerCase(),
               phoneNumber: regPhone.trim(),
               role: "Pending",
+              requestedRole: regRole || "Worker",
               status: "Pending",
               createdAt: new Date().toISOString()
             });
@@ -272,6 +274,21 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       const randNum = Math.floor(100 + Math.random() * 900);
       const generatedId = `${prefix}-${randNum}`;
       const fullEmpId = `Digital Construction ERP-${generatedId}`;
+
+      // Submit Role Change Request into Approval Queue
+      RoleChangeApprovalService.submitRoleChangeRequest({
+        userId: auth?.currentUser?.uid || fullEmpId,
+        userName: regName.trim(),
+        userEmail: regEmail.trim().toLowerCase(),
+        phoneNumber: regPhone.trim(),
+        currentRole: "Pending",
+        requestedRole: regRole || "Worker",
+        reason: isAmharic 
+          ? `በሊንክ የተመዘገበ አዲስ ተጠቃሚ የተጠየቀ የስራ ድርሻ: ${regRole}` 
+          : `New user self-registered via link. Requested role: ${regRole}`,
+        requestedBy: regName.trim(),
+        requestedByRole: "Pending User"
+      });
 
       const newWorker: Worker = {
         id: fullEmpId,

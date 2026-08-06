@@ -1,5 +1,7 @@
 import { UserRole, RoleChangeRequest, RoleChangeAuditLog, RoleChangeRequestDoc } from "../types";
 import { NotificationService } from "./notificationService";
+import { db, isFirebaseReady } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
 
 const STORAGE_KEY_REQUESTS = "buildsync_role_change_requests_v1";
 const STORAGE_KEY_AUDIT = "buildsync_role_change_audit_logs_v1";
@@ -362,6 +364,14 @@ export class RoleChangeApprovalService {
     req.approvedTime = currentTime;
 
     this.saveRequests(requests);
+
+    // Sync to Firestore user document if available
+    if (isFirebaseReady && db && req.userId) {
+      setDoc(doc(db, "users", req.userId), {
+        role: finalRole,
+        status: "Active"
+      }, { merge: true }).catch(e => console.error("Failed to update user doc in Firestore on approval:", e));
+    }
 
     // Record Audit Log
     const auditLogs = this.getAuditLogs();
