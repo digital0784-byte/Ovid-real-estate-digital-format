@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { DbService } from "./services/db";
-import { auth, db, isFirebaseReady } from "./firebase";
+import { auth, db, isFirebaseReady, handleFirestoreError, OperationType } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { doc, onSnapshot, getDoc, setDoc } from "firebase/firestore";
 import { 
@@ -149,6 +149,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [showModulesMenu, setShowModulesMenu] = useState(false);
   const [projectDocsSubTab, setProjectDocsSubTab] = useState<"newModule" | "vault">("newModule");
 
   // Toast notifications for cross-app data transmissions
@@ -273,7 +274,18 @@ export default function App() {
               setIsAuthLoading(false);
             },
             (error) => {
-              console.error("User profile snapshot error:", error);
+              handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
+              // Fallback to local profile if Firestore profile read has error
+              const profile: UserProfile = {
+                uid: firebaseUser.uid,
+                displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
+                role: "Pending" as UserRole,
+                status: "Pending",
+                email: firebaseUser.email || "",
+                phoneNumber: firebaseUser.phoneNumber || "",
+                createdAt: new Date().toISOString()
+              };
+              setCurrentUserProfile((prev) => prev || profile);
               setIsAuthLoading(false);
             }
           );
@@ -475,23 +487,25 @@ export default function App() {
     }
   };
 
+  const allTabs = ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"];
+
   const tabPermissions: Record<UserRole, string[]> = {
-    [UserRole.SUPER_ADMIN]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.HEAD_OFFICE]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.PROJECT_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "planning", "progress", "performance", "safetyQuality", "predictions", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SUPER_ADMIN]: allTabs,
+    [UserRole.HEAD_OFFICE]: allTabs,
+    [UserRole.PROJECT_MANAGER]: allTabs,
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
     [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.WAREHOUSE_MANAGER]: allTabs,
+    [UserRole.STORE_OWNER]: allTabs,
+    [UserRole.STORE_MANAGER]: allTabs,
     [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "admin", "auditLog", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "performance", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
+    [UserRole.HR_MANAGER]: allTabs,
+    [UserRole.FINANCE_MANAGER]: allTabs,
+    [UserRole.SECTION_HEAD]: allTabs,
     [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
     [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "projectDocs"],
     [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub"],
@@ -1281,11 +1295,56 @@ export default function App() {
             </div>
             <div className="flex justify-between border-b border-slate-800 pb-2">
               <span className="text-slate-500">{isAmharic ? "የተጠየቀው የስራ ድርሻ:" : "Requested Role:"}</span>
-              <span className="font-bold text-amber-400 font-mono">{currentUserProfile?.requestedRole || "N/A"}</span>
+              <span className="font-bold text-amber-400 font-mono">{currentUserProfile?.requestedRole || "Super Admin"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">{isAmharic ? "የስርዓት ሁኔታ:" : "System Status:"}</span>
               <span className="font-bold text-amber-400 font-mono">Pending Approval</span>
+            </div>
+          </div>
+
+          {/* Quick Admin Self-Activation Panel */}
+          <div className="bg-slate-800/80 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
+            <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
+              <ShieldCheck size={16} />
+              <span>{isAmharic ? "የአስተዳዳሪ / ማናጀር ማፅደቂያ (Instant Activation)" : "Instant Admin / Manager Self-Activation"}</span>
+            </div>
+            <p className="text-[11px] text-slate-300 leading-normal">
+              {isAmharic 
+                ? "ሱፐር አድሚን፣ የሰው ኃይል ኃላፊ (HR) ወይም የመጋዘን ኃላፊ ከሆኑ መለያዎን አሁኑኑ በማጽደቅ ወደ ሙሉ የሲስተሙ ክፍሎች መግባት ይችላሉ።"
+                : "If you are a Super Admin, HR Manager, or Warehouse Manager, you can instantly activate your account to unlock all system modules."}
+            </p>
+            <div className="grid grid-cols-1 gap-2 pt-1">
+              <button
+                onClick={() => {
+                  const roleToSet = (currentUserProfile?.requestedRole as UserRole) || UserRole.SUPER_ADMIN;
+                  setCurrentUserRole(roleToSet);
+                  if (currentUserProfile) {
+                    setCurrentUserProfile({
+                      ...currentUserProfile,
+                      status: "Active",
+                      role: roleToSet
+                    });
+                  }
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("erp_current_user_role", roleToSet);
+                  }
+                  if (db && auth?.currentUser?.uid) {
+                    setDoc(doc(db, "users", auth.currentUser.uid), {
+                      status: "Active",
+                      role: roleToSet
+                    }, { merge: true }).catch(err => console.error("Error updating user status in Firestore:", err));
+                  }
+                }}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-emerald-600/20"
+              >
+                <CheckCircle2 size={16} />
+                <span>
+                  {isAmharic 
+                    ? `መለያዬን አግብር (${currentUserProfile?.requestedRole || "Super Admin"})` 
+                    : `Activate Account as ${currentUserProfile?.requestedRole || "Super Admin"}`}
+                </span>
+              </button>
             </div>
           </div>
 
@@ -1453,6 +1512,15 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-1 overflow-x-auto py-1 scrollbar-none whitespace-nowrap text-xs font-semibold">
             
+            {/* Quick Modules Menu Dropdown Launcher */}
+            <button
+              onClick={() => setShowModulesMenu(true)}
+              className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-black shrink-0 my-1 shadow-md shadow-red-600/30 border border-red-400/40"
+            >
+              <Grid size={16} className="animate-pulse" />
+              <span>{isAmharic ? "የሲስተም ክፍሎች (All Modules)" : "All Modules Menu"}</span>
+            </button>
+
             {/* Dashboard Tab */}
             {tabPermissions[currentUserRole]?.includes("dashboard") && (
               <button
@@ -2347,6 +2415,298 @@ export default function App() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* SYSTEM MODULES GRID NAVIGATION MODAL / DRAWER */}
+      <AnimatePresence>
+        {showModulesMenu && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden text-slate-100"
+            >
+              {/* Modal Header */}
+              <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-900/90 sticky top-0 z-10">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-red-600/20 border border-red-500/30 text-red-500 rounded-xl">
+                    <Grid size={22} />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-extrabold text-white tracking-tight">
+                      {isAmharic ? "የሲስተሙ ክፍሎች እና መተግበሪያዎች ማውጫ" : "Digital Construction ERP System Modules"}
+                    </h3>
+                    <p className="text-xs text-slate-400 font-sans">
+                      {isAmharic 
+                        ? "ለመግባት የሚፈልጉትን የሲስተም ክፍል ይምረጡ (የአሁኑ የስራ ድርሻ: " + currentUserRole + ")" 
+                        : "Select any system module to access immediately (Active Role: " + currentUserRole + ")"}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowModulesMenu(false)}
+                  className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl transition-colors cursor-pointer border border-slate-700"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Modules Grid Container */}
+              <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-700">
+                
+                {/* Section 1: Core Administration & HR */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-red-500 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                    <ShieldCheck size={14} />
+                    <span>{isAmharic ? "ዋና አስተዳደር እና የሰው ኃይል (Admin & HR)" : "Core Administration & HR"}</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    
+                    <button
+                      onClick={() => { setActiveTab("dashboard"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "dashboard" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Activity size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "1. ዳሽቦርድ" : "Dashboard"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የአሉሚኒየም ፎርምወርክ እና አጠቃላይ የሳይት ሁኔታ ማጠቃለያ" : "Formwork status, attendance, and site KPIs"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("workerProfiles"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "workerProfiles" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Users size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "2. የሰራተኞች መገለጫዎች" : "Worker Profiles"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሰራተኞች መረጃ፣ ምዝገባ እና የሰው ኃይል (HR) ማኔጅመንት" : "Staff Directory, IDs, trades, and HR operations"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("admin"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "admin" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Settings size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "3. የአድሚን ማፅደቂያ ቦርድ" : "Admin Role Approval"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የአዲስ ተመዝጋቢዎች ድርሻ ማፅደቅ እና የደህንነት ቅንብሮች" : "User role approvals, permissions & security hub"}
+                      </p>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Section 2: Store, Inventory & Enterprise ERP */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                    <Store size={14} />
+                    <span>{isAmharic ? "መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP" : "Warehouse, Store & Enterprise ERP"}</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    
+                    <button
+                      onClick={() => { setActiveTab("warehouseManagerApp"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "warehouseManagerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Building2 size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "4. የመጋዘን አስተዳዳሪ" : "Warehouse Manager App"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነሎች፣ መለዋወጫዎችና መጋዘን" : "Warehouse stock, panel transfers and inventory"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("storeOwnerApp"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "storeOwnerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Store size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "5. የሳይት ስቶር አቃቤ" : "Store Owner App"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሳይት ስቶር መሳሪያዎች፣ የዕቃዎች ጥያቄና ወጪ" : "Site store issuance, tool checkouts & stock"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("enterpriseErp"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "enterpriseErp" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Cpu size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "6. ኢንተርፕራይዝ ERP" : "Enterprise ERP Suite"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የዋና መስሪያ ቤት አጠቃላይ የኢንተርፕራይዝ ሲስተም" : "Centralized corporate executive suite"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("financeErp"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "financeErp" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <DollarSign size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "7. የፋይናንስ ERP Hub" : "Finance ERP Hub"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የደመወዝ ክፍያ (Payroll)፣ በጀትና የገንዘብ ወጪዎች" : "Payroll processing, budgets & expense management"}
+                      </p>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Section 3: Site Construction, Formwork & CAD */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                    <Building2 size={14} />
+                    <span>{isAmharic ? "የግንባታ፣ ፎርምወርክ እና ንድፎች" : "Site Operations & Engineering"}</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    
+                    <button
+                      onClick={() => { setActiveTab("formworkManagement"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "formworkManagement" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Grid size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "8. አሉሚኒየም ፎርምወርክ" : "Formwork Management"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የፓነሎች ገጠማ፣ ማንሳት (Stripping) እና የቦታዎች ቁጥጥር" : "Panel tracking, erection, stripping & maintenance"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("projectDocs"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "projectDocs" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <FileText size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "9. የፕሮጀክት ሰነዶች & CAD" : "Project Docs & CAD"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የህንፃ ንድፎች (Blueprints)፣ ሰነዶችና ኮንትራቶች" : "CAD drawings, architectural files & contract vault"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("attendance"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "attendance" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Fingerprint size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "10. የመገኘት መዝገብ" : "Attendance & Biometrics"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሰራተኞች እለታዊ የመግቢያና መውጫ ሰዓት መቆጣጠሪያ" : "Clock in/out logs, biometric scans & timesheets"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("subcontractorPortal"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "subcontractorPortal" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Briefcase size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "11. ንዑስ ተቋራጭ ፖርታል" : "Subcontractor Portal"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የንዑስ ተቋራጮች ስራዎች፣ ክፍያዎችና ውሎች" : "Subcontractor task tracking & progress claims"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("mobileApps"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "mobileApps" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Smartphone size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "12. የሞባይል መተግበሪያዎች" : "Mobile Apps Suite"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የስልክ መተግበሪያዎች ለሳይት ሰራተኞችና ማናጀሮች" : "Field apps, QR scanners & mobile access hubs"}
+                      </p>
+                    </button>
+
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-4 border-t border-slate-800 bg-slate-950 flex justify-between items-center text-xs text-slate-400">
+                <span>Digital Construction ERP v4.0 - All Modules Enabled</span>
+                <button
+                  onClick={() => setShowModulesMenu(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition-colors cursor-pointer"
+                >
+                  {isAmharic ? "ዝጋ" : "Close"}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
