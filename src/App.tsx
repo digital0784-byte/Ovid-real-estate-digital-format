@@ -493,23 +493,23 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs,
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "planning", "progress", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "biometricBoard", "fingerprintBoard", "biometricKiosk", "progress", "safetyQuality", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.SITE_ENGINEER]: allTabs,
+    [UserRole.SUPERVISOR]: allTabs,
+    [UserRole.TIME_KEEPER]: allTabs,
+    [UserRole.TEAM_LEADER]: allTabs,
+    [UserRole.GANG_CHIEF]: allTabs,
+    [UserRole.ASSEMBLER]: allTabs,
     [UserRole.WAREHOUSE_MANAGER]: allTabs,
     [UserRole.STORE_OWNER]: allTabs,
     [UserRole.STORE_MANAGER]: allTabs,
-    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
+    [UserRole.WORKER]: allTabs,
     [UserRole.HR_MANAGER]: allTabs,
     [UserRole.FINANCE_MANAGER]: allTabs,
     [UserRole.SECTION_HEAD]: allTabs,
-    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps", "launchReadiness", "subcontractorPortal"],
-    [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "projectDocs"],
-    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub"],
-    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "attendance", "auditLog"]
+    [UserRole.SURVEYOR]: allTabs,
+    [UserRole.HSE_OFFICER]: allTabs,
+    [UserRole.DRIVER]: allTabs,
+    [UserRole.AUDITOR]: allTabs
   };
 
   const t = (key: string): string => {
@@ -518,8 +518,7 @@ export default function App() {
   };
 
   const isPendingUser = isAuthenticated && (
-    currentUserProfile?.status === "Pending" || 
-    currentUserProfile?.role === "Pending" || 
+    (currentUserProfile?.status === "Pending" && currentUserProfile?.role === "Pending") || 
     currentUserRole === ("Pending" as any)
   );
 
@@ -1553,6 +1552,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Custom Data Input Hub Tab */}
+            {tabPermissions[currentUserRole]?.includes("customInputHub") && (
+              <button
+                onClick={() => setActiveTab("customInputHub")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "customInputHub" ? "text-white border-emerald-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <PlusCircle size={15} className="text-emerald-400" />
+                <span>{isAmharic ? "የመረጃ ግብአት ማዕከል" : "Data Input Hub"}</span>
+              </button>
+            )}
+
             {/* Worker Profiles Tab */}
             {tabPermissions[currentUserRole]?.includes("workerProfiles") && (
               <button
@@ -2454,11 +2466,11 @@ export default function App() {
               {/* Modules Grid Container */}
               <div className="p-6 overflow-y-auto space-y-6 scrollbar-thin scrollbar-thumb-slate-700">
                 
-                {/* Section 1: Core Administration & HR */}
+                {/* Section 1: Core Administration, HR & Security (1-6) */}
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-red-500 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <ShieldCheck size={14} />
-                    <span>{isAmharic ? "ዋና አስተዳደር እና የሰው ኃይል (Admin & HR)" : "Core Administration & HR"}</span>
+                    <span>{isAmharic ? "1. ዋና አስተዳደር፣ የሰው ኃይል እና ደህንነት (Admin & HR)" : "Core Administration & HR (1-6)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -2472,7 +2484,7 @@ export default function App() {
                         <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Activity size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "1. ዳሽቦርድ" : "Dashboard"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "1. ዳሽቦርድ" : "1. Dashboard"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የአሉሚኒየም ፎርምወርክ እና አጠቃላይ የሳይት ሁኔታ ማጠቃለያ" : "Formwork status, attendance, and site KPIs"}
@@ -2489,10 +2501,44 @@ export default function App() {
                         <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Users size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "2. የሰራተኞች መገለጫዎች" : "Worker Profiles"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "2. የሰራተኞች መገለጫዎች" : "2. Worker Profiles"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የሰራተኞች መረጃ፣ ምዝገባ እና የሰው ኃይል (HR) ማኔጅመንት" : "Staff Directory, IDs, trades, and HR operations"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("customInputHub"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "customInputHub" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <PlusCircle size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "3. የመረጃ ግብአት ማዕከል" : "3. Data Input Hub"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "አዳዲስ መረጃዎችን፣ ዕቃዎችንና ሪፖርቶችን ማስገቢያ" : "Custom input forms for quick data entry"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("notificationCenter"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "notificationCenter" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Bell size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "4. ማስታወቂያዎች ማዕከል" : "4. Notifications Center"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሲስተም መልእክቶች፣ ጥያቄዎችና ማስጠንቀቂያዎች" : "System notifications, alerts & task messages"}
                       </p>
                     </button>
 
@@ -2506,21 +2552,38 @@ export default function App() {
                         <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Settings size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "3. የአድሚን ማፅደቂያ ቦርድ" : "Admin Role Approval"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "5. የአድሚን ማፅደቂያ ቦርድ" : "5. Admin Role Approval"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የአዲስ ተመዝጋቢዎች ድርሻ ማፅደቅ እና የደህንነት ቅንብሮች" : "User role approvals, permissions & security hub"}
                       </p>
                     </button>
 
+                    <button
+                      onClick={() => { setActiveTab("securitySettings"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "securitySettings" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Shield size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "6. ደህንነት እና ምርጫዎች" : "6. Security & Settings"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሲስተም ደህንነት፣ ፓስወርድና ፍቃዶች" : "Security policies, PIN codes & app preferences"}
+                      </p>
+                    </button>
+
                   </div>
                 </div>
 
-                {/* Section 2: Store, Inventory & Enterprise ERP */}
+                {/* Section 2: Store, Inventory & Enterprise ERP (7-12) */}
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <Store size={14} />
-                    <span>{isAmharic ? "መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP" : "Warehouse, Store & Enterprise ERP"}</span>
+                    <span>{isAmharic ? "2. መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP (Warehouse & Store)" : "Warehouse, Store & Enterprise ERP (7-12)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -2534,7 +2597,7 @@ export default function App() {
                         <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Building2 size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "4. የመጋዘን አስተዳዳሪ" : "Warehouse Manager App"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "7. የመጋዘን አስተዳዳሪ" : "7. Warehouse Manager App"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነሎች፣ መለዋወጫዎችና መጋዘን" : "Warehouse stock, panel transfers and inventory"}
@@ -2551,7 +2614,7 @@ export default function App() {
                         <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Store size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "5. የሳይት ስቶር አቃቤ" : "Store Owner App"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "8. የሳይት ስቶር አቃቤ" : "8. Store Owner App"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የሳይት ስቶር መሳሪያዎች፣ የዕቃዎች ጥያቄና ወጪ" : "Site store issuance, tool checkouts & stock"}
@@ -2568,7 +2631,7 @@ export default function App() {
                         <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Cpu size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "6. ኢንተርፕራይዝ ERP" : "Enterprise ERP Suite"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "9. ኢንተርፕራይዝ ERP Suite" : "9. Enterprise ERP Suite"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የዋና መስሪያ ቤት አጠቃላይ የኢንተርፕራይዝ ሲስተም" : "Centralized corporate executive suite"}
@@ -2585,21 +2648,55 @@ export default function App() {
                         <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
                           <DollarSign size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "7. የፋይናንስ ERP Hub" : "Finance ERP Hub"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "10. የፋይናንስ ERP Hub" : "10. Finance ERP Hub"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የደመወዝ ክፍያ (Payroll)፣ በጀትና የገንዘብ ወጪዎች" : "Payroll processing, budgets & expense management"}
                       </p>
                     </button>
 
+                    <button
+                      onClick={() => { setActiveTab("headOfficeSync"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "headOfficeSync" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Database size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "11. የደመና መረጃ ሲንክ" : "11. Real-Time Cloud Sync"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የዋና መስሪያ ቤትና የሳይቶች አውቶማቲክ መረጃ ማመሳሰያ" : "Real-time cross-site cloud synchronization"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("auditLog"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "auditLog" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <ShieldCheck size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "12. ኦዲት መዝገብ (Audit Log)" : "12. Audit Log"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የተከናወኑ ስራዎች፣ ለውጦችና የደህንነት ኦዲት መዝገብ" : "System changes, security logs & action history"}
+                      </p>
+                    </button>
+
                   </div>
                 </div>
 
-                {/* Section 3: Site Construction, Formwork & CAD */}
+                {/* Section 3: Site Construction, Formwork & Engineering (13-18) */}
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <Building2 size={14} />
-                    <span>{isAmharic ? "የግንባታ፣ ፎርምወርክ እና ንድፎች" : "Site Operations & Engineering"}</span>
+                    <span>{isAmharic ? "3. የግንባታ፣ ፎርምወርክ እና ንድፎች (Engineering & Site)" : "Site Operations & Engineering (13-18)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -2613,7 +2710,7 @@ export default function App() {
                         <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Grid size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "8. አሉሚኒየም ፎርምወርክ" : "Formwork Management"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "13. አሉሚኒየም ፎርምወርክ" : "13. Formwork Management"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የፓነሎች ገጠማ፣ ማንሳት (Stripping) እና የቦታዎች ቁጥጥር" : "Panel tracking, erection, stripping & maintenance"}
@@ -2630,7 +2727,7 @@ export default function App() {
                         <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
                           <FileText size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "9. የፕሮጀክት ሰነዶች & CAD" : "Project Docs & CAD"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "14. የፕሮጀክት ሰነዶች & CAD" : "14. Project Docs & CAD"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የህንፃ ንድፎች (Blueprints)፣ ሰነዶችና ኮንትራቶች" : "CAD drawings, architectural files & contract vault"}
@@ -2638,19 +2735,53 @@ export default function App() {
                     </button>
 
                     <button
-                      onClick={() => { setActiveTab("attendance"); setShowModulesMenu(false); }}
+                      onClick={() => { setActiveTab("cadDrawing"); setShowModulesMenu(false); }}
                       className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                        activeTab === "attendance" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        activeTab === "cadDrawing" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <FileText size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "15. የካድ ንድፎች እና ፎቶዎች" : "15. CAD Drawings & Photos"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የካድ ንድፎች፣ ዲዛይኖችና የሳይት ፎቶዎች" : "Architectural CAD plans & daily site photos"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("siteLayout"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "siteLayout" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                       }`}
                     >
                       <div className="flex items-center space-x-3 mb-2">
                         <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
-                          <Fingerprint size={18} />
+                          <Compass size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "10. የመገኘት መዝገብ" : "Attendance & Biometrics"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "16. የሳይት ሌይአውት (Site Layout)" : "16. Site Layout"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
-                        {isAmharic ? "የሰራተኞች እለታዊ የመግቢያና መውጫ ሰዓት መቆጣጠሪያ" : "Clock in/out logs, biometric scans & timesheets"}
+                        {isAmharic ? "የህንፃዎች፣ ብሎኮችና ዞኖች አቀማመጥ ንድፍ" : "Interactive building 3D/2D zone layout map"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("surveying"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "surveying" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Compass size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "17. ሰርቬይንግ እና ኮንክሪት" : "17. Surveying & Concrete"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሰርቬይንግ ልኬቶችና የኮንክሪት ሙሌት ዝግጁነት" : "Surveying coordinates, levels & concrete pouring checks"}
                       </p>
                     </button>
 
@@ -2664,10 +2795,202 @@ export default function App() {
                         <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Briefcase size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "11. ንዑስ ተቋራጭ ፖርታል" : "Subcontractor Portal"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "18. ንዑስ ተቋራጭ ፖርታል" : "18. Subcontractor Portal"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የንዑስ ተቋራጮች ስራዎች፣ ክፍያዎችና ውሎች" : "Subcontractor task tracking & progress claims"}
+                      </p>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Section 4: Field Operations, Attendance & Planning (19-24) */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                    <Fingerprint size={14} />
+                    <span>{isAmharic ? "4. የመገኘት፣ ባዮሜትሪክስ እና እቅድ (Attendance & Field)" : "Field Operations & Attendance (19-24)"}</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    
+                    <button
+                      onClick={() => { setActiveTab("attendance"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "attendance" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Fingerprint size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "19. የመገኘት መዝገብ" : "19. Attendance & Clock-In"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሰራተኞች እለታዊ የመግቢያና መውጫ ሰዓት መቆጣጠሪያ" : "Clock in/out logs, biometric scans & timesheets"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("biometricKiosk"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "biometricKiosk" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <ScanLine size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "20. ባዮሜትሪክ ኪዮስክ" : "20. Biometric Kiosk Scanner"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "ለሳይት በር ፈጣን የሰራተኞች ባዮሜትሪክ መመዝገቢያ" : "High-speed site entrance biometric terminal"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("fingerprintBoard"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "fingerprintBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Fingerprint size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "21. የጣት አሻራ ቦርድ" : "21. Fingerprint Attendance Board"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የአካባቢና የሃርድዌር የጣት አሻራ መሳሪያዎች ማገናኛ" : "Hardware scanner integration & live fingerprint board"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("biometricBoard"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "biometricBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Fingerprint size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "22. ባዮሜትሪክ ቦርድ" : "22. Biometric Board"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የፊትና የጣት አሻራ መረጃዎች ማእከላዊ መከታተያ" : "Biometric profile logs & attendance verification"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("planning"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "planning" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Calendar size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "23. የግንባታ እቅድ & Gantt" : "23. Planning & Gantt Scheduler"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የግንባታ ጊዜ ሰሌዳ፣ ፕሮጀክት እቅድና ጋንት ቻርት" : "Construction milestone scheduling & Gantt charts"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("progress"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "progress" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-blue-500/10 text-blue-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Layers size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "24. ዕለታዊ የዕድገት መዝገብ" : "24. Daily Progress Logs"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "ዕለታዊ የተከናወኑ የፎርምወርክና የህንፃ ስራዎች" : "Daily site activity reporting & progress metrics"}
+                      </p>
+                    </button>
+
+                  </div>
+                </div>
+
+                {/* Section 5: AI Inspection, Analytics & Mobile Apps (25-30) */}
+                <div>
+                  <h4 className="text-xs font-black uppercase tracking-wider text-rose-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
+                    <Sparkles size={14} />
+                    <span>{isAmharic ? "5. አይአይ ቁጥጥር፣ ትንበያ እና ሞባይል (AI & Analytics)" : "AI Inspection, Analytics & Mobile Apps (25-30)"}</span>
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    
+                    <button
+                      onClick={() => { setActiveTab("aiInspection"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "aiInspection" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-rose-500/10 text-rose-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Camera size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "25. አይአይ ፎቶ ቁጥጥር" : "25. AI Photo Inspection"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "በፎቶግራፍ የፎርምወርክ ጥራትና የኮንክሪት ሙሌት በምስል ማረጋገጫ" : "AI site image analysis & automated quality audits"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("predictions"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "predictions" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-rose-500/10 text-rose-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Sparkles size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "26. አይአይ ትንበያዎች" : "26. AI Predictive Analytics"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የግንባታ ጊዜና የወጪ አይአይ ትንበያዎች" : "AI risk forecasts, delay predictions & productivity models"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("performance"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "performance" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <UserCheck size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "27. የሰራተኞች ግምገማ" : "27. Performance Evaluation"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሰራተኞችና የቡድኖች ውጤታማነት ደረጃ" : "Worker KPIs, productivity leaderboards & evaluations"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("safetyQuality"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "safetyQuality" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <ShieldAlert size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "28. ደህንነት እና ጥራት" : "28. Safety & Quality"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የደህንነት አደጋዎችና የጥራት ጉድለቶች መዝገብ" : "Safety incidents, snag lists & HSE compliance"}
                       </p>
                     </button>
 
@@ -2681,10 +3004,27 @@ export default function App() {
                         <div className="p-2 bg-indigo-500/10 text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
                           <Smartphone size={18} />
                         </div>
-                        <span className="font-extrabold text-sm text-white">{isAmharic ? "12. የሞባይል መተግበሪያዎች" : "Mobile Apps Suite"}</span>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "29. የሞባይል መተግበሪያዎች" : "29. Mobile Apps Suite"}</span>
                       </div>
                       <p className="text-xs text-slate-400 leading-normal">
                         {isAmharic ? "የስልክ መተግበሪያዎች ለሳይት ሰራተኞችና ማናጀሮች" : "Field apps, QR scanners & mobile access hubs"}
+                      </p>
+                    </button>
+
+                    <button
+                      onClick={() => { setActiveTab("launchReadiness"); setShowModulesMenu(false); }}
+                      className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                        activeTab === "launchReadiness" ? "bg-orange-950/40 border-orange-500 shadow-md shadow-orange-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3 mb-2">
+                        <div className="p-2 bg-orange-500/10 text-orange-400 rounded-lg group-hover:scale-110 transition-transform">
+                          <Rocket size={18} />
+                        </div>
+                        <span className="font-extrabold text-sm text-white">{isAmharic ? "30. ማስጀመሪያ ዝግጁነት" : "30. Launch Readiness"}</span>
+                      </div>
+                      <p className="text-xs text-slate-400 leading-normal">
+                        {isAmharic ? "የሲስተም ዝግጁነትና የቀጥታ ስራ ማስጀመሪያ መፈተሻ" : "Deployment checks, production readiness & system diagnostics"}
                       </p>
                     </button>
 
