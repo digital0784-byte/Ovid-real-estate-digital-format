@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { DbService } from "./services/db";
 import { auth, db, isFirebaseReady } from "./firebase";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, onSnapshot, getDoc, setDoc } from "firebase/firestore";
 import { 
   initialWorkers, 
   initialTeams, 
@@ -245,13 +245,26 @@ export default function App() {
                   }
                 }
               } else {
-                const profile: UserProfile = {
-                  uid: firebaseUser.uid,
+                const newUserProfileData = {
                   displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User",
+                  email: firebaseUser.email || "",
+                  phoneNumber: firebaseUser.phoneNumber || "",
                   role: "Pending",
                   status: "Pending",
-                  email: firebaseUser.email || "",
-                  phoneNumber: firebaseUser.phoneNumber || ""
+                  createdAt: new Date().toISOString()
+                };
+                setDoc(userDocRef, newUserProfileData).catch((err) => {
+                  console.error("Auto-creating user profile in Firestore failed:", err);
+                });
+
+                const profile: UserProfile = {
+                  uid: firebaseUser.uid,
+                  displayName: newUserProfileData.displayName,
+                  role: "Pending" as UserRole,
+                  status: "Pending",
+                  email: newUserProfileData.email,
+                  phoneNumber: newUserProfileData.phoneNumber,
+                  createdAt: newUserProfileData.createdAt
                 };
                 setCurrentUserProfile(profile);
               }
