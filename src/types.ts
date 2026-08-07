@@ -661,6 +661,29 @@ export interface RegisteredSite {
   }[];
 }
 
+export interface RegisteredWarehouse {
+  id: string;
+  code: string;
+  name: string;
+  nameAmharic?: string;
+  type: "Main Warehouse" | "Sub-Warehouse" | "Site Store" | "Equipment Yard" | "Central Depot";
+  isMainWarehouse: boolean;
+  locationRegion: string;
+  citySite: string;
+  gpsCoordinates: string;
+  warehouseManager: string;
+  managerPhone: string;
+  totalCapacitySqM: number;
+  currentCapacityUtilized: number; // percentage 0-100
+  activePanelsCount: number;
+  materialItemsCount: number;
+  status: "Active" | "Full" | "Maintenance" | "Under Expansion";
+  securityGuardOnDuty: string;
+  linkedSitesCount: number;
+  registrationDate: string;
+  notes?: string;
+}
+
 export type CustomInputCategory = 
   | "Attendance"
   | "Employees"
