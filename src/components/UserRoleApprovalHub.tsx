@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { UserRole, RoleChangeRequest, RoleChangeAuditLog, RoleChangeRequestDoc } from "../types";
 import { RoleChangeApprovalService } from "../services/roleChangeApprovalService";
 import { db, isFirebaseReady } from "../firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, getDocs, doc, setDoc, query, where } from "firebase/firestore";
 import { 
   ShieldCheck, 
   ShieldAlert, 
@@ -62,7 +62,6 @@ const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.HSE_OFFICER, nameEn: "HSE Officer", nameAm: "የደህንነትና አካባቢ ጥበቃ ኃላፊ" },
   { role: UserRole.DRIVER, nameEn: "Driver", nameAm: "የተሽከርካሪ አሽከርካሪ" },
   { role: UserRole.SURVEYOR, nameEn: "Surveyor", nameAm: "የመሬት ልኬታ መሐንዲስ (ሱርቬየር)" },
-  { role: UserRole.SUPER_ADMIN, nameEn: "Super Admin", nameAm: "የሲስተም ዋና አስተዳዳሪ" },
   { role: UserRole.HEAD_OFFICE, nameEn: "Head Office", nameAm: "የዋና መስሪያ ቤት አመራር" }
 ];
 
@@ -246,6 +245,8 @@ export function UserRoleApprovalHub({
   const confirmApprove = () => {
     if (!approvingReq) return;
 
+    const approvedRole = overrideRole || approvingReq.requestedRole;
+
     const res = RoleChangeApprovalService.approveRequest({
       requestId: approvingReq.id,
       approverName: currentUserName,
@@ -254,17 +255,41 @@ export function UserRoleApprovalHub({
     });
 
     if (res.success) {
+      // Sync Firestore user documents for persistent activation across devices
+      if (isFirebaseReady && db) {
+        if (approvingReq.userId) {
+          setDoc(doc(db, "users", approvingReq.userId), {
+            role: approvedRole,
+            requestedRole: approvedRole,
+            status: "Active"
+          }, { merge: true }).catch(() => {});
+        }
+        if (approvingReq.userEmail) {
+          const cleanEmail = approvingReq.userEmail.toLowerCase().trim();
+          const userQuery = query(collection(db, "users"), where("email", "==", cleanEmail));
+          getDocs(userQuery).then(snap => {
+            snap.forEach(userDoc => {
+              setDoc(doc(db, "users", userDoc.id), {
+                role: approvedRole,
+                requestedRole: approvedRole,
+                status: "Active"
+              }, { merge: true }).catch(() => {});
+            });
+          }).catch(() => {});
+        }
+      }
+
       refreshData();
       if (onLogAction) {
         onLogAction(
           "Role Change Approved",
-          `Approved request #${approvingReq.id} for user ${approvingReq.userName}. New Role: ${overrideRole || approvingReq.requestedRole}`
+          `Approved request #${approvingReq.id} for user ${approvingReq.userName}. New Role: ${approvedRole}`
         );
       }
       // If approving for the currently logged in user
       if (approvingReq.userId === currentUserId || approvingReq.userName === currentUserName) {
-        if (onRoleUpdated && overrideRole) {
-          onRoleUpdated(overrideRole as UserRole);
+        if (onRoleUpdated && approvedRole) {
+          onRoleUpdated(approvedRole as UserRole);
         }
       }
       setApprovingReq(null);

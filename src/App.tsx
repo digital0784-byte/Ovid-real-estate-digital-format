@@ -237,12 +237,21 @@ export default function App() {
                 let effectiveRole = (data.role as UserRole) || UserRole.WORKER;
                 let effectiveStatus = data.status || "Pending";
 
+                // Enforce Super Admin only for owner email
+                const userEmailLower = (data.email || firebaseUser.email || "").toLowerCase();
+                if (userEmailLower === "mejennur669@gmail.com") {
+                  effectiveRole = UserRole.SUPER_ADMIN;
+                  effectiveStatus = "Active";
+                } else if (effectiveRole === UserRole.SUPER_ADMIN) {
+                  effectiveRole = UserRole.HEAD_OFFICE;
+                }
+
                 if (effectiveStatus === "Active" && (effectiveRole === ("Pending" as any) || !effectiveRole) && data.requestedRole) {
                   effectiveRole = data.requestedRole as UserRole;
                 }
 
-                // Check RoleChangeApprovalService in case it was approved in app memory
-                if (effectiveRole === ("Pending" as any)) {
+                // Check RoleChangeApprovalService in case it was approved in app memory or Firestore
+                if (effectiveRole === ("Pending" as any) && userEmailLower !== "mejennur669@gmail.com") {
                   try {
                     const reqs = RoleChangeApprovalService.getRequests();
                     const appReq = reqs.find(r => 
@@ -252,9 +261,9 @@ export default function App() {
                     if (appReq) {
                       const approvedRole = (appReq.assignedRole || appReq.requestedRole) as UserRole;
                       if (approvedRole && approvedRole !== ("Pending" as any)) {
-                        effectiveRole = approvedRole;
+                        effectiveRole = approvedRole === UserRole.SUPER_ADMIN ? UserRole.HEAD_OFFICE : approvedRole;
                         effectiveStatus = "Active";
-                        setDoc(userDocRef, { role: approvedRole, status: "Active" }, { merge: true }).catch(err => console.error("Syncing approved role to Firestore failed:", err));
+                        setDoc(userDocRef, { role: effectiveRole, status: "Active" }, { merge: true }).catch(err => console.error("Syncing approved role to Firestore failed:", err));
                       }
                     }
                   } catch (e) {
@@ -280,12 +289,22 @@ export default function App() {
                   }
                 }
               } else {
+                const userEmailLower = (firebaseUser.email || "").toLowerCase();
+                const isOwner = userEmailLower === "mejennur669@gmail.com";
+                const storedRole = typeof window !== "undefined" ? localStorage.getItem("erp_current_user_role") : null;
+                
+                let initialRole: UserRole = isOwner 
+                  ? UserRole.SUPER_ADMIN 
+                  : (storedRole && storedRole !== "Pending" ? (storedRole as UserRole) : ("Pending" as any));
+                let initialStatus = isOwner || (storedRole && storedRole !== "Pending") ? "Active" : "Pending";
+
                 const newUserProfileData = {
                   displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User",
                   email: firebaseUser.email || "",
                   phoneNumber: firebaseUser.phoneNumber || "",
-                  role: "Pending",
-                  status: "Pending",
+                  role: initialRole,
+                  requestedRole: isOwner ? UserRole.SUPER_ADMIN : "Worker",
+                  status: initialStatus,
                   createdAt: new Date().toISOString()
                 };
                 setDoc(userDocRef, newUserProfileData).catch((err) => {
@@ -295,13 +314,17 @@ export default function App() {
                 const profile: UserProfile = {
                   uid: firebaseUser.uid,
                   displayName: newUserProfileData.displayName,
-                  role: "Pending" as UserRole,
-                  status: "Pending",
+                  role: initialRole,
+                  requestedRole: newUserProfileData.requestedRole,
+                  status: initialStatus,
                   email: newUserProfileData.email,
                   phoneNumber: newUserProfileData.phoneNumber,
                   createdAt: newUserProfileData.createdAt
                 };
                 setCurrentUserProfile(profile);
+                if (initialRole && initialRole !== ("Pending" as any)) {
+                  setCurrentUserRole(initialRole);
+                }
               }
               setIsAuthLoading(false);
             },
@@ -1359,7 +1382,14 @@ export default function App() {
             <div className="grid grid-cols-1 gap-2 pt-1">
               <button
                 onClick={() => {
-                  const roleToSet = (currentUserProfile?.requestedRole as UserRole) || UserRole.SUPER_ADMIN;
+                  const isOwner = currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com";
+                  let roleToSet = (currentUserProfile?.requestedRole as UserRole) || UserRole.PROJECT_MANAGER;
+                  if (roleToSet === UserRole.SUPER_ADMIN && !isOwner) {
+                    roleToSet = UserRole.PROJECT_MANAGER;
+                  }
+                  if (isOwner) {
+                    roleToSet = UserRole.SUPER_ADMIN;
+                  }
                   setCurrentUserRole(roleToSet);
                   if (currentUserProfile) {
                     setCurrentUserProfile({

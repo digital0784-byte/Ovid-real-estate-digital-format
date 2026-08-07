@@ -245,6 +245,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       return;
     }
 
+    // Prevent self-registering as Super Admin
+    let sanitizedRegRole = regRole || UserRole.WORKER;
+    if (sanitizedRegRole === UserRole.SUPER_ADMIN) {
+      sanitizedRegRole = UserRole.PROJECT_MANAGER;
+    }
+
     try {
       if (isFirebaseReady && auth) {
         try {
@@ -255,7 +261,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
               email: regEmail.trim().toLowerCase(),
               phoneNumber: regPhone.trim(),
               role: "Pending",
-              requestedRole: regRole || "Worker",
+              requestedRole: sanitizedRegRole,
               status: "Pending",
               createdAt: new Date().toISOString()
             });
@@ -270,7 +276,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         }
       }
 
-      const prefix = getPrefixFromRole(regRole);
+      const prefix = getPrefixFromRole(sanitizedRegRole as UserRole);
       const randNum = Math.floor(100 + Math.random() * 900);
       const generatedId = `${prefix}-${randNum}`;
       const fullEmpId = `Digital Construction ERP-${generatedId}`;
@@ -282,10 +288,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         userEmail: regEmail.trim().toLowerCase(),
         phoneNumber: regPhone.trim(),
         currentRole: "Pending",
-        requestedRole: regRole || "Worker",
+        requestedRole: sanitizedRegRole,
         reason: isAmharic 
-          ? `በሊንክ የተመዘገበ አዲስ ተጠቃሚ የተጠየቀ የስራ ድርሻ: ${regRole}` 
-          : `New user self-registered via link. Requested role: ${regRole}`,
+          ? `በሊንክ የተመዘገበ አዲስ ተጠቃሚ የተጠየቀ የስራ ድርሻ: ${sanitizedRegRole}` 
+          : `New user self-registered via link. Requested role: ${sanitizedRegRole}`,
         requestedBy: regName.trim(),
         requestedByRole: "Pending User"
       });
@@ -519,10 +525,20 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         }
       }
 
-      // 1. Check Firestore user document for approved role
       let foundRoleInDb = false;
       const currentUid = authedUid || auth?.currentUser?.uid;
-      if (currentUid && db) {
+
+      // Owner Email absolute Super Admin override
+      if (lowerEmail === "mejennur669@gmail.com") {
+        targetRole = UserRole.SUPER_ADMIN;
+        foundRoleInDb = true;
+        if (currentUid && db) {
+          await setDoc(doc(db, "users", currentUid), { role: UserRole.SUPER_ADMIN, status: "Active" }, { merge: true }).catch(() => {});
+        }
+      }
+
+      // 1. Check Firestore user document for approved role
+      if (!foundRoleInDb && currentUid && db) {
         try {
           const userDocSnap = await getDoc(doc(db, "users", currentUid));
           if (userDocSnap.exists()) {
@@ -533,7 +549,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             } else if (userData.status === "Active" && userData.requestedRole && userData.requestedRole !== "Pending") {
               targetRole = userData.requestedRole as UserRole;
               foundRoleInDb = true;
-              await setDoc(doc(db, "users", currentUid), { role: userData.requestedRole }, { merge: true }).catch(() => {});
+              await setDoc(doc(db, "users", currentUid), { role: userData.requestedRole, status: "Active" }, { merge: true }).catch(() => {});
             }
           }
         } catch (e) {
@@ -552,11 +568,15 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           if (approvedReq) {
             const approvedRole = (approvedReq.assignedRole || approvedReq.requestedRole) as UserRole;
             if (approvedRole && approvedRole !== ("Pending" as any)) {
-              targetRole = approvedRole;
+              // Super admin cannot be claimed by non-owner
+              targetRole = (approvedRole === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
+                ? UserRole.HEAD_OFFICE 
+                : approvedRole;
               foundRoleInDb = true;
               if (currentUid && db) {
                 await setDoc(doc(db, "users", currentUid), {
-                  role: approvedRole,
+                  role: targetRole,
+                  requestedRole: targetRole,
                   status: "Active"
                 }, { merge: true }).catch(err => console.error("Error writing approved role to Firestore:", err));
               }
@@ -569,10 +589,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
       // 3. Fallback smart auto-detection of roles based on email
       if (!foundRoleInDb) {
-        if (lowerEmail === "mejennur669@gmail.com" || lowerEmail.includes("nuriye") || lowerEmail.includes("nuri")) {
-          targetRole = UserRole.HEAD_OFFICE;
-        } else if (lowerEmail.includes("admin")) {
+        if (lowerEmail === "mejennur669@gmail.com") {
           targetRole = UserRole.SUPER_ADMIN;
+        } else if (lowerEmail.includes("nuriye") || lowerEmail.includes("nuri") || lowerEmail.includes("headoffice") || lowerEmail.includes("admin")) {
+          targetRole = UserRole.HEAD_OFFICE;
         } else if (lowerEmail.includes("pm") || lowerEmail.includes("manager")) {
           targetRole = UserRole.PROJECT_MANAGER;
         } else if (lowerEmail.includes("engineer")) {
@@ -1565,7 +1585,6 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       className="w-full pl-9 pr-9 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none cursor-pointer relative z-0"
                     >
                       {[
-                        { role: UserRole.SUPER_ADMIN, label: isAmharic ? "ዋና አድሚን (Super Admin)" : "Super Admin" },
                         { role: UserRole.HEAD_OFFICE, label: isAmharic ? "ዋና መሥሪያ ቤት (Head Office)" : "Head Office" },
                         { role: UserRole.PROJECT_MANAGER, label: isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ (Project Manager)" : "Project Manager" },
                         { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },

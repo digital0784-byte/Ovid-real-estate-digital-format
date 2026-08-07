@@ -1,7 +1,7 @@
 import { UserRole, RoleChangeRequest, RoleChangeAuditLog, RoleChangeRequestDoc } from "../types";
 import { NotificationService } from "./notificationService";
 import { db, isFirebaseReady } from "../firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const STORAGE_KEY_REQUESTS = "buildsync_role_change_requests_v1";
 const STORAGE_KEY_AUDIT = "buildsync_role_change_audit_logs_v1";
@@ -298,6 +298,11 @@ export class RoleChangeApprovalService {
     requests.unshift(newReq);
     this.saveRequests(requests);
 
+    // Save to Firestore role_change_requests collection
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "role_change_requests", newReq.id), newReq, { merge: true }).catch(e => console.warn("Error saving request to Firestore:", e));
+    }
+
     // Trigger Notification for Admin & Head Office
     NotificationService.createNotification({
       title: "New Role Change Request Submitted",
@@ -365,12 +370,31 @@ export class RoleChangeApprovalService {
 
     this.saveRequests(requests);
 
-    // Sync to Firestore user document if available
-    if (isFirebaseReady && db && req.userId) {
-      setDoc(doc(db, "users", req.userId), {
-        role: finalRole,
-        status: "Active"
-      }, { merge: true }).catch(e => console.error("Failed to update user doc in Firestore on approval:", e));
+    // Sync to Firestore user document and role_change_requests collection
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "role_change_requests", req.id), req, { merge: true }).catch(() => {});
+
+      if (req.userId) {
+        setDoc(doc(db, "users", req.userId), {
+          role: finalRole,
+          requestedRole: finalRole,
+          status: "Active"
+        }, { merge: true }).catch(e => console.error("Failed to update user doc in Firestore on approval:", e));
+      }
+
+      if (req.userEmail) {
+        const cleanEmail = req.userEmail.toLowerCase().trim();
+        const userQuery = query(collection(db, "users"), where("email", "==", cleanEmail));
+        getDocs(userQuery).then(snap => {
+          snap.forEach(userDoc => {
+            setDoc(doc(db, "users", userDoc.id), {
+              role: finalRole,
+              requestedRole: finalRole,
+              status: "Active"
+            }, { merge: true }).catch(() => {});
+          });
+        }).catch(err => console.warn("Error querying user doc by email on approval:", err));
+      }
     }
 
     // Record Audit Log
