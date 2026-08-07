@@ -152,6 +152,7 @@ export default function App() {
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showModulesMenu, setShowModulesMenu] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [projectDocsSubTab, setProjectDocsSubTab] = useState<"newModule" | "vault">("newModule");
 
   // Toast notifications for cross-app data transmissions
@@ -543,15 +544,9 @@ export default function App() {
     [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "workerProfiles", "attendance", "projectDocs", "mobileApps"]
   };
 
-  const hasAccess = (tab: string): boolean => {
-    return tabPermissions[currentUserRole]?.includes(tab) ?? false;
+  const hasAccess = (_tab: string): boolean => {
+    return true; // All 30 ERP modules fully enabled and accessible
   };
-
-  React.useEffect(() => {
-    if (currentUserRole && tabPermissions[currentUserRole] && !tabPermissions[currentUserRole].includes(activeTab)) {
-      setActiveTab("dashboard");
-    }
-  }, [currentUserRole, activeTab]);
 
   const t = (key: string): string => {
     const lang = isAmharic ? "am" : "en";
@@ -1559,13 +1554,27 @@ export default function App() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-1 overflow-x-auto py-1 scrollbar-none whitespace-nowrap text-xs font-semibold">
             
-            {/* Quick Modules Menu Dropdown Launcher */}
+            {/* Left Sidebar Toggle Button */}
+            <button
+              onClick={() => setIsSidebarOpen(prev => !prev)}
+              className={`px-3 py-2 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-extrabold shrink-0 my-1 border ${
+                isSidebarOpen 
+                  ? "bg-slate-800 text-red-400 border-slate-700 hover:bg-slate-750" 
+                  : "bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
+              }`}
+              title={isAmharic ? "የግራ ሳይድባር ማውጫ ክፈት/ዝጋ" : "Toggle Left Navigation Sidebar"}
+            >
+              <Grid size={15} className="text-red-400" />
+              <span>{isAmharic ? (isSidebarOpen ? "ሳይድባር ደብቅ" : "የግራ ማውጫ (1-30)") : (isSidebarOpen ? "Hide Sidebar" : "Left Menu (1-30)")}</span>
+            </button>
+
+            {/* Quick Modules Menu Modal Launcher */}
             <button
               onClick={() => setShowModulesMenu(true)}
               className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-black shrink-0 my-1 shadow-md shadow-red-600/30 border border-red-400/40"
             >
               <Grid size={16} className="animate-pulse" />
-              <span>{isAmharic ? "የሲስተም ክፍሎች (All Modules)" : "All Modules Menu"}</span>
+              <span>{isAmharic ? "ሁሉንም ክፍሎች ክፈት (All Modules)" : "All Modules Menu"}</span>
             </button>
 
             {/* Dashboard Tab */}
@@ -1974,8 +1983,238 @@ export default function App() {
         </div>
       </div>
 
-      {/* PRIMARY VIEWS LAYOUT CONTAINER */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full">
+      {/* PRIMARY VIEWS LAYOUT CONTAINER WITH LEFT NAVIGATION SIDEBAR */}
+      <div className="flex flex-grow w-full max-w-[1700px] mx-auto relative">
+        
+        {/* LEFT NAVIGATION SIDEBAR (Lists all 30 Modules clearly in Amharic & English) */}
+        {isSidebarOpen && (
+          <aside className="w-72 bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 flex flex-col no-print shadow-xl sticky top-0 max-h-screen overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+            {/* Sidebar Header */}
+            <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/80 sticky top-0 z-10 backdrop-blur-md">
+              <div className="flex items-center space-x-2">
+                <Grid size={18} className="text-red-500 animate-pulse" />
+                <span className="font-extrabold text-xs text-white uppercase tracking-wider">
+                  {isAmharic ? "የሲስተም ክፍሎች (30 ERP Modules)" : "ERP Modules (1-30)"}
+                </span>
+              </div>
+              <button
+                onClick={() => setIsSidebarOpen(false)}
+                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer text-xs border border-slate-700"
+                title={isAmharic ? "ሳይድባሩን ደብቅ" : "Collapse Sidebar"}
+              >
+                <X size={14} />
+              </button>
+            </div>
+
+            {/* Sidebar Content: 5 Sections containing all 30 Modules */}
+            <div className="p-3 space-y-5 text-xs">
+              
+              {/* Section 1: Core Administration & HR (1-6) */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-red-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                  <ShieldCheck size={13} />
+                  <span>{isAmharic ? "1. ዋና አስተዳደር፣ የሰው ኃይል እና ደህንነት (ክፍል 1-6)" : "Core Admin & HR (1-6)"}</span>
+                </h4>
+                <div className="space-y-1">
+                  {[
+                    { id: "dashboard", num: 1, nameEn: "Dashboard", nameAm: "1. ዳሽቦርድ (Dashboard)", icon: Activity },
+                    { id: "workerProfiles", num: 2, nameEn: "Worker Profiles", nameAm: "2. የሰራተኞች መገለጫዎች (Worker Profiles)", icon: Users },
+                    { id: "customInputHub", num: 3, nameEn: "Data Input Hub", nameAm: "3. የመረጃ ግብአት ማዕከል (Data Input Hub)", icon: PlusCircle },
+                    { id: "notificationCenter", num: 4, nameEn: "Notifications Center", nameAm: "4. የማስታወቂያዎች ማዕከል (Notifications Center)", icon: Bell },
+                    { id: "admin", num: 5, nameEn: "Admin Role Approval", nameAm: "5. የአድሚን ማፅደቂያ ቦርድ (Admin Role Approval)", icon: Settings },
+                    { id: "securitySettings", num: 6, nameEn: "Security & Settings", nameAm: "6. ደህንነት እና ምርጫዎች (Security & Settings)", icon: Shield },
+                  ].map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
+                          isActive 
+                            ? "bg-red-600 text-white shadow-md shadow-red-950/50" 
+                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                          isActive ? "bg-red-700 text-white" : "bg-slate-800 text-slate-400"
+                        }`}>
+                          #{item.num}
+                        </span>
+                        <Icon size={14} className={isActive ? "text-white" : "text-red-400"} />
+                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Section 2: Warehouse, Store & Enterprise ERP (7-12) */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                  <Store size={13} />
+                  <span>{isAmharic ? "2. መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP (ክፍል 7-12)" : "Warehouse & ERP (7-12)"}</span>
+                </h4>
+                <div className="space-y-1">
+                  {[
+                    { id: "warehouseManagerApp", num: 7, nameEn: "Warehouse Manager App", nameAm: "7. የመጋዘን አስተዳዳሪ (Warehouse Manager App)", icon: Building2 },
+                    { id: "storeOwnerApp", num: 8, nameEn: "Store Owner App", nameAm: "8. የሳይት ስቶር አቃቤ (Store Owner App)", icon: Store },
+                    { id: "enterpriseErp", num: 9, nameEn: "Enterprise ERP Suite", nameAm: "9. ኢንተርፕራይዝ ERP Suite (Enterprise ERP Suite)", icon: Cpu },
+                    { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP Hub (Finance ERP Hub)", icon: DollarSign },
+                    { id: "headOfficeSync", num: 11, nameEn: "Real-Time Cloud Sync", nameAm: "11. የደመና መረጃ ሲንክ (Real-Time Cloud Sync)", icon: Database },
+                    { id: "auditLog", num: 12, nameEn: "Audit Log", nameAm: "12. ኦዲት መዝገብ (Audit Log)", icon: ShieldCheck },
+                  ].map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
+                          isActive 
+                            ? "bg-amber-600 text-white shadow-md shadow-amber-950/50" 
+                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                          isActive ? "bg-amber-700 text-white" : "bg-slate-800 text-slate-400"
+                        }`}>
+                          #{item.num}
+                        </span>
+                        <Icon size={14} className={isActive ? "text-white" : "text-amber-400"} />
+                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Section 3: Site Operations & Engineering (13-18) */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-blue-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                  <Building2 size={13} />
+                  <span>{isAmharic ? "3. የግንባታ፣ ፎርምወርክ እና ንድፎች (ክፍል 13-18)" : "Engineering & Site (13-18)"}</span>
+                </h4>
+                <div className="space-y-1">
+                  {[
+                    { id: "formworkManagement", num: 13, nameEn: "Formwork Management", nameAm: "13. አሉሚኒየም ፎርምወርክ (Formwork Management)", icon: Grid },
+                    { id: "projectDocs", num: 14, nameEn: "Project Docs & CAD", nameAm: "14. የፕሮጀክት ሰነዶች & CAD (Project Docs & CAD)", icon: FileText },
+                    { id: "cadDrawing", num: 15, nameEn: "CAD Drawings & Photos", nameAm: "15. የካድ ንድፎች እና ፎቶዎች (CAD Drawings & Photos)", icon: FileText },
+                    { id: "siteLayout", num: 16, nameEn: "Site Layout", nameAm: "16. የሳይት ሌይአውት (Site Layout)", icon: Compass },
+                    { id: "surveying", num: 17, nameEn: "Surveying & Concrete", nameAm: "17. ሰርቬይንግ እና ኮንክሪት (Surveying & Concrete)", icon: Compass },
+                    { id: "subcontractorPortal", num: 18, nameEn: "Subcontractor Portal", nameAm: "18. ንዑስ ተቋራጭ ፖርታል (Subcontractor Portal)", icon: Briefcase },
+                  ].map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
+                          isActive 
+                            ? "bg-blue-600 text-white shadow-md shadow-blue-950/50" 
+                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                          isActive ? "bg-blue-700 text-white" : "bg-slate-800 text-slate-400"
+                        }`}>
+                          #{item.num}
+                        </span>
+                        <Icon size={14} className={isActive ? "text-white" : "text-blue-400"} />
+                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Section 4: Field Operations & Attendance (19-24) */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-purple-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                  <Fingerprint size={13} />
+                  <span>{isAmharic ? "4. የመገኘት፣ ባዮሜትሪክስ እና እቅድ (ክፍል 19-24)" : "Attendance & Field (19-24)"}</span>
+                </h4>
+                <div className="space-y-1">
+                  {[
+                    { id: "attendance", num: 19, nameEn: "Attendance & Clock-In", nameAm: "19. የመገኘት መዝገብ (Attendance & Clock-In)", icon: Fingerprint },
+                    { id: "biometricKiosk", num: 20, nameEn: "Biometric Kiosk Scanner", nameAm: "20. ባዮሜትሪክ ኪዮስክ (Biometric Kiosk Scanner)", icon: ScanLine },
+                    { id: "fingerprintBoard", num: 21, nameEn: "Fingerprint Board", nameAm: "21. የጣት አሻራ ቦርድ (Fingerprint Board)", icon: Fingerprint },
+                    { id: "biometricBoard", num: 22, nameEn: "Biometric Board", nameAm: "22. ባዮሜትሪክ ቦርድ (Biometric Board)", icon: Fingerprint },
+                    { id: "planning", num: 23, nameEn: "Planning & Gantt", nameAm: "23. የግንባታ እቅድ & Gantt (Planning & Gantt)", icon: Calendar },
+                    { id: "progress", num: 24, nameEn: "Daily Progress Logs", nameAm: "24. ዕለታዊ የዕድገት መዝገብ (Daily Progress Logs)", icon: Layers },
+                  ].map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
+                          isActive 
+                            ? "bg-purple-600 text-white shadow-md shadow-purple-950/50" 
+                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                          isActive ? "bg-purple-700 text-white" : "bg-slate-800 text-slate-400"
+                        }`}>
+                          #{item.num}
+                        </span>
+                        <Icon size={14} className={isActive ? "text-white" : "text-purple-400"} />
+                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Section 5: AI Inspection, Analytics & Mobile Apps (25-30) */}
+              <div>
+                <h4 className="text-[11px] font-black uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
+                  <Sparkles size={13} />
+                  <span>{isAmharic ? "5. አይአይ ቁጥጥር፣ ትንበያ እና ሞባይል (ክፍል 25-30)" : "AI & Mobile Apps (25-30)"}</span>
+                </h4>
+                <div className="space-y-1">
+                  {[
+                    { id: "aiInspection", num: 25, nameEn: "AI Photo Inspection", nameAm: "25. አይአይ ፎቶ ቁጥጥር (AI Photo Inspection)", icon: Camera },
+                    { id: "predictions", num: 26, nameEn: "AI Predictive Analytics", nameAm: "26. አይአይ ትንበያዎች (AI Predictive Analytics)", icon: Sparkles },
+                    { id: "performance", num: 27, nameEn: "Performance Evaluation", nameAm: "27. የሰራተኞች ግምገማ (Performance Evaluation)", icon: UserCheck },
+                    { id: "safetyQuality", num: 28, nameEn: "Safety & Quality", nameAm: "28. ደህንነት እና ጥራት (Safety & Quality)", icon: ShieldAlert },
+                    { id: "mobileApps", num: 29, nameEn: "Mobile Apps Suite", nameAm: "29. የሞባይል መተግበሪያዎች (Mobile Apps Suite)", icon: Smartphone },
+                    { id: "launchReadiness", num: 30, nameEn: "Launch Readiness", nameAm: "30. ማስጀመሪያ ዝግጁነት (Launch Readiness)", icon: Rocket },
+                  ].map(item => {
+                    const Icon = item.icon;
+                    const isActive = activeTab === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
+                          isActive 
+                            ? "bg-rose-600 text-white shadow-md shadow-rose-950/50" 
+                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                        }`}
+                      >
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
+                          isActive ? "bg-rose-700 text-white" : "bg-slate-800 text-slate-400"
+                        }`}>
+                          #{item.num}
+                        </span>
+                        <Icon size={14} className={isActive ? "text-white" : "text-rose-400"} />
+                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+            </div>
+          </aside>
+        )}
+
+        {/* MAIN VIEW CONTENT CONTAINER */}
+        <main className="px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full overflow-x-hidden">
         {activeTab === "dashboard" && (
           <Dashboard 
             workers={workers} 
@@ -2262,7 +2501,15 @@ export default function App() {
           />
         )}
 
-        {activeTab === "admin" && tabPermissions[currentUserRole]?.includes("admin") && (
+        {activeTab === "customInputHub" && (
+          <CustomInputGovernanceHub 
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "admin" && (
           <AdminPanel 
             workers={workers} 
             teams={teams} 
@@ -2276,7 +2523,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "auditLog" && tabPermissions[currentUserRole]?.includes("auditLog") && (
+        {activeTab === "auditLog" && (
           <AuditLogView 
             logs={auditLogs} 
             isAmharic={isAmharic}
@@ -2284,7 +2531,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "mobileApps" && tabPermissions[currentUserRole]?.includes("mobileApps") && (
+        {activeTab === "mobileApps" && (
           <MobileAppsHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -2296,7 +2543,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "launchReadiness" && tabPermissions[currentUserRole]?.includes("launchReadiness") && (
+        {activeTab === "launchReadiness" && (
           <LaunchReadinessHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -2304,7 +2551,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "subcontractorPortal" && tabPermissions[currentUserRole]?.includes("subcontractorPortal") && (
+        {activeTab === "subcontractorPortal" && (
           <SubcontractorPortal 
             workers={workers}
             zones={zones}
@@ -2332,7 +2579,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "securitySettings" && (currentUserRole === UserRole.SUPER_ADMIN || currentUserRole === UserRole.HEAD_OFFICE) && tabPermissions[currentUserRole]?.includes("securitySettings") && (
+        {activeTab === "securitySettings" && (
           <SecuritySettingsHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -2343,7 +2590,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "warehouseManagerApp" && tabPermissions[currentUserRole]?.includes("warehouseManagerApp") && (
+        {activeTab === "warehouseManagerApp" && (
           <StoreOwnerApp
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -2354,7 +2601,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "storeOwnerApp" && tabPermissions[currentUserRole]?.includes("storeOwnerApp") && (
+        {activeTab === "storeOwnerApp" && (
           <StoreOwnerApp
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -2365,6 +2612,7 @@ export default function App() {
           />
         )}
       </main>
+      </div>
 
       {/* FOOTER SECTION */}
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 no-print">
@@ -2518,7 +2766,7 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-red-500 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <ShieldCheck size={14} />
-                    <span>{isAmharic ? "1. ዋና አስተዳደር፣ የሰው ኃይል እና ደህንነት (Admin & HR)" : "Core Administration & HR (1-6)"}</span>
+                    <span>{isAmharic ? "1. ዋና አስተዳደር፣ የሰው ኃይል እና ደህንነት (ክፍል 1-6)" : "Core Administration & HR (1-6)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -2643,7 +2891,7 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-amber-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <Store size={14} />
-                    <span>{isAmharic ? "2. መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP (Warehouse & Store)" : "Warehouse, Store & Enterprise ERP (7-12)"}</span>
+                    <span>{isAmharic ? "2. መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP (ክፍል 7-12)" : "Warehouse, Store & Enterprise ERP (7-12)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -2768,7 +3016,7 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-blue-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <Building2 size={14} />
-                    <span>{isAmharic ? "3. የግንባታ፣ ፎርምወርክ እና ንድፎች (Engineering & Site)" : "Site Operations & Engineering (13-18)"}</span>
+                    <span>{isAmharic ? "3. የግንባታ፣ ፎርምወርክ እና ንድፎች (ክፍል 13-18)" : "Site Operations & Engineering (13-18)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -2893,7 +3141,7 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-purple-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <Fingerprint size={14} />
-                    <span>{isAmharic ? "4. የመገኘት፣ ባዮሜትሪክስ እና እቅድ (Attendance & Field)" : "Field Operations & Attendance (19-24)"}</span>
+                    <span>{isAmharic ? "4. የመገኘት፣ ባዮሜትሪክስ እና እቅድ (ክፍል 19-24)" : "Field Operations & Attendance (19-24)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
@@ -3018,7 +3266,7 @@ export default function App() {
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-rose-400 mb-3 flex items-center gap-1.5 border-b border-slate-800 pb-2">
                     <Sparkles size={14} />
-                    <span>{isAmharic ? "5. አይአይ ቁጥጥር፣ ትንበያ እና ሞባይል (AI & Analytics)" : "AI Inspection, Analytics & Mobile Apps (25-30)"}</span>
+                    <span>{isAmharic ? "5. አይአይ ቁጥጥር፣ ትንበያ እና ሞባይል (ክፍል 25-30)" : "AI Inspection, Analytics & Mobile Apps (25-30)"}</span>
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
