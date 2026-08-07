@@ -34,6 +34,7 @@ import {
   Ship,
   Truck,
   ShieldCheck,
+  ShieldAlert,
   ClipboardCheck,
   Sparkles,
   Printer,
@@ -92,6 +93,38 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   currentUserRole,
   currentUserName
 }) => {
+  // Check permission: strictly Super Admin, Head Office, Warehouse Manager, Finance Manager
+  const isAllowedRole = 
+    currentUserRole === UserRole.SUPER_ADMIN ||
+    currentUserRole === UserRole.HEAD_OFFICE ||
+    currentUserRole === UserRole.WAREHOUSE_MANAGER ||
+    currentUserRole === UserRole.FINANCE_MANAGER;
+
+  if (!isAllowedRole) {
+    return (
+      <div className="p-8 max-w-3xl mx-auto my-12 bg-slate-900 border border-red-500/30 rounded-2xl text-center space-y-4 shadow-2xl">
+        <div className="w-16 h-16 bg-red-500/10 border border-red-500/30 rounded-full flex items-center justify-center mx-auto text-red-500">
+          <ShieldAlert size={32} />
+        </div>
+        <h2 className="text-xl font-bold text-white">
+          {isAmharic 
+            ? "የአክሰስ እገዳ፡ ፍቃድ የለዎትም (Access Denied)" 
+            : "Access Restricted: Authorized Roles Only"}
+        </h2>
+        <p className="text-slate-300 text-sm max-w-lg mx-auto">
+          {isAmharic 
+            ? "ይህ የፎርምወርክ መቆጣጠሪያ ማዕከል ለሱፐር አድሚን (Super Admin)፣ ለዋና መሥሪያ ቤት (Head Office)፣ ለመጋዘን ኃላፊ (Warehouse Manager) እና ለፋይናንስ ኃላፊ (Finance Manager) ብቻ የተፈቀደ ክፍል ነው።"
+            : "This Formwork Management Hub is strictly restricted to Super Admin, Head Office, Warehouse Manager, and Finance Manager roles only."}
+        </p>
+        <div className="pt-2">
+          <span className="px-3 py-1 bg-red-950/60 border border-red-800/50 rounded-full text-xs font-mono text-red-300">
+            Current Role: {currentUserRole}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
   // --- Data States ---
   const [panels, setPanels] = useState<AluminumFormworkPanel[]>([]);
   const [movementLogs, setMovementLogs] = useState<PanelMovementLog[]>([]);

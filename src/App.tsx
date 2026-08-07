@@ -544,31 +544,45 @@ export default function App() {
 
   const allTabs = ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp"];
 
+  const formworkAllowedRoles: UserRole[] = [
+    UserRole.SUPER_ADMIN,
+    UserRole.HEAD_OFFICE,
+    UserRole.WAREHOUSE_MANAGER,
+    UserRole.FINANCE_MANAGER
+  ];
+
   const tabPermissions: Record<UserRole, string[]> = {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.HEAD_OFFICE]: allTabs,
-    [UserRole.PROJECT_MANAGER]: allTabs,
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "subcontractorPortal", "mobileApps"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "subcontractorPortal", "mobileApps"],
+    [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "mobileApps"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "mobileApps"],
     [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "mobileApps"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "formworkManagement", "mobileApps"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "safetyQuality", "siteLayout", "formworkManagement", "mobileApps"],
-    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "formworkManagement", "mobileApps"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "mobileApps"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "safetyQuality", "siteLayout", "mobileApps"],
+    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "mobileApps"],
     [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp", "formworkManagement", "enterpriseErp", "projectDocs", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "formworkManagement", "projectDocs", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "formworkManagement", "projectDocs", "mobileApps"],
+    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "mobileApps"],
     [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "mobileApps"],
     [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "mobileApps"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "formworkManagement", "subcontractorPortal", "mobileApps"],
-    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "mobileApps"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "formworkManagement", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "mobileApps"],
+    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "mobileApps"],
     [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "workerProfiles", "attendance", "projectDocs", "mobileApps"]
   };
 
-  const hasAccess = (_tab: string): boolean => {
-    return true; // All 30 ERP modules fully enabled and accessible
+  const hasAccess = (tab: string): boolean => {
+    if (tab === "formworkManagement") {
+      return formworkAllowedRoles.includes(currentUserRole);
+    }
+    const permissions = tabPermissions[currentUserRole];
+    if (permissions) {
+      return permissions.includes(tab);
+    }
+    return true;
   };
 
   const t = (key: string): string => {
@@ -2133,7 +2147,7 @@ export default function App() {
                     { id: "siteLayout", num: 16, nameEn: "Site Layout", nameAm: "16. የሳይት ሌይአውት (Site Layout)", icon: Compass },
                     { id: "surveying", num: 17, nameEn: "Surveying & Concrete", nameAm: "17. ሰርቬይንግ እና ኮንክሪት (Surveying & Concrete)", icon: Compass },
                     { id: "subcontractorPortal", num: 18, nameEn: "Subcontractor Portal", nameAm: "18. ንዑስ ተቋራጭ ፖርታል (Subcontractor Portal)", icon: Briefcase },
-                  ].map(item => {
+                  ].filter(item => hasAccess(item.id)).map(item => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
                     return (
