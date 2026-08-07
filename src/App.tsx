@@ -67,6 +67,7 @@ import { CustomInputGovernanceHub } from "./components/CustomInputGovernanceHub"
 import { NotificationBellDropdown } from "./components/NotificationBellDropdown";
 import { EnterpriseNotificationCenter } from "./components/EnterpriseNotificationCenter";
 import { NotificationService } from "./services/notificationService";
+import { RoleChangeApprovalService } from "./services/roleChangeApprovalService";
 
 // Lucide Icons
 import { 
@@ -107,7 +108,8 @@ import {
   Briefcase,
   Store,
   MapPin,
-  MapPinOff
+  MapPinOff,
+  PlusCircle
 } from "lucide-react";
 
 export interface UserProfile {
@@ -230,21 +232,50 @@ export default function App() {
             (docSnap) => {
               if (docSnap.exists()) {
                 const data = docSnap.data();
+
+                let effectiveRole = (data.role as UserRole) || UserRole.WORKER;
+                let effectiveStatus = data.status || "Pending";
+
+                if (effectiveStatus === "Active" && (effectiveRole === ("Pending" as any) || !effectiveRole) && data.requestedRole) {
+                  effectiveRole = data.requestedRole as UserRole;
+                }
+
+                // Check RoleChangeApprovalService in case it was approved in app memory
+                if (effectiveRole === ("Pending" as any)) {
+                  try {
+                    const reqs = RoleChangeApprovalService.getRequests();
+                    const appReq = reqs.find(r => 
+                      (r.userId === firebaseUser.uid || (data.email && r.userEmail?.toLowerCase() === data.email.toLowerCase())) &&
+                      r.status === "Approved"
+                    );
+                    if (appReq) {
+                      const approvedRole = (appReq.assignedRole || appReq.requestedRole) as UserRole;
+                      if (approvedRole && approvedRole !== ("Pending" as any)) {
+                        effectiveRole = approvedRole;
+                        effectiveStatus = "Active";
+                        setDoc(userDocRef, { role: approvedRole, status: "Active" }, { merge: true }).catch(err => console.error("Syncing approved role to Firestore failed:", err));
+                      }
+                    }
+                  } catch (e) {
+                    console.warn("Error checking RoleChangeApprovalService in onSnapshot:", e);
+                  }
+                }
+
                 const profile: UserProfile = {
                   uid: firebaseUser.uid,
                   displayName: data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
-                  role: (data.role as UserRole) || UserRole.WORKER,
+                  role: effectiveRole,
                   requestedRole: data.requestedRole || "",
-                  status: data.status || "Pending",
+                  status: effectiveStatus,
                   email: data.email || firebaseUser.email || "",
                   phoneNumber: data.phoneNumber || firebaseUser.phoneNumber || "",
                   createdAt: data.createdAt
                 };
                 setCurrentUserProfile(profile);
-                if (data.role && data.role !== "Pending") {
-                  setCurrentUserRole(data.role as UserRole);
+                if (effectiveRole && effectiveRole !== ("Pending" as any)) {
+                  setCurrentUserRole(effectiveRole);
                   if (typeof window !== "undefined") {
-                    localStorage.setItem("erp_current_user_role", data.role);
+                    localStorage.setItem("erp_current_user_role", effectiveRole);
                   }
                 }
               } else {
@@ -1229,8 +1260,15 @@ export default function App() {
         onLanguageToggle={() => setIsAmharic(!isAmharic)}
         auditLogsCount={auditLogs.length}
         onLoginSuccess={(role, method, loginLog) => {
-          // Unlock ERP session
-          setCurrentUserRole(role);
+          // Unlock ERP session - prioritize active non-pending profile role
+          let activeRole = role;
+          if (currentUserProfile?.role && currentUserProfile.role !== ("Pending" as any) && currentUserProfile.status === "Active") {
+            activeRole = currentUserProfile.role;
+          } else if (role === ("Pending" as any) && currentUserRole && currentUserRole !== ("Pending" as any)) {
+            activeRole = currentUserRole;
+          }
+
+          setCurrentUserRole(activeRole);
           setIsAuthenticated(true);
           setLoginMetadata(loginLog);
           setLocationGranted(null);
@@ -1238,19 +1276,19 @@ export default function App() {
 
           if (!auth?.currentUser && !currentUserProfile) {
             setCurrentUserProfile({
-              uid: "demo-" + role,
-              displayName: `${role} User`,
-              role: role,
+              uid: "demo-" + activeRole,
+              displayName: `${activeRole} User`,
+              role: activeRole,
               status: "Active",
-              email: `${role.toLowerCase()}@ovid.et`
+              email: `${activeRole.toLowerCase()}@ovid.et`
             });
           }
 
           if (typeof window !== "undefined") {
             localStorage.setItem("erp_is_authenticated", "true");
-            localStorage.setItem("erp_current_user_role", role);
+            localStorage.setItem("erp_current_user_role", activeRole);
           }
-          logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${role} | Metadata: ${JSON.stringify(loginLog)}`, role);
+          logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${activeRole} | Metadata: ${JSON.stringify(loginLog)}`, activeRole);
 
           // Fetch fresh data in the background
           Promise.all([

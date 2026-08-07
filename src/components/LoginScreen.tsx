@@ -12,7 +12,7 @@ import {
   signInWithPhoneNumber,
   ConfirmationResult
 } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
+import { doc, setDoc, getDoc } from "firebase/firestore";
 import { 
   Shield, 
   ShieldCheck,
@@ -490,13 +490,20 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       const lowerEmail = email.toLowerCase().trim();
 
       // Real Firebase Authentication verification with fallback
+      let authedUid: string | null = null;
       if (isFirebaseReady && auth) {
         try {
-          await signInWithEmailAndPassword(auth, lowerEmail, password);
+          const userCred = await signInWithEmailAndPassword(auth, lowerEmail, password);
+          if (userCred?.user?.uid) {
+            authedUid = userCred.user.uid;
+          }
         } catch (fbErr: any) {
           if (fbErr.code === "auth/user-not-found") {
             try {
-              await createUserWithEmailAndPassword(auth, lowerEmail, password);
+              const newCred = await createUserWithEmailAndPassword(auth, lowerEmail, password);
+              if (newCred?.user?.uid) {
+                authedUid = newCred.user.uid;
+              }
             } catch (createErr: any) {
               handleFailedAttempt(isAmharic ? "ኢሜል ወይም የይለፍ ቃል አልተገኘም" : "User not found or creation failed");
               return;
@@ -511,22 +518,72 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           }
         }
       }
-      
-      // Smart Auto-detection of roles based on email
-      if (lowerEmail === "mejennur669@gmail.com" || lowerEmail.includes("nuriye") || lowerEmail.includes("nuri")) {
-        targetRole = UserRole.HEAD_OFFICE;
-      } else if (lowerEmail.includes("admin")) {
-        targetRole = UserRole.SUPER_ADMIN;
-      } else if (lowerEmail.includes("pm") || lowerEmail.includes("manager")) {
-        targetRole = UserRole.PROJECT_MANAGER;
-      } else if (lowerEmail.includes("engineer")) {
-        targetRole = UserRole.SITE_ENGINEER;
-      } else if (lowerEmail.includes("surveyor")) {
-        targetRole = UserRole.SURVEYOR;
-      } else if (lowerEmail.includes("finance")) {
-        targetRole = UserRole.FINANCE_MANAGER;
-      } else if (lowerEmail.includes("hr")) {
-        targetRole = UserRole.HR_MANAGER;
+
+      // 1. Check Firestore user document for approved role
+      let foundRoleInDb = false;
+      const currentUid = authedUid || auth?.currentUser?.uid;
+      if (currentUid && db) {
+        try {
+          const userDocSnap = await getDoc(doc(db, "users", currentUid));
+          if (userDocSnap.exists()) {
+            const userData = userDocSnap.data();
+            if (userData.role && userData.role !== "Pending") {
+              targetRole = userData.role as UserRole;
+              foundRoleInDb = true;
+            } else if (userData.status === "Active" && userData.requestedRole && userData.requestedRole !== "Pending") {
+              targetRole = userData.requestedRole as UserRole;
+              foundRoleInDb = true;
+              await setDoc(doc(db, "users", currentUid), { role: userData.requestedRole }, { merge: true }).catch(() => {});
+            }
+          }
+        } catch (e) {
+          console.warn("Could not fetch user document from Firestore during login:", e);
+        }
+      }
+
+      // 2. If role is still Pending in Firestore, check RoleChangeApprovalService for approved request
+      if (!foundRoleInDb) {
+        try {
+          const allRequests = RoleChangeApprovalService.getRequests();
+          const approvedReq = allRequests.find(r => 
+            (r.userEmail?.toLowerCase() === lowerEmail || (currentUid && r.userId === currentUid)) && 
+            r.status === "Approved"
+          );
+          if (approvedReq) {
+            const approvedRole = (approvedReq.assignedRole || approvedReq.requestedRole) as UserRole;
+            if (approvedRole && approvedRole !== ("Pending" as any)) {
+              targetRole = approvedRole;
+              foundRoleInDb = true;
+              if (currentUid && db) {
+                await setDoc(doc(db, "users", currentUid), {
+                  role: approvedRole,
+                  status: "Active"
+                }, { merge: true }).catch(err => console.error("Error writing approved role to Firestore:", err));
+              }
+            }
+          }
+        } catch (e) {
+          console.warn("Error checking RoleChangeApprovalService for approved role:", e);
+        }
+      }
+
+      // 3. Fallback smart auto-detection of roles based on email
+      if (!foundRoleInDb) {
+        if (lowerEmail === "mejennur669@gmail.com" || lowerEmail.includes("nuriye") || lowerEmail.includes("nuri")) {
+          targetRole = UserRole.HEAD_OFFICE;
+        } else if (lowerEmail.includes("admin")) {
+          targetRole = UserRole.SUPER_ADMIN;
+        } else if (lowerEmail.includes("pm") || lowerEmail.includes("manager")) {
+          targetRole = UserRole.PROJECT_MANAGER;
+        } else if (lowerEmail.includes("engineer")) {
+          targetRole = UserRole.SITE_ENGINEER;
+        } else if (lowerEmail.includes("surveyor")) {
+          targetRole = UserRole.SURVEYOR;
+        } else if (lowerEmail.includes("finance")) {
+          targetRole = UserRole.FINANCE_MANAGER;
+        } else if (lowerEmail.includes("hr")) {
+          targetRole = UserRole.HR_MANAGER;
+        }
       }
       
       identifiedMethod = "Email/Password Authentication";
