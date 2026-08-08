@@ -380,7 +380,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       };
 
       setTimeout(() => {
-        onLoginSuccess(regRole, `Registered User ID (${fullEmpId})`, simulatedLog);
+        const isOwner = regEmail.trim().toLowerCase() === "mejennur669@gmail.com";
+        onLoginSuccess(isOwner ? UserRole.SUPER_ADMIN : ("Pending" as UserRole), `Registered User ID (${fullEmpId})`, simulatedLog);
       }, 1500);
 
     } catch (error) {
@@ -587,22 +588,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         }
       }
 
-      // 3. Fallback smart auto-detection of roles based on email
+      // 3. Fallback: Unapproved non-owner accounts remain Pending until Admin/HO/HR approval
       if (!foundRoleInDb) {
         if (lowerEmail === "mejennur669@gmail.com") {
           targetRole = UserRole.SUPER_ADMIN;
-        } else if (lowerEmail.includes("nuriye") || lowerEmail.includes("nuri") || lowerEmail.includes("headoffice") || lowerEmail.includes("admin")) {
-          targetRole = UserRole.HEAD_OFFICE;
-        } else if (lowerEmail.includes("pm") || lowerEmail.includes("manager")) {
-          targetRole = UserRole.PROJECT_MANAGER;
-        } else if (lowerEmail.includes("engineer")) {
-          targetRole = UserRole.SITE_ENGINEER;
-        } else if (lowerEmail.includes("surveyor")) {
-          targetRole = UserRole.SURVEYOR;
-        } else if (lowerEmail.includes("finance")) {
-          targetRole = UserRole.FINANCE_MANAGER;
-        } else if (lowerEmail.includes("hr")) {
-          targetRole = UserRole.HR_MANAGER;
+        } else {
+          targetRole = "Pending" as any;
         }
       }
       

@@ -188,7 +188,11 @@ export class RoleChangeApprovalService {
   // Check if current user is authorized to approve/reject role changes
   public static canApproveRoleChange(role: UserRole | string): boolean {
     const r = String(role);
-    return r === UserRole.SUPER_ADMIN || r === "Super Admin" || r === "Admin" || r === UserRole.HEAD_OFFICE || r === "Head Office";
+    return (
+      r === UserRole.SUPER_ADMIN || r === "Super Admin" || r === "Admin" ||
+      r === UserRole.HEAD_OFFICE || r === "Head Office" ||
+      r === UserRole.HR_MANAGER || r === "HR Manager" || r === "HR"
+    );
   }
 
   // Get all requests from local storage or seed

@@ -97,6 +97,7 @@ import {
   Send,
   RefreshCw,
   CheckCircle2,
+  Clock,
   Radio,
   Bell,
   X,
@@ -291,12 +292,9 @@ export default function App() {
               } else {
                 const userEmailLower = (firebaseUser.email || "").toLowerCase();
                 const isOwner = userEmailLower === "mejennur669@gmail.com";
-                const storedRole = typeof window !== "undefined" ? localStorage.getItem("erp_current_user_role") : null;
                 
-                let initialRole: UserRole = isOwner 
-                  ? UserRole.SUPER_ADMIN 
-                  : (storedRole && storedRole !== "Pending" ? (storedRole as UserRole) : ("Pending" as any));
-                let initialStatus = isOwner || (storedRole && storedRole !== "Pending") ? "Active" : "Pending";
+                let initialRole: UserRole = isOwner ? UserRole.SUPER_ADMIN : ("Pending" as any);
+                let initialStatus = isOwner ? "Active" : "Pending";
 
                 const newUserProfileData = {
                   displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User",
@@ -591,9 +589,10 @@ export default function App() {
   };
 
   const isPendingUser = isAuthenticated && (
-    (currentUserProfile?.status === "Pending" && currentUserProfile?.role === "Pending") || 
+    currentUserProfile?.status === "Pending" || 
+    currentUserProfile?.role === ("Pending" as any) || 
     currentUserRole === ("Pending" as any)
-  );
+  ) && currentUserProfile?.email?.toLowerCase() !== "mejennur669@gmail.com";
 
   // Load master datasets from the real database service ONLY when user is authenticated & authorized
   React.useEffect(() => {
@@ -1382,57 +1381,54 @@ export default function App() {
             </div>
           </div>
 
-          {/* Quick Admin Self-Activation Panel */}
-          <div className="bg-slate-800/80 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
-            <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
-              <ShieldCheck size={16} />
-              <span>{isAmharic ? "የአስተዳዳሪ / ማናጀር ማፅደቂያ (Instant Activation)" : "Instant Admin / Manager Self-Activation"}</span>
+          {/* Account Approval Status Panel */}
+          {currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com" ? (
+            <div className="bg-slate-800/80 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
+              <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
+                <ShieldCheck size={16} />
+                <span>{isAmharic ? "የስርዓት ባለቤት ማፅደቂያ (Owner Self-Activation)" : "Owner Self-Activation"}</span>
+              </div>
+              <div className="grid grid-cols-1 gap-2 pt-1">
+                <button
+                  onClick={() => {
+                    setCurrentUserRole(UserRole.SUPER_ADMIN);
+                    if (currentUserProfile) {
+                      setCurrentUserProfile({
+                        ...currentUserProfile,
+                        status: "Active",
+                        role: UserRole.SUPER_ADMIN
+                      });
+                    }
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("erp_current_user_role", UserRole.SUPER_ADMIN);
+                    }
+                    if (db && auth?.currentUser?.uid) {
+                      setDoc(doc(db, "users", auth.currentUser.uid), {
+                        status: "Active",
+                        role: UserRole.SUPER_ADMIN
+                      }, { merge: true }).catch(err => console.error("Error updating owner status in Firestore:", err));
+                    }
+                  }}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-emerald-600/20"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{isAmharic ? "መለያዬን አግብር (Super Admin)" : "Activate Account as Super Admin"}</span>
+                </button>
+              </div>
             </div>
-            <p className="text-[11px] text-slate-300 leading-normal">
-              {isAmharic 
-                ? "ሱፐር አድሚን፣ የሰው ኃይል ኃላፊ (HR) ወይም የመጋዘን ኃላፊ ከሆኑ መለያዎን አሁኑኑ በማጽደቅ ወደ ሙሉ የሲስተሙ ክፍሎች መግባት ይችላሉ።"
-                : "If you are a Super Admin, HR Manager, or Warehouse Manager, you can instantly activate your account to unlock all system modules."}
-            </p>
-            <div className="grid grid-cols-1 gap-2 pt-1">
-              <button
-                onClick={() => {
-                  const isOwner = currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com";
-                  let roleToSet = (currentUserProfile?.requestedRole as UserRole) || UserRole.PROJECT_MANAGER;
-                  if (roleToSet === UserRole.SUPER_ADMIN && !isOwner) {
-                    roleToSet = UserRole.PROJECT_MANAGER;
-                  }
-                  if (isOwner) {
-                    roleToSet = UserRole.SUPER_ADMIN;
-                  }
-                  setCurrentUserRole(roleToSet);
-                  if (currentUserProfile) {
-                    setCurrentUserProfile({
-                      ...currentUserProfile,
-                      status: "Active",
-                      role: roleToSet
-                    });
-                  }
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("erp_current_user_role", roleToSet);
-                  }
-                  if (db && auth?.currentUser?.uid) {
-                    setDoc(doc(db, "users", auth.currentUser.uid), {
-                      status: "Active",
-                      role: roleToSet
-                    }, { merge: true }).catch(err => console.error("Error updating user status in Firestore:", err));
-                  }
-                }}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-emerald-600/20"
-              >
-                <CheckCircle2 size={16} />
-                <span>
-                  {isAmharic 
-                    ? `መለያዬን አግብር (${currentUserProfile?.requestedRole || "Super Admin"})` 
-                    : `Activate Account as ${currentUserProfile?.requestedRole || "Super Admin"}`}
-                </span>
-              </button>
+          ) : (
+            <div className="bg-amber-950/40 p-4 rounded-xl border border-amber-500/30 text-left space-y-2">
+              <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
+                <Clock size={16} />
+                <span>{isAmharic ? "የማጽደቅ ሂደት በማካሄድ ላይ (Awaiting Approval)" : "Awaiting Manager Approval"}</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed">
+                {isAmharic
+                  ? "መለያዎ በአድሚን (Super Admin)፣ በዋና መሥሪያ ቤት ሥራ አስኪያጅ (Head Office Manager) ወይም በሰው ኃይል ኃላፊ (HR Manager) እስከሚፀድቅ ድረስ 'Pending' ደረጃ ላይ ይቆያል።"
+                  : "Your account will remain in 'Pending' state until it is approved by a Super Admin, Head Office Manager, or HR Manager."}
+              </p>
             </div>
-          </div>
+          )}
 
           <p className="text-xs text-slate-400 leading-relaxed font-sans">
             {isAmharic 
