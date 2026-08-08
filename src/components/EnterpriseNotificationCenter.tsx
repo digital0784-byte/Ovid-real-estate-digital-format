@@ -1065,7 +1065,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <div className="text-xs space-y-1">
               <p className="text-slate-400 font-medium">Authorized RBAC Target Roles:</p>
               <div className="flex flex-wrap gap-1">
-                {selectedNotif.targetRoles.map((role, idx) => (
+                {(selectedNotif.targetRoles || []).map((role, idx) => (
                   <span key={idx} className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded-md border border-slate-700 text-[10px]">
                     {String(role)}
                   </span>

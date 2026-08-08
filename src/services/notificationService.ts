@@ -768,7 +768,18 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
   }
 
   if (rawNotif.category && rawNotif.description && rawNotif.status) {
-    return rawNotif as EnterpriseNotification;
+    return {
+      ...rawNotif,
+      targetRoles: rawNotif.targetRoles || [
+        UserRole.SUPER_ADMIN,
+        UserRole.HEAD_OFFICE,
+        UserRole.PROJECT_MANAGER,
+        UserRole.SITE_ENGINEER,
+        UserRole.STORE_MANAGER,
+        UserRole.WAREHOUSE_MANAGER,
+        UserRole.WORKER
+      ]
+    } as EnterpriseNotification;
   }
 
   const isRead = !!(rawNotif.read || (rawNotif.readBy && rawNotif.readBy.length > 0));
@@ -868,7 +879,7 @@ export class NotificationService {
         roleStr.toLowerCase().includes("admin") ||
         roleStr.toLowerCase().includes("head office") ||
         roleStr.toLowerCase().includes("hr") ||
-        n.targetRoles.some(r => {
+        (n.targetRoles || []).some(r => {
           const rStr = String(r).toLowerCase();
           const targetRoleStr = roleStr.toLowerCase();
           return rStr === targetRoleStr ||
@@ -975,7 +986,7 @@ export class NotificationService {
         roleStr.toLowerCase().includes("admin") ||
         roleStr.toLowerCase().includes("head office") ||
         roleStr.toLowerCase().includes("hr") ||
-        n.targetRoles.some(r => {
+        (n.targetRoles || []).some(r => {
           const rStr = String(r).toLowerCase();
           const targetRoleStr = roleStr.toLowerCase();
           return rStr === targetRoleStr ||
