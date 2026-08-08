@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
-import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite, Worker, Expense } from "../types";
+import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import {
   Store,
@@ -591,9 +591,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const t = (key: string): string => dict[lang][key] || key;
 
-  // DB-linked panels & sites state
+  // DB-linked panels, sites & warehouses state
   const [dbPanels, setDbPanels] = useState<AluminumFormworkPanel[]>([]);
   const [registeredSitesList, setRegisteredSitesList] = useState<RegisteredSite[]>([]);
+  const [registeredWarehousesList, setRegisteredWarehousesList] = useState<RegisteredWarehouse[]>([]);
   const [loadingDb, setLoadingDb] = useState(true);
 
   // 15 FIRESTORE-PERSISTED STORE OWNER STATE VARIABLES
@@ -762,7 +763,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           variances,
           reqAuditLogs,
           dailyReturns,
-          dailyConsolidated
+          dailyConsolidated,
+          warehouses
         ] = await Promise.all([
           DbService.getFormworkPanels(),
           DbService.getRegisteredSites(),
@@ -780,11 +782,13 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           DbService.getDailyConsumptionVariances(),
           DbService.getRequisitionAuditLogs(),
           DbService.getDailyReturnReports(),
-          DbService.getDailyConsolidatedReports()
+          DbService.getDailyConsolidatedReports(),
+          DbService.getWarehouses()
         ]);
         if (active) {
           if (panels) setDbPanels(panels);
           if (sites) setRegisteredSitesList(sites);
+          if (warehouses) setRegisteredWarehousesList(warehouses);
           if (items) setStoreItems(items);
           if (recReports) setReceivingReports(recReports);
           if (issRecords) setIssueRecords(issRecords);
@@ -1077,6 +1081,79 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       siteManager: "Abebe Site Store Manager",
       supervisor: "Tewodros Store Keeper",
       status: "Active"
+    });
+  };
+
+  // REGISTER WAREHOUSE STATE & SUBMIT HANDLER
+  const [showRegisterWarehouseModal, setShowRegisterWarehouseModal] = useState(false);
+  const [newWarehouseForm, setNewWarehouseForm] = useState({
+    code: `WH-ADD-${Math.floor(10 + Math.random() * 89)}`,
+    name: "",
+    nameAmharic: "",
+    type: "Main Warehouse" as RegisteredWarehouse["type"],
+    isMainWarehouse: false,
+    locationRegion: "Addis Ababa",
+    citySite: "Akaki Kality / Bole Lemi Hub",
+    gpsCoordinates: "8.9500° N, 38.7500° E",
+    warehouseManager: "Eng. Dawit Tesfaye",
+    managerPhone: "+251 911 234 567",
+    totalCapacitySqM: 10000,
+    currentCapacityUtilized: 35,
+    securityGuardOnDuty: "Command Officer Tadesse",
+    status: "Active" as RegisteredWarehouse["status"],
+    notes: "Central storage facility & logistics warehouse hub."
+  });
+
+  const handleRegisterWarehouseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newWarehouseForm.name.trim()) return;
+
+    const newWh: RegisteredWarehouse = {
+      id: `WH-REG-${Date.now()}`,
+      code: newWarehouseForm.code || `WH-ADD-${Math.floor(10 + Math.random() * 89)}`,
+      name: newWarehouseForm.name.trim(),
+      nameAmharic: newWarehouseForm.nameAmharic.trim() || newWarehouseForm.name.trim(),
+      type: newWarehouseForm.type,
+      isMainWarehouse: newWarehouseForm.isMainWarehouse,
+      locationRegion: newWarehouseForm.locationRegion || "Addis Ababa",
+      citySite: newWarehouseForm.citySite || "Akaki Kality Depot",
+      gpsCoordinates: newWarehouseForm.gpsCoordinates || "8.9500° N, 38.7500° E",
+      warehouseManager: newWarehouseForm.warehouseManager || "Warehouse Manager",
+      managerPhone: newWarehouseForm.managerPhone || "+251 911 234 567",
+      totalCapacitySqM: Number(newWarehouseForm.totalCapacitySqM) || 5000,
+      currentCapacityUtilized: Number(newWarehouseForm.currentCapacityUtilized) || 30,
+      activePanelsCount: 0,
+      materialItemsCount: 0,
+      status: newWarehouseForm.status || "Active",
+      securityGuardOnDuty: newWarehouseForm.securityGuardOnDuty || "Guard Officer",
+      linkedSitesCount: 1,
+      registrationDate: new Date().toISOString().split("T")[0],
+      notes: newWarehouseForm.notes
+    };
+
+    setRegisteredWarehousesList(prev => [newWh, ...prev]);
+    await DbService.addWarehouse(newWh);
+
+    onLogAction?.("New Warehouse Registered", `Registered new central warehouse: ${newWh.name} (${newWh.code}) in ${newWh.locationRegion}`);
+    onCreateNotification?.("New Warehouse Registered", `Registered warehouse ${newWh.name} (${newWh.type})`, "store", "high");
+
+    setShowRegisterWarehouseModal(false);
+    setNewWarehouseForm({
+      code: `WH-ADD-${Math.floor(10 + Math.random() * 89)}`,
+      name: "",
+      nameAmharic: "",
+      type: "Main Warehouse",
+      isMainWarehouse: false,
+      locationRegion: "Addis Ababa",
+      citySite: "Akaki Kality / Bole Lemi Hub",
+      gpsCoordinates: "8.9500° N, 38.7500° E",
+      warehouseManager: "Eng. Dawit Tesfaye",
+      managerPhone: "+251 911 234 567",
+      totalCapacitySqM: 10000,
+      currentCapacityUtilized: 35,
+      securityGuardOnDuty: "Command Officer Tadesse",
+      status: "Active",
+      notes: "Central storage facility & logistics warehouse hub."
     });
   };
 
@@ -1980,11 +2057,27 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     >
                       {isAmharic ? "የአቅራቢዎች ደረሰኝ" : "Supplier Schedules"}
                     </button>
+                    <button
+                      onClick={() => setWarehouseTabFilter("warehouses")}
+                      className={`px-3 py-1 rounded-lg transition cursor-pointer ${
+                        warehouseTabFilter === "warehouses" ? "bg-amber-500 text-slate-950" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      {isAmharic ? "መጋዘኖች" : "Warehouses"}
+                    </button>
                   </div>
                 </div>
 
                 {/* Quick Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setShowRegisterWarehouseModal(true)}
+                    className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
+                  >
+                    <Plus size={14} />
+                    <span>{isAmharic ? "+ አዲስ መጋዘን መመዝገቢያ" : "+ Register Warehouse"}</span>
+                  </button>
+
                   <button
                     onClick={() => setShowNewStockModal(true)}
                     className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
@@ -2336,6 +2429,120 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                               </span>
                             )}
                           </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 4: REGISTERED WAREHOUSES & STORAGE DEPOTS */}
+            {(warehouseTabFilter === "all" || warehouseTabFilter === "warehouses") && (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center border-b border-slate-800 pb-2">
+                  <h2 className="text-sm font-black uppercase text-amber-400 flex items-center space-x-2">
+                    <Building2 size={18} />
+                    <span>{isAmharic ? "የተመዘገቡ ማዕከላዊ መጋዘኖች እና የሎጅስቲክስ ዴፖዎች (Registered Central Warehouses & Logistics Hubs)" : "Registered Central Warehouses & Storage Depots"}</span>
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowRegisterWarehouseModal(true)}
+                      className="px-3 py-1 bg-amber-600 hover:bg-amber-500 text-white rounded-lg text-xs font-bold uppercase flex items-center gap-1 cursor-pointer transition shadow-lg"
+                    >
+                      <Plus size={14} />
+                      <span>{isAmharic ? "+ አዲስ መጋዘን መዝግብ" : "+ Register Warehouse"}</span>
+                    </button>
+                    <span className="text-[10px] font-mono text-slate-400">{registeredWarehousesList.length} Warehouses</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {registeredWarehousesList
+                    .filter(wh => 
+                      warehouseSearch === "" ||
+                      wh.name.toLowerCase().includes(warehouseSearch.toLowerCase()) ||
+                      (wh.nameAmharic && wh.nameAmharic.toLowerCase().includes(warehouseSearch.toLowerCase())) ||
+                      wh.code.toLowerCase().includes(warehouseSearch.toLowerCase()) ||
+                      wh.locationRegion.toLowerCase().includes(warehouseSearch.toLowerCase()) ||
+                      wh.citySite.toLowerCase().includes(warehouseSearch.toLowerCase()) ||
+                      wh.warehouseManager.toLowerCase().includes(warehouseSearch.toLowerCase())
+                    )
+                    .map(wh => (
+                      <div key={wh.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between hover:border-amber-500/50 transition">
+                        <div>
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[9px] font-mono font-bold">
+                                  {wh.code}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">{wh.type}</span>
+                              </div>
+                              <h3 className="text-sm font-black text-white mt-1">
+                                {isAmharic && wh.nameAmharic ? wh.nameAmharic : wh.name}
+                              </h3>
+                              {isAmharic && wh.nameAmharic && (
+                                <p className="text-[10px] text-slate-400">{wh.name}</p>
+                              )}
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[9px] font-black font-mono border ${
+                              wh.status === "Active" ? "bg-emerald-950 text-emerald-300 border-emerald-800" :
+                              wh.status === "Full" ? "bg-amber-950 text-amber-300 border-amber-800" :
+                              wh.status === "Under Expansion" ? "bg-blue-950 text-blue-300 border-blue-800" :
+                              "bg-slate-800 text-slate-300 border-slate-700"
+                            }`}>
+                              {wh.status}
+                            </span>
+                          </div>
+
+                          <div className="mt-3 bg-slate-900 p-3 rounded-xl border border-slate-800/80 space-y-2 text-[11px]">
+                            <div className="flex justify-between font-mono">
+                              <span className="text-slate-500">Location:</span>
+                              <span className="font-bold text-slate-200">{wh.locationRegion} - {wh.citySite}</span>
+                            </div>
+                            <div className="flex justify-between font-mono">
+                              <span className="text-slate-500">Manager:</span>
+                              <span className="font-bold text-amber-400">{wh.warehouseManager} ({wh.managerPhone})</span>
+                            </div>
+                            <div className="flex justify-between font-mono">
+                              <span className="text-slate-500">Security Guard:</span>
+                              <span className="font-bold text-slate-300">{wh.securityGuardOnDuty || "Guard Officer"}</span>
+                            </div>
+                            <div className="flex justify-between font-mono">
+                              <span className="text-slate-500">Capacity Area:</span>
+                              <span className="font-bold text-emerald-400">{wh.totalCapacitySqM.toLocaleString()} m²</span>
+                            </div>
+
+                            {/* Capacity Utilization Progress Bar */}
+                            <div className="pt-1">
+                              <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                                <span>Utilization:</span>
+                                <span className={wh.currentCapacityUtilized > 85 ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>
+                                  {wh.currentCapacityUtilized}% Utilized
+                                </span>
+                              </div>
+                              <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                <div 
+                                  className={`h-full rounded-full ${
+                                    wh.currentCapacityUtilized > 85 ? "bg-red-500" : 
+                                    wh.currentCapacityUtilized > 60 ? "bg-amber-500" : "bg-emerald-500"
+                                  }`} 
+                                  style={{ width: `${wh.currentCapacityUtilized}%` }} 
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {wh.notes && (
+                            <p className="mt-2 text-[10px] text-slate-400 italic bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                              "{wh.notes}"
+                            </p>
+                          )}
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[10px] font-mono text-slate-500">
+                          <span className="flex items-center gap-1"><MapPin size={12} className="text-slate-400" /> {wh.gpsCoordinates}</span>
+                          <span>Registered: {wh.registrationDate}</span>
                         </div>
                       </div>
                     ))}
@@ -5440,11 +5647,12 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የእቃ መለያ ኮድ (Item Code)" : "Item Code / ID"}
+                    {isAmharic ? "ሴሪያል ቁጥር (Serial Number)" : "Serial Number"} *
                   </label>
                   <input
                     type="text"
                     required
+                    placeholder="e.g. SN-88492 / AP-100-300"
                     value={newStockForm.code}
                     onChange={e => setNewStockForm({ ...newStockForm, code: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
@@ -5453,39 +5661,102 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
                 <div>
                   <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የእቃው አይነት (Category)" : "Category"}
+                    {isAmharic ? "የእቃው / የፓነል አይነት (Category / Panel Type)" : "Category / Panel Type"} *
                   </label>
                   <select
                     value={newStockForm.category}
                     onChange={e => setNewStockForm({ ...newStockForm, category: e.target.value as StoreMaterialItem["category"] })}
                     className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="Cement">Cement</option>
-                    <option value="Rebar">Rebar</option>
-                    <option value="Aluminum Panels">Aluminum Panels</option>
-                    <option value="Beams">Beams</option>
-                    <option value="Props">Props</option>
-                    <option value="Brackets">Brackets</option>
-                    <option value="Plywood">Plywood</option>
-                    <option value="Tools">Tools</option>
-                    <option value="Consumables">Consumables</option>
-                    <option value="Spare Parts">Spare Parts</option>
+                    <optgroup label="Aluminum Formwork Panels (አሉምኒየም ፎርምወርክ ፓነሎች)">
+                      <option value="Aluminum Panels">Flat Panel (ፍላት ፓነል)</option>
+                      <option value="Aluminum Panels">Internal Wall (የውስጥ ግድግዳ)</option>
+                      <option value="Aluminum Panels">External Wall (የውጭ ግድግዳ)</option>
+                      <option value="Aluminum Panels">Soffit (የኮርኒስ / ሶፊት)</option>
+                      <option value="Aluminum Panels">Wall End (የግድግዳ መጨረሻ)</option>
+                      <option value="Aluminum Panels">SC (Special Corner)</option>
+                      <option value="Aluminum Panels">Kicker Beam (ኪከር ቢም)</option>
+                      <option value="Aluminum Panels">Slab (የስላብ ፓነል)</option>
+                      <option value="Aluminum Panels">Stair Panels (የደረጃ ፓነል)</option>
+                      <option value="Aluminum Panels">Outer Corner (የውጭ ማዕዘን)</option>
+                      <option value="Aluminum Panels">Inner Corner (የውስጥ ማዕዘን)</option>
+                      <option value="Aluminum Panels">Deck Panel (የዴክ ፓነል)</option>
+                      <option value="Aluminum Panels">Kicker (ኪከር)</option>
+                      <option value="Aluminum Panels">Beam Bottom (የቢም ታች)</option>
+                      <option value="Aluminum Panels">Prop (ፕሮፕ / ደጋፊ)</option>
+                      <option value="Aluminum Panels">Wall Tie (ዎል ታይ)</option>
+                      <option value="Aluminum Panels">Pin & Wedge (ፒን እና ዌጅ)</option>
+                      <option value="Aluminum Panels">Other Aluminum Formwork Panels (እና ሌሎች አሉምኒየም ፎርምወርክ ፓነሎች)</option>
+                    </optgroup>
+                    <optgroup label="General Materials (ጠቅላላ ማቴሪያሎች)">
+                      <option value="Cement">Cement (ሲሚንቶ)</option>
+                      <option value="Rebar">Rebar (ብረት)</option>
+                      <option value="Beams">Beams (ቢሞች)</option>
+                      <option value="Props">Props (ደጋፊዎች)</option>
+                      <option value="Brackets">Brackets (ብራኬቶች)</option>
+                      <option value="Plywood">Plywood (ፕላይዉድ)</option>
+                      <option value="Tools">Tools (መሳሪያዎች)</option>
+                      <option value="Consumables">Consumables (ተጋላጭ እቃዎች)</option>
+                      <option value="Spare Parts">Spare Parts (ስፔር ፓርቶች)</option>
+                    </optgroup>
                   </select>
                 </div>
               </div>
 
               <div>
                 <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የእቃ ስም (Material Name)" : "Material / Item Name"} *
+                  {isAmharic ? "የእቃ / የፓነል ስም (Material Name)" : "Material / Item Name"} *
                 </label>
                 <input
                   type="text"
                   required
-                  placeholder={isAmharic ? "ምሳሌ፡ Dangote OPC Cement 50kg, Deformed Rebar D16..." : "e.g. Dangote OPC 42.5 Cement 50kg, Heavy Prop 3.5m..."}
+                  placeholder={isAmharic ? "ምሳሌ፡ Standard External Wall Panel 1200x600, Dangote OPC Cement..." : "e.g. Standard External Wall Panel 1200x600mm..."}
                   value={newStockForm.name}
                   onChange={e => setNewStockForm({ ...newStockForm, name: e.target.value })}
                   className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
                 />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "መጠን / ስፔስፊኬሽን (Dimensions)" : "Dimensions (e.g. 1200x600mm)"} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="1200x600mm"
+                    value={newStockForm.dimensions}
+                    onChange={e => setNewStockForm({ ...newStockForm, dimensions: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ክብደት (Weight in Kg)" : "Weight (Kg)"}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    placeholder="18.5"
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ብዛት (Quantity / Pcs)" : "Quantity (Pcs)"} *
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newStockForm.totalStock}
+                    onChange={e => setNewStockForm({ ...newStockForm, totalStock: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -5496,24 +5767,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="Bags, Pcs, Kg, Sets"
+                    placeholder="Pcs, Bags, Kg, Sets"
                     value={newStockForm.unit}
                     onChange={e => setNewStockForm({ ...newStockForm, unit: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ጠቅላላ ብዛት (Total Quantity)" : "Initial Stock Qty"}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={newStockForm.totalStock}
-                    onChange={e => setNewStockForm({ ...newStockForm, totalStock: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
@@ -5528,20 +5785,6 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     value={newStockForm.minThreshold}
                     onChange={e => setNewStockForm({ ...newStockForm, minThreshold: Number(e.target.value) })}
                     className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ስፔስፊኬሽን (Specification / Dimensions)" : "Dimensions / Specs"}
-                  </label>
-                  <input
-                    type="text"
-                    value={newStockForm.dimensions}
-                    onChange={e => setNewStockForm({ ...newStockForm, dimensions: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
 
@@ -5642,15 +5885,24 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     onChange={e => setNewPanelForm({ ...newPanelForm, type: e.target.value })}
                     className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
                   >
-                    <option value="Flat Panel">Flat Panel</option>
-                    <option value="Outer Corner">Outer Corner</option>
-                    <option value="Inner Corner">Inner Corner</option>
-                    <option value="Deck Panel">Deck Panel</option>
-                    <option value="Kicker">Kicker</option>
-                    <option value="Beam Bottom">Beam Bottom</option>
-                    <option value="Prop">Prop</option>
-                    <option value="Wall Tie">Wall Tie</option>
-                    <option value="Pin & Wedge">Pin & Wedge</option>
+                    <option value="Flat Panel">Flat Panel (ፍላት ፓነል)</option>
+                    <option value="Internal Wall">Internal Wall (የውስጥ ግድግዳ)</option>
+                    <option value="External Wall">External Wall (የውጭ ግድግዳ)</option>
+                    <option value="Soffit">Soffit (የኮርኒስ / ሶፊት ፓነል)</option>
+                    <option value="Wall End">Wall End (የግድግዳ መጨረሻ)</option>
+                    <option value="SC">SC (Special Corner)</option>
+                    <option value="Kicker Beam">Kicker Beam (ኪከር ቢም)</option>
+                    <option value="Slab">Slab (የስላብ ፓነል)</option>
+                    <option value="Stair Panels">Stair Panels (የደረጃ ፓነል)</option>
+                    <option value="Outer Corner">Outer Corner (የውጭ ማዕዘን)</option>
+                    <option value="Inner Corner">Inner Corner (የውስጥ ማዕዘን)</option>
+                    <option value="Deck Panel">Deck Panel (የዴክ ፓነል)</option>
+                    <option value="Kicker">Kicker (ኪከር)</option>
+                    <option value="Beam Bottom">Beam Bottom (የቢም ታች)</option>
+                    <option value="Prop">Prop (ፕሮፕ / ደጋፊ)</option>
+                    <option value="Wall Tie">Wall Tie (ዎል ታይ)</option>
+                    <option value="Pin & Wedge">Pin & Wedge (ፒን እና ዌጅ)</option>
+                    <option value="Other Aluminum Formwork Panels">Other Aluminum Formwork Panels (እና ሌሎች አሉምኒየም ፎርምወርክ ፓነሎች)</option>
                   </select>
                 </div>
               </div>
@@ -5895,6 +6147,347 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
                 >
                   {isAmharic ? "ሳይት ስቶር መዝግብ ✓" : "Save Site Store ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 4: REGISTER NEW WAREHOUSE */}
+      {showRegisterWarehouseModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30 text-amber-400">
+                  <Building2 size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    {isAmharic ? "አዲስ መጋዘን (Warehouse) መመዝገቢያ" : "Register New Warehouse & Depot"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isAmharic ? "የማዕከላዊ መጋዘን፣ ዴፖ፣ ስቶር ወይም ከባድ መሳርያዎች ቦታ መመዝገቢያ" : "Add a new central warehouse, storage yard or depot for material logistics"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRegisterWarehouseModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterWarehouseSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የመጋዘን ኮድ (Warehouse Code)" : "Warehouse Code"} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseForm.code}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, code: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ዓይነት (Warehouse Type)" : "Warehouse Type"} *
+                  </label>
+                  <select
+                    value={newWarehouseForm.type}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, type: e.target.value as RegisteredWarehouse["type"] })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="Main Warehouse">Main Warehouse (ዋና መጋዘን)</option>
+                    <option value="Sub-Warehouse">Sub-Warehouse (ንዑስ መጋዘን)</option>
+                    <option value="Site Store">Site Store (የሳይት ስቶር)</option>
+                    <option value="Equipment Yard">Equipment Yard (የመሳሪያዎች ግቢ)</option>
+                    <option value="Central Depot">Central Depot (ማዕከላዊ ዴፖ)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የመጋዘን ስም (English Name)" : "Warehouse Name (English)"} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={isAmharic ? "ምሳሌ፡ Kality Central Formwork & Rebar Warehouse" : "e.g. Kality Central Formwork Warehouse..."}
+                  value={newWarehouseForm.name}
+                  onChange={e => setNewWarehouseForm({ ...newWarehouseForm, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የመጋዘን ስም በአማርኛ (Amharic Name)" : "Warehouse Name (Amharic)"}
+                </label>
+                <input
+                  type="text"
+                  placeholder={isAmharic ? "ምሳሌ፡ የቃሊቲ ማዕከላዊ ፎርምወርክና ብረት መጋዘን" : "e.g. የቃሊቲ ማዕከላዊ መጋዘን..."}
+                  value={newWarehouseForm.nameAmharic}
+                  onChange={e => setNewWarehouseForm({ ...newWarehouseForm, nameAmharic: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ክልል / ቦታ (Region / Location)" : "Region / Location"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseForm.locationRegion}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, locationRegion: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ክፍለ ከተማ / ዞን (City / Site Zone)" : "City / Subcity / Site Zone"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseForm.citySite}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, citySite: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የመጋዘኑ ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager"} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseForm.warehouseManager}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, warehouseManager: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የሥራ አስኪያጅ ስልክ (Manager Phone)" : "Manager Phone Number"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newWarehouseForm.managerPhone}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, managerPhone: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ጠቅላላ ስፋት በካሬ ሜትር (Total Capacity SqM)" : "Total Capacity (SqM)"}
+                  </label>
+                  <input
+                    type="number"
+                    min="100"
+                    value={newWarehouseForm.totalCapacitySqM}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, totalCapacitySqM: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የተያዘ ቦታ በመቶኛ (% Capacity Utilized)" : "Capacity Utilized (%)"}
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={newWarehouseForm.currentCapacityUtilized}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, currentCapacityUtilized: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የጥበቃ ኃላፊ / ዘበኛ (Security Guard on Duty)" : "Security Guard on Duty"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newWarehouseForm.securityGuardOnDuty}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, securityGuardOnDuty: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ሁኔታ (Status)" : "Warehouse Status"}
+                  </label>
+                  <select
+                    value={newWarehouseForm.status}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, status: e.target.value as RegisteredWarehouse["status"] })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="Active">Active (በሥራ ላይ)</option>
+                    <option value="Full">Full (የሞላ)</option>
+                    <option value="Maintenance">Maintenance (በጥገና ላይ)</option>
+                    <option value="Under Expansion">Under Expansion (በማስፋፋት ላይ)</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የጂፒኤስ መጋጠሚያዎች (GPS Location Coords)" : "GPS Coordinates"}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={newWarehouseForm.gpsCoordinates}
+                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, gpsCoordinates: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => acquireLiveGps(coords => setNewWarehouseForm(prev => ({ ...prev, gpsCoordinates: coords })))}
+                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-bold cursor-pointer transition flex items-center gap-1 shrink-0"
+                  >
+                    <MapPin size={14} />
+                    <span>{isAmharic ? "ቀጥታ GPS" : "Live GPS"}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3 bg-amber-950/30 border border-amber-500/20 rounded-2xl space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
+                    {isAmharic ? "የመጋዘኑ የመጀመሪያ የፓነል / ስቶክ መመዝገቢያ (Initial Stock Batch)" : "Initial Warehouse Stock Batch"}
+                  </span>
+                  <span className="text-[10px] text-amber-300/70 font-mono">Formwork Spec</span>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      {isAmharic ? "ሴሪያል ቁጥር (Serial Number)" : "Serial Number"}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SN-KLT-9001"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      {isAmharic ? "የፓነል አይነት (Panel Type)" : "Panel Type"}
+                    </label>
+                    <select
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="Flat Panel">Flat Panel (ፍላት ፓነል)</option>
+                      <option value="Internal Wall">Internal Wall (የውስጥ ግድግዳ)</option>
+                      <option value="External Wall">External Wall (የውጭ ግድግዳ)</option>
+                      <option value="Soffit">Soffit (የኮርኒስ / ሶፊት)</option>
+                      <option value="Wall End">Wall End (የግድግዳ መጨረሻ)</option>
+                      <option value="SC">SC (Special Corner)</option>
+                      <option value="Kicker Beam">Kicker Beam (ኪከር ቢም)</option>
+                      <option value="Slab">Slab (የስላብ ፓነል)</option>
+                      <option value="Stair Panels">Stair Panels (የደረጃ ፓነል)</option>
+                      <option value="Outer Corner">Outer Corner (የውጭ ማዕዘን)</option>
+                      <option value="Inner Corner">Inner Corner (የውስጥ ማዕዘን)</option>
+                      <option value="Deck Panel">Deck Panel (የዴክ ፓነል)</option>
+                      <option value="Kicker">Kicker (ኪከር)</option>
+                      <option value="Beam Bottom">Beam Bottom (የቢም ታች)</option>
+                      <option value="Prop">Prop (ፕሮፕ / ደጋፊ)</option>
+                      <option value="Wall Tie">Wall Tie (ዎል ታይ)</option>
+                      <option value="Pin & Wedge">Pin & Wedge (ፒን እና ዌጅ)</option>
+                      <option value="Other Aluminum Formwork Panels">Other Aluminum Formwork Panels (እና ሌሎች አሉምኒየም ፎርምወርክ ፓነሎች)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      {isAmharic ? "መጠን (Dimensions)" : "Dimensions"}
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="1200x600mm"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      {isAmharic ? "ክብደት (Kg)" : "Weight (Kg)"}
+                    </label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      placeholder="18.5"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      {isAmharic ? "ብዛት (Quantity Pcs)" : "Quantity (Pcs)"}
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="50"
+                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "ተጨማሪ ማስታወሻዎች (Notes & Operational Details)" : "Notes & Details"}
+                </label>
+                <textarea
+                  rows={2}
+                  value={newWarehouseForm.notes}
+                  onChange={e => setNewWarehouseForm({ ...newWarehouseForm, notes: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterWarehouseModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
+                >
+                  {isAmharic ? "መጋዘን መዝግብ ✓" : "Save Warehouse ✓"}
                 </button>
               </div>
             </form>

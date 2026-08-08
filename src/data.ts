@@ -19,6 +19,7 @@ import {
   PanelType,
   PanelStatus,
   RegisteredSite,
+  RegisteredWarehouse,
   OverseasShipment,
   CustomsRecord,
   DispatchTransfer,
@@ -891,6 +892,53 @@ export const initialRegisteredSites: RegisteredSite[] = [
     timeKeepers: ["Ruth Hailu"],
     status: "Planning",
     documents: []
+  }
+];
+
+export const initialWarehouses: RegisteredWarehouse[] = [
+  {
+    id: "WH-ADDIS-CENTRAL-01",
+    code: "WH-ADD-01",
+    name: "Central Addis Ababa Main Warehouse",
+    nameAmharic: "የአዲስ አበባ ማዕከላዊ ዋና መጋዘን",
+    type: "Main Warehouse",
+    isMainWarehouse: true,
+    locationRegion: "Addis Ababa",
+    citySite: "Akaki Kality / Gotera Logistics Hub",
+    gpsCoordinates: "8.9245° N, 38.7612° E",
+    warehouseManager: "Eng. Dawit Tesfaye",
+    managerPhone: "+251 911 234 567",
+    totalCapacitySqM: 12500,
+    currentCapacityUtilized: 68,
+    activePanelsCount: 4850,
+    materialItemsCount: 120,
+    status: "Active",
+    securityGuardOnDuty: "Command Guard Officer Tadesse",
+    linkedSitesCount: 8,
+    registrationDate: "2025-01-15",
+    notes: "Primary central formwork storage hub, workshop maintenance shed & bulk cement depot."
+  },
+  {
+    id: "WH-SARIS-DEPOT-02",
+    code: "WH-SAR-02",
+    name: "Saris Formwork & Rebar Storage Depot",
+    nameAmharic: "የሳሪስ ፎርምወርክና ብረት መጋዘን",
+    type: "Sub-Warehouse",
+    isMainWarehouse: false,
+    locationRegion: "Addis Ababa",
+    citySite: "Nifas Silk Lafto - Saris Depot Yard",
+    gpsCoordinates: "8.9612° N, 38.7481° E",
+    warehouseManager: "Store Keeper Tewodros Alemu",
+    managerPhone: "+251 922 876 543",
+    totalCapacitySqM: 6800,
+    currentCapacityUtilized: 45,
+    activePanelsCount: 1850,
+    materialItemsCount: 65,
+    status: "Active",
+    securityGuardOnDuty: "Guard Melaku Fikru",
+    linkedSitesCount: 4,
+    registrationDate: "2025-06-20",
+    notes: "Secondary buffer depot servicing South Addis Ababa project zones."
   }
 ];
 

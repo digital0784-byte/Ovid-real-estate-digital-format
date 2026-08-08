@@ -31,6 +31,7 @@ import {
   SiteReceivingReport,
   InventoryAuditRecord,
   RegisteredSite,
+  RegisteredWarehouse,
   PayrollRecord,
   Expense
 } from "../types";
@@ -71,7 +72,8 @@ import {
   initialDispatchTransfers,
   initialSiteReceivingReports,
   initialInventoryAudits,
-  initialRegisteredSites
+  initialRegisteredSites,
+  initialWarehouses
 } from "../data";
 import {
   initialStoreItems,
@@ -643,6 +645,20 @@ export const DbService = {
   },
   async deleteRegisteredSite(id: string): Promise<void> {
     await removeDocument<RegisteredSite>("registeredSites", id, initialRegisteredSites);
+  },
+
+  // === REGISTERED WAREHOUSES ===
+  async getWarehouses(): Promise<RegisteredWarehouse[]> {
+    return fetchCollection<RegisteredWarehouse>("registeredWarehouses", initialWarehouses);
+  },
+  async addWarehouse(warehouse: RegisteredWarehouse): Promise<void> {
+    await writeDocument<RegisteredWarehouse>("registeredWarehouses", warehouse, initialWarehouses);
+  },
+  async updateWarehouse(warehouse: RegisteredWarehouse): Promise<void> {
+    await writeDocument<RegisteredWarehouse>("registeredWarehouses", warehouse, initialWarehouses);
+  },
+  async deleteWarehouse(id: string): Promise<void> {
+    await removeDocument<RegisteredWarehouse>("registeredWarehouses", id, initialWarehouses);
   },
 
   // === EXPENSES ===
