@@ -1,11 +1,12 @@
-import { db, auth, isFirebaseReady } from "../firebase";
+import { db, auth, isFirebaseReady, handleFirestoreError, OperationType } from "../firebase";
 import { NotificationService } from "./notificationService";
 import { 
   collection, 
   doc, 
   getDocs, 
   setDoc, 
-  deleteDoc
+  deleteDoc,
+  onSnapshot
 } from "firebase/firestore";
 import { 
   Worker, 
@@ -208,14 +209,23 @@ if (typeof window !== "undefined") {
 
 // Unified Primary Data Fetcher & Modifier (Firestore is primary source of truth)
 async function fetchCollection<T extends { id: string }>(collectionName: string, defaultData: T[]): Promise<T[]> {
-  if (isFirebaseReady && db && auth?.currentUser) {
+  if (isFirebaseReady && db) {
     try {
+      console.log(`[DbService] Fetching Firestore collection "${collectionName}"...`);
       const colRef = collection(db, collectionName);
       const snapshot = await getDocs(colRef);
       if (!snapshot.empty) {
-        const items = snapshot.docs.map(docSnap => docSnap.data() as T);
+        const items = snapshot.docs.map(docSnap => {
+          const data = docSnap.data() as T;
+          return { ...data, id: data.id || docSnap.id };
+        });
+        console.log(`[DbService] Successfully loaded ${items.length} documents from Firestore collection "${collectionName}".`);
         offlineEngine.saveCache(collectionName, items);
         return items;
+      } else {
+        console.log(`[DbService] Firestore collection "${collectionName}" is empty. Checking local cache.`);
+        const cached = offlineEngine.getCache<T>(collectionName, defaultData);
+        return cached;
       }
     } catch (err) {
       console.warn(`Firestore primary read failed for "${collectionName}". Falling back to offline cache:`, err);
@@ -229,9 +239,11 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
   offlineEngine.updateCacheItem<T>(collectionName, item, defaultData);
 
   // 2. Primary Firestore sync or Outbox Queue
-  if (isFirebaseReady && db && auth?.currentUser) {
+  if (isFirebaseReady && db) {
     try {
+      console.log(`[DbService] Writing document "${item.id}" to Firestore collection "${collectionName}"...`);
       await setDoc(doc(db, collectionName, item.id), item, { merge: true });
+      console.log(`[DbService] Successfully saved document "${item.id}" to Firestore collection "${collectionName}".`);
     } catch (err) {
       console.warn(`Firestore primary write failed for "${collectionName}/${item.id}". Enqueueing in outbox:`, err);
       offlineEngine.queueOutbox("set", collectionName, item.id, item);
@@ -244,9 +256,11 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
 async function removeDocument<T extends { id: string }>(collectionName: string, id: string, defaultData: T[]): Promise<void> {
   offlineEngine.deleteCacheItem<T>(collectionName, id, defaultData);
 
-  if (isFirebaseReady && db && auth?.currentUser) {
+  if (isFirebaseReady && db) {
     try {
+      console.log(`[DbService] Deleting document "${id}" from Firestore collection "${collectionName}"...`);
       await deleteDoc(doc(db, collectionName, id));
+      console.log(`[DbService] Successfully deleted document "${id}" from Firestore collection "${collectionName}".`);
     } catch (err) {
       console.warn(`Firestore primary delete failed for "${collectionName}/${id}". Enqueueing in outbox:`, err);
       offlineEngine.queueOutbox("delete", collectionName, id);
@@ -453,6 +467,46 @@ export const DbService = {
     return fetchCollection<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
   },
 
+  subscribeFormworkPanels(
+    callback: (panels: AluminumFormworkPanel[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      console.log("[DbService] Subscribing real-time onSnapshot listener to 'formworkPanels'...");
+      const colRef = collection(db, "formworkPanels");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as AluminumFormworkPanel;
+            return { ...data, id: data.id || docSnap.id };
+          });
+          console.log(`[DbService.onSnapshot] Live update received for 'formworkPanels'. Document count: ${items.length}`);
+          if (items.length > 0) {
+            offlineEngine.saveCache("formworkPanels", items);
+            callback(items);
+          } else {
+            const cached = offlineEngine.getCache<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
+            callback(cached);
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "formworkPanels");
+          console.warn("[DbService.onSnapshot] Error in 'formworkPanels' listener, falling back to cache:", error);
+          if (onError) onError(error);
+          const cached = offlineEngine.getCache<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
+          callback(cached);
+        }
+      );
+      return unsubscribe;
+    } else {
+      console.log("[DbService] Firebase not active for 'formworkPanels'. Returning cached state.");
+      const cached = offlineEngine.getCache<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
+      callback(cached);
+      return () => {};
+    }
+  },
+
   async addFormworkPanel(panel: AluminumFormworkPanel): Promise<void> {
     await writeDocument<AluminumFormworkPanel>("formworkPanels", panel, initialFormworkPanels);
   },
@@ -468,6 +522,46 @@ export const DbService = {
   // === PANEL MOVEMENT LOGS ===
   async getPanelMovementLogs(): Promise<PanelMovementLog[]> {
     return fetchCollection<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
+  },
+
+  subscribePanelMovementLogs(
+    callback: (logs: PanelMovementLog[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      console.log("[DbService] Subscribing real-time onSnapshot listener to 'panelMovementLogs'...");
+      const colRef = collection(db, "panelMovementLogs");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelMovementLog;
+            return { ...data, id: data.id || docSnap.id };
+          });
+          console.log(`[DbService.onSnapshot] Live update received for 'panelMovementLogs'. Document count: ${items.length}`);
+          if (items.length > 0) {
+            offlineEngine.saveCache("panelMovementLogs", items);
+            callback(items);
+          } else {
+            const cached = offlineEngine.getCache<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
+            callback(cached);
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelMovementLogs");
+          console.warn("[DbService.onSnapshot] Error in 'panelMovementLogs' listener, falling back to cache:", error);
+          if (onError) onError(error);
+          const cached = offlineEngine.getCache<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
+          callback(cached);
+        }
+      );
+      return unsubscribe;
+    } else {
+      console.log("[DbService] Firebase not active for 'panelMovementLogs'. Returning cached state.");
+      const cached = offlineEngine.getCache<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
+      callback(cached);
+      return () => {};
+    }
   },
 
   async addPanelMovementLog(log: PanelMovementLog): Promise<void> {

@@ -663,6 +663,29 @@ export default function App() {
     };
   }, [isAuthenticated, isPendingUser]);
 
+  // Attach real-time onSnapshot listeners for formworkPanels and panelMovementLogs collections
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !isAuthenticated || isPendingUser) return;
+
+    console.log("[App.tsx] Subscribing to real-time formworkPanels and panelMovementLogs from DbService...");
+
+    const unsubPanels = DbService.subscribeFormworkPanels((panels) => {
+      console.log(`[App.tsx] Real-time listener updated formworkPanels state with ${panels.length} items. Passed to Dashboard.`);
+      setFormworkPanels(panels);
+    });
+
+    const unsubLogs = DbService.subscribePanelMovementLogs((logs) => {
+      console.log(`[App.tsx] Real-time listener updated panelMovementLogs state with ${logs.length} items. Passed to Dashboard.`);
+      setPanelMovementLogs(logs);
+    });
+
+    return () => {
+      console.log("[App.tsx] Cleaning up formworkPanels and panelMovementLogs listeners.");
+      unsubPanels();
+      unsubLogs();
+    };
+  }, [isAuthenticated, isPendingUser]);
+
   // Handle real-time workers list update from DbService or cross-component registrations
   React.useEffect(() => {
     if (typeof window === "undefined" || !isAuthenticated || isPendingUser) return;

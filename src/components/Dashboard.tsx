@@ -124,6 +124,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   // Formwork output data for interactive SVG chart (panel installation trend over last 5 days)
   const panelOutputTrend = useMemo(() => {
+    console.log(`[Dashboard] Computing panelOutputTrend with ${formworkPanels?.length || 0} formworkPanels and ${panelMovementLogs?.length || 0} panelMovementLogs.`);
     const days: { day: string; dateStr: string; panels: number }[] = [];
     const now = new Date();
 
@@ -139,8 +140,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     // Accumulate from movement logs
     if (panelMovementLogs && panelMovementLogs.length > 0) {
       panelMovementLogs.forEach((log) => {
-        if (!log.timestamp) return;
-        const logDate = log.timestamp.split("T")[0];
+        const rawTs = log.timestamp || (log as any).createdAt;
+        if (!rawTs) return;
+        const logDate = typeof rawTs === "string" ? rawTs.split("T")[0] : new Date(rawTs).toISOString().split("T")[0];
         const match = days.find((d) => d.dateStr === logDate);
         if (match) {
           match.panels += 1;
@@ -151,8 +153,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
     // Accumulate from formwork panels
     if (formworkPanels && formworkPanels.length > 0) {
       formworkPanels.forEach((panel) => {
-        if (panel.createdAt) {
-          const panelDate = panel.createdAt.split("T")[0];
+        const rawDate = panel.createdAt || (panel as any).registeredAt || (panel as any).date;
+        if (rawDate) {
+          const panelDate = typeof rawDate === "string" ? rawDate.split("T")[0] : new Date(rawDate).toISOString().split("T")[0];
           const match = days.find((d) => d.dateStr === panelDate);
           if (match) {
             match.panels += panel.quantity || 1;
@@ -167,14 +170,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
     if (totalCalculatedPanels === 0) {
       const dateMap: Record<string, number> = {};
       (panelMovementLogs || []).forEach((log) => {
-        if (log.timestamp) {
-          const d = log.timestamp.split("T")[0];
+        const rawTs = log.timestamp || (log as any).createdAt;
+        if (rawTs) {
+          const d = typeof rawTs === "string" ? rawTs.split("T")[0] : new Date(rawTs).toISOString().split("T")[0];
           dateMap[d] = (dateMap[d] || 0) + 1;
         }
       });
       (formworkPanels || []).forEach((p) => {
-        if (p.createdAt) {
-          const d = p.createdAt.split("T")[0];
+        const rawDate = p.createdAt || (p as any).registeredAt || (p as any).date;
+        if (rawDate) {
+          const d = typeof rawDate === "string" ? rawDate.split("T")[0] : new Date(rawDate).toISOString().split("T")[0];
           dateMap[d] = (dateMap[d] || 0) + (p.quantity || 1);
         }
       });
@@ -182,7 +187,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
       const sortedDates = Object.keys(dateMap).sort();
       if (sortedDates.length > 0) {
         const recentDates = sortedDates.slice(-5);
-        return recentDates.map((dateStr) => {
+        const fallbackResult = recentDates.map((dateStr) => {
           const dObj = new Date(dateStr);
           const dayName = isNaN(dObj.getTime()) ? dateStr : dObj.toLocaleDateString("en-US", { weekday: "short" });
           return {
@@ -190,10 +195,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             panels: dateMap[dateStr] || 0
           };
         });
+        console.log("[Dashboard] Computed panelOutputTrend (fallback historical dates):", fallbackResult);
+        return fallbackResult;
       }
     }
 
-    return days.map(({ day, panels }) => ({ day, panels }));
+    const trendResult = days.map(({ day, panels }) => ({ day, panels }));
+    console.log("[Dashboard] Computed panelOutputTrend (current date range):", trendResult);
+    return trendResult;
   }, [panelMovementLogs, formworkPanels]);
 
   const maxPanels = useMemo(() => {
