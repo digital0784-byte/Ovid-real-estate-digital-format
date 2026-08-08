@@ -919,6 +919,167 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     photoUploaded: true
   });
 
+  // WAREHOUSE MANAGER REGISTRATION MODALS STATE & HANDLERS
+  const [showNewStockModal, setShowNewStockModal] = useState(false);
+  const [newStockForm, setNewStockForm] = useState({
+    code: `MAT-${Math.floor(100 + Math.random() * 899)}`,
+    name: "",
+    category: "Cement" as StoreMaterialItem["category"],
+    dimensions: "Standard Spec",
+    unit: "Pcs",
+    unitCost: 500,
+    totalStock: 100,
+    minThreshold: 20,
+    warehouseLocation: "Central Warehouse - Shed A1"
+  });
+
+  const [showRegisterPanelModal, setShowRegisterPanelModal] = useState(false);
+  const [newPanelForm, setNewPanelForm] = useState({
+    serialNumber: `AP-100-300-${Math.floor(100 + Math.random() * 899)}`,
+    type: "Flat Panel",
+    dimensions: "1200x600mm",
+    weightKg: 18.5,
+    materialGrade: "6061-T6 Aluminum",
+    unitPriceEtb: 4500,
+    allocatedSite: "Central Warehouse",
+    quantity: 10
+  });
+
+  const [showRegisterSiteModal, setShowRegisterSiteModal] = useState(false);
+  const [newSiteStoreForm, setNewSiteStoreForm] = useState({
+    projectName: "",
+    clientName: "FDRE Construction Authority",
+    contractorName: "BuildSync Contractors",
+    region: "Addis Ababa",
+    cityWoreda: "Lideta / Bole",
+    siteManager: "Abebe Site Store Manager",
+    supervisor: "Tewodros Store Keeper",
+    status: "Active" as RegisteredSite["status"]
+  });
+
+  const handleRegisterNewStockSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newStockForm.name.trim()) return;
+
+    const newItem: StoreMaterialItem = {
+      id: `MAT-REG-${Date.now()}`,
+      code: newStockForm.code || `MAT-${Math.floor(100 + Math.random() * 899)}`,
+      name: newStockForm.name.trim(),
+      category: newStockForm.category,
+      dimensions: newStockForm.dimensions || "Standard Spec",
+      unit: newStockForm.unit || "Pcs",
+      unitCost: Number(newStockForm.unitCost) || 0,
+      totalStock: Number(newStockForm.totalStock) || 0,
+      availableStock: Number(newStockForm.totalStock) || 0,
+      reservedStock: 0,
+      minThreshold: Number(newStockForm.minThreshold) || 10,
+      warehouseLocation: newStockForm.warehouseLocation || "Central Warehouse",
+      status: Number(newStockForm.totalStock) > 0 ? "In Stock" : "Out of Stock"
+    };
+
+    setStoreItems(prev => [newItem, ...prev]);
+    await DbService.saveStoreItem(newItem);
+
+    onLogAction?.("New Warehouse Stock Registered", `Registered ${newItem.totalStock} ${newItem.unit} of ${newItem.name} in ${newItem.warehouseLocation}`);
+    onCreateNotification?.("New Stock Registered", `Registered ${newItem.name} (${newItem.totalStock} ${newItem.unit})`, "store", "high");
+
+    setShowNewStockModal(false);
+    setNewStockForm({
+      code: `MAT-${Math.floor(100 + Math.random() * 899)}`,
+      name: "",
+      category: "Cement",
+      dimensions: "Standard Spec",
+      unit: "Pcs",
+      unitCost: 500,
+      totalStock: 100,
+      minThreshold: 20,
+      warehouseLocation: "Central Warehouse - Shed A1"
+    });
+  };
+
+  const handleRegisterPanelSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newPanelForm.serialNumber.trim()) return;
+
+    const newPanel: AluminumFormworkPanel = {
+      id: `PANEL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      serialNumber: newPanelForm.serialNumber.trim(),
+      type: newPanelForm.type,
+      dimensions: newPanelForm.dimensions,
+      allocatedSite: newPanelForm.allocatedSite || "Central Warehouse",
+      currentLocation: newPanelForm.allocatedSite || "Central Warehouse",
+      status: "In Store Shed",
+      weightKg: Number(newPanelForm.weightKg) || 15,
+      materialGrade: newPanelForm.materialGrade || "6061-T6 Aluminum",
+      unitPriceEtb: Number(newPanelForm.unitPriceEtb) || 4000,
+      quantity: Number(newPanelForm.quantity) || 1,
+      createdAt: new Date().toISOString()
+    };
+
+    await DbService.addFormworkPanel(newPanel);
+
+    onLogAction?.("New Formwork Panel Registered", `Registered panel ${newPanel.serialNumber} (${newPanel.dimensions}) allocated to ${newPanel.allocatedSite}`);
+    onCreateNotification?.("Formwork Panel Registered", `Registered ${newPanel.serialNumber} (${newPanel.type})`, "store", "normal");
+
+    setShowRegisterPanelModal(false);
+    setNewPanelForm({
+      serialNumber: `AP-100-300-${Math.floor(100 + Math.random() * 899)}`,
+      type: "Flat Panel",
+      dimensions: "1200x600mm",
+      weightKg: 18.5,
+      materialGrade: "6061-T6 Aluminum",
+      unitPriceEtb: 4500,
+      allocatedSite: "Central Warehouse",
+      quantity: 10
+    });
+  };
+
+  const handleRegisterSiteStoreSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSiteStoreForm.projectName.trim()) return;
+
+    const newSite: RegisteredSite = {
+      id: `SITE-${Date.now()}`,
+      projectName: newSiteStoreForm.projectName.trim(),
+      clientName: newSiteStoreForm.clientName || "FDRE Authority",
+      contractorName: newSiteStoreForm.contractorName || "BuildSync Contractors",
+      region: newSiteStoreForm.region || "Addis Ababa",
+      cityWoreda: newSiteStoreForm.cityWoreda || "Bole / Lideta",
+      gpsLocation: "9.0102° N, 38.7612° E",
+      googleMapsCoords: "https://maps.google.com/?q=9.0102,38.7612",
+      startDate: new Date().toISOString().split("T")[0],
+      plannedCompletionDate: new Date(Date.now() + 180 * 24 * 3600 * 1000).toISOString().split("T")[0],
+      buildingsCount: 3,
+      floorsCount: 12,
+      zonesPerFloor: 4,
+      siteManager: newSiteStoreForm.siteManager || "Site Store Manager",
+      supervisor: newSiteStoreForm.supervisor || "Store Keeper",
+      teamLeaders: [],
+      gangChiefs: [],
+      timeKeepers: [],
+      status: newSiteStoreForm.status || "Active",
+      documents: []
+    };
+
+    setRegisteredSitesList(prev => [newSite, ...prev]);
+    await DbService.addRegisteredSite(newSite);
+
+    onLogAction?.("New Site Store Registered", `Registered new site store location: ${newSite.projectName} in ${newSite.region}`);
+    onCreateNotification?.("New Site Store Registered", `Registered ${newSite.projectName} (${newSite.region})`, "site", "high");
+
+    setShowRegisterSiteModal(false);
+    setNewSiteStoreForm({
+      projectName: "",
+      clientName: "FDRE Construction Authority",
+      contractorName: "BuildSync Contractors",
+      region: "Addis Ababa",
+      cityWoreda: "Lideta / Bole",
+      siteManager: "Abebe Site Store Manager",
+      supervisor: "Tewodros Store Keeper",
+      status: "Active"
+    });
+  };
+
   // Requisition & Return Form aliases & Submit Handlers
   const reqForm = newReqForm;
   const setReqForm = setNewReqForm;
@@ -1825,11 +1986,27 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 {/* Quick Action Buttons */}
                 <div className="flex flex-wrap items-center gap-2">
                   <button
-                    onClick={handleSimulateFleetMovement}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-bold flex items-center space-x-1.5 border border-slate-700 cursor-pointer transition"
+                    onClick={() => setShowNewStockModal(true)}
+                    className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
                   >
-                    <Radio size={14} className="animate-pulse text-emerald-400" />
-                    <span>{isAmharic ? "የGPS ቦታ ማደስ" : "Simulate GPS Movement"}</span>
+                    <Plus size={14} />
+                    <span>{isAmharic ? "+ አዲስ ስቶክ መመዝገቢያ" : "+ Register Stock"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowRegisterPanelModal(true)}
+                    className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
+                  >
+                    <Plus size={14} />
+                    <span>{isAmharic ? "+ አዲስ ፓነል መመዝገቢያ" : "+ Register Panel"}</span>
+                  </button>
+
+                  <button
+                    onClick={() => setShowRegisterSiteModal(true)}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
+                  >
+                    <Plus size={14} />
+                    <span>{isAmharic ? "+ አዲስ ሳይት ስቶር መመዝገቢያ" : "+ Register Site Store"}</span>
                   </button>
 
                   <button
@@ -1854,6 +2031,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   >
                     <Calendar size={14} />
                     <span>{isAmharic ? "የአቅራቢ ቀጠሮ" : "Schedule Supplier Delivery"}</span>
+                  </button>
+
+                  <button
+                    onClick={handleSimulateFleetMovement}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-bold flex items-center space-x-1.5 border border-slate-700 cursor-pointer transition"
+                  >
+                    <Radio size={14} className="animate-pulse text-emerald-400" />
+                    <span>{isAmharic ? "የGPS ቦታ ማደስ" : "Simulate GPS Movement"}</span>
                   </button>
                 </div>
               </div>
@@ -2278,8 +2463,16 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </p>
               </div>
 
-              {/* Filters */}
+              {/* Filters & Actions */}
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowRegisterSiteModal(true)}
+                  className="px-3 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
+                >
+                  <Plus size={14} />
+                  <span>{isAmharic ? "+ አዲስ ሳይት ስቶር መመዝገቢያ" : "+ Register Site Store"}</span>
+                </button>
+
                 <select
                   value={sitePanelFilterSite}
                   onChange={(e) => setSitePanelFilterSite(e.target.value)}
@@ -3146,9 +3339,18 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {/* 5. FORMWORK TRACKING MODULE */}
         {activeTab === "formwork-tracking" && (
           <div className="space-y-6 animate-fadeIn">
-            <div>
-              <h2 className="text-lg font-black uppercase text-white">Aluminum Formwork Panel Tracking</h2>
-              <p className="text-xs text-slate-400">{isAmharic ? "እያንዳንዱን የአሉሚኒየም ፓነል በቦታው፣ በፎቅ፣ በዞን እና በኃላፊ ሰው መከታተያ" : "Real-time panel status, serial numbers & current zone locations"}</p>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white">Aluminum Formwork Panel Tracking</h2>
+                <p className="text-xs text-slate-400">{isAmharic ? "እያንዳንዱን የአሉሚኒየም ፓነል በቦታው፣ በፎቅ፣ በዞን እና በኃላፊ ሰው መከታተያ" : "Real-time panel status, serial numbers & current zone locations"}</p>
+              </div>
+              <button
+                onClick={() => setShowRegisterPanelModal(true)}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 cursor-pointer shadow-lg transition"
+              >
+                <Plus size={16} />
+                <span>{isAmharic ? "+ አዲስ ፓነል መመዝገቢያ" : "+ Register Formwork Panel"}</span>
+              </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 font-mono text-xs">
@@ -3181,8 +3383,15 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <p className="text-xs text-slate-400">{isAmharic ? "10 የክፍል ዓይነቶች፡ ሲሚንቶ፣ ብረት፣ ፎርምወርክ፣ መሳርያዎች እና መለዋወጫዎች" : "10 Material Categories: Cement, Rebar, Formwork, Tools, Spare Parts"}</p>
               </div>
 
-              {/* Filters */}
+              {/* Filters & Actions */}
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() => setShowNewStockModal(true)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-1.5 cursor-pointer shadow-lg transition"
+                >
+                  <Plus size={14} />
+                  <span>{isAmharic ? "+ አዲስ ስቶክ መመዝገቢያ" : "+ Register Stock Item"}</span>
+                </button>
                 <div className="relative">
                   <Search size={14} className="absolute left-3 top-2.5 text-slate-500" />
                   <input
@@ -5197,6 +5406,498 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 1: REGISTER NEW WAREHOUSE STOCK */}
+      {showNewStockModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-emerald-500/10 rounded-xl border border-emerald-500/30 text-emerald-400">
+                  <Box size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    {isAmharic ? "አዲስ Warehouse Stock መመዝገቢያ" : "Register New Warehouse Stock Item"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isAmharic ? "አዲስ የእቃ ዝርዝር፣ ብዛት እና የሳይት ስቶር ቦታ ማስገቢያ" : "Add new material inventory record to central warehouse database"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNewStockModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterNewStockSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የእቃ መለያ ኮድ (Item Code)" : "Item Code / ID"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newStockForm.code}
+                    onChange={e => setNewStockForm({ ...newStockForm, code: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የእቃው አይነት (Category)" : "Category"}
+                  </label>
+                  <select
+                    value={newStockForm.category}
+                    onChange={e => setNewStockForm({ ...newStockForm, category: e.target.value as StoreMaterialItem["category"] })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="Cement">Cement</option>
+                    <option value="Rebar">Rebar</option>
+                    <option value="Aluminum Panels">Aluminum Panels</option>
+                    <option value="Beams">Beams</option>
+                    <option value="Props">Props</option>
+                    <option value="Brackets">Brackets</option>
+                    <option value="Plywood">Plywood</option>
+                    <option value="Tools">Tools</option>
+                    <option value="Consumables">Consumables</option>
+                    <option value="Spare Parts">Spare Parts</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የእቃ ስም (Material Name)" : "Material / Item Name"} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={isAmharic ? "ምሳሌ፡ Dangote OPC Cement 50kg, Deformed Rebar D16..." : "e.g. Dangote OPC 42.5 Cement 50kg, Heavy Prop 3.5m..."}
+                  value={newStockForm.name}
+                  onChange={e => setNewStockForm({ ...newStockForm, name: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "መለኪያ (Unit)" : "Unit"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Bags, Pcs, Kg, Sets"
+                    value={newStockForm.unit}
+                    onChange={e => setNewStockForm({ ...newStockForm, unit: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ጠቅላላ ብዛት (Total Quantity)" : "Initial Stock Qty"}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newStockForm.totalStock}
+                    onChange={e => setNewStockForm({ ...newStockForm, totalStock: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ዝቅተኛ ወሰን (Min Threshold)" : "Min Threshold"}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newStockForm.minThreshold}
+                    onChange={e => setNewStockForm({ ...newStockForm, minThreshold: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ስፔስፊኬሽን (Specification / Dimensions)" : "Dimensions / Specs"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newStockForm.dimensions}
+                    onChange={e => setNewStockForm({ ...newStockForm, dimensions: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የአንዱ ዋጋ (Unit Cost ETB)" : "Unit Cost (ETB)"}
+                  </label>
+                  <input
+                    type="number"
+                    value={newStockForm.unitCost}
+                    onChange={e => setNewStockForm({ ...newStockForm, unitCost: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የመጋዘን ቦታ / Shed (Warehouse Location)" : "Warehouse Location / Shed"}
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Central Warehouse - Shed A1, Yard B..."
+                  value={newStockForm.warehouseLocation}
+                  onChange={e => setNewStockForm({ ...newStockForm, warehouseLocation: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowNewStockModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
+                >
+                  {isAmharic ? "ስቶክ መዝግብ ✓" : "Save Stock Item ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: REGISTER FORMWORK PANEL */}
+      {showRegisterPanelModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-purple-500/10 rounded-xl border border-purple-500/30 text-purple-400">
+                  <Box size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    {isAmharic ? "አዲስ Aluminum Formwork Panel መመዝገቢያ" : "Register Aluminum Formwork Panel"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isAmharic ? "አዲስ ፓነል በሴሪያል ነምበር፣ መጠን፣ እና የተመደበበት ቦታ መመዝገቢያ" : "Register new aluminum panel with serial number, specs, and initial location"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRegisterPanelModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterPanelSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ሴሪያል ቁጥር (Serial / Panel Code)" : "Serial Number / Panel Code"} *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newPanelForm.serialNumber}
+                    onChange={e => setNewPanelForm({ ...newPanelForm, serialNumber: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የፓነል አይነት (Panel Type)" : "Panel Type"}
+                  </label>
+                  <select
+                    value={newPanelForm.type}
+                    onChange={e => setNewPanelForm({ ...newPanelForm, type: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
+                  >
+                    <option value="Flat Panel">Flat Panel</option>
+                    <option value="Outer Corner">Outer Corner</option>
+                    <option value="Inner Corner">Inner Corner</option>
+                    <option value="Deck Panel">Deck Panel</option>
+                    <option value="Kicker">Kicker</option>
+                    <option value="Beam Bottom">Beam Bottom</option>
+                    <option value="Prop">Prop</option>
+                    <option value="Wall Tie">Wall Tie</option>
+                    <option value="Pin & Wedge">Pin & Wedge</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "መጠን / ስፔስፊኬሽን (Dimensions)" : "Dimensions (e.g. 1200x600mm)"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newPanelForm.dimensions}
+                    onChange={e => setNewPanelForm({ ...newPanelForm, dimensions: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ብዛት (Quantity Pcs)" : "Quantity (Pcs)"}
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={newPanelForm.quantity}
+                    onChange={e => setNewPanelForm({ ...newPanelForm, quantity: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ክብደት (Weight Kg)" : "Weight (Kg)"}
+                  </label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={newPanelForm.weightKg}
+                    onChange={e => setNewPanelForm({ ...newPanelForm, weightKg: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የአንዱ ዋጋ (Unit Price ETB)" : "Unit Price (ETB)"}
+                  </label>
+                  <input
+                    type="number"
+                    value={newPanelForm.unitPriceEtb}
+                    onChange={e => setNewPanelForm({ ...newPanelForm, unitPriceEtb: Number(e.target.value) })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የተመደበበት ሳይት / መጋዘን (Allocated Site / Store)" : "Allocated Site Store"}
+                </label>
+                <select
+                  value={newPanelForm.allocatedSite}
+                  onChange={e => setNewPanelForm({ ...newPanelForm, allocatedSite: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
+                >
+                  <option value="Central Warehouse">Central Warehouse</option>
+                  {registeredSitesList.map(s => (
+                    <option key={s.id} value={s.projectName}>{s.projectName}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterPanelModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
+                >
+                  {isAmharic ? "ፓነል መዝግብ ✓" : "Save Panel ✓"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 3: REGISTER NEW SITE STORE */}
+      {showRegisterSiteModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl">
+            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
+              <div className="flex items-center space-x-3">
+                <div className="p-2.5 bg-blue-500/10 rounded-xl border border-blue-500/30 text-blue-400">
+                  <Box size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-white uppercase tracking-wider">
+                    {isAmharic ? "አዲስ Site Store (የፕሮጀክት ሳይት) መመዝገቢያ" : "Register New Site Store Location"}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    {isAmharic ? "ለተለያየ የኮንስትራክሽን ሳይት አዲስ ስቶር እና ፕሮጀክት መመዝገቢያ" : "Add a new site store depot location for panel transfers & dispatches"}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowRegisterSiteModal(false)}
+                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterSiteStoreSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "የሳይት ስቶር / ፕሮጀክት ስም (Site Store / Project Name)" : "Project / Site Store Name"} *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder={isAmharic ? "ምሳሌ፡ Lideta Commercial High-Rise Site Store" : "e.g. Lideta High-Rise Tower Site Store..."}
+                  value={newSiteStoreForm.projectName}
+                  onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, projectName: e.target.value })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ክልል / ከተማ (Region / City)" : "Region / City"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSiteStoreForm.region}
+                    onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, region: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ክፍለ ከተማ / ወረዳ (Subcity / City Woreda)" : "City / Subcity / Woreda"}
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={newSiteStoreForm.cityWoreda}
+                    onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, cityWoreda: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የባለቤት አካል / ደንበኛ (Client Name)" : "Client Name"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newSiteStoreForm.clientName}
+                    onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, clientName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ሥራ ተቋራጭ (Contractor)" : "Contractor Name"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newSiteStoreForm.contractorName}
+                    onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, contractorName: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "የሳይት ስቶር ማናጀር (Site Store Manager)" : "Site Store Manager"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newSiteStoreForm.siteManager}
+                    onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, siteManager: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-slate-300 block mb-1">
+                    {isAmharic ? "ሱፐርቫይዘር / ስቶር ኪፐር (Supervisor / Storekeeper)" : "Supervisor / Store Keeper"}
+                  </label>
+                  <input
+                    type="text"
+                    value={newSiteStoreForm.supervisor}
+                    onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, supervisor: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-bold text-slate-300 block mb-1">
+                  {isAmharic ? "ሁኔታ (Status)" : "Site Store Status"}
+                </label>
+                <select
+                  value={newSiteStoreForm.status}
+                  onChange={e => setNewSiteStoreForm({ ...newSiteStoreForm, status: e.target.value as RegisteredSite["status"] })}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-blue-500"
+                >
+                  <option value="Active">Active</option>
+                  <option value="Planning">Planning</option>
+                </select>
+              </div>
+
+              <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={() => setShowRegisterSiteModal(false)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
+                >
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
+                >
+                  {isAmharic ? "ሳይት ስቶር መዝግብ ✓" : "Save Site Store ✓"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
