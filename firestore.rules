@@ -89,20 +89,19 @@ service cloud.firestore {
     // MODULE-SPECIFIC RULE MATCHING
     // ==========================================
 
-    // 1. Users collection
+    // 1. Users collection & Role Change Requests
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && (
-        isOwner(userId) ||
-        isSuperAdmin() ||
-        isHeadOffice() ||
-        isHRManager()
-      );
+      allow create, update: if isSignedIn();
+      allow delete: if isSuperAdmin();
+    }
+    match /role_change_requests/{reqId} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
       allow delete: if isSuperAdmin();
     }
 
-    // 2. Projects, Sites & Registered Sites
+    // 2. Projects, Sites & Registered Sites / Warehouses
     match /projects/{projectId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
@@ -114,6 +113,10 @@ service cloud.firestore {
     match /registeredSites/{siteId} {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+    match /registeredWarehouses/{warehouseId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager();
     }
     match /zones/{zoneId} {
       allow read: if isSignedIn();
@@ -127,7 +130,8 @@ service cloud.firestore {
     }
     match /workers/{workerId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin() || isHeadOffice() || isHRManager();
     }
     match /teams/{teamId} {
       allow read: if isSignedIn();
@@ -288,7 +292,8 @@ service cloud.firestore {
     // 11. Notifications
     match /notifications/{notifId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager();
+      allow create: if isSignedIn();
+      allow update, delete: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager();
     }
 
     // 12. Approvals

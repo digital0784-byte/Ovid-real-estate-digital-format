@@ -116,16 +116,31 @@ export function UserRoleApprovalHub({
 
     if (isFirebaseReady && db) {
       try {
+        const firestoreReqsMap = new Map<string, RoleChangeRequest>();
+
+        // 1. Fetch live role_change_requests collection from Firestore
+        try {
+          const roleReqsSnap = await getDocs(collection(db, "role_change_requests"));
+          roleReqsSnap.forEach((docSnap) => {
+            const data = docSnap.data() as RoleChangeRequest;
+            if (data && data.id) {
+              firestoreReqsMap.set(data.id, { ...data, id: data.id });
+            }
+          });
+        } catch (rErr) {
+          console.warn("Could not fetch role_change_requests collection:", rErr);
+        }
+
+        // 2. Fetch pending users from users collection
         const usersSnap = await getDocs(collection(db, "users"));
-        const firestoreReqs: RoleChangeRequest[] = [];
         usersSnap.forEach((docSnap) => {
           const u = docSnap.data();
           if (u.status === "Pending" || u.role === "Pending") {
             const userId = docSnap.id;
-            const exists = localReqs.some(r => r.userId === userId || r.userEmail === u.email);
-            if (!exists) {
-              firestoreReqs.push({
-                id: `RCR-FS-${userId.slice(0, 6)}`,
+            const reqId = `RCR-FS-${userId.slice(0, 6)}`;
+            if (!firestoreReqsMap.has(reqId)) {
+              firestoreReqsMap.set(reqId, {
+                id: reqId,
                 userId: userId,
                 userName: u.displayName || u.email || "Registered User",
                 userEmail: u.email || "",
@@ -150,7 +165,16 @@ export function UserRoleApprovalHub({
             }
           }
         });
-        setRequests([...firestoreReqs, ...localReqs]);
+
+        // 3. Merge with local cache requests
+        localReqs.forEach(lr => {
+          if (!firestoreReqsMap.has(lr.id)) {
+            firestoreReqsMap.set(lr.id, lr);
+          }
+        });
+
+        const combinedReqs = Array.from(firestoreReqsMap.values());
+        setRequests(combinedReqs);
       } catch (err) {
         console.warn("Could not fetch pending users from Firestore:", err);
         setRequests(localReqs);
