@@ -632,38 +632,94 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-lg font-bold text-slate-900">{isAmharic ? "ዕለታዊ የፓነል ገጠማ ምርታማነት" : "Daily Aluminum Panel Assembly Trend"}</h2>
-              <p className="text-xs text-slate-500">{isAmharic ? "ባለፉት 5 ቀናት የተገጠሙ የፓነል ብዛት ማሳያ" : "Number of panels locked per day (sq.m equivalent)"}</p>
+              <div className="flex items-center space-x-2">
+                <h2 className="text-lg font-bold text-slate-900">{isAmharic ? "ዕለታዊ የፓነል ገጠማ ምርታማነት" : "Daily Aluminum Panel Assembly Trend"}</h2>
+                <span className="text-[10px] font-semibold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
+                  {isAmharic ? "እውነተኛ መዝገብ" : "Live Log Data"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">{isAmharic ? "ባለፉት 5 ቀናት የተገጠመው የፓነል ብዛት ማሳያ (መዝገቡን ለመክፈት ቻርቱን ይጫኑ)" : "Number of panels locked per day (Click chart to open full panel log)"}</p>
             </div>
-            <span className="p-2 bg-slate-50 rounded-lg text-slate-600">
-              <TrendingUp size={18} />
-            </span>
+            <button 
+              onClick={() => setActiveTab("formworkManagement")}
+              className="flex items-center space-x-1 px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-medium transition-colors shadow-sm"
+              title={isAmharic ? "ወደ የፓነል ማኔጅመንት መዝገብ ይለፉ" : "Go to Formwork Panel Management"}
+            >
+              <span>{isAmharic ? "ዝርዝር መዝገብ" : "View Inventory"}</span>
+              <ChevronRight size={14} />
+            </button>
           </div>
 
-          {/* SVG Custom Chart */}
-          <div className="relative h-48 w-full flex items-end justify-between px-2 pt-4 border-b border-slate-100">
+          {/* Scale Legend Explanation Banner */}
+          <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-[11px] text-slate-600">
+            <div className="flex items-center space-x-2">
+              <span className="w-2 h-2 rounded-full bg-slate-800"></span>
+              <span>
+                {isAmharic 
+                  ? `የቻርቱ የላይኛው ወሰን (${maxPanels} Panels) = በ 5 ቀን ውስጥ የተመዘገበ ከፍተኛ ገጠማ | መካከለኛው (${Math.round(maxPanels / 2)} Panels) = የገበታው አጋማሽ ወሰን` 
+                  : `Top scale (${maxPanels} Panels) = Peak daily assembly in 5 days | Mid scale (${Math.round(maxPanels / 2)} Panels) = 50% midpoint indicator`}
+              </span>
+            </div>
+            <button 
+              onClick={() => setActiveTab("storeOwnerApp")}
+              className="text-xs text-red-600 hover:text-red-700 font-bold underline ml-2 whitespace-nowrap"
+            >
+              {isAmharic ? "የመጋዘን ስቶክ" : "Warehouse Stock"}
+            </button>
+          </div>
+
+          {/* Interactive SVG Custom Chart */}
+          <div 
+            className="relative h-48 w-full flex items-end justify-between px-2 pt-4 border-b border-slate-100 cursor-pointer group/chart"
+            onClick={() => setActiveTab("formworkManagement")}
+            title={isAmharic ? "የፓነል ዝርዝር መዝገብ ለመክፈት እዚህ ይጫኑ" : "Click anywhere on chart to open panel inventory"}
+          >
             {/* Guide gridlines */}
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[10px] text-slate-300">
-              <div className="border-b border-dashed border-slate-100 w-full pt-1">{maxPanels} Panels</div>
-              <div className="border-b border-dashed border-slate-100 w-full">{Math.round(maxPanels / 2)} Panels</div>
-              <div>0</div>
+            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none text-[10px] text-slate-400 font-mono">
+              <div className="border-b border-dashed border-slate-200 w-full pt-1 flex items-center justify-between">
+                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-slate-700 font-bold">{maxPanels} Panels (የላይኛው ወሰን)</span>
+                <span className="text-[9px] text-slate-400">{isAmharic ? "ከፍተኛ የገጠማ ደረጃ" : "Peak Scale Limit"}</span>
+              </div>
+              <div className="border-b border-dashed border-slate-200 w-full flex items-center justify-between">
+                <span className="bg-slate-50 px-1.5 py-0.5 rounded text-slate-600">{Math.round(maxPanels / 2)} Panels (የመካከለኛው ወሰን)</span>
+                <span className="text-[9px] text-slate-400">{isAmharic ? "አጋማሽ ወሰን (50%)" : "50% Midpoint"}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-400">0 Panels</span>
+                <span className="text-[9px] text-slate-400">{isAmharic ? "መነሻ" : "Baseline"}</span>
+              </div>
             </div>
 
             {/* Render Bars */}
             {panelOutputTrend.map((item, index) => {
               const barHeight = `${(item.panels / maxPanels) * 100}%`;
               return (
-                <div key={index} className="relative flex flex-col items-center flex-1 group z-10">
+                <div 
+                  key={index} 
+                  className="relative flex flex-col items-center flex-1 group z-10 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveTab("formworkManagement");
+                  }}
+                >
                   {/* Tooltip on hover */}
-                  <div className="absolute bottom-full mb-2 bg-slate-900 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                    {item.panels} Panels
+                  <div className="absolute bottom-full mb-2 bg-slate-900 text-white text-[11px] px-2.5 py-1 rounded-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap shadow-md">
+                    <span className="font-bold text-emerald-400">{item.day}:</span> {item.panels} {isAmharic ? "ፓነሎች ተገጥመዋል" : "Panels Assembled"}
                   </div>
                   {/* Visual Bar */}
                   <div 
-                    className="w-10 bg-slate-800 group-hover:bg-red-600 rounded-t-lg transition-colors cursor-pointer"
+                    className="w-10 bg-slate-800 group-hover:bg-red-600 group-hover:scale-105 rounded-t-lg transition-all duration-200 shadow-sm cursor-pointer"
                     style={{ height: barHeight }}
                   ></div>
-                  <span className="text-[11px] font-medium text-slate-500 mt-2 font-mono">{item.day}</span>
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveTab("formworkManagement");
+                    }}
+                    className="text-[11px] font-bold text-slate-600 group-hover:text-red-600 mt-2 font-mono transition-colors hover:underline"
+                  >
+                    {item.day}
+                  </button>
                 </div>
               );
             })}
