@@ -614,6 +614,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [requisitionAuditLogs, setRequisitionAuditLogs] = useState<RequisitionAuditLog[]>([]);
   const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([]);
   const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([]);
+  const [storeNotifications, setStoreNotifications] = useState<any[]>([]);
 
   // Live GPS Acquisition state & handler
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
@@ -765,7 +766,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           reqAuditLogs,
           dailyReturns,
           dailyConsolidated,
-          warehouses
+          warehouses,
+          fetchedNotifs
         ] = await Promise.all([
           DbService.getFormworkPanels(),
           DbService.getRegisteredSites(),
@@ -784,7 +786,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           DbService.getRequisitionAuditLogs(),
           DbService.getDailyReturnReports(),
           DbService.getDailyConsolidatedReports(),
-          DbService.getWarehouses()
+          DbService.getWarehouses(),
+          DbService.getNotifications()
         ]);
         if (active) {
           if (panels) setDbPanels(panels);
@@ -805,6 +808,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           if (reqAuditLogs) setRequisitionAuditLogs(reqAuditLogs);
           if (dailyReturns) setDailyReturnReports(dailyReturns);
           if (dailyConsolidated) setDailyConsolidatedReports(dailyConsolidated);
+          if (fetchedNotifs) setStoreNotifications(fetchedNotifs);
           setLoadingDb(false);
         }
       } catch (err) {
@@ -1633,6 +1637,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   // HANDLERS
   const handleReceiveMaterial = (e: React.FormEvent) => {
     e.preventDefault();
+    const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
     const newReport: MaterialReceivingReport = {
       id: `REC-2026-${Math.floor(100 + Math.random() * 900)}`,
       materialName: receiveForm.materialName,
@@ -1645,7 +1650,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       bundleNumber: receiveForm.bundleNumber,
       serialNumber: receiveForm.serialNumber,
       qrCode: `QR-${Date.now()}`,
-      deliveryDate: new Date().toISOString().replace("T", " ").substring(0, 16),
+      deliveryDate: nowStr,
       driverName: receiveForm.driverName,
       truckPlate: receiveForm.truckPlate,
       gpsLocation: receiveForm.gpsLocation,
@@ -1655,7 +1660,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     };
 
     setReceivingReports(prev => [newReport, ...prev]);
-    DbService.saveReceivingReport(newReport);
+    DbService.saveReceivingReport(newReport).catch(err => console.error("Error saving receiving report:", err));
 
     // Save expense to Finance module
     const unitPrice = storeItems.find(i => i.name.toLowerCase().includes(receiveForm.materialName.toLowerCase()))?.unitCost || 1200;
@@ -1675,23 +1680,84 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       unit: receiveForm.unit
     }).catch(e => console.error("Error writing receiving expense:", e));
 
-    // Automatically update stock
+    // Automatically update or add to stock
     setStoreItems(prev => {
+      let matchFound = false;
       const updated = prev.map(item => {
-        if (item.name.toLowerCase().includes(receiveForm.materialName.toLowerCase())) {
-          const newItem = {
+        if (item.name.toLowerCase().trim() === receiveForm.materialName.toLowerCase().trim() ||
+            item.name.toLowerCase().includes(receiveForm.materialName.toLowerCase()) ||
+            receiveForm.materialName.toLowerCase().includes(item.name.toLowerCase())) {
+          matchFound = true;
+          const newItem: StoreMaterialItem = {
             ...item,
             totalStock: item.totalStock + Number(receiveForm.quantity),
             availableStock: item.availableStock + Number(receiveForm.quantity),
-            status: "In Stock" as const
+            status: "In Stock"
           };
           DbService.saveStoreItem(newItem);
           return newItem;
         }
         return item;
       });
+
+      if (!matchFound) {
+        const newItem: StoreMaterialItem = {
+          id: `MAT-${Date.now()}`,
+          code: `MC-${Math.floor(1000 + Math.random() * 9000)}`,
+          name: receiveForm.materialName,
+          category: receiveForm.materialType || "Consumables",
+          dimensions: receiveForm.dimensions || "Standard",
+          unit: receiveForm.unit || "Pcs",
+          totalStock: Number(receiveForm.quantity),
+          availableStock: Number(receiveForm.quantity),
+          reservedStock: 0,
+          minThreshold: 10,
+          unitCost: unitPrice,
+          location: "Main Store Warehouse",
+          status: "In Stock",
+          lastUpdated: new Date().toISOString().substring(0, 10)
+        };
+        DbService.saveStoreItem(newItem);
+        return [newItem, ...updated];
+      }
       return updated;
     });
+
+    // Create system notification for Firestore & Dashboard
+    const notifObj = {
+      id: `NOTIF-REC-${Date.now()}`,
+      title: `Material Intake: ${receiveForm.quantity} ${receiveForm.unit} ${receiveForm.materialName} Received`,
+      titleAm: `ዕቃ ተቀብሏል፡ ${receiveForm.quantity} ${receiveForm.unit} ${receiveForm.materialName}`,
+      message: `Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) from ${receiveForm.source || 'Supplier'}. Driver: ${receiveForm.driverName} (${receiveForm.truckPlate}), Received by: ${receiveForm.receivedBy}.`,
+      description: `Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) from ${receiveForm.source || 'Supplier'}. Driver: ${receiveForm.driverName} (${receiveForm.truckPlate}), Received by: ${receiveForm.receivedBy}.`,
+      messageAm: `${receiveForm.quantity} ${receiveForm.unit} ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) ከ${receiveForm.source || 'አቅራቢ'} ተቀብሏል። አሽከርካሪ፡ ${receiveForm.driverName} (${receiveForm.truckPlate})፣ ተቀባይ፡ ${receiveForm.receivedBy}።`,
+      category: "Inventory & Material Dispatch",
+      priority: "Medium",
+      status: "Unread",
+      read: false,
+      isRead: false,
+      type: "Material Received",
+      projectName: receiveForm.gpsLocation || "Bole Heights Phase I",
+      timestamp: new Date().toISOString(),
+      date: new Date().toISOString().substring(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    DbService.addNotification(notifObj).catch(err => console.error("Error writing receiving notification:", err));
+    if (NotificationService && NotificationService.createNotification) {
+      NotificationService.createNotification({
+        title: notifObj.title,
+        message: notifObj.message,
+        category: "Inventory & Material Dispatch",
+        priority: "Medium",
+        status: "Unread",
+        isRead: false,
+        targetRoles: ["Store Manager", "Project Manager", "Head Office", "Super Admin"],
+        moduleSource: "Store Owner App"
+      });
+    }
+    onCreateNotification?.(notifObj);
+    setStoreNotifications(prev => [notifObj, ...prev]);
 
     setShowReceiveModal(false);
     onLogAction?.("Material Received", `Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName}`);
@@ -1699,6 +1765,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const handleIssueMaterial = (e: React.FormEvent) => {
     e.preventDefault();
+    const nowStr = new Date().toISOString().replace("T", " ").substring(0, 16);
     const newIssue: MaterialIssueRecord = {
       id: `ISS-2026-${Math.floor(100 + Math.random() * 900)}`,
       receiverName: issueForm.receiverName,
@@ -1711,14 +1778,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       materialName: issueForm.materialName,
       quantity: Number(issueForm.quantity),
       unit: issueForm.unit,
-      issueDate: new Date().toISOString().replace("T", " ").substring(0, 16),
+      issueDate: nowStr,
       qrScanned: true,
       gpsLocation: issueForm.gpsLocation || "9.0102° N, 38.7612° E",
       signatureSigned: true
     };
 
     setIssueRecords(prev => [newIssue, ...prev]);
-    DbService.saveIssueRecord(newIssue);
+    DbService.saveIssueRecord(newIssue).catch(err => console.error("Error saving issue record:", err));
 
     // Save expense record to Finance module
     const unitPrice = storeItems.find(i => i.name.toLowerCase().includes(issueForm.materialName.toLowerCase()))?.unitCost || 1200;
@@ -1741,12 +1808,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     // Automatically reduce stock
     setStoreItems(prev => {
       const updated = prev.map(item => {
-        if (item.name.toLowerCase().includes(issueForm.materialName.toLowerCase())) {
+        if (item.name.toLowerCase().trim() === issueForm.materialName.toLowerCase().trim() ||
+            item.name.toLowerCase().includes(issueForm.materialName.toLowerCase()) ||
+            issueForm.materialName.toLowerCase().includes(item.name.toLowerCase())) {
           const newAvail = Math.max(0, item.availableStock - Number(issueForm.quantity));
-          const newItem = {
+          const newItem: StoreMaterialItem = {
             ...item,
             availableStock: newAvail,
-            status: (newAvail <= item.minThreshold ? "Low Stock" : "In Stock") as "Low Stock" | "In Stock" | "Out of Stock" | "Critical"
+            status: (newAvail <= item.minThreshold ? (newAvail === 0 ? "Out of Stock" : "Low Stock") : "In Stock") as any
           };
           DbService.saveStoreItem(newItem);
           return newItem;
@@ -1755,6 +1824,42 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       });
       return updated;
     });
+
+    // Create system notification for Firestore & Dashboard
+    const notifObj = {
+      id: `NOTIF-ISS-${Date.now()}`,
+      title: `Material Issued: ${issueForm.quantity} ${issueForm.unit} ${issueForm.materialName} Dispatched`,
+      titleAm: `ዕቃ ተስረክቧል/ተሰጥቷል፡ ${issueForm.quantity} ${issueForm.unit} ${issueForm.materialName}`,
+      message: `Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName} (${issueForm.receiverRole}) for ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}, ${issueForm.zone}).`,
+      description: `Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName} (${issueForm.receiverRole}) for ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}, ${issueForm.zone}).`,
+      messageAm: `${issueForm.quantity} ${issueForm.unit} ${issueForm.materialName} ለ${issueForm.receiverName} (${issueForm.receiverRole}) በ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}) ተሰጥቷል።`,
+      category: "Inventory & Material Dispatch",
+      priority: "Medium",
+      status: "Unread",
+      read: false,
+      isRead: false,
+      type: "Material Issued",
+      projectName: issueForm.siteName || "Bole Heights Phase I",
+      timestamp: new Date().toISOString(),
+      date: new Date().toISOString().substring(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    DbService.addNotification(notifObj).catch(err => console.error("Error writing issue notification:", err));
+    if (NotificationService && NotificationService.createNotification) {
+      NotificationService.createNotification({
+        title: notifObj.title,
+        message: notifObj.message,
+        category: "Inventory & Material Dispatch",
+        priority: "Medium",
+        status: "Unread",
+        isRead: false,
+        targetRoles: ["Store Manager", "Project Manager", "Head Office", "Super Admin"],
+        moduleSource: "Store Owner App"
+      });
+    }
+    onCreateNotification?.(notifObj);
+    setStoreNotifications(prev => [notifObj, ...prev]);
 
     setShowIssueModal(false);
     onLogAction?.("Material Issued", `Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName}`);
@@ -4218,30 +4323,68 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {/* 10. NOTIFICATIONS MODULE */}
         {activeTab === "notifications" && (
           <div className="space-y-6 animate-fadeIn">
-            <div>
-              <h2 className="text-lg font-black uppercase text-white">Automated Cross-Department System Alerts</h2>
-              <p className="text-xs text-slate-400">{isAmharic ? "ለዋና መስሪያ ቤት፣ ለፋይናንስ፣ ለዋና መጋዘንና ለሳይት መሃንዲሶች የሚላኩ አውቶሜቲክ መልእክቶች" : "Real-time alerts for low stock, material arrivals, issues & damaged stock"}</p>
+            <div className="flex justify-between items-center">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white">
+                  {isAmharic ? "አውቶሜቲክ የሲስተም ማስጠንቀቂያዎችና ማሳወቂያዎች" : "Automated Cross-Department System Alerts"}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {isAmharic ? "ለዋና መስሪያ ቤት፣ ለፋይናንስ፣ ለዋና መጋዘንና ለሳይት መሃንዲሶች የሚላኩ አውቶሜቲክ መልእክቶች" : "Real-time alerts for low stock, material arrivals, issues & damaged stock stored in Firestore"}
+                </p>
+              </div>
+              <span className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-xs font-bold">
+                {storeNotifications.length} {isAmharic ? "ማሳወቂያዎች" : "Notifications"}
+              </span>
             </div>
 
             <div className="space-y-3">
-              {[
-                { title: "Low Stock Alert: Shuttering Plywood 18mm", time: "10 mins ago", type: "warning", desc: "Available stock (45 Sheets) is below minimum threshold (60 Sheets)." },
-                { title: "Material Arrival: 400 Bags Dangote Cement Received", time: "1 hour ago", type: "info", desc: "Shipment REC-2026-102 verified by Storekeeper Abebe." },
-                { title: "Material Issue: 350 K-Plates Issued to Floor 4", time: "2 hours ago", type: "success", desc: "Dispatched to Section Head Alemayehu Kebede. Stock updated." }
-              ].map((notif, idx) => (
-                <div key={idx} className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-start space-x-3">
-                  <div className={`p-2 rounded-lg ${notif.type === "warning" ? "bg-amber-950 text-amber-400" : "bg-emerald-950 text-emerald-400"}`}>
-                    <Bell size={16} />
-                  </div>
-                  <div className="flex-grow space-y-0.5">
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs font-bold text-white">{notif.title}</span>
-                      <span className="text-[10px] font-mono text-slate-500">{notif.time}</span>
-                    </div>
-                    <p className="text-xs text-slate-400 font-sans">{notif.desc}</p>
-                  </div>
+              {storeNotifications.length === 0 ? (
+                <div className="p-8 bg-slate-950 rounded-xl border border-slate-800 text-center space-y-2">
+                  <Bell className="mx-auto text-slate-600 animate-pulse" size={32} />
+                  <p className="text-sm font-bold text-slate-400">
+                    {isAmharic ? "ምንም የተቀመጠ ማሳወቂያ የለም" : "No active system notifications recorded yet."}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {isAmharic ? "ዕቃ ሲቀበሉ ወይም ሲያስረክቡ አውቶሜቲክ ማሳወቂያዎች እዚህ እና ፋየርስቶር ላይ ይመዘገባሉ" : "When materials are received or issued, automated notifications will register here and on Firestore."}
+                  </p>
                 </div>
-              ))}
+              ) : (
+                storeNotifications.map((notif, idx) => {
+                  const titleStr = isAmharic && notif.titleAm ? notif.titleAm : (notif.title || notif.type || "Notification");
+                  const descStr = isAmharic && notif.messageAm ? notif.messageAm : (notif.message || notif.description || "");
+                  const timeStr = notif.time || (notif.timestamp ? new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now");
+                  const isRec = notif.type === "Material Received" || titleStr.toLowerCase().includes("received") || titleStr.toLowerCase().includes("intake") || titleStr.toLowerCase().includes("ተቀብሏል");
+                  const isIss = notif.type === "Material Issued" || titleStr.toLowerCase().includes("issued") || titleStr.toLowerCase().includes("dispatched") || titleStr.toLowerCase().includes("ተስረክቧል");
+
+                  return (
+                    <div key={notif.id || idx} className="p-4 bg-slate-950 rounded-xl border border-slate-800 flex items-start space-x-3 hover:border-slate-700 transition-colors">
+                      <div className={`p-2 rounded-lg ${isRec ? "bg-emerald-950 text-emerald-400 border border-emerald-800/40" : isIss ? "bg-blue-950 text-blue-400 border border-blue-800/40" : "bg-amber-950 text-amber-400 border border-amber-800/40"}`}>
+                        <Bell size={16} />
+                      </div>
+                      <div className="flex-grow space-y-1">
+                        <div className="flex justify-between items-center">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-xs font-bold text-white">{titleStr}</span>
+                            {notif.category && (
+                              <span className="px-2 py-0.5 bg-slate-800 text-slate-300 rounded text-[10px] font-medium">
+                                {notif.category}
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-[10px] font-mono text-slate-500">{timeStr}</span>
+                        </div>
+                        <p className="text-xs text-slate-300 font-sans leading-relaxed">{descStr}</p>
+                        {notif.projectName && (
+                          <div className="text-[10px] text-slate-500 flex items-center space-x-1">
+                            <span>📍 {notif.projectName}</span>
+                            {notif.date && <span>• 📅 {notif.date}</span>}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         )}
