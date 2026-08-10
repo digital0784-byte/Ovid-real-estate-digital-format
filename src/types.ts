@@ -443,14 +443,17 @@ export interface AluminumFormworkPanel {
   serialNumber: string;
   bundleNumber: string;
   size: string;
+  dimensions?: string;
   type: PanelType;
   quantity: number;
   location: string;
+  allocatedSite?: string;
   zone: string;
   status: PanelStatus;
   usageCount: number;
   createdAt: string;
   weight?: number; // in kg
+  unitPriceEtb?: number;
   surfaceArea?: number; // in m2
   floor?: number;
   building?: string;

@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
-import { ProjectZone, AluminumFormworkPanel, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense } from "../types";
+import { ProjectZone, AluminumFormworkPanel, PanelStatus, PanelType, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
+import { MaterialSearchAutocomplete, MaterialOption } from "./MaterialSearchAutocomplete";
 import {
   Store,
   Package,
@@ -1008,13 +1009,16 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     const newPanel: AluminumFormworkPanel = {
       id: `PANEL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       serialNumber: newPanelForm.serialNumber.trim(),
-      type: newPanelForm.type,
+      bundleNumber: `BNDL-${Math.floor(100 + Math.random() * 899)}`,
+      size: newPanelForm.dimensions,
+      type: newPanelForm.type as PanelType,
       dimensions: newPanelForm.dimensions,
+      location: newPanelForm.allocatedSite || "Central Warehouse",
       allocatedSite: newPanelForm.allocatedSite || "Central Warehouse",
-      currentLocation: newPanelForm.allocatedSite || "Central Warehouse",
-      status: "In Store Shed",
-      weightKg: Number(newPanelForm.weightKg) || 15,
-      materialGrade: newPanelForm.materialGrade || "6061-T6 Aluminum",
+      zone: "Zone A",
+      status: PanelStatus.NEW,
+      usageCount: 0,
+      weight: Number(newPanelForm.weightKg) || 15,
       unitPriceEtb: Number(newPanelForm.unitPriceEtb) || 4000,
       quantity: Number(newPanelForm.quantity) || 1,
       createdAt: new Date().toISOString()
@@ -4424,13 +4428,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
             <form onSubmit={handleReceiveMaterial} className="space-y-3 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Material Name</label>
-                <input
-                  type="text"
+                <MaterialSearchAutocomplete
+                  label="Material Name"
                   required
                   value={receiveForm.materialName}
-                  onChange={e => setReceiveForm({ ...receiveForm, materialName: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  storeItems={storeItems}
+                  isAmharic={isAmharic}
+                  onChange={(name, selectedMat) => {
+                    setReceiveForm(prev => ({
+                      ...prev,
+                      materialName: name,
+                      unit: selectedMat?.unit || prev.unit
+                    }));
+                  }}
                 />
               </div>
 
@@ -4605,16 +4615,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Material Name</label>
-                <select
+                <MaterialSearchAutocomplete
+                  label="Material Name"
+                  required
                   value={issueForm.materialName}
-                  onChange={e => setIssueForm({ ...issueForm, materialName: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-amber-500"
-                >
-                  {storeItems.map(i => (
-                    <option key={i.id} value={i.name}>{i.name} (Available: {i.availableStock} {i.unit})</option>
-                  ))}
-                </select>
+                  storeItems={storeItems}
+                  isAmharic={isAmharic}
+                  onChange={(name, selectedMat) => {
+                    setIssueForm(prev => ({
+                      ...prev,
+                      materialName: name
+                    }));
+                  }}
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -4814,13 +4827,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Material Name</label>
-                <input
-                  type="text"
+                <MaterialSearchAutocomplete
+                  label="Material Name"
                   required
                   value={newTransferForm.materialName}
-                  onChange={e => setNewTransferForm({ ...newTransferForm, materialName: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500"
+                  storeItems={storeItems}
+                  isAmharic={isAmharic}
+                  onChange={(name, selectedMat) => {
+                    setNewTransferForm(prev => ({
+                      ...prev,
+                      materialName: name,
+                      unit: selectedMat?.unit || prev.unit
+                    }));
+                  }}
                 />
               </div>
 
@@ -4929,13 +4948,18 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               </div>
 
               <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase">Material Name</label>
-                <input
-                  type="text"
+                <MaterialSearchAutocomplete
+                  label="Material Name"
                   required
                   value={newSupplierForm.materialName}
-                  onChange={e => setNewSupplierForm({ ...newSupplierForm, materialName: e.target.value })}
-                  className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-500"
+                  storeItems={storeItems}
+                  isAmharic={isAmharic}
+                  onChange={(name, selectedMat) => {
+                    setNewSupplierForm(prev => ({
+                      ...prev,
+                      materialName: name
+                    }));
+                  }}
                 />
               </div>
 
@@ -5157,13 +5181,30 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <span className="text-[10px] font-black uppercase text-emerald-400 block">3. Requested Material Specification (የእቃው ዝርዝር)</span>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                   <div className="col-span-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Material Name</label>
-                    <input
-                      type="text"
+                    <MaterialSearchAutocomplete
+                      label="Material Name"
                       required
                       value={newReqForm.materialName}
-                      onChange={e => setNewReqForm({ ...newReqForm, materialName: e.target.value })}
-                      className="w-full mt-1 bg-slate-900 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 focus:outline-none focus:border-emerald-500"
+                      storeItems={storeItems}
+                      isAmharic={isAmharic}
+                      onChange={(name, selectedMat) => {
+                        setNewReqForm(prev => {
+                          let matType: "Formwork Accessory" | "Aluminum Panel" | "Consumable" | "Concrete / Block" = prev.materialType;
+                          if (selectedMat) {
+                            if (selectedMat.category === "Aluminum Panels") matType = "Aluminum Panel";
+                            else if (selectedMat.category === "Consumables") matType = "Consumable";
+                            else if (selectedMat.category === "Cement") matType = "Concrete / Block";
+                            else matType = "Formwork Accessory";
+                          }
+                          return {
+                            ...prev,
+                            materialName: name,
+                            unit: selectedMat?.unit || prev.unit,
+                            materialSize: selectedMat?.dimensions || prev.materialSize,
+                            materialType: matType
+                          };
+                        });
+                      }}
                     />
                   </div>
                   <div>
@@ -5704,16 +5745,21 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               </div>
 
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የእቃ / የፓነል ስም (Material Name)" : "Material / Item Name"} *
-                </label>
-                <input
-                  type="text"
+                <MaterialSearchAutocomplete
+                  label={isAmharic ? "የእቃ / የፓነል ስም (Material Name)" : "Material / Item Name"}
                   required
-                  placeholder={isAmharic ? "ምሳሌ፡ Standard External Wall Panel 1200x600, Dangote OPC Cement..." : "e.g. Standard External Wall Panel 1200x600mm..."}
                   value={newStockForm.name}
-                  onChange={e => setNewStockForm({ ...newStockForm, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                  storeItems={storeItems}
+                  isAmharic={isAmharic}
+                  onChange={(name, selectedMat) => {
+                    setNewStockForm(prev => ({
+                      ...prev,
+                      name: name,
+                      unit: selectedMat?.unit || prev.unit,
+                      dimensions: selectedMat?.dimensions || prev.dimensions,
+                      category: (selectedMat?.category as any) || prev.category
+                    }));
+                  }}
                 />
               </div>
 
