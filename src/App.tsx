@@ -1193,25 +1193,75 @@ export default function App() {
     }
   };
 
-  const handleCreateNotification = React.useCallback(async (notifData: any) => {
+  const handleCreateNotification = React.useCallback(async (notifData: any, optionalMessage?: string) => {
     try {
+      const isObj = notifData && typeof notifData === "object";
+      const title = isObj ? (notifData.title || "Material Event") : String(notifData);
+      const desc = isObj ? (notifData.description || notifData.message || notifData.title || "") : (optionalMessage || String(notifData));
+
       if (NotificationService && NotificationService.createNotification) {
-        NotificationService.createNotification(notifData);
+        NotificationService.createNotification(isObj ? notifData : {
+          title,
+          description: desc,
+          category: "Inventory & Material Dispatch",
+          priority: "Medium",
+          status: "Unread",
+          projectName: selectedProject || "Global System",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.PROJECT_MANAGER,
+            UserRole.SITE_ENGINEER,
+            UserRole.STORE_MANAGER,
+            UserRole.STORE_OWNER,
+            UserRole.WAREHOUSE_MANAGER,
+            UserRole.SUPERVISOR,
+            UserRole.WORKER
+          ]
+        });
       }
+
       const sysNotif: SystemNotification = {
-        id: `n-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
-        type: "Inspection Due",
-        title: notifData.title || "Material Event",
-        message: notifData.description || notifData.title || "",
-        timestamp: new Date().toISOString(),
-        read: false
+        id: isObj && notifData.id ? notifData.id : `n-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
+        type: isObj && notifData.type ? notifData.type : "Material Event",
+        title: title,
+        message: desc,
+        description: desc,
+        timestamp: isObj && notifData.timestamp ? notifData.timestamp : new Date().toISOString(),
+        read: false,
+        status: "Unread",
+        category: isObj && notifData.category ? notifData.category : "Inventory & Material Dispatch",
+        priority: isObj && notifData.priority ? notifData.priority : "Medium",
+        projectName: isObj && notifData.projectName ? notifData.projectName : (selectedProject || "Global System"),
+        siteName: isObj && notifData.siteName ? notifData.siteName : "Main Site",
+        sender: isObj && notifData.sender ? notifData.sender : "Store Manager",
+        senderRole: isObj && notifData.senderRole ? notifData.senderRole : "Store Manager",
+        receiver: isObj && notifData.receiver ? notifData.receiver : "All ERP Users",
+        targetRoles: isObj && notifData.targetRoles ? notifData.targetRoles : [
+          UserRole.SUPER_ADMIN,
+          UserRole.HEAD_OFFICE,
+          UserRole.PROJECT_MANAGER,
+          UserRole.SITE_ENGINEER,
+          UserRole.STORE_MANAGER,
+          UserRole.STORE_OWNER,
+          UserRole.WAREHOUSE_MANAGER,
+          UserRole.SUPERVISOR,
+          UserRole.WORKER
+        ],
+        actionTab: isObj && notifData.actionTab ? notifData.actionTab : "morning-requisitions",
+        titleAm: isObj && notifData.titleAm ? notifData.titleAm : title,
+        descriptionAm: isObj && notifData.descriptionAm ? notifData.descriptionAm : desc,
+        ...(isObj ? notifData : {})
       };
+
       await DbService.addNotification(sysNotif);
       setNotifications((prev) => [sysNotif, ...prev]);
+
+      triggerNotificationToast(title, desc);
     } catch (err) {
       console.error("Error creating notification in App.tsx:", err);
     }
-  }, []);
+  }, [selectedProject]);
 
   const handleMarkAsReadNotification = React.useCallback(async (id: string) => {
     setNotifications((prev) => {

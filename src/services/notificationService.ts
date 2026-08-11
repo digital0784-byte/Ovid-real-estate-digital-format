@@ -776,7 +776,9 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
         UserRole.PROJECT_MANAGER,
         UserRole.SITE_ENGINEER,
         UserRole.STORE_MANAGER,
+        UserRole.STORE_OWNER,
         UserRole.WAREHOUSE_MANAGER,
+        UserRole.SUPERVISOR,
         UserRole.WORKER
       ]
     } as EnterpriseNotification;
@@ -805,7 +807,9 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
       UserRole.PROJECT_MANAGER,
       UserRole.SITE_ENGINEER,
       UserRole.STORE_MANAGER,
+      UserRole.STORE_OWNER,
       UserRole.WAREHOUSE_MANAGER,
+      UserRole.SUPERVISOR,
       UserRole.WORKER
     ],
     date: dateObj.toISOString().slice(0, 10),
@@ -866,30 +870,44 @@ export class NotificationService {
     const roleStr = String(role);
 
     return all.filter(n => {
-      // Role check: If super admin, head office, HR manager, or role matches targetRoles
+      // Role check: If super admin, head office, HR manager, store owner, or role matches targetRoles
       const matchesRole = 
         roleStr === UserRole.SUPER_ADMIN || 
         roleStr === UserRole.HEAD_OFFICE || 
         roleStr === UserRole.HR_MANAGER ||
+        roleStr === UserRole.STORE_OWNER ||
         roleStr === "Super Admin" ||
         roleStr === "Admin" ||
         roleStr === "Head Office" ||
+        roleStr === "Store Owner" ||
+        roleStr === "Store Manager" ||
         roleStr === "HR Manager" ||
         roleStr === "HR" ||
         roleStr.toLowerCase().includes("admin") ||
         roleStr.toLowerCase().includes("head office") ||
+        roleStr.toLowerCase().includes("store") ||
         roleStr.toLowerCase().includes("hr") ||
+        (!n.targetRoles || n.targetRoles.length === 0) ||
         (n.targetRoles || []).some(r => {
-          const rStr = String(r).toLowerCase();
-          const targetRoleStr = roleStr.toLowerCase();
+          const rStr = String(r).toLowerCase().replace(/_/g, " ");
+          const targetRoleStr = roleStr.toLowerCase().replace(/_/g, " ");
           return rStr === targetRoleStr ||
+                 rStr.includes(targetRoleStr) ||
+                 targetRoleStr.includes(rStr) ||
                  (rStr.includes("admin") && targetRoleStr.includes("admin")) ||
                  (rStr.includes("head office") && targetRoleStr.includes("head office")) ||
+                 (rStr.includes("store") && targetRoleStr.includes("store")) ||
                  (rStr.includes("hr") && targetRoleStr.includes("hr"));
         });
 
       // Project check: If global or matched or no project filter
-      const matchesProject = !projectName || projectName === "ALL" || n.projectName === "Global System" || n.projectName === projectName;
+      const matchesProject = !projectName || 
+        projectName === "ALL" || 
+        n.projectName === "Global System" || 
+        n.projectName === projectName || 
+        !n.projectName ||
+        (n.projectName && projectName.toLowerCase().includes(n.projectName.toLowerCase())) ||
+        (n.projectName && n.projectName.toLowerCase().includes(projectName.toLowerCase()));
 
       // Filter out snoozed if snoozedUntil is in future
       let isStillSnoozed = false;

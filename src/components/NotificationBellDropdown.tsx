@@ -44,25 +44,34 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (systemNotifications && systemNotifications.length > 0) {
-      const adapted = systemNotifications.map(n => adaptToEnterpriseNotification(n));
+    const updateList = () => {
+      let combined: EnterpriseNotification[] = [];
+      if (systemNotifications && systemNotifications.length > 0) {
+        combined = systemNotifications.map(n => adaptToEnterpriseNotification(n));
+      }
+      const serviceNotifs = NotificationService.getNotifications();
+      const existingIds = new Set(combined.map(c => c.id));
+      serviceNotifs.forEach(sn => {
+        if (!existingIds.has(sn.id)) {
+          combined.push(sn);
+        }
+      });
+
       const filtered = NotificationService.getNotificationsForRoleAndProject(
         currentUserRole,
         selectedProject,
-        adapted
+        combined.length > 0 ? combined : undefined
       );
       setNotifications(filtered);
-    } else {
-      const unsubscribe = NotificationService.subscribe(() => {
-        const filtered = NotificationService.getNotificationsForRoleAndProject(
-          currentUserRole,
-          selectedProject
-        );
-        setNotifications(filtered);
-      });
+    };
 
-      return () => unsubscribe();
-    }
+    updateList();
+
+    const unsubscribe = NotificationService.subscribe(() => {
+      updateList();
+    });
+
+    return () => unsubscribe();
   }, [systemNotifications, currentUserRole, selectedProject]);
 
   // Click outside listener
@@ -76,17 +85,23 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const unreadCount = notifications.filter(n => n.status === "Unread" && !n.isArchived).length;
+  const isItemUnread = (n: EnterpriseNotification) => {
+    if (n.status === "Read") return false;
+    if ((n as any).read === true || (n as any).isRead === true) return false;
+    return true;
+  };
+
+  const unreadCount = notifications.filter(n => isItemUnread(n) && !n.isArchived).length;
   const criticalCount = notifications.filter(
-    n => n.priority === "Critical" && n.status === "Unread" && !n.isArchived
+    n => n.priority === "Critical" && isItemUnread(n) && !n.isArchived
   ).length;
 
   const displayNotifications = notifications.filter(n => {
     if (n.isArchived) return false;
-    if (activeTab === "unread") return n.status === "Unread";
+    if (activeTab === "unread") return isItemUnread(n);
     if (activeTab === "ai") return n.isAiGenerated;
     return true;
-  }).slice(0, 6);
+  }).slice(0, 10);
 
   const getPriorityBadgeClass = (priority: NotificationPriority) => {
     switch (priority) {
