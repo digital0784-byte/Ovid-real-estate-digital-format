@@ -60,6 +60,14 @@ service cloud.firestore {
       return hasRole('Store Manager');
     }
 
+    function isWarehouseManager() {
+      return hasRole('Warehouse Manager');
+    }
+
+    function isStoreOwner() {
+      return hasRole('Store Owner');
+    }
+
     function isHRManager() {
       return hasRole('HR Manager');
     }
@@ -116,7 +124,7 @@ service cloud.firestore {
     }
     match /registeredWarehouses/{warehouseId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager() || isWarehouseManager() || isStoreOwner();
     }
     match /zones/{zoneId} {
       allow read: if isSignedIn();
@@ -171,11 +179,11 @@ service cloud.firestore {
     // 7. Equipment & Vehicles
     match /equipment/{equipmentId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager() || isSiteEngineer() || isSupervisor();
     }
     match /vehicles/{vehicleId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
 
     // 8. Formwork Panels & Panel Logs
@@ -199,15 +207,15 @@ service cloud.firestore {
     // 9. Overseas Shipments, Customs, Transfers & Receiving Reports
     match /overseasShipments/{shipmentId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isFinanceManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager() || isFinanceManager();
     }
     match /customsRecords/{recordId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isFinanceManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager() || isFinanceManager();
     }
     match /dispatchTransfers/{transferId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager() || isSiteEngineer();
     }
     match /siteReceivingReports/{reportId} {
       allow read: if isSignedIn();
@@ -224,39 +232,39 @@ service cloud.firestore {
     match /materialRequests/{requestId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update, delete: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow update, delete: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /truckFleets/{fleetId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /supplierSchedules/{scheduleId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /sitePanelBreakdowns/{breakdownId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /dailyRequisitions/{reqId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /dailyConsumptionVariances/{varId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /requisitionAuditLogs/{logId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /dailyReturnReports/{repId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
     match /dailyConsolidatedReports/{repId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isProjectManager();
     }
 
     // 10. CAD Files & Site Operational Logs
@@ -292,7 +300,7 @@ service cloud.firestore {
     // 11. Notifications
     match /notifications/{notifId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isSignedIn();
     }
 
     // 12. Approvals
@@ -331,7 +339,7 @@ service cloud.firestore {
     // 16. Enterprise ERP Hub Collections (Procurement, Feedbacks, Appraisals)
     match /procurements/{procId} {
       allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager() || isFinanceManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isFinanceManager();
     }
     match /employeeFeedbacks/{feedbackId} {
       allow read: if isSignedIn();
