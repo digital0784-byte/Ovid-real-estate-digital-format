@@ -1293,6 +1293,47 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     };
     setDailyReturnReports(prev => [newRet, ...prev]);
     DbService.saveDailyReturnReport(newRet);
+
+    // CREATE NOTIFICATION FOR MATERIAL RETURN
+    const returnNotif = {
+      id: `NOTIF-RET-${Date.now()}`,
+      title: `Material Return Logged: ${newRet.materialName} (${newRet.returnedQty} ${newRet.unit})`,
+      titleAm: `ዕቃ ተመልሷል/ተመዝግቧል፡ ${newRet.materialName} (${newRet.returnedQty} ${newRet.unit})`,
+      description: `${newRet.jobPosition} ${newRet.gangChiefName} logged material return for ${newRet.requisitionId}: ${newRet.returnedQty} ${newRet.unit} of ${newRet.materialName} returned at ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber}). Damaged: ${newRet.damagedQty}, Lost: ${newRet.lostQty}.`,
+      descriptionAm: `${newRet.jobPosition} ${newRet.gangChiefName} የተመለሰ ዕቃ መዝግቧል (ጥያቄ ${newRet.requisitionId})፡ ${newRet.returnedQty} ${newRet.unit} ${newRet.materialName} በ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber})። የተጎዳ፡ ${newRet.damagedQty}፣ የጠፋ፡ ${newRet.lostQty}።`,
+      category: "Material Return Notifications",
+      priority: newRet.damagedQty > 0 || newRet.lostQty > 0 ? "High" : "Normal",
+      status: "Unread",
+      read: false,
+      isRead: false,
+      type: "Material Returned",
+      projectName: newRet.siteName,
+      sender: newRet.gangChiefName || "Store Owner",
+      senderRole: newRet.jobPosition || "Store Owner",
+      receiver: "Store Manager & Warehouse Manager",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
+      actionTab: "evening-returns",
+      timestamp: new Date().toISOString(),
+      date: new Date().toISOString().substring(0, 10),
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    };
+
+    DbService.addNotification(returnNotif).catch(err => console.error("Error writing return notification:", err));
+    if (NotificationService && NotificationService.createNotification) {
+      NotificationService.createNotification({
+        title: returnNotif.title,
+        message: returnNotif.description,
+        category: "Material Return Notifications",
+        priority: returnNotif.priority === "High" ? "High" : "Normal",
+        status: "Unread",
+        isRead: false,
+        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Store Owner", "Super Admin"],
+        moduleSource: "Store Owner App"
+      });
+    }
+    onCreateNotification?.(returnNotif);
+    setStoreNotifications(prev => [returnNotif, ...prev]);
+
     setShowNewReturnModal(false);
     onLogAction?.("Evening Return Audit Logged", `Logged dismantling return audit ${newRet.id} for requisition ${newRet.requisitionId}`);
   };
@@ -1731,6 +1772,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       message: `Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) from ${receiveForm.source || 'Supplier'}. Driver: ${receiveForm.driverName} (${receiveForm.truckPlate}), Received by: ${receiveForm.receivedBy}.`,
       description: `Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) from ${receiveForm.source || 'Supplier'}. Driver: ${receiveForm.driverName} (${receiveForm.truckPlate}), Received by: ${receiveForm.receivedBy}.`,
       messageAm: `${receiveForm.quantity} ${receiveForm.unit} ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) ከ${receiveForm.source || 'አቅራቢ'} ተቀብሏል። አሽከርካሪ፡ ${receiveForm.driverName} (${receiveForm.truckPlate})፣ ተቀባይ፡ ${receiveForm.receivedBy}።`,
+      descriptionAm: `${receiveForm.quantity} ${receiveForm.unit} ${receiveForm.materialName} (${receiveForm.dimensions || 'Standard'}) ከ${receiveForm.source || 'አቅራቢ'} ተቀብሏል። አሽከርካሪ፡ ${receiveForm.driverName} (${receiveForm.truckPlate})፣ ተቀባይ፡ ${receiveForm.receivedBy}።`,
       category: "Inventory & Material Dispatch",
       priority: "Medium",
       status: "Unread",
@@ -1738,6 +1780,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       isRead: false,
       type: "Material Received",
       projectName: receiveForm.gpsLocation || "Bole Heights Phase I",
+      sender: receiveForm.receivedBy || "Store Manager",
+      senderRole: "Store Manager",
+      receiver: "Store Manager & Warehouse Manager",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
+      actionTab: "material-receiving",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1752,7 +1799,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         priority: "Medium",
         status: "Unread",
         isRead: false,
-        targetRoles: ["Store Manager", "Project Manager", "Head Office", "Super Admin"],
+        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin"],
         moduleSource: "Store Owner App"
       });
     }
@@ -1833,6 +1880,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       message: `Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName} (${issueForm.receiverRole}) for ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}, ${issueForm.zone}).`,
       description: `Issued ${issueForm.quantity} ${issueForm.unit} of ${issueForm.materialName} to ${issueForm.receiverName} (${issueForm.receiverRole}) for ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}, ${issueForm.zone}).`,
       messageAm: `${issueForm.quantity} ${issueForm.unit} ${issueForm.materialName} ለ${issueForm.receiverName} (${issueForm.receiverRole}) በ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}) ተሰጥቷል።`,
+      descriptionAm: `${issueForm.quantity} ${issueForm.unit} ${issueForm.materialName} ለ${issueForm.receiverName} (${issueForm.receiverRole}) በ${issueForm.siteName} (${issueForm.building}, ${issueForm.floor}) ተሰጥቷል።`,
       category: "Inventory & Material Dispatch",
       priority: "Medium",
       status: "Unread",
@@ -1840,6 +1888,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       isRead: false,
       type: "Material Issued",
       projectName: issueForm.siteName || "Bole Heights Phase I",
+      sender: "Store Manager",
+      senderRole: "Store Manager",
+      receiver: issueForm.receiverName,
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
+      actionTab: "material-issuance",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
@@ -1854,7 +1907,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         priority: "Medium",
         status: "Unread",
         isRead: false,
-        targetRoles: ["Store Manager", "Project Manager", "Head Office", "Super Admin"],
+        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin", issueForm.receiverRole],
         moduleSource: "Store Owner App"
       });
     }
