@@ -1295,21 +1295,29 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     DbService.saveDailyReturnReport(newRet);
 
     // CREATE NOTIFICATION FOR MATERIAL RETURN
+    const matName = (newRet as any).materialName || "Formwork Accessories";
+    const qtyStr = (newRet as any).returnedQty ? `${(newRet as any).returnedQty} ${(newRet as any).unit || 'pcs'}` : `${newRet.pinsReturned} Pins, ${newRet.wedgesReturned} Wedges, ${newRet.tieRodsReturned} TieRods`;
+    const jobPos = (newRet as any).jobPosition || "Gang Chief";
+    const damagedVal = (newRet as any).damagedQty || (newRet.pinsDamaged + newRet.wedgesDamaged + newRet.tieRodsDamaged + newRet.conduitsDamaged);
+    const lostVal = (newRet as any).lostQty || (newRet.pinsLost + newRet.wedgesLost + newRet.tieRodsLost + newRet.conduitsLost);
+
     const returnNotif = {
       id: `NOTIF-RET-${Date.now()}`,
-      title: `Material Return Logged: ${newRet.materialName} (${newRet.returnedQty} ${newRet.unit})`,
-      titleAm: `ዕቃ ተመልሷል/ተመዝግቧል፡ ${newRet.materialName} (${newRet.returnedQty} ${newRet.unit})`,
-      description: `${newRet.jobPosition} ${newRet.gangChiefName} logged material return for ${newRet.requisitionId}: ${newRet.returnedQty} ${newRet.unit} of ${newRet.materialName} returned at ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber}). Damaged: ${newRet.damagedQty}, Lost: ${newRet.lostQty}.`,
-      descriptionAm: `${newRet.jobPosition} ${newRet.gangChiefName} የተመለሰ ዕቃ መዝግቧል (ጥያቄ ${newRet.requisitionId})፡ ${newRet.returnedQty} ${newRet.unit} ${newRet.materialName} በ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber})። የተጎዳ፡ ${newRet.damagedQty}፣ የጠፋ፡ ${newRet.lostQty}።`,
+      title: `Material Return Logged: ${matName} (${qtyStr})`,
+      titleAm: `ዕቃ ተመልሷል/ተመዝግቧል፡ ${matName} (${qtyStr})`,
+      message: `${jobPos} ${newRet.gangChiefName} logged material return for ${newRet.requisitionId}: ${qtyStr} returned at ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber}). Damaged: ${damagedVal}, Lost: ${lostVal}.`,
+      description: `${jobPos} ${newRet.gangChiefName} logged material return for ${newRet.requisitionId}: ${qtyStr} returned at ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber}). Damaged: ${damagedVal}, Lost: ${lostVal}.`,
+      messageAm: `${jobPos} ${newRet.gangChiefName} የተመለሰ ዕቃ መዝግቧል (ጥያቄ ${newRet.requisitionId})፡ ${qtyStr} በ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber})። የተጎዳ፡ ${damagedVal}፣ የጠፋ፡ ${lostVal}።`,
+      descriptionAm: `${jobPos} ${newRet.gangChiefName} የተመለሰ ዕቃ መዝግቧል (ጥያቄ ${newRet.requisitionId})፡ ${qtyStr} በ${newRet.siteName} (${newRet.blockNumber}, ${newRet.floorNumber})። የተጎዳ፡ ${damagedVal}፣ የጠፋ፡ ${lostVal}።`,
       category: "Material Return Notifications",
-      priority: newRet.damagedQty > 0 || newRet.lostQty > 0 ? "High" : "Normal",
+      priority: damagedVal > 0 || lostVal > 0 ? "High" : "Normal",
       status: "Unread",
       read: false,
       isRead: false,
       type: "Material Returned",
       projectName: newRet.siteName,
       sender: newRet.gangChiefName || "Store Owner",
-      senderRole: newRet.jobPosition || "Store Owner",
+      senderRole: jobPos,
       receiver: "Store Manager & Warehouse Manager",
       targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
       actionTab: "evening-returns",

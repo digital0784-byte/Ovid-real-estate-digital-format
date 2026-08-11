@@ -59,10 +59,12 @@ const ALL_CATEGORIES: NotificationCategory[] = [
   "Attendance Notifications",
   "Warehouse Notifications",
   "Site Store Notifications",
+  "Inventory & Material Dispatch",
   "Material Request Notifications",
   "Material Approval Notifications",
   "Material Transfer Notifications",
   "Material Return Notifications",
+  "Material Requisition Notifications",
   "Aluminum Formwork Panel Tracking Notifications",
   "Procurement Notifications",
   "Purchase Order Notifications",
@@ -127,24 +129,34 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
   // Subscribe to NotificationService & sync real systemNotifications
   useEffect(() => {
-    if (systemNotifications && systemNotifications.length > 0) {
-      const adapted = systemNotifications.map(n => adaptToEnterpriseNotification(n));
+    const updateList = () => {
+      let combined: EnterpriseNotification[] = [];
+      if (systemNotifications && systemNotifications.length > 0) {
+        combined = systemNotifications.map(n => adaptToEnterpriseNotification(n));
+      }
+      const serviceNotifs = NotificationService.getNotifications();
+      const existingIds = new Set(combined.map(c => c.id));
+      serviceNotifs.forEach(sn => {
+        if (!existingIds.has(sn.id)) {
+          combined.push(sn);
+        }
+      });
+
       const filtered = NotificationService.getNotificationsForRoleAndProject(
         currentUserRole,
         selectedProject,
-        adapted
+        combined.length > 0 ? combined : undefined
       );
       setNotifications(filtered);
-    } else {
-      const unsubscribe = NotificationService.subscribe(() => {
-        const filtered = NotificationService.getNotificationsForRoleAndProject(
-          currentUserRole,
-          selectedProject
-        );
-        setNotifications(filtered);
-      });
-      return () => unsubscribe();
-    }
+    };
+
+    updateList();
+
+    const unsubscribe = NotificationService.subscribe(() => {
+      updateList();
+    });
+
+    return () => unsubscribe();
   }, [systemNotifications, currentUserRole, selectedProject]);
 
   // Sync project filter if top dropdown changes
