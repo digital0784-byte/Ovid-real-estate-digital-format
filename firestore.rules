@@ -99,13 +99,15 @@ service cloud.firestore {
 
     // 1. Users collection & Role Change Requests
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow read: if true;
+      allow create: if true;
+      allow update: if isSuperAdmin() || isHRManager() || request.auth.uid == userId;
       allow delete: if isSuperAdmin();
     }
     match /role_change_requests/{reqId} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
+      allow read: if true;
+      allow create: if true;
+      allow update: if isSuperAdmin() || isHRManager();
       allow delete: if isSuperAdmin();
     }
 
@@ -133,17 +135,16 @@ service cloud.firestore {
 
     // 3. Employees, Workers & Teams
     match /employees/{employeeId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow read: if true;
+      allow write: if true;
     }
     match /workers/{workerId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow read: if true;
+      allow write: if true;
     }
     match /teams/{teamId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager() || isProjectManager();
+      allow read: if true;
+      allow write: if true;
     }
 
     // 4. Attendance & Worker Evaluations
@@ -307,7 +308,7 @@ service cloud.firestore {
     match /approvals/{approvalId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
-      allow update: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isFinanceManager() || isHRManager();
+      allow update: if isSuperAdmin() || isHRManager();
       allow delete: if isSuperAdmin();
     }
 

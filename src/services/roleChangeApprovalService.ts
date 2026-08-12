@@ -190,7 +190,6 @@ export class RoleChangeApprovalService {
     const r = String(role);
     return (
       r === UserRole.SUPER_ADMIN || r === "Super Admin" || r === "Admin" ||
-      r === UserRole.HEAD_OFFICE || r === "Head Office" ||
       r === UserRole.HR_MANAGER || r === "HR Manager" || r === "HR"
     );
   }

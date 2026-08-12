@@ -172,7 +172,7 @@ class OfflineCacheAndOutboxEngine {
   }
 
   public async flushOutbox(): Promise<void> {
-    if (!isFirebaseReady || !db || !auth?.currentUser || typeof window === "undefined") return;
+    if (!isFirebaseReady || !db || typeof window === "undefined") return;
     try {
       const outboxKey = this.getOutboxKey();
       const existing = localStorage.getItem(outboxKey);
@@ -202,11 +202,15 @@ class OfflineCacheAndOutboxEngine {
 
 const offlineEngine = new OfflineCacheAndOutboxEngine();
 
-// Auto-flush outbox when browser comes back online
+// Auto-flush outbox when browser comes back online or loads
 if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     offlineEngine.flushOutbox().catch(err => console.error("Error flushing offline outbox:", err));
   });
+  // Flush queued items immediately on module load
+  setTimeout(() => {
+    offlineEngine.flushOutbox().catch(() => {});
+  }, 1000);
 }
 
 // Unified Primary Data Fetcher & Modifier (Firestore is primary source of truth)
@@ -216,17 +220,43 @@ async function fetchCollection<T extends { id: string }>(collectionName: string,
       console.log(`[DbService] Fetching Firestore collection "${collectionName}"...`);
       const colRef = collection(db, collectionName);
       const snapshot = await getDocs(colRef);
+      const cached = offlineEngine.getCache<T>(collectionName, defaultData);
+
       if (!snapshot.empty) {
         const items = snapshot.docs.map(docSnap => {
           const data = docSnap.data() as T;
           return { ...data, id: data.id || docSnap.id };
         });
         console.log(`[DbService] Successfully loaded ${items.length} documents from Firestore collection "${collectionName}".`);
-        offlineEngine.saveCache(collectionName, items);
-        return items;
+        
+        // Merge Firestore items with local-only cached items so newly registered items aren't wiped
+        const fsIds = new Set(items.map(x => x.id));
+        const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));
+        const combined = [...items, ...localOnly];
+
+        offlineEngine.saveCache(collectionName, combined);
+
+        // Back-fill local-only registered items to Firestore
+        if (localOnly.length > 0) {
+          console.log(`[DbService] Found ${localOnly.length} local-only item(s) in "${collectionName}". Syncing to Firestore...`);
+          localOnly.forEach(item => {
+            setDoc(doc(db, collectionName, item.id), item, { merge: true }).catch(err => {
+              console.warn(`[DbService] Auto-syncing local document ${item.id} to Firestore failed:`, err);
+            });
+          });
+        }
+
+        return combined;
       } else {
-        console.log(`[DbService] Firestore collection "${collectionName}" is empty. Checking local cache.`);
-        const cached = offlineEngine.getCache<T>(collectionName, defaultData);
+        console.log(`[DbService] Firestore collection "${collectionName}" is empty. Checking local cache (${cached.length} items).`);
+        // If Firestore is empty, upload all cached items to Firestore if available
+        if (cached && cached.length > 0) {
+          cached.forEach(item => {
+            setDoc(doc(db, collectionName, item.id), item, { merge: true }).catch(err => {
+              console.warn(`[DbService] Initial seed sync for ${item.id} failed:`, err);
+            });
+          });
+        }
         return cached;
       }
     } catch (err) {
