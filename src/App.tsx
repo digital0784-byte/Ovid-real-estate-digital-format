@@ -583,6 +583,15 @@ export default function App() {
     return true;
   };
 
+  // Auto-redirect user if activeTab is not permitted for currentUserRole
+  React.useEffect(() => {
+    if (currentUserRole && !hasAccess(activeTab)) {
+      const allowed = tabPermissions[currentUserRole] || ["dashboard"];
+      const fallback = allowed.includes("dashboard") ? "dashboard" : (allowed[0] || "dashboard");
+      setActiveTab(fallback);
+    }
+  }, [currentUserRole, activeTab]);
+
   const t = (key: string): string => {
     const lang = isAmharic ? "am" : "en";
     return translations[lang][key] || key;
@@ -2136,7 +2145,7 @@ export default function App() {
                     { id: "notificationCenter", num: 4, nameEn: "Notifications Center", nameAm: "4. የማስታወቂያዎች ማዕከል (Notifications Center)", icon: Bell },
                     { id: "admin", num: 5, nameEn: "Admin Role Approval", nameAm: "5. የአድሚን ማፅደቂያ ቦርድ (Admin Role Approval)", icon: Settings },
                     { id: "securitySettings", num: 6, nameEn: "Security & Settings", nameAm: "6. ደህንነት እና ምርጫዎች (Security & Settings)", icon: Shield },
-                  ].map(item => {
+                  ].filter(item => hasAccess(item.id)).map(item => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
                     return (
@@ -2176,7 +2185,7 @@ export default function App() {
                     { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP Hub (Finance ERP Hub)", icon: DollarSign },
                     { id: "headOfficeSync", num: 11, nameEn: "Real-Time Cloud Sync", nameAm: "11. የደመና መረጃ ሲንክ (Real-Time Cloud Sync)", icon: Database },
                     { id: "auditLog", num: 12, nameEn: "Audit Log", nameAm: "12. ኦዲት መዝገብ (Audit Log)", icon: ShieldCheck },
-                  ].map(item => {
+                  ].filter(item => hasAccess(item.id)).map(item => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
                     return (
@@ -2256,7 +2265,7 @@ export default function App() {
                     { id: "biometricBoard", num: 22, nameEn: "Biometric Board", nameAm: "22. ባዮሜትሪክ ቦርድ (Biometric Board)", icon: Fingerprint },
                     { id: "planning", num: 23, nameEn: "Planning & Gantt", nameAm: "23. የግንባታ እቅድ & Gantt (Planning & Gantt)", icon: Calendar },
                     { id: "progress", num: 24, nameEn: "Daily Progress Logs", nameAm: "24. ዕለታዊ የዕድገት መዝገብ (Daily Progress Logs)", icon: Layers },
-                  ].map(item => {
+                  ].filter(item => hasAccess(item.id)).map(item => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
                     return (
@@ -2296,7 +2305,7 @@ export default function App() {
                     { id: "safetyQuality", num: 28, nameEn: "Safety & Quality", nameAm: "28. ደህንነት እና ጥራት (Safety & Quality)", icon: ShieldAlert },
                     { id: "mobileApps", num: 29, nameEn: "Mobile Apps Suite", nameAm: "29. የሞባይል መተግበሪያዎች (Mobile Apps Suite)", icon: Smartphone },
                     { id: "launchReadiness", num: 30, nameEn: "Launch Readiness", nameAm: "30. ማስጀመሪያ ዝግጁነት (Launch Readiness)", icon: Rocket },
-                  ].map(item => {
+                  ].filter(item => hasAccess(item.id)).map(item => {
                     const Icon = item.icon;
                     const isActive = activeTab === item.id;
                     return (
