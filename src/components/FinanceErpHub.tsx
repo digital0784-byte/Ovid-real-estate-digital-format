@@ -7,7 +7,8 @@ import {
   AluminumFormworkPanel, 
   PanelRepairRecord, 
   UserRole,
-  Team
+  Team,
+  PayrollRecord
 } from "../types";
 import {
   DollarSign,
@@ -138,28 +139,6 @@ interface ProjectEvmData {
   scheduleVarianceDays: number;
   cpi: number;
   spi: number;
-}
-
-interface PayrollRecord {
-  id: string;
-  workerId: string;
-  workerName: string;
-  trade: string;
-  basicSalary: number;
-  daysWorked: number;
-  normalHours: number;
-  overtimeHours: number;
-  underTimeHours: number;
-  overtimePay: number;
-  allowances: number;
-  bonuses: number;
-  underTimeDeduction: number;
-  attendanceDeductions: number;
-  tax: number;
-  pension: number;
-  netSalary: number;
-  status: "Draft" | "Approved" | "Paid";
-  paymentMethod: string;
 }
 
 interface ProcurementRecord {
@@ -321,6 +300,9 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const [repairRecordsList, setRepairRecordsList] = useState<PanelRepairRecord[]>([]);
   const [formworkPanelsList, setFormworkPanelsList] = useState<AluminumFormworkPanel[]>([]);
   const [loadingDbData, setLoadingDbData] = useState(false);
+  const [savedPayrollList, setSavedPayrollList] = useState<PayrollRecord[]>([]);
+  const [isSavingPayroll, setIsSavingPayroll] = useState(false);
+  const [payrollSyncStatus, setPayrollSyncStatus] = useState<string | null>(null);
 
   // Fetch linked database files from DbService
   useEffect(() => {
@@ -328,19 +310,21 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     const fetchAllData = async () => {
       try {
         setLoadingDbData(true);
-        const [z, att, wrk, repairs, panels, dbExpenses] = await Promise.all([
+        const [z, att, wrk, repairs, panels, dbExpenses, dbPayroll] = await Promise.all([
           DbService.getZones(),
           DbService.getAttendance(),
           DbService.getWorkers(),
           DbService.getPanelRepairRecords(),
           DbService.getFormworkPanels(),
-          DbService.getExpenses()
+          DbService.getExpenses(),
+          DbService.getPayrollRecords()
         ]);
         if (active) {
           if (z && z.length > 0) setZonesList(z);
           if (att && att.length > 0) setAttendanceRecordList(att);
           if (wrk && wrk.length > 0) setWorkersList(wrk);
           if (dbExpenses && dbExpenses.length > 0) setExpenses(dbExpenses);
+          if (dbPayroll && dbPayroll.length > 0) setSavedPayrollList(dbPayroll);
           setRepairRecordsList(repairs || []);
           setFormworkPanelsList(panels || []);
           setLoadingDbData(false);
@@ -422,12 +406,49 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
 
   // --- AUTOMATED PAYROLL ENGINE GENERATION ---
   const generatedPayroll = useMemo(() => {
+    // If saved payroll exists in Firestore, use it or merge worker data
+    if (savedPayrollList && savedPayrollList.length > 0) {
+      return savedPayrollList.map(p => {
+        const matchingWorker = workersList.find(w => w.id === p.workerId);
+        const basicSalary = matchingWorker?.basicMonthlySalary || p.basicSalary || 18000;
+        const daysWorked = p.attendanceDays || 22;
+        const overtimePay = p.overtimePayment || 0;
+        const deductions = p.deductions || 0;
+        const tax = Math.round(basicSalary * 0.15);
+        const pension = Math.round(basicSalary * 0.07);
+        const allowances = p.allowances || 3500;
+        const netSalary = p.netSalary || Math.max(0, basicSalary + overtimePay + allowances - deductions - tax - pension);
+
+        return {
+          id: p.id,
+          workerId: p.workerId,
+          workerName: p.workerName,
+          trade: p.position || matchingWorker?.trade || "Site Technician",
+          basicSalary,
+          daysWorked,
+          normalHours: (p.totalWorkingHours || daysWorked * 8),
+          overtimeHours: p.overtimeHours || 0,
+          underTimeHours: p.undertimeHours || 0,
+          overtimePay,
+          allowances,
+          bonuses: 1000,
+          underTimeDeduction: p.undertimeDeduction || 0,
+          attendanceDeductions: deductions,
+          tax,
+          pension,
+          netSalary,
+          status: (p.status === "Approved" || p.status === "Paid" ? "Approved" : "Draft") as any,
+          paymentMethod: "CBE Direct Deposit"
+        };
+      });
+    }
+
     const list = workersList.length > 0 ? workersList : [
-      { id: "W-101", name: "Kassa Hunegn", trade: "Formwork Carpenter", company: "BuildSync", status: "Active" },
-      { id: "W-102", name: "Sintayehu Alula", trade: "Steel Fixer", company: "BuildSync", status: "Active" },
-      { id: "W-103", name: "Tadesse Chala", trade: "Concrete Labourer", company: "Subcontractor", status: "Active" },
-      { id: "W-104", name: "Abebe Kassaye", trade: "Formwork Stripper", company: "BuildSync", status: "Active" },
-      { id: "W-105", name: "Mulugeta Assefa", trade: "Tower Crane Operator", company: "BuildSync", status: "Active" }
+      { id: "W-101", name: "Kassa Hunegn", trade: "Formwork Carpenter", company: "BuildSync", status: "Active", basicMonthlySalary: 18000 },
+      { id: "W-102", name: "Sintayehu Alula", trade: "Steel Fixer", company: "BuildSync", status: "Active", basicMonthlySalary: 20500 },
+      { id: "W-103", name: "Tadesse Chala", trade: "Concrete Labourer", company: "Subcontractor", status: "Active", basicMonthlySalary: 15000 },
+      { id: "W-104", name: "Abebe Kassaye", trade: "Formwork Stripper", company: "BuildSync", status: "Active", basicMonthlySalary: 17500 },
+      { id: "W-105", name: "Mulugeta Assefa", trade: "Tower Crane Operator", company: "BuildSync", status: "Active", basicMonthlySalary: 28000 }
     ];
 
     return list.map((w, idx) => {
@@ -437,7 +458,8 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (a.overtimeHours || 0), idx % 2 === 0 ? 12 : 6);
       const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (a.underTimeHours || 0), idx % 3 === 0 ? 2 : 0);
 
-      const basicSalary = 18000 + (idx * 2500);
+      // Priority 1: Use basicMonthlySalary from enrollment form
+      const basicSalary = w.basicMonthlySalary || (w.hourlyRate ? w.hourlyRate * 208 : (18000 + (idx * 2500)));
       const dailyRate = basicSalary / 26;
       const hourlyRate = dailyRate / 8;
 
@@ -451,7 +473,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       const tax = Math.round(taxableIncome * 0.15); // Progressive Ethiopian Income Tax estimation
       const pension = Math.round(basicSalary * 0.07); // 7% Employee Pension
 
-      const netSalary = taxableIncome - (tax + pension + attendanceDeductions);
+      const netSalary = Math.max(0, taxableIncome - (tax + pension + attendanceDeductions));
 
       return {
         id: `PR-${w.id}`,
@@ -475,7 +497,51 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         paymentMethod: "CBE Direct Deposit"
       };
     });
-  }, [workersList, attendanceList]);
+  }, [workersList, attendanceList, savedPayrollList]);
+
+  // Save generated/processed payroll records directly to Firestore
+  const handleSavePayrollToFirestore = async () => {
+    setIsSavingPayroll(true);
+    try {
+      const recordsToPersist: PayrollRecord[] = generatedPayroll.map(p => ({
+        id: p.id,
+        workerId: p.workerId,
+        employeeId: p.workerId,
+        workerName: p.workerName,
+        position: p.trade,
+        department: "Operations & Site Construction",
+        team: "Bole Heights Construction Team",
+        project: "Digital Bole Heights",
+        employmentType: "Permanent",
+        basicSalary: p.basicSalary,
+        attendanceDays: p.daysWorked,
+        totalWorkingHours: p.normalHours + p.overtimeHours,
+        overtimeHours: p.overtimeHours,
+        overtimePayment: p.overtimePay,
+        undertimeHours: p.underTimeHours,
+        undertimeDeduction: p.underTimeDeduction,
+        allowances: p.allowances,
+        deductions: p.attendanceDeductions + p.underTimeDeduction + p.tax + p.pension,
+        netSalary: p.netSalary,
+        status: "Approved",
+        grade: "Grade A",
+        period: new Date().toISOString().substring(0, 7),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }));
+
+      await DbService.savePayrollRecords(recordsToPersist);
+      setSavedPayrollList(recordsToPersist);
+      setPayrollSyncStatus("Payroll saved & synchronized to Firestore!");
+      onLogAction?.("Process Payroll Batch", `Saved & Approved payroll batch for ${recordsToPersist.length} workers to Firestore`);
+      setTimeout(() => setPayrollSyncStatus(null), 4000);
+    } catch (err) {
+      console.error("Failed to save payroll to Firestore:", err);
+      alert("Failed to save payroll to Firestore.");
+    } finally {
+      setIsSavingPayroll(false);
+    }
+  };
 
   // --- MASTER FINANCIAL CALCULATIONS ---
   const companyRevenue = useMemo(() => invoices.reduce((sum, i) => sum + i.amount, 0), [invoices]);
@@ -1263,18 +1329,26 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
 
                 {isFullAccess && (
                   <button
-                    onClick={() => {
-                      onLogAction?.("Process Payroll Batch", `Approved payroll batch for ${generatedPayroll.length} workers totaling ETB ${totalPayrollCost.toLocaleString()}`);
-                      alert("Payroll Batch Approved and Transmitted to Commercial Bank of Ethiopia (CBE) Direct Deposit API!");
-                    }}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
+                    onClick={handleSavePayrollToFirestore}
+                    disabled={isSavingPayroll}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
                   >
                     <CheckCircle2 size={14} />
-                    <span>Approve & Disbursement Payroll</span>
+                    <span>{isSavingPayroll ? "Saving to Firestore..." : "Approve & Save Payroll to Firestore"}</span>
                   </button>
                 )}
               </div>
             </div>
+
+            {payrollSyncStatus && (
+              <div className="bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 px-4 py-3 rounded-2xl text-xs font-bold flex items-center justify-between shadow-lg">
+                <div className="flex items-center space-x-2">
+                  <CheckCircle size={16} className="text-emerald-400 animate-pulse" />
+                  <span>{payrollSyncStatus}</span>
+                </div>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900/60 px-2 py-0.5 rounded-full">Firestore Collection: "payroll"</span>
+              </div>
+            )}
 
             {/* Payroll Summary Header */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-950 p-5 rounded-2xl border border-slate-800 text-xs">

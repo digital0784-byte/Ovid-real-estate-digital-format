@@ -49,6 +49,7 @@ export enum AttendanceMethod {
 export interface Worker {
   id: string; // ID for worker (e.g., ERP-W-101)
   name: string;
+  basicMonthlySalary?: number; // Base monthly salary in ETB captured at enrollment
   photo?: string;
   phoneNumber?: string;
   nationalId?: string;
@@ -781,10 +782,12 @@ export type NotificationCategory =
   | "Attendance Notifications"
   | "Warehouse Notifications"
   | "Site Store Notifications"
+  | "Inventory & Material Dispatch"
   | "Material Request Notifications"
   | "Material Approval Notifications"
   | "Material Transfer Notifications"
   | "Material Return Notifications"
+  | "Material Requisition Notifications"
   | "Aluminum Formwork Panel Tracking Notifications"
   | "Procurement Notifications"
   | "Purchase Order Notifications"

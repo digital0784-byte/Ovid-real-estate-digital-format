@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
+import { NotificationService } from "../services/notificationService";
 import { ProjectZone, AluminumFormworkPanel, PanelStatus, PanelType, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import { MaterialSearchAutocomplete, MaterialOption } from "./MaterialSearchAutocomplete";
@@ -119,7 +120,9 @@ export interface StoreMaterialItem {
   availableStock: number;
   reservedStock: number;
   minThreshold: number;
-  warehouseLocation: string;
+  warehouseLocation?: string;
+  location?: string;
+  lastUpdated?: string;
   status: "In Stock" | "Low Stock" | "Out of Stock" | "Reserved";
 }
 
@@ -1330,11 +1333,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     if (NotificationService && NotificationService.createNotification) {
       NotificationService.createNotification({
         title: returnNotif.title,
-        message: returnNotif.description,
+        description: returnNotif.description,
         category: "Material Return Notifications",
-        priority: returnNotif.priority === "High" ? "High" : "Normal",
+        priority: returnNotif.priority === "High" ? "High" : "Medium",
         status: "Unread",
-        isRead: false,
         targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Store Owner", "Super Admin"],
         moduleSource: "Store Owner App"
       });
@@ -1802,11 +1804,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     if (NotificationService && NotificationService.createNotification) {
       NotificationService.createNotification({
         title: notifObj.title,
-        message: notifObj.message,
+        description: notifObj.message,
         category: "Inventory & Material Dispatch",
         priority: "Medium",
         status: "Unread",
-        isRead: false,
         targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin"],
         moduleSource: "Store Owner App"
       });
@@ -1910,11 +1911,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     if (NotificationService && NotificationService.createNotification) {
       NotificationService.createNotification({
         title: notifObj.title,
-        message: notifObj.message,
+        description: notifObj.message,
         category: "Inventory & Material Dispatch",
         priority: "Medium",
         status: "Unread",
-        isRead: false,
         targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin", issueForm.receiverRole],
         moduleSource: "Store Owner App"
       });

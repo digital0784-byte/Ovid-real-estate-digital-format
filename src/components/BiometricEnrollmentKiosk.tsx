@@ -97,6 +97,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   const [enrollCompany, setEnrollCompany] = useState("Digital Construction ERP");
   const [enrollDepartment, setEnrollDepartment] = useState("Formwork Assembly");
   const [enrollTrade, setEnrollTrade] = useState("Carpenter");
+  const [enrollBasicMonthlySalary, setEnrollBasicMonthlySalary] = useState<number>(18000);
   const [enrollBuilding, setEnrollBuilding] = useState("Digital Tower 1");
   const [enrollFloor, setEnrollFloor] = useState(4);
   const [enrollZone, setEnrollZone] = useState("Zone B");
@@ -240,6 +241,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
     const newWorker: Worker = {
       id: enrollId || `ERP-W-${100 + workers.length + 1}`,
       name: enrollName,
+      basicMonthlySalary: Number(enrollBasicMonthlySalary) || 18000,
       photo: enrollPhoto,
       company: enrollCompany,
       department: enrollDepartment,
@@ -1385,6 +1387,24 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   value={enrollTrade}
                   onChange={e => setEnrollTrade(e.target.value)}
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:border-red-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Basic Monthly Salary */}
+              <div className="space-y-1">
+                <label className="font-extrabold text-xs text-slate-700 flex justify-between items-center">
+                  <span>{isAmharic ? "መሰረታዊ ወርሃዊ ደመወዝ (በብር)" : "Basic Monthly Salary (ETB)"}</span>
+                  <span className="text-[10px] text-red-500 font-bold">*Required</span>
+                </label>
+                <input 
+                  type="number" 
+                  required
+                  min={1000}
+                  step={100}
+                  value={enrollBasicMonthlySalary}
+                  onChange={e => setEnrollBasicMonthlySalary(Number(e.target.value))}
+                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:border-red-500 focus:outline-none"
+                  placeholder="e.g. 18000"
                 />
               </div>
 

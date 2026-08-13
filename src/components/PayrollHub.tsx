@@ -90,9 +90,9 @@ export function computeBaselinePayroll(workers: Worker[], attendance: Attendance
       ? "Daily Labourer" 
       : (index % 3 === 0 ? "Permanent" : "Contract");
 
-    const basicSalary = employmentType === "Daily Labourer" 
+    const basicSalary = w.basicMonthlySalary || (employmentType === "Daily Labourer" 
       ? 650 // daily wage
-      : (w.trade === "Steel Fixer" ? 18000 : 22000); // monthly base salary
+      : (w.trade === "Steel Fixer" ? 18000 : 22000)); // monthly base salary
     
     const attendanceDays = attendance.filter(a => a.workerId === w.id && a.status === "Present").length || (18 + (index % 6));
     
