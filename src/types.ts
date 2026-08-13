@@ -826,14 +826,14 @@ export interface EnterpriseNotification {
   category: NotificationCategory;
   priority: NotificationPriority;
   status: NotificationStatus;
-  projectName: string;
+  projectName?: string;
   siteName?: string;
   building?: string;
   floor?: string;
   zone?: string;
-  sender: string;
+  sender?: string;
   senderRole?: string;
-  receiver: string;
+  receiver?: string;
   targetRoles: (UserRole | string)[];
   date: string;
   time: string;
@@ -853,6 +853,7 @@ export interface EnterpriseNotification {
   actionPayload?: Record<string, any>;
   tags?: string[];
   readBy?: string[];
+  moduleSource?: string;
 }
 
 export interface NotificationFilterState {

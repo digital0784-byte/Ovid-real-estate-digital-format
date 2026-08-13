@@ -73,7 +73,8 @@ import {
   initialSiteReceivingReports,
   initialInventoryAudits,
   initialRegisteredSites,
-  initialWarehouses
+  initialWarehouses,
+  initialPayrollRecords
 } from "../data";
 import {
   initialStoreItems,
@@ -837,7 +838,7 @@ export const DbService = {
 
   // 16. payroll (payroll)
   async getPayrollRecords(): Promise<PayrollRecord[]> {
-    return fetchCollection<PayrollRecord>("payroll", []);
+    return fetchCollection<PayrollRecord>("payroll", initialPayrollRecords);
   },
   async savePayrollRecord(record: PayrollRecord): Promise<void> {
     const docToSave: PayrollRecord = {

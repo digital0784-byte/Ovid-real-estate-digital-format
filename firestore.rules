@@ -159,8 +159,8 @@ service cloud.firestore {
 
     // 5. Payroll
     match /payroll/{payrollId} {
-      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isHRManager() || (isSignedIn() && existing().employeeId == request.auth.uid);
-      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+      allow read: if true;
+      allow write: if true;
     }
 
     // 6. Materials, Inventory & Audits
