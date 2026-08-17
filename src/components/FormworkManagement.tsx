@@ -797,15 +797,16 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
     const oldZone = selectedPanelForMove.zone;
 
     // Update panel
+    const moveDestLower = String(moveDestination || "").toLowerCase();
     const updatedPanel: AluminumFormworkPanel = {
       ...selectedPanelForMove,
       location: moveDestination,
       zone: moveZone,
-      status: moveDestination.toLowerCase().includes("scrap") || moveDestination.toLowerCase().includes("repair") 
+      status: moveDestLower.includes("scrap") || moveDestLower.includes("repair") 
               ? PanelStatus.UNDER_REPAIR 
               : PanelStatus.IN_USE,
       // Increment usage cycle when deployed to standard construction zones
-      usageCount: moveDestination.toLowerCase().includes("heights") || moveDestination.toLowerCase().includes("saris")
+      usageCount: moveDestLower.includes("heights") || moveDestLower.includes("saris")
                   ? selectedPanelForMove.usageCount + 1
                   : selectedPanelForMove.usageCount
     };
@@ -1277,12 +1278,13 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
   // --- Filtered Panels List ---
   const filteredPanels = panels.filter(panel => {
+    const q = String(searchQuery || "").toLowerCase();
     const matchesSearch = 
-      panel.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      panel.serialNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      panel.bundleNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      panel.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      panel.zone.toLowerCase().includes(searchQuery.toLowerCase());
+      String(panel.id || "").toLowerCase().includes(q) ||
+      String(panel.serialNumber || "").toLowerCase().includes(q) ||
+      String(panel.bundleNumber || "").toLowerCase().includes(q) ||
+      String(panel.location || "").toLowerCase().includes(q) ||
+      String(panel.zone || "").toLowerCase().includes(q);
 
     const matchesType = typeFilter === "All" || panel.type === typeFilter;
     const matchesStatus = statusFilter === "All" || panel.status === statusFilter;

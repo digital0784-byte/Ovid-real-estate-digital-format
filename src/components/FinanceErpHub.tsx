@@ -454,26 +454,27 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     return list.map((w, idx) => {
       // Find worker attendance records
       const workerAtt = attendanceList.filter(a => a.workerId === w.id || a.workerName === w.name);
-      const daysWorked = workerAtt.length > 0 ? workerAtt.filter(a => a.status === "Present").length : 22;
-      const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (a.overtimeHours || 0), idx % 2 === 0 ? 12 : 6);
-      const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (a.underTimeHours || 0), idx % 3 === 0 ? 2 : 0);
+      const daysWorked = workerAtt.length > 0 ? workerAtt.filter(a => a.status === "Present").length : 0;
+      const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (a.overtimeHours || 0), 0);
+      const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (a.underTimeHours || 0), 0);
 
       // Priority 1: Use basicMonthlySalary from enrollment form
-      const basicSalary = w.basicMonthlySalary || (w.hourlyRate ? w.hourlyRate * 208 : (18000 + (idx * 2500)));
-      const dailyRate = basicSalary / 26;
-      const hourlyRate = dailyRate / 8;
+      const basicSalary = w.basicMonthlySalary || (w.hourlyRate ? w.hourlyRate * 208 : 18000);
+      const dailyRate = Math.round((basicSalary / 26) * 100) / 100;
+      const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
 
       const overtimePay = Math.round(totalOvertimeHrs * hourlyRate * 1.5);
-      const allowances = 3500; // Site allowance + transport
-      const bonuses = idx === 0 ? 2500 : 1000;
+      const allowances = daysWorked > 0 ? 1500 : 0; // Site allowance prorated if active
+      const bonuses = 0;
       const underTimeDeduction = Math.round(totalUnderTimeHrs * hourlyRate);
-      const attendanceDeductions = Math.round((26 - daysWorked) * dailyRate);
+      
+      // Pro-rated base wage for days worked (even for a single day)
+      const basePayForDaysWorked = Math.round(dailyRate * daysWorked);
+      const grossEarned = basePayForDaysWorked + overtimePay + allowances + bonuses - underTimeDeduction;
+      const tax = Math.round(grossEarned * 0.15); // Progressive Ethiopian Income Tax estimation
+      const pension = Math.round(basePayForDaysWorked * 0.07); // 7% Employee Pension
 
-      const taxableIncome = basicSalary + overtimePay + allowances + bonuses - underTimeDeduction;
-      const tax = Math.round(taxableIncome * 0.15); // Progressive Ethiopian Income Tax estimation
-      const pension = Math.round(basicSalary * 0.07); // 7% Employee Pension
-
-      const netSalary = Math.max(0, taxableIncome - (tax + pension + attendanceDeductions));
+      const netSalary = Math.max(0, grossEarned - (tax + pension));
 
       return {
         id: `PR-${w.id}`,
@@ -489,7 +490,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         allowances,
         bonuses,
         underTimeDeduction,
-        attendanceDeductions,
+        attendanceDeductions: 0,
         tax,
         pension,
         netSalary,

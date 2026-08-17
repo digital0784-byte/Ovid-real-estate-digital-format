@@ -277,6 +277,74 @@
         "details": { "type": "string" }
       },
       "required": ["id", "timestamp", "userId", "userName", "role", "action", "details"]
+    },
+    "EnterpriseDocument": {
+      "title": "EnterpriseDocument",
+      "description": "Enterprise engineering blueprints, CAD layout drawings, and technical submittals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string" },
+        "ver": { "type": "string" },
+        "syncDate": { "type": "string" },
+        "approval": { "type": "string" }
+      },
+      "required": ["id", "name", "type"]
+    },
+    "EnterpriseChatMessage": {
+      "title": "EnterpriseChatMessage",
+      "description": "Internal communication messages, radio walkie-talkie snippets, and site alerts.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "sender": { "type": "string" },
+        "text": { "type": "string" },
+        "time": { "type": "string" },
+        "type": { "type": "string" },
+        "duration": { "type": "string" },
+        "url": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "sender"]
+    },
+    "ClientApproval": {
+      "title": "ClientApproval",
+      "description": "Client and consultant verification portal review sign-offs and directives.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "task": { "type": "string" },
+        "submitted": { "type": "string" },
+        "status": { "type": "string" },
+        "consultant": { "type": "string" },
+        "comments": { "type": "string" }
+      },
+      "required": ["id", "task", "status"]
+    },
+    "SiteDiaryLog": {
+      "title": "SiteDiaryLog",
+      "description": "Daily digital site diary logs, weather, attendance, activities, and engineer notes.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string" },
+        "weather": { "type": "string" },
+        "attendance": { "type": "string" },
+        "surveyResults": { "type": "string" },
+        "activities": { "type": "string" },
+        "photos": { "type": "string" },
+        "droneImages": { "type": "string" },
+        "safetyIncidents": { "type": "string" },
+        "materialUsage": { "type": "string" },
+        "equipmentUsage": { "type": "string" },
+        "concreteActivities": { "type": "string" },
+        "visitors": { "type": "string" },
+        "engineerNotes": { "type": "string" },
+        "supervisorNotes": { "type": "string" },
+        "aiSummary": { "type": "string" }
+      },
+      "required": ["id", "date", "activities"]
     }
   },
   "firestore": {
@@ -355,6 +423,22 @@
     "/auditLogs/{logId}": {
       "schema": "AuditLog",
       "description": "Immutable security tracking audit logs."
+    },
+    "/enterpriseDocuments/{docId}": {
+      "schema": "EnterpriseDocument",
+      "description": "Enterprise drawings, CAD and submittal documents."
+    },
+    "/enterpriseChatMessages/{messageId}": {
+      "schema": "EnterpriseChatMessage",
+      "description": "Real-time communication and radio messages."
+    },
+    "/clientApprovals/{approvalId}": {
+      "schema": "ClientApproval",
+      "description": "Consultant and client inspection sign-offs."
+    },
+    "/siteDiaryLogs/{logId}": {
+      "schema": "SiteDiaryLog",
+      "description": "Daily site diary progress and activity records."
     }
   }
 }

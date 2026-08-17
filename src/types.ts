@@ -78,6 +78,10 @@ export interface Worker {
   status: "Active" | "Inactive";
   teamId: string;
   skills?: string; // e.g. "Formwork Assembly, Blueprint Reading"
+  bankName?: string; // e.g. Commercial Bank of Ethiopia (CBE), Dashen Bank, Awash Bank
+  bankAccountNumber?: string; // e.g. 1000123456789
+  mobileMoneyType?: "Telebirr" | "CBE Birr" | "M-PESA" | "Amole" | "Awash Birr" | "Kacha" | "Other" | string;
+  mobileMoneyNumber?: string; // e.g. +251 911-234567
 }
 
 export interface Team {
@@ -926,6 +930,10 @@ export interface PayrollRecord {
   netSalary: number;
   status: "Draft" | "Pending Review" | "Pending Approval" | "Approved" | "Paid";
   grade: "Grade A" | "Grade B" | "Grade C" | "Grade D";
+  bankName?: string;
+  bankAccountNumber?: string;
+  mobileMoneyType?: string;
+  mobileMoneyNumber?: string;
   period?: string;
   createdAt?: string;
   updatedAt?: string;

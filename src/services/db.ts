@@ -478,6 +478,45 @@ export const DbService = {
     return fetchCollection<any>("notifications", defaultNotifs);
   },
 
+  subscribeNotifications(
+    callback: (notifs: any[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      console.log("[DbService] Subscribing real-time onSnapshot listener to 'notifications'...");
+      const colRef = collection(db, "notifications");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return { ...data, id: data.id || docSnap.id };
+          });
+          console.log(`[DbService.onSnapshot] Live update received for 'notifications'. Document count: ${items.length}`);
+          if (items.length > 0) {
+            offlineEngine.saveCache("notifications", items);
+            callback(items);
+          } else {
+            const cached = offlineEngine.getCache<any>("notifications", []);
+            callback(cached);
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "notifications");
+          console.warn("[DbService.onSnapshot] Error in 'notifications' listener:", error);
+          if (onError) onError(error);
+          const cached = offlineEngine.getCache<any>("notifications", []);
+          callback(cached);
+        }
+      );
+      return unsubscribe;
+    } else {
+      const cached = offlineEngine.getCache<any>("notifications", []);
+      callback(cached);
+      return () => {};
+    }
+  },
+
   async addNotification(notif: any): Promise<void> {
     await writeDocument<any>("notifications", notif, []);
   },
@@ -917,5 +956,38 @@ export const DbService = {
   },
   async addConcreteTruck(item: any): Promise<void> {
     await writeDocument<any>("concreteTruckLogs", item, []);
+  },
+
+  // === BATCH B: Enterprise ERP Collections ===
+  // 1. documents ("enterpriseDocuments")
+  async getEnterpriseDocuments(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("enterpriseDocuments", defaultItems);
+  },
+  async addEnterpriseDocument(item: any): Promise<void> {
+    await writeDocument<any>("enterpriseDocuments", item, []);
+  },
+
+  // 2. chats and voice messages ("enterpriseChatMessages")
+  async getEnterpriseChatMessages(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("enterpriseChatMessages", defaultItems);
+  },
+  async addEnterpriseChatMessage(item: any): Promise<void> {
+    await writeDocument<any>("enterpriseChatMessages", item, []);
+  },
+
+  // 3. clientApprovals ("clientApprovals")
+  async getClientApprovals(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("clientApprovals", defaultItems);
+  },
+  async addClientApproval(item: any): Promise<void> {
+    await writeDocument<any>("clientApprovals", item, []);
+  },
+
+  // 4. diaryLogs ("siteDiaryLogs")
+  async getSiteDiaryLogs(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("siteDiaryLogs", defaultItems);
+  },
+  async addSiteDiaryLog(item: any): Promise<void> {
+    await writeDocument<any>("siteDiaryLogs", item, []);
   }
 };

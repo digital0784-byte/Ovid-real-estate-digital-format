@@ -66,6 +66,7 @@ import { StoreOwnerApp } from "./components/StoreOwnerApp";
 import { CustomInputGovernanceHub } from "./components/CustomInputGovernanceHub";
 import { NotificationBellDropdown } from "./components/NotificationBellDropdown";
 import { EnterpriseNotificationCenter } from "./components/EnterpriseNotificationCenter";
+import { LiveNotificationToast } from "./components/LiveNotificationToast";
 import { NotificationService } from "./services/notificationService";
 import { RoleChangeApprovalService } from "./services/roleChangeApprovalService";
 
@@ -783,43 +784,56 @@ export default function App() {
     };
   }, [isAuthenticated, lastActivity, sessionTimeoutMinutes]);
 
-  // Poll notifications in the background for all authenticated users to receive real-time updates
+  // Real-Time Notification Stream from Firestore & Local Sync for authenticated users
   React.useEffect(() => {
     if (!isAuthenticated) return;
 
-    const interval = setInterval(async () => {
-      try {
-        const fetched = await DbService.getNotifications();
-        setNotifications((prev) => {
-          // Identify any notifications not currently in the state list
-          const prevIds = new Set(prev.map(n => n.id));
-          const newNotifs = fetched.filter(n => !prevIds.has(n.id));
-          
-          if (newNotifs.length > 0) {
-            newNotifs.forEach(notif => {
-              if (notif.type === "New Registrant") {
-                triggerNotificationToast(
-                  "New Registrant",
-                  notif.message
-                );
-              }
-            });
-          }
-          return fetched;
-        });
-      } catch (err) {
-        console.error("Error polling notifications:", err);
+    // Listen for custom tab navigation events dispatched by notifications
+    const handleTabNav = (e: CustomEvent<string>) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
       }
-    }, 8000); // Check every 8 seconds
+    };
+    window.addEventListener("navigate_to_app_tab" as any, handleTabNav);
 
-    return () => clearInterval(interval);
-  }, [isAuthenticated, currentUserRole]);
+    // Real-Time Firestore onSnapshot Stream
+    const unsubscribeNotifications = DbService.subscribeNotifications((fetched) => {
+      if (!fetched) return;
+      
+      setNotifications((prev) => {
+        const prevIds = new Set(prev.map(n => n.id));
+        const newNotifs = fetched.filter(n => !prevIds.has(n.id));
+        
+        if (newNotifs.length > 0) {
+          newNotifs.forEach(notif => {
+            if (notif.type === "New Registrant") {
+              triggerNotificationToast(
+                "New Registrant",
+                notif.message || notif.description || notif.title || "New registrant account pending review"
+              );
+            }
+          });
+        }
+        return fetched;
+      });
+
+      // Synchronize into NotificationService and trigger live alerts/chimes/browser notifications
+      NotificationService.mergeRemoteNotifications(fetched, currentUserRole, selectedProject);
+    });
+
+    return () => {
+      window.removeEventListener("navigate_to_app_tab" as any, handleTabNav);
+      if (typeof unsubscribeNotifications === "function") {
+        unsubscribeNotifications();
+      }
+    };
+  }, [isAuthenticated, currentUserRole, selectedProject]);
 
   // Trigger system notification toast for cross-app transmissions
-  const triggerNotificationToast = (action: string, details: string) => {
+  const triggerNotificationToast = (action: string, details?: string) => {
     let titleEn = "Data Transmitted";
     let titleAm = "መረጃ ተልኳል";
-    let descEn = details;
+    let descEn = details || action || "System event transmitted successfully";
     let descAm = "ሲስተሙ መረጃን ከአንድ ሞዱል ወደ ሌላው በተሳካ ሁኔታ አስተላልፏል።";
     let type: "sync" | "success" | "warning" | "info" = "info";
     let senderApp = "Active ERP Module";
@@ -827,8 +841,8 @@ export default function App() {
     let receiverApp = "Central Database";
     let receiverAppAm = "ማዕከላዊ ዳታቤዝ";
 
-    const actLower = action.toLowerCase();
-    const detLower = details.toLowerCase();
+    const actLower = String(action || "").toLowerCase();
+    const detLower = String(details || "").toLowerCase();
 
     if (actLower.includes("offline queue") || actLower.includes("offline queue synchronized") || detLower.includes("synchronized pending local")) {
       titleEn = "Offline Buffer Synchronized";
@@ -1564,6 +1578,8 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col antialiased">
+      {/* Live Floating Notification Toast */}
+      <LiveNotificationToast onNavigateToTab={(tab) => setActiveTab(tab)} isAmharic={isAmharic} />
       
       {/* HEADER SECTION (No-print for tidy PDF generation) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shadow-xs">
@@ -1646,6 +1662,7 @@ export default function App() {
               systemNotifications={notifications}
               onMarkAsRead={handleMarkAsReadNotification}
               onMarkAllAsRead={handleMarkAllAsReadNotifications}
+              isAmharic={isAmharic}
             />
 
             {/* Language toggle widget */}

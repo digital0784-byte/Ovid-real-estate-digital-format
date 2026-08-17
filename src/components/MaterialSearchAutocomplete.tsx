@@ -138,22 +138,24 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
 
     // 1. Add storeItems from Firestore / local state first
     storeItems.forEach(i => {
-      optionMap.set(i.name.toLowerCase().trim(), {
+      if (!i || !i.name) return;
+      optionMap.set(String(i.name).toLowerCase().trim(), {
         id: i.id,
         name: i.name,
-        category: i.category,
-        dimensions: i.dimensions,
-        unit: i.unit,
-        availableStock: i.availableStock,
-        totalStock: i.totalStock,
-        unitCost: i.unitCost,
+        category: i.category || "",
+        dimensions: i.dimensions || "",
+        unit: i.unit || "pcs",
+        availableStock: i.availableStock ?? 0,
+        totalStock: i.totalStock ?? 0,
+        unitCost: i.unitCost ?? 0,
         isPreset: false,
       });
     });
 
     // 2. Add preset catalog items if not already present
     PRESET_MATERIAL_CATALOG.forEach(p => {
-      const key = p.name.toLowerCase().trim();
+      if (!p || !p.name) return;
+      const key = String(p.name).toLowerCase().trim();
       if (!optionMap.has(key)) {
         optionMap.set(key, p);
       }
@@ -164,20 +166,20 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
 
   // Filter options based on search input
   const filteredOptions = useMemo(() => {
-    const term = searchTerm.toLowerCase().trim();
+    const term = String(searchTerm || "").toLowerCase().trim();
     if (!term) return mergedOptions;
 
     return mergedOptions.filter(opt =>
-      opt.name.toLowerCase().includes(term) ||
-      opt.category.toLowerCase().includes(term) ||
-      opt.dimensions.toLowerCase().includes(term)
+      String(opt.name || "").toLowerCase().includes(term) ||
+      String(opt.category || "").toLowerCase().includes(term) ||
+      String(opt.dimensions || "").toLowerCase().includes(term)
     );
   }, [mergedOptions, searchTerm]);
 
   const exactMatchExists = useMemo(() => {
-    const term = searchTerm.toLowerCase().trim();
+    const term = String(searchTerm || "").toLowerCase().trim();
     if (!term) return false;
-    return mergedOptions.some(opt => opt.name.toLowerCase().trim() === term);
+    return mergedOptions.some(opt => String(opt.name || "").toLowerCase().trim() === term);
   }, [mergedOptions, searchTerm]);
 
   const handleSelectOption = (opt: MaterialOption) => {
@@ -249,7 +251,7 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
           <div className="py-1">
             {filteredOptions.length > 0 ? (
               filteredOptions.map((opt) => {
-                const isSelected = value.toLowerCase().trim() === opt.name.toLowerCase().trim();
+                const isSelected = String(value || "").toLowerCase().trim() === String(opt.name || "").toLowerCase().trim();
                 return (
                   <button
                     key={opt.id}

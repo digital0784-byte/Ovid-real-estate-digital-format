@@ -33,7 +33,9 @@ import {
   X, 
   ChevronDown, 
   Eye, 
-  ChevronRight
+  ChevronRight,
+  Volume2,
+  VolumeX
 } from "lucide-react";
 import { 
   EnterpriseNotification, 
@@ -107,6 +109,143 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   const [showCreateCustomModal, setShowCreateCustomModal] = useState(false);
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>("ALL");
   const [langDisplayMode, setLangDisplayMode] = useState<"both" | "en" | "am">("both");
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(() => NotificationService.getBrowserPermission());
+  const [isSoundOn, setIsSoundOn] = useState<boolean>(() => NotificationService.isSoundActive());
+
+  const handleRequestPermission = async () => {
+    const perm = await NotificationService.requestBrowserPermission();
+    setBrowserPermission(perm);
+    if (perm === "granted") {
+      NotificationService.createNotification({
+        title: "Browser Push Alerts Enabled",
+        titleAm: "የብሮውዘር/ስልክ የቀጥታ ማስታወቂያዎች ነቅተዋል",
+        description: "Your system will now receive instant push banners and audio chimes for real-time construction workflows.",
+        descriptionAm: "ለኮንስትራክሽን ዕለታዊ ስራዎች፣ ለደህንነት እና ለዕቃዎች ዝውውር በቅጽበት የቀጥታ ድምፅና ማስታወቂያ ይደርስዎታል።",
+        category: "System Update Notifications",
+        priority: "High",
+        status: "Unread",
+        projectName: selectedProject || "Global System",
+        sender: "BuildSync Notification Engine",
+        senderRole: "System Admin",
+        receiver: String(currentUserRole),
+        targetRoles: [currentUserRole as UserRole],
+        deliveryChannels: { inApp: true, push: true, email: false, sms: false },
+        actionTab: "notificationCenter"
+      });
+    }
+  };
+
+  const toggleSound = () => {
+    const next = !isSoundOn;
+    setIsSoundOn(next);
+    NotificationService.setSoundActive(next);
+    if (next) {
+      NotificationService.playAudioChime("High");
+    }
+  };
+
+  const sendRealNotificationPreset = (type: "material" | "safety" | "stock" | "attendance" | "bank") => {
+    let preset: Omit<EnterpriseNotification, "id" | "date" | "time" | "timestamp">;
+    switch (type) {
+      case "material":
+        preset = {
+          title: "Urgent Material Requisition: 250 Bags C42.5 Cement",
+          titleAm: "አስቸኳይ የቁሳቁስ ጥያቄ፡ 250 ቦርሳ ሲሚንቶ",
+          description: "Site Store received urgent requisition ticket #MR-901 for 3rd Floor column casting.",
+          descriptionAm: "የሳይት ስቶር ለ3ኛ ፎቅ ዓምዶች ማፍሰሻ 250 ቦርሳ ሲሚንቶ አስቸኳይ ጥያቄ ደርሶታል።",
+          category: "Material Request Notifications",
+          priority: "High",
+          status: "Unread",
+          projectName: selectedProject || "Addis Ababa Tower Block A",
+          siteName: "Bole Main Site",
+          sender: "Site Engineer",
+          senderRole: "Site Engineer",
+          receiver: "Store Owner & Warehouse Manager",
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER],
+          deliveryChannels: { inApp: true, push: true, email: true, sms: true },
+          actionTab: "storeOwnerApp"
+        };
+        break;
+      case "safety":
+        preset = {
+          title: "Critical HSE Alert: Scaffold Lock Pin Loose on Zone 2",
+          titleAm: "አስቸኳይ የደህንነት ማስጠንቀቂያ፡ የስካፎልዲንግ መቆለፊያ ፒን በዞን 2 ላላ",
+          description: "Safety inspector reported unsecured cross-brace on 4th floor exterior scaffold.",
+          descriptionAm: "የደህንነት ተቆጣጣሪው በ4ኛ ፎቅ ውጫዊ ስካፎልዲንግ ላይ የላላ መቆለፊያ አስመዝግቧል።",
+          category: "Hazard Notifications",
+          priority: "Critical",
+          status: "Unread",
+          projectName: selectedProject || "Addis Ababa Tower Block A",
+          siteName: "Bole Main Site",
+          building: "Tower A",
+          floor: "4th Floor",
+          sender: "HSE Inspector",
+          senderRole: "HSE Officer",
+          receiver: "Safety & Site Team",
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.HSE_OFFICER, UserRole.PROJECT_MANAGER, UserRole.SUPERVISOR, UserRole.SITE_ENGINEER],
+          deliveryChannels: { inApp: true, push: true, email: true, sms: true },
+          actionTab: "safetyQuality"
+        };
+        break;
+      case "stock":
+        preset = {
+          title: "Low Inventory Alert: 16mm Rebar Below Min Threshold",
+          titleAm: "ዝቅተኛ የስቶክ ክምችት ማስጠንቀቂያ፡ 16 ሚሜ ብረት ከዝቅተኛው ወሰን በታች ወርዷል",
+          description: "Current warehouse stock: 3.5 Tons (Safety threshold: 8.0 Tons). Urgent PO recommended.",
+          descriptionAm: "አሁን በስቶር ያለው 3.5 ቶን ሲሆን ዝቅተኛው ወሰን 8.0 ቶን ነው። በአስቸኳይ ግዢ እንዲፈጸም ይጠየቃል።",
+          category: "Warehouse Notifications",
+          priority: "High",
+          status: "Unread",
+          projectName: selectedProject || "Addis Ababa Tower Block A",
+          siteName: "Central Logistics Yard",
+          sender: "Warehouse Inventory Engine",
+          senderRole: "Warehouse Manager",
+          receiver: "Procurement & Store",
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER, UserRole.HEAD_OFFICE],
+          deliveryChannels: { inApp: true, push: true, email: true, sms: false },
+          actionTab: "warehouseManagerApp"
+        };
+        break;
+      case "bank":
+        preset = {
+          title: "New Worker Bank Account Registered for Payroll",
+          titleAm: "አዲስ የተመዘገበ ሠራተኛ የባንክ ሂሳብ መረጃ ገብቷል",
+          description: "Worker Abebe Kebede registered CBE Bank Account #1000293848123 and Telebirr 0911223344 for direct salary transfer.",
+          descriptionAm: "ሠራተኛ አበበ ከበደ የንግድ ባንክ ሂሳብ ቁጥር #1000293848123 እና ቴሌብር 0911223344 ለደመወዝ ክፍያ መዝግቧል።",
+          category: "Payroll Notifications",
+          priority: "Medium",
+          status: "Unread",
+          projectName: selectedProject || "Addis Ababa Tower Block A",
+          sender: "HR Worker Registration",
+          senderRole: "HR Manager",
+          receiver: "Finance Manager & HR",
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.FINANCE_MANAGER, UserRole.HEAD_OFFICE],
+          deliveryChannels: { inApp: true, push: true, email: false, sms: false },
+          actionTab: "financeErp"
+        };
+        break;
+      default:
+        preset = {
+          title: "Real-Time Biometric Gate Clock-In Logged",
+          titleAm: "የቀጥታ ባዮሜትሪክ በር መግቢያ ተመዝግቧል",
+          description: "12 Workers from Concrete Crew checked in via Biometric Scanner Gate 1.",
+          descriptionAm: "12 የኮንክሪት ቡድን ሠራተኞች በባዮሜትሪክ በር 1 መግቢያቸውን መዝግበዋል።",
+          category: "Attendance Notifications",
+          priority: "Medium",
+          status: "Unread",
+          projectName: selectedProject || "Addis Ababa Tower Block A",
+          sender: "Biometric Turnstile #1",
+          senderRole: "System Biometrics",
+          receiver: "Time Keeper & Supervisors",
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.TIME_KEEPER, UserRole.SUPERVISOR, UserRole.PROJECT_MANAGER],
+          deliveryChannels: { inApp: true, push: true, email: false, sms: false },
+          actionTab: "attendance"
+        };
+        break;
+    }
+
+    NotificationService.createNotification(preset);
+  };
 
   // Filter State
   const [filters, setFilters] = useState<NotificationFilterState>({
@@ -518,6 +657,109 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
           <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
             <CheckCircle2 className="w-5 h-5" />
           </div>
+        </div>
+      </div>
+
+      {/* Real-Time Device Push & Instant Notification Gateway */}
+      <div className="bg-gradient-to-r from-slate-900 via-amber-950/20 to-slate-900 border border-amber-500/30 rounded-2xl p-4 shadow-lg">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          {/* Status info */}
+          <div className="flex items-start space-x-3">
+            <div className="p-2.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30 flex-shrink-0 mt-0.5">
+              <Radio className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-bold text-white">
+                  የቀጥታ ስልክና ብሮውዘር ማስታወቂያዎች (Live Device Push & Audio Chimes)
+                </h3>
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  browserPermission === "granted"
+                    ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                    : "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                }`}>
+                  {browserPermission === "granted" ? "✓ Push Active (ንቁ)" : "⚠ Permission Needed"}
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-1 max-w-2xl leading-relaxed">
+                በስቶር ውስጥ አዲስ እቃ ሲመጣ፣ የዕቃ ጥያቄ ሲቀርብ፣ ወይም አስቸኳይ የደህንነት ማስጠንቀቂያ ሲከሰት ያለ ምንም መዘግየት በድምፅ እና በስልክ/ኮምፒውተር ማሳወቂያ በቀጥታ ይደርስዎታል።
+              </p>
+            </div>
+          </div>
+
+          {/* Quick controls */}
+          <div className="flex flex-wrap items-center gap-2">
+            {browserPermission !== "granted" && (
+              <button
+                id="btn-enable-browser-push-main"
+                onClick={handleRequestPermission}
+                className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5"
+              >
+                <Smartphone className="w-4 h-4" />
+                <span>ማስታወቂያዎችን አብራ / ፍቀድ (Enable)</span>
+              </button>
+            )}
+
+            <button
+              onClick={toggleSound}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold border transition-all flex items-center space-x-1.5 ${
+                isSoundOn
+                  ? "bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30"
+                  : "bg-slate-800 border-slate-700 text-slate-400 hover:text-white"
+              }`}
+              title={isSoundOn ? "Mute chime sound" : "Unmute chime sound"}
+            >
+              <Volume2 className={`w-4 h-4 ${isSoundOn ? "text-amber-400" : "text-slate-500"}`} />
+              <span>{isSoundOn ? "ድምፅ በርቷል (Sound ON)" : "ድምፅ ጠፍቷል (Muted)"}</span>
+            </button>
+
+            {/* Quick Test Presets Dropdown */}
+            <div className="relative group">
+              <button
+                id="btn-send-real-test-alert"
+                onClick={() => sendRealNotificationPreset("material")}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition-all flex items-center space-x-1.5"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>የቀጥታ የሙከራ ጥሪ (Test Live Alert)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Preset Test Triggers row */}
+        <div className="mt-3 pt-3 border-t border-slate-800 flex flex-wrap items-center gap-2 text-xs">
+          <span className="text-[11px] font-semibold text-slate-400">የተግባራዊ ማስታወቂያ ሙከራዎች (Test Real Workflows):</span>
+          <button
+            onClick={() => sendRealNotificationPreset("material")}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500/40 transition-colors"
+          >
+            📦 የዕቃ ጥያቄ (Material Request)
+          </button>
+          <button
+            onClick={() => sendRealNotificationPreset("safety")}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-red-300 border border-slate-700 hover:border-red-500/40 transition-colors"
+          >
+            ⚠️ አስቸኳይ ደህንነት (Safety HSE)
+          </button>
+          <button
+            onClick={() => sendRealNotificationPreset("stock")}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 hover:border-amber-500/40 transition-colors"
+          >
+            📉 የስቶክ ክምችት ማነስ (Low Stock)
+          </button>
+          <button
+            onClick={() => sendRealNotificationPreset("bank")}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 hover:border-emerald-500/40 transition-colors"
+          >
+            💳 አዲስ የባንክ አካውንት (Bank Reg)
+          </button>
+          <button
+            onClick={() => sendRealNotificationPreset("attendance")}
+            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-300 border border-slate-700 hover:border-blue-500/40 transition-colors"
+          >
+            🕒 ባዮሜትሪክ መገኘት (Biometric Gate)
+          </button>
         </div>
       </div>
 

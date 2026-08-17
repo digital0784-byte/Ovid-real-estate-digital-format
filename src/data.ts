@@ -43,7 +43,11 @@ export const initialWorkers: Worker[] = [
     photo: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&h=200&fit=crop",
     phoneNumber: "+251 911-234567",
     emergencyContact: "Tirunesh Tesfaye - Sister (+251 911-765432)",
-    skills: "Aluminium Formwork Systems, Blueprint Reading, Scaffolding Safety"
+    skills: "Aluminium Formwork Systems, Blueprint Reading, Scaffolding Safety",
+    bankName: "Commercial Bank of Ethiopia (CBE)",
+    bankAccountNumber: "1000123456789",
+    mobileMoneyType: "Telebirr",
+    mobileMoneyNumber: "+251 911-234567"
   },
   { 
     id: "ERP-W-102", 

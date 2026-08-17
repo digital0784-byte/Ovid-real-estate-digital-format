@@ -133,7 +133,11 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
     status: "Active" as "Active" | "Inactive",
     photo: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
     teamId: "T-01",
-    zone: ""
+    zone: "",
+    bankName: "Commercial Bank of Ethiopia (CBE)",
+    bankAccountNumber: "",
+    mobileMoneyType: "Telebirr",
+    mobileMoneyNumber: ""
   });
 
   const [formError, setFormError] = useState("");
@@ -807,6 +811,102 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                         {activeWorker.status}
                       </span>
                     )}
+                  </div>
+                </div>
+
+                {/* BANK & MOBILE MONEY ACCOUNT CARD */}
+                <div className="md:col-span-2 bg-emerald-50/40 p-4 rounded-xl border border-emerald-100 space-y-3">
+                  <h4 className="font-extrabold uppercase text-[10px] text-emerald-800 tracking-wider flex items-center gap-1 border-b border-emerald-200/60 pb-1">
+                    <FileText size={12} className="text-emerald-600" />
+                    <span>{isAmharic ? "የባንክ እና የሞባይል ክፍያ መረጃዎች" : "Bank & Mobile Payment Accounts"}</span>
+                  </h4>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 block">
+                        {isAmharic ? "የባንክ ስም" : "Bank Name"}
+                      </label>
+                      {isEditing ? (
+                        <select
+                          value={editForm.bankName || "Commercial Bank of Ethiopia (CBE)"}
+                          onChange={e => setEditForm({ ...editForm, bankName: e.target.value })}
+                          className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-bold"
+                        >
+                          <option value="Commercial Bank of Ethiopia (CBE)">የኢትዮጵያ ንግድ ባንክ (CBE)</option>
+                          <option value="Dashen Bank">ዳሽን ባንክ (Dashen)</option>
+                          <option value="Awash Bank">አዋሽ ባንክ (Awash)</option>
+                          <option value="Bank of Abyssinia">አቢሲንያ ባንክ (Abyssinia)</option>
+                          <option value="Nib International Bank">ኒብ ባንክ (Nib)</option>
+                          <option value="Wegagen Bank">ወጋገን ባንክ (Wegagen)</option>
+                          <option value="Cooperative Bank of Oromia">ኦሮሚያ ህብረት ስራ ባንክ</option>
+                          <option value="Hibret Bank">ኅብረት ባንክ (Hibret)</option>
+                          <option value="Hijra Bank">ሂጅራ ባንክ (Hijra)</option>
+                          <option value="ZamZam Bank">ዘምዘም ባንክ (ZamZam)</option>
+                          <option value="Other Bank">ሌላ ባንክ (Other)</option>
+                        </select>
+                      ) : (
+                        <div className="font-bold text-slate-900">{activeWorker.bankName || "CBE (ከመነሻ)"}</div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 block">
+                        {isAmharic ? "የባንክ ሂሳብ ቁጥር" : "Account Number"}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editForm.bankAccountNumber || ""}
+                          onChange={e => setEditForm({ ...editForm, bankAccountNumber: e.target.value })}
+                          placeholder="1000123456789"
+                          className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-mono font-bold"
+                        />
+                      ) : (
+                        <div className="font-bold text-slate-900 font-mono">
+                          {activeWorker.bankAccountNumber || "ያልተሞላ (Not set)"}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 block">
+                        {isAmharic ? "ሞባይል ዋሌት" : "Mobile Wallet"}
+                      </label>
+                      {isEditing ? (
+                        <select
+                          value={editForm.mobileMoneyType || "Telebirr"}
+                          onChange={e => setEditForm({ ...editForm, mobileMoneyType: e.target.value })}
+                          className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-bold"
+                        >
+                          <option value="Telebirr">ቴሌብር (Telebirr)</option>
+                          <option value="CBE Birr">ሲቢኢ ብር (CBE Birr)</option>
+                          <option value="M-PESA">ኤም-ፔሳ (M-PESA)</option>
+                          <option value="Amole">አሞሌ (Amole)</option>
+                          <option value="Awash Birr">አዋሽ ብር (Awash Birr)</option>
+                        </select>
+                      ) : (
+                        <div className="font-bold text-slate-900">{activeWorker.mobileMoneyType || "Telebirr"}</div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-black uppercase text-slate-400 block">
+                        {isAmharic ? "ዋሌት ስልክ" : "Wallet Phone"}
+                      </label>
+                      {isEditing ? (
+                        <input
+                          type="text"
+                          value={editForm.mobileMoneyNumber || ""}
+                          onChange={e => setEditForm({ ...editForm, mobileMoneyNumber: e.target.value })}
+                          placeholder="+251 9XX-XXXXXX"
+                          className="w-full bg-white border border-slate-300 rounded p-1.5 text-xs font-mono font-bold"
+                        />
+                      ) : (
+                        <div className="font-bold text-slate-900 font-mono">
+                          {activeWorker.mobileMoneyNumber || activeWorker.phoneNumber || "ያልተሞላ"}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
 

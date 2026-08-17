@@ -824,8 +824,196 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
 
 type NotificationListener = (notifications: EnterpriseNotification[]) => void;
 
+// Web Audio API Sound Synthesizer for notifications
+class NotificationAudioEngine {
+  private static audioCtx: AudioContext | null = null;
+
+  private static getContext(): AudioContext | null {
+    if (typeof window === "undefined") return null;
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContextClass) return null;
+      if (!this.audioCtx || this.audioCtx.state === "closed") {
+        this.audioCtx = new AudioContextClass();
+      }
+      if (this.audioCtx.state === "suspended") {
+        this.audioCtx.resume();
+      }
+      return this.audioCtx;
+    } catch {
+      return null;
+    }
+  }
+
+  public static play(priority: NotificationPriority = "Medium") {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return;
+
+      const now = ctx.currentTime;
+
+      if (priority === "Critical") {
+        // Urgent 3-tone high frequency alert
+        const osc1 = ctx.createOscillator();
+        const osc2 = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc1.type = "sawtooth";
+        osc2.type = "sine";
+        osc1.frequency.setValueAtTime(880, now);
+        osc1.frequency.setValueAtTime(1174.66, now + 0.12);
+        osc1.frequency.setValueAtTime(1396.91, now + 0.24);
+
+        osc2.frequency.setValueAtTime(440, now);
+        osc2.frequency.setValueAtTime(587.33, now + 0.12);
+        osc2.frequency.setValueAtTime(698.46, now + 0.24);
+
+        gain.gain.setValueAtTime(0.18, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc1.start(now);
+        osc2.start(now);
+        osc1.stop(now + 0.45);
+        osc2.stop(now + 0.45);
+      } else if (priority === "High") {
+        // Clear 2-tone melodic chime
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(587.33, now); // D5
+        osc.frequency.setValueAtTime(880, now + 0.15); // A5
+
+        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.4);
+      } else {
+        // Soft mellow chime
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        osc.type = "sine";
+        osc.frequency.setValueAtTime(523.25, now); // C5
+        osc.frequency.setValueAtTime(659.25, now + 0.12); // E5
+
+        gain.gain.setValueAtTime(0.12, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+
+        osc.start(now);
+        osc.stop(now + 0.35);
+      }
+    } catch (e) {
+      console.warn("Notification audio play suppressed or unsupported:", e);
+    }
+  }
+}
+
 export class NotificationService {
   private static listeners: Set<NotificationListener> = new Set();
+  private static isSoundEnabled: boolean = true;
+  private static isPushEnabled: boolean = true;
+
+  // Browser Push Permission Management
+  public static getBrowserPermission(): NotificationPermission {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return "denied";
+    }
+    return Notification.permission;
+  }
+
+  public static async requestBrowserPermission(): Promise<NotificationPermission> {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      return "denied";
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      return permission;
+    } catch {
+      return "denied";
+    }
+  }
+
+  // Play auditory chime for notification
+  public static playAudioChime(priority: NotificationPriority = "Medium"): void {
+    if (!this.isSoundEnabled) return;
+    NotificationAudioEngine.play(priority);
+  }
+
+  // Send real OS/browser notification
+  public static sendNativeBrowserPush(notif: EnterpriseNotification): void {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    try {
+      const title = notif.titleAm || notif.title;
+      const body = notif.descriptionAm || notif.description;
+      
+      const nativeNotif = new Notification(title, {
+        body: body,
+        icon: "/icon.png",
+        tag: notif.id,
+        badge: "/icon.png",
+        requireInteraction: notif.priority === "Critical"
+      });
+
+      nativeNotif.onclick = () => {
+        window.focus();
+        if (notif.actionTab) {
+          window.dispatchEvent(new CustomEvent("navigate_to_app_tab", { detail: notif.actionTab }));
+        }
+        nativeNotif.close();
+      };
+    } catch (e) {
+      console.warn("Native Notification dispatch error:", e);
+    }
+  }
+
+  // Dispatch live real-time notification across UI, audio, vibration, and browser push
+  public static dispatchLiveRealNotification(notif: EnterpriseNotification, options?: { playSound?: boolean; pushBrowser?: boolean; triggerToast?: boolean }): void {
+    const playSound = options?.playSound ?? true;
+    const pushBrowser = options?.pushBrowser ?? true;
+    const triggerToast = options?.triggerToast ?? true;
+
+    // 1. Audio Chime
+    if (playSound) {
+      this.playAudioChime(notif.priority);
+    }
+
+    // 2. Mobile Device Vibration
+    if (typeof window !== "undefined" && "navigator" in window && navigator.vibrate) {
+      try {
+        if (notif.priority === "Critical") {
+          navigator.vibrate([200, 100, 200, 100, 300]);
+        } else {
+          navigator.vibrate([150, 80, 150]);
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    // 3. Browser Native Push
+    if (pushBrowser) {
+      this.sendNativeBrowserPush(notif);
+    }
+
+    // 4. In-App Real-Time Floating Banner Event
+    if (triggerToast && typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("buildsync_live_notification", { detail: notif }));
+    }
+  }
 
   public static getNotifications(): EnterpriseNotification[] {
     if (typeof window === "undefined") return SEED_NOTIFICATIONS;
@@ -845,6 +1033,43 @@ export class NotificationService {
     if (typeof window === "undefined") return;
     localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(list));
     this.notifyListeners(list);
+  }
+
+  // Merge remote notifications coming from Firestore onSnapshot
+  public static mergeRemoteNotifications(remoteItems: any[], currentUserRole?: string, currentProject?: string): void {
+    if (!remoteItems || remoteItems.length === 0) return;
+
+    const currentList = this.getNotifications();
+    const currentMap = new Map<string, EnterpriseNotification>(currentList.map(n => [n.id, n]));
+    const newIncomingItems: EnterpriseNotification[] = [];
+
+    remoteItems.forEach(item => {
+      const adapted = adaptToEnterpriseNotification(item);
+      if (!currentMap.has(adapted.id)) {
+        currentMap.set(adapted.id, adapted);
+        newIncomingItems.push(adapted);
+      } else {
+        // Update status if remote changed
+        const existing = currentMap.get(adapted.id)!;
+        if (item.status && item.status !== existing.status) {
+          existing.status = item.status;
+        }
+      }
+    });
+
+    const updatedList = Array.from(currentMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    this.saveNotifications(updatedList);
+
+    // Trigger real-time alert for newly received remote notifications
+    if (newIncomingItems.length > 0) {
+      newIncomingItems.forEach(newItem => {
+        // Filter by role/project relevance
+        const forUser = this.getNotificationsForRoleAndProject(currentUserRole || "Super Admin", currentProject, [newItem]);
+        if (forUser.length > 0) {
+          this.dispatchLiveRealNotification(newItem);
+        }
+      });
+    }
   }
 
   public static subscribe(listener: NotificationListener): () => void {
@@ -1021,6 +1246,23 @@ export class NotificationService {
     this.saveNotifications(list);
   }
 
+  // Sound & Push setting getters and setters
+  public static isSoundActive(): boolean {
+    return this.isSoundEnabled;
+  }
+
+  public static setSoundActive(enabled: boolean): void {
+    this.isSoundEnabled = enabled;
+  }
+
+  public static isPushActive(): boolean {
+    return this.isPushEnabled;
+  }
+
+  public static setPushActive(enabled: boolean): void {
+    this.isPushEnabled = enabled;
+  }
+
   // Create new notification manually or programmatically
   public static createNotification(params: Omit<EnterpriseNotification, "id" | "date" | "time" | "timestamp">): EnterpriseNotification {
     const list = this.getNotifications();
@@ -1028,7 +1270,7 @@ export class NotificationService {
     
     const newNotif: EnterpriseNotification = {
       ...params,
-      id: `NOTIF-${Date.now()}`,
+      id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       date: now.toISOString().slice(0, 10),
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now()
@@ -1036,6 +1278,10 @@ export class NotificationService {
 
     list.unshift(newNotif);
     this.saveNotifications(list);
+
+    // Live dispatch (Sound + Browser Push + Floating Banner + Vibration)
+    this.dispatchLiveRealNotification(newNotif);
+
     return newNotif;
   }
 

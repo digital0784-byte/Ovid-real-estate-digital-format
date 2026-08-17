@@ -486,6 +486,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   ]);
 
   const [newDocName, setNewDocName] = useState("");
+  const [newDocType, setNewDocType] = useState("Technical Submittal");
 
   // --- 8. COMMUNICATION CENTER STATE ---
   const [chats, setChats] = useState([
@@ -505,6 +506,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     { id: "CA-101", task: "Structural Pour Level 4 columns Check", submitted: "2026-07-08", status: "Approved with Comments", consultant: "Tekle & Partners", comments: "Clean column base completely before concreting." },
     { id: "CA-102", task: "Formwork Stripping approval Floor 3", submitted: "2026-07-07", status: "Fully Approved", consultant: "Tekle & Partners", comments: "Curing checks satisfied for 72 hours." }
   ]);
+  const [newClientApproval, setNewClientApproval] = useState({ task: "", status: "Fully Approved", comments: "" });
 
   // --- 10. AI DIGITAL TWIN KPI METRICS ---
   const aiTwinProgress = {
@@ -737,12 +739,25 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     automaticDailyCloudBackup: "Enabled (Scheduled at 03:00 AM daily)"
   });
 
-  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, Appraisals, & Batch A
+  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, Appraisals, Batch A & Batch B
   useEffect(() => {
     let active = true;
     const fetchEnterpriseData = async () => {
       try {
-        const [dbProc, dbEq, dbFeed, dbAppr, dbMat, dbHse, dbQc, dbTrucks] = await Promise.all([
+        const [
+          dbProc,
+          dbEq,
+          dbFeed,
+          dbAppr,
+          dbMat,
+          dbHse,
+          dbQc,
+          dbTrucks,
+          dbDocs,
+          dbChatMsgs,
+          dbClientApprs,
+          dbDiaries
+        ] = await Promise.all([
           DbService.getProcurements(procurements),
           DbService.getEquipmentLogs(equipment),
           DbService.getEmployeeFeedbacks(feedbacks),
@@ -750,7 +765,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           DbService.getMaterials(materials),
           DbService.getHseLogs(hseLogs),
           DbService.getQualityControls(qualityControls),
-          DbService.getConcreteTrucks(concreteTrucks)
+          DbService.getConcreteTrucks(concreteTrucks),
+          DbService.getEnterpriseDocuments(documents),
+          DbService.getEnterpriseChatMessages([]),
+          DbService.getClientApprovals(clientApprovals),
+          DbService.getSiteDiaryLogs(diaryLogs)
         ]);
         if (active) {
           if (dbProc && dbProc.length > 0) setProcurements(dbProc);
@@ -761,6 +780,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           if (dbHse && dbHse.length > 0) setHseLogs(dbHse);
           if (dbQc && dbQc.length > 0) setQualityControls(dbQc);
           if (dbTrucks && dbTrucks.length > 0) setConcreteTrucks(dbTrucks);
+          if (dbDocs && dbDocs.length > 0) setDocuments(dbDocs);
+          if (dbChatMsgs && dbChatMsgs.length > 0) {
+            const textChats = dbChatMsgs.filter((m: any) => m.type !== "voice" && (m.text || m.sender));
+            const voices = dbChatMsgs.filter((m: any) => m.type === "voice" || m.url);
+            if (textChats.length > 0) setChats(textChats);
+            if (voices.length > 0) setVoiceMessages(voices);
+          }
+          if (dbClientApprs && dbClientApprs.length > 0) setClientApprovals(dbClientApprs);
+          if (dbDiaries && dbDiaries.length > 0) setDiaryLogs(dbDiaries);
         }
       } catch (err) {
         console.error("Failed loading Enterprise ERP Firestore collections:", err);
@@ -1111,30 +1139,44 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     setNewHseReport({ topic: "", type: "Incident Report", details: "" });
   };
 
-  const handleSendChat = (e: React.FormEvent) => {
+  const handleSendChat = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
     const msg = {
-      id: Date.now(),
+      id: `CHAT-${Date.now()}`,
       sender: `${currentAdminName} (Admin)`,
       text: chatInput,
-      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      type: "text",
+      createdAt: new Date().toISOString()
     };
-    setChats([...chats, msg]);
+    try {
+      await DbService.addEnterpriseChatMessage(msg);
+    } catch (err) {
+      console.error("Failed to persist chat message to Firestore:", err);
+    }
+    setChats(prev => [...prev, msg]);
     onLogAction("Enterprise Chat Message Sent", `Message content preview: ${chatInput.substring(0, 30)}...`);
     setChatInput("");
   };
 
-  const triggerBroadcastAlert = (isEmergency: boolean) => {
+  const triggerBroadcastAlert = async (isEmergency: boolean) => {
     const text = isEmergency 
       ? `EMERGENCY EVACUATION SIMULATION: Drill initiated by Lead Admin ${currentAdminName}.` 
       : "ANNOUNCEMENT: Head Office audit starting tomorrow at 08:00 AM.";
     const msg = {
-      id: Date.now(),
+      id: `ALERT-${Date.now()}`,
       sender: "🚨 SYSTEM ALERT BROADCAST",
       text: text,
-      time: "JUST NOW"
+      time: "JUST NOW",
+      type: "broadcast",
+      createdAt: new Date().toISOString()
     };
+    try {
+      await DbService.addEnterpriseChatMessage(msg);
+    } catch (err) {
+      console.error("Failed to persist broadcast alert to Firestore:", err);
+    }
     setChats(prev => [...prev, msg]);
     onLogAction("Site Broadcast Dispatched", text);
     alert(text);
@@ -2624,7 +2666,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <div className="space-y-3">
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የሰነድ አይነት" : "Technical Classification"}</label>
-                  <select className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none">
+                  <select 
+                    value={newDocType}
+                    onChange={(e) => setNewDocType(e.target.value)}
+                    className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
+                  >
                     <option value="CAD Drawing">CAD Drawing (.DWG / BIM)</option>
                     <option value="Shop Drawing">Shop Drawing (.PDF)</option>
                     <option value="Method Statement">Method Statement (.PDF)</option>
@@ -2643,17 +2689,23 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   />
                 </div>
                 <button
-                  onClick={() => {
-                    if (!newDocName) return;
-                    setDocuments([...documents, {
+                  onClick={async () => {
+                    if (!newDocName.trim()) return;
+                    const newDoc = {
                       id: `DOC-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
                       name: newDocName,
-                      type: "Technical Submittal",
+                      type: newDocType,
                       ver: "v1.0",
                       syncDate: new Date().toISOString().split("T")[0],
                       approval: "Lead Admin Signed"
-                    }]);
-                    onLogAction("Document Uploaded", `File: ${newDocName} with cloud replication.`);
+                    };
+                    try {
+                      await DbService.addEnterpriseDocument(newDoc);
+                    } catch (err) {
+                      console.error("Failed to persist document to Firestore:", err);
+                    }
+                    setDocuments([newDoc, ...documents]);
+                    onLogAction("Document Uploaded", `File: ${newDocName} (${newDocType}) with cloud replication.`);
                     setNewDocName("");
                   }}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-lg py-2 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
@@ -2820,11 +2872,17 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     required
                     placeholder="e.g. Columns alignment B1 Floor 4"
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
+                    value={newClientApproval.task}
+                    onChange={(e) => setNewClientApproval({ ...newClientApproval, task: e.target.value })}
                   />
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ሁኔታ" : "Review Status"}</label>
-                  <select className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none">
+                  <select 
+                    className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
+                    value={newClientApproval.status}
+                    onChange={(e) => setNewClientApproval({ ...newClientApproval, status: e.target.value })}
+                  >
                     <option value="Fully Approved">Fully Approved</option>
                     <option value="Approved with comments">Approved with comments</option>
                     <option value="Rejected (Needs repair)">Rejected (Needs repair)</option>
@@ -2832,12 +2890,37 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የአስተያየት ዝርዝር" : "Review Notes / Comments"}</label>
-                  <textarea rows={3} placeholder="Prdigital_construction_erpe specific directives or tolerances to adjust..." className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none" />
+                  <textarea 
+                    rows={3} 
+                    placeholder="Provide specific directives or tolerances to adjust..." 
+                    className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
+                    value={newClientApproval.comments}
+                    onChange={(e) => setNewClientApproval({ ...newClientApproval, comments: e.target.value })}
+                  />
                 </div>
                 <button
-                  onClick={() => {
+                  onClick={async () => {
+                    if (!newClientApproval.task.trim()) {
+                      alert("Please enter a verification task.");
+                      return;
+                    }
+                    const ca = {
+                      id: `CA-${Date.now().toString().slice(-3)}-${Math.floor(100 + Math.random() * 900)}`,
+                      task: newClientApproval.task,
+                      submitted: new Date().toISOString().split("T")[0],
+                      status: newClientApproval.status,
+                      consultant: "Tekle & Partners",
+                      comments: newClientApproval.comments || "Reviewed and verified on site."
+                    };
+                    try {
+                      await DbService.addClientApproval(ca);
+                    } catch (err) {
+                      console.error("Failed to persist client approval to Firestore:", err);
+                    }
+                    setClientApprovals(prev => [ca, ...prev]);
+                    onLogAction("Consultant Signature Recorded", `Task: ${ca.task}, Status: ${ca.status}`);
+                    setNewClientApproval({ task: "", status: "Fully Approved", comments: "" });
                     alert("Client/Consultant portal response saved to central ledger.");
-                    onLogAction("Consultant Signature Recorded", "Authorized supervisor recorded Tekle Partners feedback.");
                   }}
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-lg py-2 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
                 >
@@ -3127,7 +3210,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Right Column: New Entry Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ ዕለታዊ ሪፖርት መዝግብ" : "Add Daily Site Log"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newDiaryEntry.activities) return;
                 const newLog = {
@@ -3148,6 +3231,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   supervisorNotes: newDiaryEntry.supervisorNotes || "Shift rotation handoff successful.",
                   aiSummary: "Log compiled successfully. Safety indices at 100%. Sequence productivity matched target expectations."
                 };
+                try {
+                  await DbService.addSiteDiaryLog(newLog);
+                } catch (err) {
+                  console.error("Failed to persist site diary log to Firestore:", err);
+                }
                 setDiaryLogs(prev => [newLog, ...prev]);
                 onLogAction("Create Site Diary Entry", `Created daily log for ${newLog.date}`);
                 setNewDiaryEntry({

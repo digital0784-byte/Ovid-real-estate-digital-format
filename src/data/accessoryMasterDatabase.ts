@@ -1065,14 +1065,15 @@ export function filterAccessories(
   material: string
 ): FormworkAccessoryRecord[] {
   return items.filter((item) => {
+    const q = (query || "").toLowerCase();
     const matchesQuery =
-      !query ||
-      item.code.toLowerCase().includes(query.toLowerCase()) ||
-      item.name.toLowerCase().includes(query.toLowerCase()) ||
-      item.id.toLowerCase().includes(query.toLowerCase()) ||
-      item.warehouseLocation.toLowerCase().includes(query.toLowerCase()) ||
-      item.material.toLowerCase().includes(query.toLowerCase()) ||
-      item.supplier.toLowerCase().includes(query.toLowerCase());
+      !q ||
+      String(item.code || "").toLowerCase().includes(q) ||
+      String(item.name || "").toLowerCase().includes(q) ||
+      String(item.id || "").toLowerCase().includes(q) ||
+      String(item.warehouseLocation || "").toLowerCase().includes(q) ||
+      String(item.material || "").toLowerCase().includes(q) ||
+      String(item.supplier || "").toLowerCase().includes(q);
 
     const matchesCategory = category === "All" || item.category === category;
     const matchesStatus = status === "All" || item.status === status;

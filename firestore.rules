@@ -350,5 +350,29 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
     }
+
+    // 17. Batch B Enterprise Collections
+    // 17.1 enterpriseDocuments
+    match /enterpriseDocuments/{docId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+
+    // 17.2 enterpriseChatMessages
+    match /enterpriseChatMessages/{messageId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // 17.3 clientApprovals
+    match /clientApprovals/{approvalId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isFinanceManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isFinanceManager();
+    }
+
+    // 17.4 siteDiaryLogs
+    match /siteDiaryLogs/{logId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+    }
   }
 }

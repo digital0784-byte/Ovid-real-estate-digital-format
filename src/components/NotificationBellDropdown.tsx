@@ -27,6 +27,7 @@ interface NotificationBellDropdownProps {
   systemNotifications?: any[];
   onMarkAsRead?: (id: string) => void;
   onMarkAllAsRead?: () => void;
+  isAmharic?: boolean;
 }
 
 export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> = ({
@@ -36,12 +37,70 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   onNavigateToTab,
   systemNotifications,
   onMarkAsRead,
-  onMarkAllAsRead
+  onMarkAllAsRead,
+  isAmharic = true
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [notifications, setNotifications] = useState<EnterpriseNotification[]>([]);
   const [activeTab, setActiveTab] = useState<"all" | "unread" | "ai">("unread");
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(() => NotificationService.getBrowserPermission());
+  const [isSoundOn, setIsSoundOn] = useState<boolean>(() => NotificationService.isSoundActive());
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setBrowserPermission(NotificationService.getBrowserPermission());
+  }, [isOpen]);
+
+  const handleRequestPermission = async () => {
+    const perm = await NotificationService.requestBrowserPermission();
+    setBrowserPermission(perm);
+    if (perm === "granted") {
+      NotificationService.createNotification({
+        title: "Browser Push Notifications Active",
+        titleAm: "የብሮውዘር/ስልክ የቀጥታ ማስታወቂያዎች ነቅተዋል",
+        description: "You will now receive instant desktop and mobile sound alerts for critical events, requests, and syncs.",
+        descriptionAm: "አሁን ጀምሮ ለአስቸኳይ ጉዳዮች፣ ለዕቃ ጥያቄዎችና ለደህንነት መረጃዎች በስልክዎ/ብሮውዘርዎ ላይ የቀጥታ ድምፅና ማስታወቂያ ይደርስዎታል።",
+        category: "System Update Notifications",
+        priority: "High",
+        status: "Unread",
+        projectName: selectedProject || "Global System",
+        sender: "BuildSync Notification Engine",
+        senderRole: "System Admin",
+        receiver: String(currentUserRole),
+        targetRoles: [currentUserRole as UserRole],
+        deliveryChannels: { inApp: true, push: true, email: false, sms: false },
+        actionTab: "notificationCenter"
+      });
+    }
+  };
+
+  const handleSendTestNotification = () => {
+    NotificationService.createNotification({
+      title: "Real Live Push Test Notification",
+      titleAm: "የሙከራ የቀጥታ ማስታወቂያ (Live Test)",
+      description: "Sound, browser system popup, and floating alert confirmed operational in real-time.",
+      descriptionAm: "የድምፅ ቅላጼ፣ የብሮውዘር ሲስተም ፖፕ-አፕ እና ተንሳፋፊ የቀጥታ ማስታወቂያ በትክክል እየሰሩ መሆናቸው ተረጋግጧል።",
+      category: "System Update Notifications",
+      priority: "High",
+      status: "Unread",
+      projectName: selectedProject || "Addis Ababa Tower Block A",
+      sender: "BuildSync Real-Time Test",
+      senderRole: "System AI",
+      receiver: String(currentUserRole),
+      targetRoles: [currentUserRole as UserRole],
+      deliveryChannels: { inApp: true, push: true, email: false, sms: true },
+      actionTab: "notificationCenter"
+    });
+  };
+
+  const toggleSound = () => {
+    const next = !isSoundOn;
+    setIsSoundOn(next);
+    NotificationService.setSoundActive(next);
+    if (next) {
+      NotificationService.playAudioChime("Medium");
+    }
+  };
 
   useEffect(() => {
     const updateList = () => {
@@ -175,6 +234,18 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
             </div>
 
             <div className="flex items-center space-x-1">
+              <button
+                onClick={toggleSound}
+                className={`p-1.5 rounded-lg border transition-colors ${
+                  isSoundOn
+                    ? "bg-amber-500/20 border-amber-500/40 text-amber-300 hover:bg-amber-500/30"
+                    : "bg-white/5 border-white/10 text-slate-400 hover:text-white"
+                }`}
+                title={isSoundOn ? "Mute notification sound" : "Unmute notification sound"}
+              >
+                <Volume2 className={`w-3.5 h-3.5 ${isSoundOn ? "text-amber-300" : "text-slate-500"}`} />
+              </button>
+
               {unreadCount > 0 && (
                 <button
                   id="btn-bell-mark-all-read"
@@ -197,6 +268,43 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
               </button>
             </div>
           </div>
+
+          {/* Browser Push Permission Banner (Real Live Notifications) */}
+          {browserPermission !== "granted" ? (
+            <div className="px-3.5 py-2.5 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent dark:bg-amber-950/40 border-b border-amber-500/30 flex items-center justify-between text-xs">
+              <div className="flex items-center space-x-2 min-w-0 pr-2">
+                <span className="relative flex h-2 w-2 flex-shrink-0">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
+                </span>
+                <p className="text-[11px] text-amber-900 dark:text-amber-200 font-medium truncate">
+                  {isAmharic ? "የቀጥታ ስልክ/ብሮውዘር ማስታወቂያዎችን ይፍቀዱ" : "Enable live device push notifications"}
+                </p>
+              </div>
+              <button
+                id="btn-enable-browser-push-dropdown"
+                onClick={handleRequestPermission}
+                className="px-2.5 py-1 text-[11px] font-bold bg-amber-500 hover:bg-amber-600 active:scale-95 text-slate-950 rounded-lg shadow-sm transition-all flex-shrink-0"
+              >
+                {isAmharic ? "አብራ / ፍቀድ" : "Enable Push"}
+              </button>
+            </div>
+          ) : (
+            <div className="px-3.5 py-1.5 bg-emerald-500/10 dark:bg-emerald-950/30 border-b border-emerald-500/20 flex items-center justify-between text-[11px]">
+              <div className="flex items-center space-x-1.5 text-emerald-700 dark:text-emerald-300 font-medium">
+                <Check className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                <span>{isAmharic ? "የቀጥታ ማስታወቂያዎች ንቁ ናቸው (Real Push Active)" : "Real device push active"}</span>
+              </div>
+              <button
+                id="btn-test-notification-bell"
+                onClick={handleSendTestNotification}
+                className="px-2 py-0.5 text-[10px] font-semibold bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-800 dark:text-emerald-200 rounded border border-emerald-500/30 transition-colors"
+                title="Send a real test notification with sound"
+              >
+                {isAmharic ? "የሙከራ ድምፅና ማስታወቂያ" : "Test Alert"}
+              </button>
+            </div>
+          )}
 
           {/* Quick Filter Tabs */}
           <div className="flex items-center justify-between px-3 py-2 bg-slate-50 dark:bg-slate-800/60 border-b border-slate-200 dark:border-slate-800 text-xs">

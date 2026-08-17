@@ -29,7 +29,8 @@ import {
   Layers,
   ArrowUpRight,
   Sparkles,
-  Award
+  Award,
+  Save
 } from "lucide-react";
 import { Worker, UserRole, AttendanceRecord, AttendanceMethod, PayrollRecord } from "../types";
 import { DbService } from "../services/db";
@@ -84,48 +85,124 @@ export interface PayrollAuditLog {
 }
 
 // Helper function to calculate live baseline records from workers and attendance props
-export function computeBaselinePayroll(workers: Worker[], attendance: AttendanceRecord[]): PayrollRecord[] {
+export function computeBaselinePayroll(
+  workers: Worker[], 
+  attendance: AttendanceRecord[],
+  selectedPeriod: string = "July 2026",
+  standardWorkingDays: number = 26
+): PayrollRecord[] {
+  // Determine date prefix for filtering by selected pay period
+  let periodPrefix = "";
+  if (selectedPeriod.includes("July 2026") || selectedPeriod === "2026-07") periodPrefix = "2026-07";
+  else if (selectedPeriod.includes("August 2026") || selectedPeriod === "2026-08") periodPrefix = "2026-08";
+  else if (selectedPeriod.includes("September 2026") || selectedPeriod === "2026-09") periodPrefix = "2026-09";
+  else if (selectedPeriod.includes("June 2026") || selectedPeriod === "2026-06") periodPrefix = "2026-06";
+  else if (selectedPeriod.includes("May 2026") || selectedPeriod === "2026-05") periodPrefix = "2026-05";
+
+  const stdDays = standardWorkingDays > 0 ? standardWorkingDays : 26;
+
   return workers.map((w, index) => {
-    const employmentType = (w.employmentType?.includes("Labourer") || w.trade === "Carpenter" || w.trade === "Welder") 
+    // 1. Filter real attendance records for this worker in the selected period
+    const workerAtt = attendance.filter(a => {
+      const isMatchingWorker = a.workerId === w.id || (a.workerName && w.name && a.workerName.toLowerCase() === w.name.toLowerCase());
+      if (!isMatchingWorker) return false;
+      if (!periodPrefix || selectedPeriod === "All Attendance Records" || selectedPeriod === "All Records" || selectedPeriod === "All") return true;
+      return a.date ? a.date.startsWith(periodPrefix) : true;
+    });
+
+    // 2. Count actual worked days (Present, Late, or with logged workingHours/checkIn)
+    const workedDaysRecords = workerAtt.filter(a => 
+      a.status === "Present" || 
+      a.status === "Late" || 
+      (typeof a.workingHours === "number" && a.workingHours > 0) ||
+      (typeof a.checkIn === "string" && a.checkIn.trim().length > 0)
+    );
+    
+    // Exact days worked - even if only 1 day! No minimum days required.
+    const attendanceDays = workedDaysRecords.length;
+
+    // 3. Sum actual working hours, overtime hours, and undertime hours
+    let normalWorkingHours = 0;
+    let overtimeHours = 0;
+    let undertimeHours = 0;
+
+    workedDaysRecords.forEach(a => {
+      const wh = (typeof a.workingHours === "number" && a.workingHours > 0) ? a.workingHours : 8;
+      const ot = (typeof a.overtime === "number" && a.overtime > 0) ? a.overtime : 0;
+      const ut = (typeof a.underTime === "number" && a.underTime > 0) 
+        ? a.underTime 
+        : (wh < 8 && (a.status === "Present" || a.status === "Late") ? Math.max(0, 8 - wh) : 0);
+      
+      normalWorkingHours += wh;
+      overtimeHours += ot;
+      undertimeHours += ut;
+    });
+
+    normalWorkingHours = parseFloat(normalWorkingHours.toFixed(1));
+    overtimeHours = parseFloat(overtimeHours.toFixed(1));
+    undertimeHours = parseFloat(undertimeHours.toFixed(1));
+    const totalWorkingHours = parseFloat((normalWorkingHours + overtimeHours).toFixed(1));
+
+    // 4. Employment type & basic salary calculation
+    const isDaily = (
+      w.employmentType?.toLowerCase().includes("labourer") || 
+      w.employmentType?.toLowerCase().includes("daily") ||
+      w.trade === "Carpenter" || 
+      w.trade === "Welder" ||
+      w.position?.toLowerCase().includes("labourer") ||
+      w.position?.toLowerCase().includes("daily")
+    );
+    const employmentType: "Daily Labourer" | "Contract" | "Permanent" = isDaily 
       ? "Daily Labourer" 
-      : (index % 3 === 0 ? "Permanent" : "Contract");
+      : ((w.employmentType as any) || (index % 3 === 0 ? "Permanent" : "Contract"));
 
-    const basicSalary = w.basicMonthlySalary || (employmentType === "Daily Labourer" 
-      ? 650 // daily wage
-      : (w.trade === "Steel Fixer" ? 18000 : 22000)); // monthly base salary
+    const basicSalary = Number(w.basicMonthlySalary) || (
+      employmentType === "Daily Labourer" ? 650 : (w.trade === "Steel Fixer" ? 18000 : 22000)
+    );
+
+    // Derived daily rate and hourly rate
+    const dailyRate = employmentType === "Daily Labourer" 
+      ? basicSalary 
+      : Math.round((basicSalary / stdDays) * 100) / 100;
     
-    const attendanceDays = attendance.filter(a => a.workerId === w.id && a.status === "Present").length || (18 + (index % 6));
-    
-    const normalWorkingHours = attendanceDays * 8;
-    const overtimeHours = index % 4 === 0 ? 12 : (index % 5 === 1 ? 8 : 0);
-    const overtimeRate = employmentType === "Daily Labourer" ? (650 / 8) * 1.5 : (basicSalary / 200) * 1.5;
-    const overtimePayment = Math.round(overtimeHours * overtimeRate);
-    
-    const undertimeHours = index % 7 === 2 ? 6.5 : 0;
-    const undertimeRate = employmentType === "Daily Labourer" ? (650 / 8) : (basicSalary / 200);
-    const undertimeDeduction = Math.round(undertimeHours * undertimeRate);
+    const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
 
-    const allowances = index % 5 === 0 ? 1500 : 0; // housing/transport allowances
-    const deductions = index % 8 === 0 ? 800 : 0; // tax, advances, safety gear losses
+    // Resulting Base Pay from days worked (days worked * daily rate)
+    // Even if attendanceDays === 1, it calculates exactly 1 * dailyRate!
+    const basePayment = Math.round(dailyRate * attendanceDays);
 
-    const basePayment = employmentType === "Daily Labourer" ? basicSalary * attendanceDays : basicSalary;
-    const netSalary = Math.round(basePayment + overtimePayment - undertimeDeduction + allowances - deductions);
+    // Overtime pay (1.5x hourly rate)
+    const overtimePayment = Math.round(overtimeHours * hourlyRate * 1.5);
 
-    const grade = index % 4 === 0 ? "Grade A" : (index % 4 === 1 ? "Grade B" : (index % 4 === 2 ? "Grade C" : "Grade D"));
+    // Undertime deduction (1x hourly rate)
+    const undertimeDeduction = Math.round(undertimeHours * hourlyRate);
+
+    // Allowances & Deductions
+    const allowances = Number((w as any).allowance) || 0;
+    const deductions = Number((w as any).deductions) || 0;
+
+    // Resulting Net Salary
+    const netSalary = Math.max(0, Math.round(basePayment + overtimePayment - undertimeDeduction + allowances - deductions));
+
+    // Evaluation grade based on attendance
+    const grade = attendanceDays >= 24 ? "Grade A" 
+      : attendanceDays >= 18 ? "Grade B" 
+      : attendanceDays >= 8 ? "Grade C" 
+      : "Grade D";
 
     return {
       id: `PAY-${w.id}`,
       workerId: w.id,
       employeeId: w.id,
       workerName: w.name,
-      position: w.position || w.trade,
-      department: w.department,
+      position: w.position || w.trade || "Technician",
+      department: w.department || "Site Operations",
       team: w.teamLeader || "Bole Heights Alpha",
       project: w.assignedProject || "Bole Heights Site B1",
-      employmentType: employmentType as "Daily Labourer" | "Contract" | "Permanent",
+      employmentType,
       basicSalary,
       attendanceDays,
-      totalWorkingHours: normalWorkingHours + overtimeHours,
+      totalWorkingHours,
       overtimeHours,
       overtimePayment,
       undertimeHours,
@@ -133,9 +210,13 @@ export function computeBaselinePayroll(workers: Worker[], attendance: Attendance
       allowances,
       deductions,
       netSalary,
-      status: index % 6 === 0 ? "Draft" : (index % 6 === 1 ? "Pending Review" : "Approved"),
+      status: "Draft",
       grade,
-      period: "July 2026"
+      period: selectedPeriod,
+      bankName: w.bankName || "Commercial Bank of Ethiopia (CBE)",
+      bankAccountNumber: w.bankAccountNumber || "",
+      mobileMoneyType: w.mobileMoneyType || "Telebirr",
+      mobileMoneyNumber: w.mobileMoneyNumber || w.phoneNumber || ""
     };
   });
 }
@@ -151,6 +232,13 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [deptFilter, setDeptFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
+  const [filterActiveOnly, setFilterActiveOnly] = useState(false);
+
+  // Pay Period & Standard Days Configuration
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("July 2026");
+  const [standardWorkingDays, setStandardWorkingDays] = useState<number>(26);
+  const [isCalculating, setIsCalculating] = useState(false);
+  const [lastCalculationMessage, setLastCalculationMessage] = useState<string | null>(null);
 
   // Stakeholder report dispatching states
   const [reportType, setReportType] = useState<"attendance" | "overtime" | "payroll">("attendance");
@@ -173,10 +261,10 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     {
       id: "P-AUD-1001",
       timestamp: new Date(Date.now() - 50000).toISOString().slice(0, 19).replace("T", " "),
-      actorName: "Eng. Yoseph (Head Office)",
-      actorRole: UserRole.HEAD_OFFICE,
+      actorName: currentUserRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph (Head Office)" : `${currentUserRole} Console`,
+      actorRole: currentUserRole,
       action: "Payroll Calculation Initiated",
-      details: "Calculated baseline monthly payroll for July 2026.",
+      details: "Calculated baseline monthly payroll for July 2026 from site biometric terminal.",
       ip: "192.168.12.84"
     },
     {
@@ -194,7 +282,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     const newLog: PayrollAuditLog = {
       id: `P-AUD-${Math.floor(1000 + Math.random() * 9000)}`,
       timestamp: new Date().toISOString().slice(0, 19).replace("T", " "),
-      actorName: currentUserRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph (Head Office)" : "Authorized Personnel",
+      actorName: `${currentUserRole} Console`,
       actorRole: currentUserRole,
       action,
       details,
@@ -203,8 +291,10 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     setAuditTrail(prev => [newLog, ...prev]);
   };
 
-  // State for payroll records - defaults to computed baseline, but loaded from Firestore if present
-  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => computeBaselinePayroll(workers, attendance));
+  // State for payroll records - defaults to computed baseline from real attendance
+  const [payrollRecords, setPayrollRecords] = useState<PayrollRecord[]>(() => 
+    computeBaselinePayroll(workers, attendance, "July 2026", 26)
+  );
 
   // Load existing saved payroll records from Firestore on mount
   useEffect(() => {
@@ -214,10 +304,29 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
         setIsLoadingCloud(true);
         const savedRecords = await DbService.getPayrollRecords();
         if (isMounted) {
+          const baseline = computeBaselinePayroll(workers, attendance, selectedPeriod, standardWorkingDays);
           if (savedRecords && savedRecords.length > 0) {
-            setPayrollRecords(savedRecords);
+            const existingWorkerIds = new Set(savedRecords.map(r => r.workerId || r.employeeId));
+            const missingBaseline = baseline.filter(b => !existingWorkerIds.has(b.workerId));
+            
+            const mergedRecords = [...savedRecords, ...missingBaseline].map(r => {
+              const matchingWorker = workers.find(w => w.id === (r.workerId || r.employeeId));
+              if (matchingWorker) {
+                return {
+                  ...r,
+                  bankName: r.bankName || matchingWorker.bankName || "Commercial Bank of Ethiopia (CBE)",
+                  bankAccountNumber: r.bankAccountNumber || matchingWorker.bankAccountNumber || "",
+                  mobileMoneyType: r.mobileMoneyType || matchingWorker.mobileMoneyType || "Telebirr",
+                  mobileMoneyNumber: r.mobileMoneyNumber || matchingWorker.mobileMoneyNumber || matchingWorker.phoneNumber || ""
+                };
+              }
+              return r;
+            });
+
+            setPayrollRecords(mergedRecords);
             setIsSavedToCloud(true);
           } else {
+            setPayrollRecords(baseline);
             setIsSavedToCloud(false);
           }
         }
@@ -229,7 +338,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     };
     loadPayrollFromFirestore();
     return () => { isMounted = false; };
-  }, []);
+  }, [workers, attendance]);
 
   // Comprehensive 4-Point check stamps simulator
   const [checkStamps, setCheckStamps] = useState<DetailedCheckStamp[]>(() => {
@@ -328,20 +437,24 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   // Aggregate stats derived from dynamic state
   const dashboardStats = useMemo(() => {
     const totalEmployees = payrollRecords.length;
+    const activeEmployees = payrollRecords.filter(r => r.attendanceDays > 0).length;
+    const singleDayEmployees = payrollRecords.filter(r => r.attendanceDays === 1).length;
     
     const totalSalary = payrollRecords.reduce((sum, r) => {
       const base = r.employmentType === "Daily Labourer" ? r.basicSalary * r.attendanceDays : r.basicSalary;
       return sum + base;
     }, 0);
 
+    const totalDaysWorked = payrollRecords.reduce((sum, r) => sum + r.attendanceDays, 0);
+    const totalHoursWorked = parseFloat(payrollRecords.reduce((sum, r) => sum + r.totalWorkingHours, 0).toFixed(1));
     const totalOvertimePayment = payrollRecords.reduce((sum, r) => sum + r.overtimePayment, 0);
     const totalUndertimeDeduction = payrollRecords.reduce((sum, r) => sum + r.undertimeDeduction, 0);
     
     const totalPaid = payrollRecords.reduce((sum, r) => sum + r.netSalary, 0);
     
     // Average attendance rate of workers
-    const avgAttendanceDays = payrollRecords.reduce((sum, r) => sum + r.attendanceDays, 0) / (totalEmployees || 1);
-    const attendanceRate = Math.min(Math.round((avgAttendanceDays / 26) * 100), 100);
+    const avgAttendanceDays = totalDaysWorked / (totalEmployees || 1);
+    const attendanceRate = Math.min(Math.round((avgAttendanceDays / (standardWorkingDays || 26)) * 100), 100);
 
     const pendingReviewCount = payrollRecords.filter(r => r.status === "Pending Review").length;
     const pendingApprovalCount = payrollRecords.filter(r => r.status === "Draft").length;
@@ -349,6 +462,10 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
 
     return {
       totalEmployees,
+      activeEmployees,
+      singleDayEmployees,
+      totalDaysWorked,
+      totalHoursWorked,
       totalSalary,
       totalOvertimePayment,
       totalUndertimeDeduction,
@@ -358,7 +475,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       pendingApprovalCount,
       approvedCount
     };
-  }, [payrollRecords]);
+  }, [payrollRecords, standardWorkingDays]);
 
   // Actions
   const handleApproveOvertime = (workerId: string) => {
@@ -409,39 +526,85 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     }
   };
 
-  const handleFinalizePayrollPeriod = async () => {
-    if (currentUserRole !== UserRole.HEAD_OFFICE && currentUserRole !== UserRole.SUPERVISOR && currentUserRole !== UserRole.FINANCE_MANAGER && currentUserRole !== UserRole.HR_MANAGER && currentUserRole !== UserRole.SUPER_ADMIN) {
-      alert("Access Denied: Only Head Office, HR/Finance Manager, or Project Manager can finalize and save master payroll.");
-      return;
+  // Dedicated generator function reading real attendance records from Firestore and persisting
+  const handleGeneratePayroll = async (period: string = selectedPeriod, stdDays: number = standardWorkingDays) => {
+    setIsCalculating(true);
+    try {
+      // 1. Fetch latest live records from Firestore if available
+      let liveWorkers = workers;
+      let liveAttendance = attendance;
+      try {
+        const [fetchedWorkers, fetchedAttendance] = await Promise.all([
+          DbService.getWorkers(),
+          DbService.getAttendance()
+        ]);
+        if (fetchedWorkers && fetchedWorkers.length > 0) liveWorkers = fetchedWorkers;
+        if (fetchedAttendance && fetchedAttendance.length > 0) liveAttendance = fetchedAttendance;
+      } catch (err) {
+        console.warn("Using local memory data for payroll calculation:", err);
+      }
+
+      // 2. Calculate baseline payroll from real attendance (even 1 day worked)
+      const calculatedRecords = computeBaselinePayroll(liveWorkers, liveAttendance, period, stdDays);
+      setPayrollRecords(calculatedRecords);
+
+      // 3. Persist to Firestore's "payroll" collection immediately
+      await DbService.savePayrollRecords(calculatedRecords);
+      setIsSavedToCloud(true);
+
+      const activeCount = calculatedRecords.filter(r => r.attendanceDays > 0).length;
+      const singleDayCount = calculatedRecords.filter(r => r.attendanceDays === 1).length;
+      const totalHours = calculatedRecords.reduce((s, r) => s + r.totalWorkingHours, 0).toFixed(1);
+      const totalPay = calculatedRecords.reduce((s, r) => s + r.netSalary, 0);
+
+      const msg = isAmharic 
+        ? `ደመወዝ ለ${period} በራስ-ሰር ተሰልቶ በFirestore 'payroll' collection ተቀምጧል፡ ${activeCount} ንቁ ሰራተኞች (${singleDayCount} የ1 ቀን ሰራተኞች ጨምሮ)፣ ጠቅላላ ${totalHours} ሰዓታት፣ ድምር ክፍያ ${totalPay.toLocaleString()} ETB`
+        : `Payroll calculated & persisted to Firestore for ${period}: ${activeCount} active workers (${singleDayCount} single-day workers included), ${totalHours} total hours logged, Total Net: ${totalPay.toLocaleString()} ETB`;
+      
+      setLastCalculationMessage(msg);
+      setSyncStatusMessage(msg);
+      addAuditLog("Attendance-Driven Payroll Generated & Persisted", `Calculated & saved ${calculatedRecords.length} records for ${period} (${activeCount} active workers from Firestore attendance) to Firestore.`);
+      setTimeout(() => setSyncStatusMessage(null), 6000);
+    } catch (error) {
+      console.error("Error generating and saving payroll:", error);
+    } finally {
+      setIsCalculating(false);
     }
+  };
+
+  const handleFinalizePayrollPeriod = async () => {
     setIsSaving(true);
     try {
       const updated = payrollRecords.map(r => ({
         ...r,
         status: "Approved" as const,
-        period: "July 2026",
+        period: selectedPeriod,
         employeeId: r.employeeId || r.workerId,
         updatedAt: new Date().toISOString()
       }));
       setPayrollRecords(updated);
       await DbService.savePayrollRecords(updated);
       setIsSavedToCloud(true);
-      addAuditLog("Global Payroll Finalized & Persisted", "Approved all payroll records and persisted to Firestore.");
-      setSyncStatusMessage(isAmharic ? "የጁላይ 2026 የደመወዝ መዝገብ በCloud Firestore ላይ ተቀምጧል!" : "July 2026 Master Payroll finalized & persisted to Cloud Firestore!");
+      addAuditLog("Global Payroll Finalized & Persisted", `Approved and persisted ${updated.length} payroll records for ${selectedPeriod} to Firestore 'payroll' collection.`);
+      setSyncStatusMessage(
+        isAmharic 
+          ? `የ${selectedPeriod} የደመወዝ መዝገብ (${updated.length} ሰራተኞች) በCloud Firestore 'payroll' collection ላይ በቋሚነት ተቀምጧል!` 
+          : `${selectedPeriod} Master Payroll (${updated.length} workers) successfully persisted to Cloud Firestore 'payroll' collection!`
+      );
       
       // Add dynamic notification
       const newNotif: PayrollNotification = {
         id: `N-PAY-${Math.floor(100 + Math.random() * 900)}`,
         type: "approved",
         recipient: "All",
-        title: "July 2026 Salary Ledgers Approved & Saved",
-        message: "Global payroll calculation was officially signed-off and saved to cloud database.",
+        title: `${selectedPeriod} Salary Ledgers Approved & Saved`,
+        message: `Master payroll for ${selectedPeriod} calculated from attendance has been persisted to cloud database.`,
         timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
         read: false
       };
       setNotifications(prev => [newNotif, ...prev]);
 
-      setTimeout(() => setSyncStatusMessage(null), 5000);
+      setTimeout(() => setSyncStatusMessage(null), 6000);
     } catch (err) {
       console.error("Error saving payroll records to Firestore:", err);
       alert("Error saving payroll records to cloud database.");
@@ -473,17 +636,12 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   };
 
   const handleRecomputePayroll = () => {
-    if (window.confirm(isAmharic ? "የደመወዝ ስሌቱን እንደገና ከቅርብ ጊዜ የመገኘት መረጃ ለመስራት ይፈልጋሉ?" : "Recompute payroll calculations from live attendance data? This will recalculate draft records.")) {
-      const liveRecords = computeBaselinePayroll(workers, attendance);
-      setPayrollRecords(liveRecords);
-      setIsSavedToCloud(false);
-      addAuditLog("Payroll Recomputed", "Recalculated draft payroll ledger live from biometric attendance data.");
-    }
+    handleGeneratePayroll(selectedPeriod, standardWorkingDays);
   };
 
   // Helper to encrypt/mask financial figures for security demonstration
   const maskValue = (val: number | string) => {
-    if (!encryptData) return val;
+    if (!encryptData) return typeof val === "number" ? val.toLocaleString() : val;
     if (typeof val === "number") {
       return "•••• ETB";
     }
@@ -493,16 +651,42 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   // Filters
   const filteredRecords = useMemo(() => {
     return payrollRecords.filter(r => {
-      const matchSearch = r.workerName.toLowerCase().includes(searchTerm.toLowerCase()) || r.workerId.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSearch = (r.workerName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (r.workerId || "").toLowerCase().includes(searchTerm.toLowerCase());
       const matchDept = deptFilter === "All" || r.department === deptFilter;
       const matchStatus = statusFilter === "All" || r.status === statusFilter;
-      return matchSearch && matchDept && matchStatus;
+      const matchActive = !filterActiveOnly || r.attendanceDays > 0;
+      return matchSearch && matchDept && matchStatus && matchActive;
     });
-  }, [payrollRecords, searchTerm, deptFilter, statusFilter]);
+  }, [payrollRecords, searchTerm, deptFilter, statusFilter, filterActiveOnly]);
 
   const uniqueDepartments = useMemo(() => {
     return ["All", ...Array.from(new Set(payrollRecords.map(r => r.department)))];
   }, [payrollRecords]);
+
+  // Check role authorization for administrative payroll actions
+  // Ensures Super Admin, Finance Manager, HR Manager, and administrative roles always have access
+  const normalizedRole = (currentUserRole || "").toLowerCase().trim();
+  const isAuthorizedAdmin = 
+    !currentUserRole || 
+    normalizedRole.includes("admin") ||
+    normalizedRole.includes("finance") ||
+    normalizedRole.includes("hr") ||
+    normalizedRole.includes("head") ||
+    normalizedRole.includes("project") ||
+    normalizedRole.includes("supervisor") ||
+    normalizedRole.includes("time") ||
+    normalizedRole.includes("auditor") ||
+    [
+      UserRole.SUPER_ADMIN,
+      UserRole.FINANCE_MANAGER,
+      UserRole.HR_MANAGER,
+      UserRole.HEAD_OFFICE,
+      UserRole.PROJECT_MANAGER,
+      UserRole.SUPERVISOR,
+      UserRole.TIME_KEEPER,
+      UserRole.AUDITOR
+    ].includes(currentUserRole);
 
   return (
     <div className="space-y-6 animate-fade-in no-print">
@@ -528,15 +712,32 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
             </h2>
             <p className="text-xs text-slate-400 max-w-2xl">
               {isAmharic 
-                ? "በእውነተኛ ጊዜ ከባዮሜትሪክ መሣሪያዎች በሚመጣ የመግቢያ እና መውጫ መረጃ መሠረት ሰዓቶችን፣ እረፍቶችን፣ የትርፍ ሰዓቶችን እና ያልተሟሉ የሥራ ሰዓቶችን አውቶማቲክ ስሌት።" 
-                : "Real-time automated salary compiler aggregating 4-point biometric stamps (Morning In, Lunch Out, Lunch In, Evening Out) with automatic Overtime allowances and Undertime shortage penalty logs."}
+                ? "በእውነተኛ ጊዜ ከባዮሜትሪክ መሣሪያዎች እና ከFirestore 'attendance' collection በሚመጣ መረጃ መሠረት ሰዓቶችን፣ የሰሩባቸውን ቀናት እና የደመወዝ ክፍያን በራስ-ሰር ያሰላል (አንድ ቀንም ቢሰሩ እንኳን)።" 
+                : "Real-time automated payroll compiler calculating days worked, total hours, and pro-rated salary directly from Firestore 'attendance' records (even for a single worked day)."}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {/* Primary Generate/Calculate Button in Top Header */}
+            {isAuthorizedAdmin && (
+              <button
+                onClick={() => handleGeneratePayroll(selectedPeriod, standardWorkingDays)}
+                disabled={isCalculating}
+                className="bg-red-600 hover:bg-red-700 text-white shadow-md px-4 py-2 rounded-xl text-xs font-black transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50 border border-red-500/30"
+                title="Calculate days worked and net pay from Firestore attendance and persist immediately"
+              >
+                <Sparkles size={14} className={isCalculating ? "animate-spin text-amber-300" : "text-amber-300"} />
+                <span>
+                  {isCalculating 
+                    ? (isAmharic ? "በማስላት እና በማስቀመጥ ላይ..." : "Calculating & Persisting...") 
+                    : (isAmharic ? "⚡ ደመወዝ አስላ / አመንጭ" : "⚡ Generate / Calculate Payroll")}
+                </span>
+              </button>
+            )}
+
             <button
               onClick={() => setEncryptData(!encryptData)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer border ${
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer border ${
                 encryptData 
                   ? "bg-emerald-950 text-emerald-400 border-emerald-800/80 shadow-xs" 
                   : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-750"
@@ -544,11 +745,11 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
               title={isAmharic ? "ደህንነቱ የተጠበቀ የውሂብ መደበቂያ" : "Toggle secure encrypted preview masking"}
             >
               {encryptData ? <EyeOff size={13} /> : <Eye size={13} />}
-              <span>{encryptData ? (isAmharic ? "ሚስጥራዊነት የበራ" : "Data Masking On") : (isAmharic ? "የፋይናንስ ደህንነት" : "Mask Financial Data")}</span>
+              <span>{encryptData ? (isAmharic ? "ሚስጥራዊነት የበራ" : "Data Masking On") : (isAmharic ? "የፋይናንስ ደህንነት" : "Mask Data")}</span>
             </button>
 
             {/* Firestore Cloud Sync Status Indicator */}
-            <div className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 border ${
+            <div className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 border ${
               isSavedToCloud 
                 ? "bg-emerald-950/90 text-emerald-400 border-emerald-800/80" 
                 : "bg-amber-950/90 text-amber-400 border-amber-800/80"
@@ -556,30 +757,23 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
               <Database size={13} className={isSavedToCloud ? "text-emerald-400" : "text-amber-400"} />
               <span>
                 {isLoadingCloud 
-                  ? (isAmharic ? "በመጫን ላይ..." : "Checking Cloud Status...")
+                  ? (isAmharic ? "በመጫን ላይ..." : "Checking Cloud...")
                   : isSavedToCloud 
-                    ? (isAmharic ? "በCloud Firestore ተቀምጧል" : "Synced to Cloud Firestore") 
-                    : (isAmharic ? "ያልተቀመጠ ረቂቅ - ለማስቀመጥ አጽድቅ" : "Local draft - click Finalize to save")}
+                    ? (isAmharic ? "በCloud Firestore ተቀምጧል" : "Synced to Firestore") 
+                    : (isAmharic ? "ያልተቀመጠ ረቂቅ" : "Draft")}
               </span>
             </div>
 
-            <button
-              onClick={handleRecomputePayroll}
-              className="bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer"
-              title="Recalculate live from attendance"
-            >
-              <RefreshCw size={13} className="text-slate-400" />
-              <span>{isAmharic ? "እንደገና አስላ" : "Recompute Live"}</span>
-            </button>
-
-            <button
-              onClick={handleFinalizePayrollPeriod}
-              disabled={isSaving}
-              className="bg-red-600 hover:bg-red-700 text-white shadow-md px-4 py-1.5 rounded-lg text-xs font-black transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
-            >
-              {isSaving ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
-              <span>{isAmharic ? "ደመወዝ አጽድቅ እና አስቀምጥ" : "Finalize & Save Roster"}</span>
-            </button>
+            {isAuthorizedAdmin && (
+              <button
+                onClick={handleFinalizePayrollPeriod}
+                disabled={isSaving}
+                className="bg-emerald-600 hover:bg-emerald-700 text-white shadow-md px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+              >
+                {isSaving ? <RefreshCw size={13} className="animate-spin" /> : <CheckCircle2 size={13} />}
+                <span>{isAmharic ? "አጽድቅ" : "Approve All"}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -650,6 +844,180 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
             <span>{isAmharic ? "ደህንነት እና ኦዲት" : "Security & Audit Trail"}</span>
           </button>
         </div>
+      </div>
+
+      {/* DEDICATED SMART ATTENDANCE-TO-PAYROLL CALCULATION CONSOLE */}
+      <div className="bg-gradient-to-r from-slate-900 via-slate-850 to-slate-900 rounded-2xl p-5 border border-slate-800 shadow-lg text-white">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-4 border-b border-slate-800">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-red-600/20 text-red-400 border border-red-500/30 rounded-xl">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-base font-black text-white">
+                  {isAmharic ? "የመገኘት-ተኮር ደመወዝ ማመንጫ እና ስሌት መቆጣጠሪያ" : "Live Attendance-to-Payroll Calculation Console"}
+                </h3>
+                <span className="bg-red-500/20 text-red-400 border border-red-500/30 text-[10px] font-bold px-2 py-0.5 rounded-md">
+                  Firestore Linked
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {isAmharic 
+                  ? "የተመረጠውን የክፍያ ጊዜ ይምረጡ፤ ስርዓቱ እያንዳንዱ ሰራተኛ የሰራበትን ቀን (1 ቀንም ቢሆን) ከመገኘት ዳታቤዝ አውጥቶ ደመወዝ ያሰላል።" 
+                  : "Select pay period and standard days; the engine calculates days worked, hours, and pro-rated pay directly from attendance records."}
+              </p>
+            </div>
+          </div>
+
+          {/* Action Buttons for Calculation & Persistence */}
+          <div className="flex flex-wrap items-center gap-2.5">
+            <button
+              onClick={() => handleGeneratePayroll(selectedPeriod, standardWorkingDays)}
+              disabled={isCalculating}
+              className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-750 hover:from-red-500 hover:to-red-650 text-white rounded-xl text-xs font-black shadow-md hover:shadow-red-900/30 transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw size={14} className={isCalculating ? "animate-spin" : ""} />
+              <span>
+                {isCalculating 
+                  ? (isAmharic ? "በማስላት ላይ..." : "Calculating Roster...") 
+                  : (isAmharic ? "⚡ ደመወዝ ከመገኘት አስላ" : "⚡ Calculate & Generate Payroll")}
+              </span>
+            </button>
+
+            <button
+              onClick={handleFinalizePayrollPeriod}
+              disabled={isSaving}
+              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black shadow-md hover:shadow-emerald-900/30 transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+            >
+              {isSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+              <span>{isAmharic ? "💾 በFirestore አስቀምጥ" : "💾 Save & Persist to Firestore"}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Console Controls & Parameters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-4">
+          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1">
+              <Calendar size={11} /> {isAmharic ? "የክፍያ ጊዜ (Pay Period)" : "Selected Pay Period"}
+            </label>
+            <select
+              value={selectedPeriod}
+              onChange={(e) => {
+                const newP = e.target.value;
+                setSelectedPeriod(newP);
+                handleGeneratePayroll(newP, standardWorkingDays);
+              }}
+              className="w-full bg-slate-900 border border-slate-750 text-white text-xs rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-red-500 font-semibold"
+            >
+              <option value="July 2026">July 2026 (Current Cycle)</option>
+              <option value="August 2026">August 2026</option>
+              <option value="September 2026">September 2026</option>
+              <option value="June 2026">June 2026</option>
+              <option value="All Attendance Records">All Attendance Records</option>
+            </select>
+          </div>
+
+          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1">
+              <Clock size={11} /> {isAmharic ? "መደበኛ የስራ ቀናት (በወር)" : "Standard Working Days"}
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                min={1}
+                max={31}
+                value={standardWorkingDays}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value) || 26;
+                  setStandardWorkingDays(val);
+                }}
+                className="w-full bg-slate-900 border border-slate-750 text-white text-xs rounded-lg px-2.5 py-1.5 focus:outline-hidden focus:border-red-500 font-semibold"
+              />
+              <span className="text-[11px] text-slate-400 font-bold shrink-0">Days</span>
+            </div>
+          </div>
+
+          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800">
+            <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1">
+              <Filter size={11} /> {isAmharic ? "የማሳያ ማጣሪያ" : "Active Attendance Scope"}
+            </label>
+            <button
+              onClick={() => setFilterActiveOnly(!filterActiveOnly)}
+              className={`w-full text-xs font-bold px-2.5 py-1.5 rounded-lg border transition-all flex items-center justify-between cursor-pointer ${
+                filterActiveOnly 
+                  ? "bg-red-950/80 text-red-300 border-red-700" 
+                  : "bg-slate-900 text-slate-300 border-slate-750 hover:bg-slate-850"
+              }`}
+            >
+              <span>{filterActiveOnly ? (isAmharic ? "ያላቸው ብቻ (≥1 ቀን)" : "Worked ≥1 Day Only") : (isAmharic ? "ሁሉም ሰራተኞች" : "All Registered Workers")}</span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-white">
+                {filterActiveOnly ? dashboardStats.activeEmployees : dashboardStats.totalEmployees}
+              </span>
+            </button>
+          </div>
+
+          <div className="bg-slate-950/70 p-3 rounded-xl border border-slate-800 flex flex-col justify-center">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                {isAmharic ? "ጠቅላላ ክፍያ (ETB)" : "Period Net Payable"}
+              </span>
+              <span className="text-[10px] text-emerald-400 font-bold">100% Calculated</span>
+            </div>
+            <div className="text-lg font-black text-white mt-0.5">
+              {maskValue(dashboardStats.totalPaid)} <span className="text-xs font-normal text-slate-400">ETB</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Real-time Calculation Summary Badge Strip */}
+        <div className="flex flex-wrap items-center justify-between gap-2 mt-4 pt-3 border-t border-slate-800/80 text-xs">
+          <div className="flex flex-wrap items-center gap-3 text-slate-300">
+            <span className="flex items-center gap-1 font-semibold text-slate-400">
+              <Users size={12} className="text-red-400" />
+              <span>{isAmharic ? "ጠቅላላ:" : "Roster:"}</span>
+              <strong className="text-white">{dashboardStats.totalEmployees}</strong>
+            </span>
+            <span className="text-slate-600">|</span>
+            <span className="flex items-center gap-1 font-semibold text-emerald-400">
+              <CheckCircle2 size={12} />
+              <span>{isAmharic ? "በወቅቱ የሰሩ:" : "Worked in Period:"}</span>
+              <strong className="text-white">{dashboardStats.activeEmployees}</strong>
+            </span>
+            <span className="text-slate-600">|</span>
+            <span className="flex items-center gap-1 font-semibold text-amber-300 bg-amber-950/40 px-2 py-0.5 rounded-md border border-amber-800/50">
+              <Sparkles size={11} />
+              <span>{isAmharic ? "የ1 ቀን ሰራተኞች:" : "1-Day Workers Included:"}</span>
+              <strong>{dashboardStats.singleDayEmployees}</strong>
+            </span>
+            <span className="text-slate-600">|</span>
+            <span className="flex items-center gap-1 font-semibold text-slate-300">
+              <Clock size={12} className="text-blue-400" />
+              <span>{isAmharic ? "ድምር ሰዓታት:" : "Total Hours:"}</span>
+              <strong className="text-white">{dashboardStats.totalHoursWorked} hrs</strong>
+            </span>
+          </div>
+
+          <div className="text-[11px] text-slate-400 font-medium italic">
+            * {isAmharic ? "ቀን የሰሩ × የቀን ሂሳብ (basicSalary / 26)" : "Days Worked × Daily Rate (basicSalary / stdDays)"}
+          </div>
+        </div>
+
+        {lastCalculationMessage && (
+          <div className="mt-3 bg-red-500/10 border border-red-500/30 text-red-300 rounded-xl p-2.5 text-xs font-semibold flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Sparkles size={14} className="text-red-400 shrink-0" />
+              <span>{lastCalculationMessage}</span>
+            </div>
+            <button 
+              onClick={() => setLastCalculationMessage(null)}
+              className="text-slate-400 hover:text-white text-xs cursor-pointer ml-2"
+            >
+              ✕
+            </button>
+          </div>
+        )}
       </div>
 
       {syncStatusMessage && (
@@ -1015,6 +1383,22 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                   <option value="Paid">Paid</option>
                 </select>
               </div>
+
+              {isAuthorizedAdmin && (
+                <button
+                  onClick={() => handleGeneratePayroll(selectedPeriod, standardWorkingDays)}
+                  disabled={isCalculating}
+                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black shadow-xs transition-all flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 shrink-0 border border-red-500/30 ml-auto"
+                  title="Generate & persist payroll for all workers with attendance records"
+                >
+                  <Sparkles size={13} className={isCalculating ? "animate-spin text-amber-300" : "text-amber-300"} />
+                  <span>
+                    {isCalculating 
+                      ? (isAmharic ? "በማስላት ላይ..." : "Calculating...") 
+                      : (isAmharic ? "⚡ ደመወዝ አስላ" : "⚡ Generate / Calculate")}
+                  </span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1026,13 +1410,13 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                   <th className="p-3.5">{isAmharic ? "የሰራተኛ መለያ" : "Employee ID"}</th>
                   <th className="p-3.5">{isAmharic ? "ሙሉ ስም" : "Full Name"}</th>
                   <th className="p-3.5">{isAmharic ? "ማዕረግ / ክፍል" : "Trade / Position"}</th>
-                  <th className="p-3.5">{isAmharic ? "የክፍያ ሁኔታ" : "Salary Type"}</th>
-                  <th className="p-3.5 text-center">{isAmharic ? "የስራ ቀናት" : "Days worked"}</th>
-                  <th className="p-3.5 text-right">{isAmharic ? "መሰረታዊ ደመወዝ" : "Basic Wage"}</th>
+                  <th className="p-3.5">{isAmharic ? "የክፍያ አይነት" : "Contract Type"}</th>
+                  <th className="p-3.5 text-center">{isAmharic ? "የተሰሩ ቀናት / ሰዓታት" : "Days & Hours Worked"}</th>
+                  <th className="p-3.5 text-right">{isAmharic ? "መሰረታዊ / የቀን ሂሳብ" : "Base / Daily Rate"}</th>
+                  <th className="p-3.5 text-right">{isAmharic ? "የቀናት ክፍያ (Days × Rate)" : "Base Pay"}</th>
                   <th className="p-3.5 text-right">{isAmharic ? "ትርፍ ሰዓት" : "Overtime Pay"}</th>
                   <th className="p-3.5 text-right text-amber-600">{isAmharic ? "የሰዓት ጉድለት" : "Undertime Deduction"}</th>
-                  <th className="p-3.5 text-right text-emerald-600">{isAmharic ? "አበል" : "Allowances"}</th>
-                  <th className="p-3.5 text-right text-slate-700">{isAmharic ? "የተጣራ ክፍያ" : "Net Salary"}</th>
+                  <th className="p-3.5 text-right text-slate-900 bg-slate-100/60">{isAmharic ? "የተጣራ ክፍያ" : "Net Payable"}</th>
                   <th className="p-3.5 text-center">{isAmharic ? "ሁኔታ" : "Status"}</th>
                   <th className="p-3.5 text-center">{isAmharic ? "እርምጃዎች" : "Action"}</th>
                 </tr>
@@ -1045,73 +1429,105 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                     </td>
                   </tr>
                 ) : (
-                  filteredRecords.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="p-3.5 font-mono font-bold text-slate-900">{r.workerId}</td>
-                      <td className="p-3.5">
-                        <span className="font-bold text-slate-900 block">{r.workerName}</span>
-                        <span className="text-[10px] text-slate-400 font-mono">{r.project} | {r.team}</span>
-                      </td>
-                      <td className="p-3.5">
-                        <span className="block font-semibold text-slate-700">{r.position}</span>
-                        <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">{r.grade}</span>
-                      </td>
-                      <td className="p-3.5 font-mono">
-                        {r.employmentType === "Daily Labourer" ? (
-                          <span className="text-red-600 font-bold">{isAmharic ? "ዕለታዊ ክፍያ" : "Daily Labourer"}</span>
-                        ) : (
-                          <span className="text-slate-600">{r.employmentType}</span>
-                        )}
-                      </td>
-                      <td className="p-3.5 text-center font-bold font-mono">{r.attendanceDays} {isAmharic ? "ቀን" : "days"}</td>
-                      <td className="p-3.5 text-right font-bold font-mono text-slate-900">
-                        {maskValue(r.basicSalary)}
-                        <span className="text-[9px] text-slate-400 block font-normal">
-                          {r.employmentType === "Daily Labourer" ? "/day" : "/month"}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-right font-bold font-mono text-slate-800">
-                        {maskValue(r.overtimePayment)}
-                        <span className="text-[9px] text-emerald-600 block font-normal">{r.overtimeHours} hrs</span>
-                      </td>
-                      <td className="p-3.5 text-right font-bold font-mono text-amber-600">
-                        -{maskValue(r.undertimeDeduction)}
-                        <span className="text-[9px] text-amber-500 block font-normal">{r.undertimeHours} hrs</span>
-                      </td>
-                      <td className="p-3.5 text-right font-bold font-mono text-emerald-600">
-                        +{maskValue(r.allowances)}
-                      </td>
-                      <td className="p-3.5 text-right font-extrabold font-mono text-slate-900 bg-red-50/10">
-                        {maskValue(r.netSalary)} <span className="text-[9px] text-slate-400 font-normal">ETB</span>
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          r.status === "Paid" ? "bg-emerald-100 text-emerald-800" :
-                          r.status === "Approved" ? "bg-emerald-50 text-emerald-600" :
-                          r.status === "Pending Review" ? "bg-amber-100 text-amber-800 animate-pulse" : "bg-slate-100 text-slate-600"
-                        }`}>
-                          {r.status}
-                        </span>
-                      </td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex items-center justify-center space-x-1.5">
-                          {r.status !== "Approved" && r.status !== "Paid" ? (
-                            <button
-                              onClick={() => handleUpdateRecordStatus(r.id, "Approved")}
-                              className="p-1 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded transition-all cursor-pointer"
-                              title="Approve this ledger record"
-                            >
-                              <UserCheck size={12} />
-                            </button>
+                  filteredRecords.map((r) => {
+                    const dailyRate = r.employmentType === "Daily Labourer" 
+                      ? r.basicSalary 
+                      : Math.round((r.basicSalary / (standardWorkingDays || 26)) * 100) / 100;
+                    const basePayment = Math.round(dailyRate * r.attendanceDays);
+
+                    return (
+                      <tr key={r.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="p-3.5 font-mono font-bold text-slate-900">{r.workerId}</td>
+                        <td className="p-3.5">
+                          <span className="font-bold text-slate-900 block">{r.workerName}</span>
+                          <span className="text-[10px] text-slate-400 font-mono block">{r.project} | {r.team}</span>
+                          <span className="text-[10px] text-emerald-700 font-mono font-bold block mt-0.5">
+                            💳 {r.bankName || "CBE"}: {r.bankAccountNumber || "ያልተሞላ"} | 📱 {r.mobileMoneyType || "Telebirr"}
+                          </span>
+                        </td>
+                        <td className="p-3.5">
+                          <span className="block font-semibold text-slate-700">{r.position}</span>
+                          <span className="text-[9px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-bold uppercase">{r.grade}</span>
+                        </td>
+                        <td className="p-3.5 font-mono">
+                          {r.employmentType === "Daily Labourer" ? (
+                            <span className="text-red-600 font-bold px-2 py-0.5 bg-red-50 rounded-md text-[10px]">{isAmharic ? "ዕለታዊ የቀን ሰራተኛ" : "Daily Labourer"}</span>
                           ) : (
-                            <span className="text-emerald-600 font-bold text-[10px] flex items-center gap-0.5">
-                              <CheckCircle2 size={11} /> Ready
-                            </span>
+                            <span className="text-slate-700 font-semibold">{r.employmentType}</span>
                           )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex flex-col items-center">
+                            <span className="font-extrabold font-mono text-slate-900 text-xs">
+                              {r.attendanceDays} {isAmharic ? "ቀን" : "days"}
+                            </span>
+                            <span className="text-[10px] text-slate-500 font-mono">
+                              ({r.totalWorkingHours} hrs logged)
+                            </span>
+                            {r.attendanceDays === 1 && (
+                              <span className="mt-1 bg-amber-100 text-amber-900 border border-amber-300 text-[9px] font-black px-1.5 py-0.2 rounded-full">
+                                ⭐ 1 Day Worked
+                              </span>
+                            )}
+                            {r.attendanceDays === 0 && (
+                              <span className="mt-1 bg-slate-100 text-slate-400 text-[9px] font-semibold px-1.5 py-0.2 rounded-full">
+                                0 Days in Period
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="p-3.5 text-right font-bold font-mono text-slate-900">
+                          {maskValue(r.basicSalary)} ETB
+                          <span className="text-[9px] text-slate-400 block font-normal">
+                            Rate: {maskValue(dailyRate)}/day
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right font-bold font-mono text-slate-800">
+                          {maskValue(basePayment)} ETB
+                          <span className="text-[9px] text-slate-400 block font-mono">
+                            {r.attendanceDays} × {maskValue(dailyRate)}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-right font-bold font-mono text-slate-800">
+                          {maskValue(r.overtimePayment)} ETB
+                          <span className="text-[9px] text-emerald-600 block font-normal">{r.overtimeHours} hrs OT</span>
+                        </td>
+                        <td className="p-3.5 text-right font-bold font-mono text-amber-600">
+                          {r.undertimeDeduction > 0 ? `-${maskValue(r.undertimeDeduction)} ETB` : "0 ETB"}
+                          <span className="text-[9px] text-amber-500 block font-normal">{r.undertimeHours} hrs short</span>
+                        </td>
+                        <td className="p-3.5 text-right font-black font-mono text-slate-950 bg-slate-100/80 text-sm">
+                          {maskValue(r.netSalary)} <span className="text-[9px] text-slate-500 font-normal">ETB</span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                            r.status === "Paid" ? "bg-emerald-100 text-emerald-800" :
+                            r.status === "Approved" ? "bg-emerald-50 text-emerald-600" :
+                            r.status === "Pending Review" ? "bg-amber-100 text-amber-800 animate-pulse" : "bg-slate-100 text-slate-600"
+                          }`}>
+                            {r.status}
+                          </span>
+                        </td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex items-center justify-center space-x-1.5">
+                            {r.status !== "Approved" && r.status !== "Paid" ? (
+                              <button
+                                onClick={() => handleUpdateRecordStatus(r.id, "Approved")}
+                                className="p-1 bg-red-50 hover:bg-red-600 hover:text-white text-red-600 rounded transition-all cursor-pointer"
+                                title="Approve this ledger record"
+                              >
+                                <UserCheck size={12} />
+                              </button>
+                            ) : (
+                              <span className="text-emerald-600 font-bold text-[10px] flex items-center gap-0.5">
+                                <CheckCircle2 size={11} /> Ready
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

@@ -753,9 +753,9 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     if (searchTerm.trim() !== "") {
       const q = searchTerm.toLowerCase();
       list = list.filter(r => 
-        r.workerName.toLowerCase().includes(q) ||
-        r.workerId.toLowerCase().includes(r.workerId.toLowerCase() === q ? q : r.workerId.toLowerCase()) ||
-        r.trade.toLowerCase().includes(q)
+        (r.workerName || "").toLowerCase().includes(q) ||
+        (r.workerId || "").toLowerCase().includes(q) ||
+        (r.trade || "").toLowerCase().includes(q)
       );
     }
 

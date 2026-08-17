@@ -106,6 +106,12 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   const [enrollSupervisor, setEnrollSupervisor] = useState("Eng. Yoseph");
   const [enrollPhoto, setEnrollPhoto] = useState("https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150&h=150&fit=crop");
   
+  // Bank Account & Payment details
+  const [enrollBankName, setEnrollBankName] = useState("Commercial Bank of Ethiopia (CBE)");
+  const [enrollBankAccountNumber, setEnrollBankAccountNumber] = useState("");
+  const [enrollMobileMoneyType, setEnrollMobileMoneyType] = useState("Telebirr");
+  const [enrollMobileMoneyNumber, setEnrollMobileMoneyNumber] = useState("");
+  
   // Kiosk PIN & Scan state
   const [enrollPin, setEnrollPin] = useState("");
   const [enteredPin, setEnteredPin] = useState("");
@@ -256,7 +262,11 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       supervisor: enrollSupervisor,
       attendancePin: assignedPin,
       status: "Active",
-      teamId: "T-01"
+      teamId: "T-01",
+      bankName: enrollBankName,
+      bankAccountNumber: enrollBankAccountNumber,
+      mobileMoneyType: enrollMobileMoneyType,
+      mobileMoneyNumber: enrollMobileMoneyNumber
     };
 
     onEnrollWorker(newWorker);
@@ -264,8 +274,8 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
     // Log to audit log
     if (onLogAction) {
       onLogAction(
-        "Worker Enrolled with PIN", 
-        `Enrolled worker ${newWorker.name} (${newWorker.id}) with PIN [${assignedPin}].`
+        "Worker Enrolled with PIN & Bank Info", 
+        `Enrolled worker ${newWorker.name} (${newWorker.id}) with Bank [${enrollBankName} - ${enrollBankAccountNumber || "N/A"}] and PIN [${assignedPin}].`
       );
     }
 
@@ -276,13 +286,15 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       type: "success",
       title: isAmharic ? "ምዝገባው በተሳካ ሁኔታ ተጠናቋል!" : "Enrollment Successful!",
       message: isAmharic 
-        ? `ሰራተኛው ${enrollName} [${newWorker.id}] በፒን [${assignedPin}] ተመዝግቧል። አሁን በኪዮስክ መግባት ይችላል።`
-        : `Employee ${enrollName} [${newWorker.id}] enrolled with PIN [${assignedPin}]. Ready for PIN attendance.`
+        ? `ሰራተኛው ${enrollName} [${newWorker.id}] በባንክ ሂሳብ [${enrollBankName}: ${enrollBankAccountNumber || "ያልተሞላ"}] እና ፒን [${assignedPin}] ተመዝግቧል።`
+        : `Employee ${enrollName} [${newWorker.id}] enrolled with Bank [${enrollBankName}: ${enrollBankAccountNumber || "N/A"}] and PIN [${assignedPin}].`
     });
 
     // Reset Form
     setEnrollName("");
     setEnrollPin("");
+    setEnrollBankAccountNumber("");
+    setEnrollMobileMoneyNumber("");
     setEnrollId(""); // Will regenerate on next cycle
     setActiveMode("kiosk"); // Switch to kiosk to test immediately
   };
@@ -1481,6 +1493,87 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
 
             </div>
 
+          </div>
+
+          {/* SECTION: BANK & MOBILE MONEY ACCOUNT DETAILS */}
+          <div className="bg-emerald-50/50 border border-emerald-100 rounded-2xl p-5 space-y-4">
+            <div className="flex items-center space-x-2 border-b border-emerald-200/60 pb-2">
+              <KeyRound size={16} className="text-emerald-600" />
+              <h4 className="font-extrabold text-xs text-emerald-950 uppercase tracking-wider">
+                {isAmharic ? "የባንክ እና ሞባይል ገንዘብ መረጃዎች (Bank & Mobile Payment Accounts)" : "Bank & Mobile Payment Details"}
+              </h4>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              
+              {/* Bank Name */}
+              <div className="space-y-1">
+                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የባንክ ስም" : "Bank Name"}</label>
+                <select
+                  value={enrollBankName}
+                  onChange={e => setEnrollBankName(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="Commercial Bank of Ethiopia (CBE)">የኢትዮጵያ ንግድ ባንክ (CBE)</option>
+                  <option value="Dashen Bank">ዳሽን ባንክ (Dashen)</option>
+                  <option value="Awash Bank">አዋሽ ባንክ (Awash)</option>
+                  <option value="Bank of Abyssinia">አቢሲንያ ባንክ (Abyssinia)</option>
+                  <option value="Nib International Bank">ኒብ ኢንተርናሽናል ባንክ (Nib)</option>
+                  <option value="Wegagen Bank">ወጋገን ባንክ (Wegagen)</option>
+                  <option value="Cooperative Bank of Oromia">የኦሮሚያ ህብረት ስራ ባንክ (Coop)</option>
+                  <option value="Hibret Bank">ኅብረት ባንክ (Hibret)</option>
+                  <option value="Oromia Bank">ኦሮሚያ ባንክ (Oromia Bank)</option>
+                  <option value="Hijra Bank">ሂጅራ ባንክ (Hijra)</option>
+                  <option value="ZamZam Bank">ዘምዘም ባንክ (ZamZam)</option>
+                  <option value="Lion International Bank">አንበሳ ኢንተርናሽናል ባንክ (Lion)</option>
+                  <option value="Zemen Bank">ዘመን ባንክ (Zemen)</option>
+                  <option value="Other Bank">ሌላ ባንክ (Other)</option>
+                </select>
+              </div>
+
+              {/* Bank Account Number */}
+              <div className="space-y-1">
+                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የባንክ ሂሳብ ቁጥር" : "Bank Account Number"}</label>
+                <input 
+                  type="text"
+                  value={enrollBankAccountNumber}
+                  onChange={e => setEnrollBankAccountNumber(e.target.value)}
+                  placeholder={isAmharic ? "ለምሳሌ፡ 1000123456789" : "e.g. 1000123456789"}
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+              {/* Mobile Money Type */}
+              <div className="space-y-1">
+                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የሞባይል ብር / ዋሌት ዓይነት" : "Mobile Wallet Provider"}</label>
+                <select
+                  value={enrollMobileMoneyType}
+                  onChange={e => setEnrollMobileMoneyType(e.target.value)}
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
+                >
+                  <option value="Telebirr">ቴሌብር (Telebirr)</option>
+                  <option value="CBE Birr">ሲቢኢ ብር (CBE Birr)</option>
+                  <option value="M-PESA">ኤም-ፔሳ (M-PESA Safaricom)</option>
+                  <option value="Amole">አሞሌ (Amole Dashen)</option>
+                  <option value="Awash Birr">አዋሽ ብር (Awash Birr)</option>
+                  <option value="Kacha">ካቻ (Kacha Digital)</option>
+                  <option value="Other Wallet">ሌላ ዋሌት (Other)</option>
+                </select>
+              </div>
+
+              {/* Mobile Money Account / Phone Number */}
+              <div className="space-y-1">
+                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የሞባይል ብር ቁጥር / ስልክ" : "Mobile Wallet Phone Number"}</label>
+                <input 
+                  type="text"
+                  value={enrollMobileMoneyNumber}
+                  onChange={e => setEnrollMobileMoneyNumber(e.target.value)}
+                  placeholder={isAmharic ? "ለምሳሌ፡ 0911234567" : "e.g. 0911234567"}
+                  className="w-full bg-white border border-slate-300 rounded-xl p-2.5 text-xs font-mono font-bold text-slate-800 focus:border-emerald-500 focus:outline-none"
+                />
+              </div>
+
+            </div>
           </div>
 
           <div className="border-t border-slate-100 pt-5 flex justify-end space-x-3.5">

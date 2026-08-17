@@ -76,15 +76,15 @@ export const PanelMasterDatabaseView: React.FC<PanelMasterDatabaseViewProps> = (
   const filteredPanels = useMemo(() => {
     return MASTER_PANEL_DATABASE.filter((panel) => {
       // Search
-      const term = searchTerm.trim().toLowerCase();
+      const term = (searchTerm || "").trim().toLowerCase();
       if (term) {
-        const matchId = panel.panelId.toLowerCase().includes(term);
-        const matchCode = panel.panelCode.toLowerCase().includes(term);
-        const matchName = panel.panelName.toLowerCase().includes(term);
-        const matchBarcode = panel.barcode.toLowerCase().includes(term);
-        const matchSerial = panel.serialNumber.toLowerCase().includes(term);
-        const matchCategory = panel.category.toLowerCase().includes(term);
-        const matchMfr = panel.manufacturer.toLowerCase().includes(term);
+        const matchId = String(panel.panelId || "").toLowerCase().includes(term);
+        const matchCode = String(panel.panelCode || "").toLowerCase().includes(term);
+        const matchName = String(panel.panelName || "").toLowerCase().includes(term);
+        const matchBarcode = String(panel.barcode || "").toLowerCase().includes(term);
+        const matchSerial = String(panel.serialNumber || "").toLowerCase().includes(term);
+        const matchCategory = String(panel.category || "").toLowerCase().includes(term);
+        const matchMfr = String(panel.manufacturer || "").toLowerCase().includes(term);
         if (
           !matchId &&
           !matchCode &&
