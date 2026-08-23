@@ -1076,5 +1076,28 @@ export const DbService = {
   },
   async addApiIntegrationLog(item: any): Promise<void> {
     await writeDocument<any>("apiIntegrationLogs", item, []);
+  },
+
+  // === BATCH E: Enterprise ERP Collections ===
+  // 1. backupLogs ("backupLogs")
+  async getBackupLogs(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("backupLogs", defaultItems);
+  },
+  async addBackupLog(item: any): Promise<void> {
+    await writeDocument<any>("backupLogs", item, []);
+  },
+  async updateBackupLog(item: any): Promise<void> {
+    await writeDocument<any>("backupLogs", item, []);
+  },
+
+  // 2. approvalWorkflows ("approvalWorkflows")
+  async getApprovalWorkflows(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("approvalWorkflows", defaultItems);
+  },
+  async addApprovalWorkflow(item: any): Promise<void> {
+    await writeDocument<any>("approvalWorkflows", item, []);
+  },
+  async updateApprovalWorkflow(item: any): Promise<void> {
+    await writeDocument<any>("approvalWorkflows", item, []);
   }
 };

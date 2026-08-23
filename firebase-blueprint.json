@@ -449,6 +449,37 @@
         "timestamp": { "type": "string" }
       },
       "required": ["id", "endpoint", "method", "status", "system", "timestamp"]
+    },
+    "BackupLog": {
+      "title": "BackupLog",
+      "description": "Disaster recovery, cold and incremental backups, and checksum telemetry records.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "type": { "type": "string" },
+        "size": { "type": "string" },
+        "checksum": { "type": "string" },
+        "destination": { "type": "string" },
+        "nodes": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "type", "size", "status"]
+    },
+    "ApprovalWorkflow": {
+      "title": "ApprovalWorkflow",
+      "description": "Configurable enterprise approval workflow hierarchies and automated notification rules.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "path": { "type": "string" },
+        "status": { "type": "string" },
+        "levels": { "type": "number" },
+        "autoNotify": { "type": "boolean" },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "name", "path", "levels", "category"]
     }
   },
   "firestore": {
@@ -571,6 +602,14 @@
     "/apiIntegrationLogs/{logId}": {
       "schema": "ApiIntegrationLog",
       "description": "Enterprise API gateway traffic and sync telemetry logs."
+    },
+    "/backupLogs/{logId}": {
+      "schema": "BackupLog",
+      "description": "Disaster recovery incremental and cold backup audit records."
+    },
+    "/approvalWorkflows/{workflowId}": {
+      "schema": "ApprovalWorkflow",
+      "description": "Configurable enterprise approval workflows and routing hierarchies."
     }
   }
 }

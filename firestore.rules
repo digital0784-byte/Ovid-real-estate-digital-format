@@ -417,5 +417,16 @@ service cloud.firestore {
     match /apiIntegrationLogs/{logId} {
       allow read, write: if isSuperAdmin() || isHeadOffice();
     }
+
+    // 20. Batch E Enterprise Collections
+    // 20.1 backupLogs
+    match /backupLogs/{logId} {
+      allow read, write: if isSuperAdmin() || isHeadOffice();
+    }
+
+    // 20.2 approvalWorkflows
+    match /approvalWorkflows/{workflowId} {
+      allow read, write: if isSuperAdmin() || isHeadOffice();
+    }
   }
 }
