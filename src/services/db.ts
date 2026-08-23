@@ -989,5 +989,50 @@ export const DbService = {
   },
   async addSiteDiaryLog(item: any): Promise<void> {
     await writeDocument<any>("siteDiaryLogs", item, []);
+  },
+
+  // === BATCH C: Enterprise ERP Collections ===
+  // 1. permits ("projectPermits")
+  async getProjectPermits(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("projectPermits", defaultItems);
+  },
+  async addProjectPermit(item: any): Promise<void> {
+    await writeDocument<any>("projectPermits", item, []);
+  },
+  async updateProjectPermit(item: any): Promise<void> {
+    await writeDocument<any>("projectPermits", item, []);
+  },
+
+  // 2. assets ("enterpriseAssets")
+  async getEnterpriseAssets(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("enterpriseAssets", defaultItems);
+  },
+  async addEnterpriseAsset(item: any): Promise<void> {
+    await writeDocument<any>("enterpriseAssets", item, []);
+  },
+  async updateEnterpriseAsset(item: any): Promise<void> {
+    await writeDocument<any>("enterpriseAssets", item, []);
+  },
+
+  // 3. maintenanceSchedule ("maintenanceSchedules")
+  async getMaintenanceSchedules(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("maintenanceSchedules", defaultItems);
+  },
+  async addMaintenanceSchedule(item: any): Promise<void> {
+    await writeDocument<any>("maintenanceSchedules", item, []);
+  },
+  async updateMaintenanceSchedule(item: any): Promise<void> {
+    await writeDocument<any>("maintenanceSchedules", item, []);
+  },
+
+  // 4. costItems ("costTrackingItems")
+  async getCostTrackingItems(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("costTrackingItems", defaultItems);
+  },
+  async addCostTrackingItem(item: any): Promise<void> {
+    await writeDocument<any>("costTrackingItems", item, []);
+  },
+  async updateCostTrackingItem(item: any): Promise<void> {
+    await writeDocument<any>("costTrackingItems", item, []);
   }
 };

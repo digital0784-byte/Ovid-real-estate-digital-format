@@ -739,7 +739,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     automaticDailyCloudBackup: "Enabled (Scheduled at 03:00 AM daily)"
   });
 
-  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, Appraisals, Batch A & Batch B
+  // Load live Firestore collections for Procurement, Equipment, Employee Feedbacks, Appraisals, Batch A, B, & C
   useEffect(() => {
     let active = true;
     const fetchEnterpriseData = async () => {
@@ -756,7 +756,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           dbDocs,
           dbChatMsgs,
           dbClientApprs,
-          dbDiaries
+          dbDiaries,
+          dbPermits,
+          dbAssets,
+          dbMaint,
+          dbCosts
         ] = await Promise.all([
           DbService.getProcurements(procurements),
           DbService.getEquipmentLogs(equipment),
@@ -769,7 +773,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           DbService.getEnterpriseDocuments(documents),
           DbService.getEnterpriseChatMessages([]),
           DbService.getClientApprovals(clientApprovals),
-          DbService.getSiteDiaryLogs(diaryLogs)
+          DbService.getSiteDiaryLogs(diaryLogs),
+          DbService.getProjectPermits(permits),
+          DbService.getEnterpriseAssets(assets),
+          DbService.getMaintenanceSchedules(maintenanceSchedule),
+          DbService.getCostTrackingItems(costItems)
         ]);
         if (active) {
           if (dbProc && dbProc.length > 0) setProcurements(dbProc);
@@ -789,6 +797,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           }
           if (dbClientApprs && dbClientApprs.length > 0) setClientApprovals(dbClientApprs);
           if (dbDiaries && dbDiaries.length > 0) setDiaryLogs(dbDiaries);
+          if (dbPermits && dbPermits.length > 0) setPermits(dbPermits);
+          if (dbAssets && dbAssets.length > 0) setAssets(dbAssets);
+          if (dbMaint && dbMaint.length > 0) setMaintenanceSchedule(dbMaint);
+          if (dbCosts && dbCosts.length > 0) setCostItems(dbCosts);
         }
       } catch (err) {
         console.error("Failed loading Enterprise ERP Firestore collections:", err);
@@ -3338,8 +3350,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3 text-right whitespace-nowrap">
                           {p.status === "Pending Approval" ? (
                             <button
-                              onClick={() => {
-                                setPermits(prev => prev.map(item => item.id === p.id ? { ...item, status: "Active", approvedBy: currentAdminName, alerts: "No alerts" } : item));
+                              onClick={async () => {
+                                const updated = { ...p, status: "Active", approvedBy: currentAdminName, alerts: "No alerts" };
+                                setPermits(prev => prev.map(item => item.id === p.id ? updated : item));
+                                try {
+                                  await DbService.updateProjectPermit(updated);
+                                } catch (err) {
+                                  console.error("Failed persisting permit approval:", err);
+                                }
                                 onLogAction("Approve Work Permit", `Approved ${p.type} Permit ID ${p.id} by ${currentAdminName}.`);
                                 alert(`Permit ${p.id} has been fully APPROVED and is now ACTIVE.`);
                               }}
@@ -3349,8 +3367,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             </button>
                           ) : p.status === "Active" ? (
                             <button
-                              onClick={() => {
-                                setPermits(prev => prev.map(item => item.id === p.id ? { ...item, status: "Expired", alerts: "Revoked by safety auditor" } : item));
+                              onClick={async () => {
+                                const updated = { ...p, status: "Expired", alerts: "Revoked by safety auditor" };
+                                setPermits(prev => prev.map(item => item.id === p.id ? updated : item));
+                                try {
+                                  await DbService.updateProjectPermit(updated);
+                                } catch (err) {
+                                  console.error("Failed persisting permit revoke:", err);
+                                }
                                 onLogAction("Revoke Work Permit", `Revoked Permit ID ${p.id} for safety compliance.`);
                                 alert(`Permit ${p.id} has been REVOKED and ARCHIVED.`);
                               }}
@@ -3372,7 +3396,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Request Permit Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ ፈቃድ ጠይቅ" : "Request Digital Permit"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 const newP = {
                   id: `PER-${Date.now().toString().slice(-3)}-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -3385,6 +3409,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   alerts: newPermit.type === "Height Work" ? "Alert: Winds forecast 25+ km/h tomorrow" : "No alerts"
                 };
                 setPermits(prev => [newP, ...prev]);
+                try {
+                  await DbService.addProjectPermit(newP);
+                } catch (err) {
+                  console.error("Failed persisting new permit:", err);
+                }
                 onLogAction("Request Work Permit", `Requested ${newP.type} permit for ${newP.zone}`);
                 alert("Work Permit requested successfully! Lead Admin notified.");
               }} className="space-y-3 text-xs font-semibold text-slate-700">
@@ -3504,7 +3533,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Asset Register Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ ንብረት ይመዝግቡ (ባርኮድ ማመንጫ)" : "Register New Asset"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newAsset.name) return;
                 const finalCode = newAsset.code || `QR-GEN-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -3519,6 +3548,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   serviceHistory: "Registered today into Enterprise Cloud Ledger."
                 };
                 setAssets(prev => [newAs, ...prev]);
+                try {
+                  await DbService.addEnterpriseAsset(newAs);
+                } catch (err) {
+                  console.error("Failed persisting new enterprise asset:", err);
+                }
                 onLogAction("Register Asset", `Registered ${newAs.name} with barcode ${newAs.code}`);
                 alert(`Asset registered successfully! Autopilot printed QR code '${finalCode}'.`);
                 setNewAsset({
@@ -3615,8 +3649,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         </td>
                         <td className="p-3 text-right">
                           <button
-                            onClick={() => {
-                              setMaintenanceSchedule(prev => prev.map(item => item.id === m.id ? { ...item, status: "Calibrated & Completed", alertTime: "Checked Today" } : item));
+                            onClick={async () => {
+                              const updated = { ...m, status: "Calibrated & Completed", alertTime: "Checked Today" };
+                              setMaintenanceSchedule(prev => prev.map(item => item.id === m.id ? updated : item));
+                              try {
+                                await DbService.updateMaintenanceSchedule(updated);
+                              } catch (err) {
+                                console.error("Failed persisting maintenance sign-off:", err);
+                              }
                               onLogAction("Complete Maintenance", `Completed calibration on ${m.asset}`);
                               alert(`Maintenance signed off! Asset is certified and returned to active roster.`);
                             }}
@@ -3635,7 +3675,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Schedule Maintenance Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ ጥገና ያቅዱ" : "Schedule Preventive Task"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newMaintItem.type) return;
                 const newM = {
@@ -3648,6 +3688,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   alertTime: "Alert is scheduled"
                 };
                 setMaintenanceSchedule(prev => [newM, ...prev]);
+                try {
+                  await DbService.addMaintenanceSchedule(newM);
+                } catch (err) {
+                  console.error("Failed persisting new maintenance task:", err);
+                }
                 onLogAction("Schedule Maintenance", `Scheduled ${newM.type} for ${newM.asset}`);
                 alert("Preventive maintenance task scheduled in central CRM calendar.");
                 setNewMaintItem({
@@ -3700,8 +3745,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <p className="text-xs text-slate-500">{isAmharic ? "የሠራተኞች፣ ማቴሪያሎች፣ ነዳጅ እና ማሽነሪዎች ወጪ ከበጀት ጋር ማነጻጸሪያ" : "Real-time cost trackers comparing Planned budget vs Actual expenditure"}</p>
             </div>
             <div className="bg-slate-100 p-2 rounded-lg font-mono text-[10px] flex items-center gap-3">
-              <div><span className="text-slate-400">Total Planned:</span> <span className="font-bold text-slate-900">ETB 3,290,000</span></div>
-              <div><span className="text-slate-400">Total Actual:</span> <span className="font-bold text-red-600">ETB 3,310,000</span></div>
+              <div><span className="text-slate-400">Total Planned:</span> <span className="font-bold text-slate-900">ETB {costItems.reduce((acc, c) => acc + (Number(c.planned) || 0), 0).toLocaleString()}</span></div>
+              <div><span className="text-slate-400">Total Actual:</span> <span className="font-bold text-red-600">ETB {costItems.reduce((acc, c) => acc + (Number(c.actual) || 0), 0).toLocaleString()}</span></div>
             </div>
           </div>
 
@@ -3727,13 +3772,29 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Cost logging Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4 text-xs font-semibold text-slate-700">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "የወጪ ዝርዝር መዝግብ" : "Log Expense Voucher"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
-                setCostItems(prev => prev.map(item => item.category === newCostRecord.category ? {
-                  ...item,
-                  planned: item.planned + Number(newCostRecord.planned),
-                  actual: item.actual + Number(newCostRecord.actual)
-                } : item));
+                let updatedTarget: any = null;
+                const newItems = costItems.map(item => {
+                  if (item.category === newCostRecord.category) {
+                    updatedTarget = {
+                      ...item,
+                      id: (item as any).id || `COST-${item.category.replace(/\s+/g, '-').toUpperCase()}`,
+                      planned: item.planned + Number(newCostRecord.planned),
+                      actual: item.actual + Number(newCostRecord.actual)
+                    };
+                    return updatedTarget;
+                  }
+                  return item;
+                });
+                setCostItems(newItems);
+                if (updatedTarget) {
+                  try {
+                    await DbService.updateCostTrackingItem(updatedTarget);
+                  } catch (err) {
+                    console.error("Failed persisting cost item to Firestore:", err);
+                  }
+                }
                 onLogAction("Log Expenditure", `Logged expense for ${newCostRecord.category}: Planned ETB ${newCostRecord.planned}, Actual ETB ${newCostRecord.actual}`);
                 alert("Expenditure logged and synchronized to central General Ledger successfully!");
                 setNewCostRecord({

@@ -374,5 +374,30 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
     }
+
+    // 18. Batch C Enterprise Collections
+    // 18.1 projectPermits
+    match /projectPermits/{permitId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+
+    // 18.2 enterpriseAssets
+    match /enterpriseAssets/{assetId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager();
+    }
+
+    // 18.3 maintenanceSchedules
+    match /maintenanceSchedules/{scheduleId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor();
+    }
+
+    // 18.4 costTrackingItems
+    match /costTrackingItems/{itemId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
   }
 }

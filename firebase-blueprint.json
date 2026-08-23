@@ -345,6 +345,67 @@
         "aiSummary": { "type": "string" }
       },
       "required": ["id", "date", "activities"]
+    },
+    "ProjectPermit": {
+      "title": "ProjectPermit",
+      "description": "Digital safety work permits for height, hot work, crane, confined spaces, etc.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "type": { "type": "string" },
+        "zone": { "type": "string" },
+        "requestedBy": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "expiry": { "type": "string" },
+        "status": { "type": "string" },
+        "alerts": { "type": "string" }
+      },
+      "required": ["id", "type", "zone", "status"]
+    },
+    "EnterpriseAsset": {
+      "title": "EnterpriseAsset",
+      "description": "Enterprise QR and RFID asset registry tracking formwork panels, survey instruments, and tools.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "code": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "location": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "status": { "type": "string" },
+        "serviceHistory": { "type": "string" }
+      },
+      "required": ["id", "code", "name", "category"]
+    },
+    "MaintenanceSchedule": {
+      "title": "MaintenanceSchedule",
+      "description": "Preventive maintenance, sensor calibration, and equipment servicing schedules.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "asset": { "type": "string" },
+        "type": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "status": { "type": "string" },
+        "alertTime": { "type": "string" }
+      },
+      "required": ["id", "asset", "type", "dueDate"]
+    },
+    "CostTrackingItem": {
+      "title": "CostTrackingItem",
+      "description": "Enterprise cost control and budget variance tracking items.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "planned": { "type": "number" },
+        "actual": { "type": "number" },
+        "color": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["category", "planned", "actual"]
     }
   },
   "firestore": {
@@ -439,6 +500,22 @@
     "/siteDiaryLogs/{logId}": {
       "schema": "SiteDiaryLog",
       "description": "Daily site diary progress and activity records."
+    },
+    "/projectPermits/{permitId}": {
+      "schema": "ProjectPermit",
+      "description": "Digital safety work permits."
+    },
+    "/enterpriseAssets/{assetId}": {
+      "schema": "EnterpriseAsset",
+      "description": "Asset registry tracking QR/RFID equipment and panels."
+    },
+    "/maintenanceSchedules/{scheduleId}": {
+      "schema": "MaintenanceSchedule",
+      "description": "Equipment and sensor preventive maintenance schedules."
+    },
+    "/costTrackingItems/{itemId}": {
+      "schema": "CostTrackingItem",
+      "description": "Project planned budget vs actual expenditure items."
     }
   }
 }
