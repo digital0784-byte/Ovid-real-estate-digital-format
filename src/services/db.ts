@@ -1034,5 +1034,47 @@ export const DbService = {
   },
   async updateCostTrackingItem(item: any): Promise<void> {
     await writeDocument<any>("costTrackingItems", item, []);
+  },
+
+  // === BATCH D: Enterprise ERP Collections ===
+  // 1. aiRisks ("aiRiskAssessments")
+  async getAiRiskAssessments(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("aiRiskAssessments", defaultItems);
+  },
+  async addAiRiskAssessment(item: any): Promise<void> {
+    await writeDocument<any>("aiRiskAssessments", item, []);
+  },
+  async updateAiRiskAssessment(item: any): Promise<void> {
+    await writeDocument<any>("aiRiskAssessments", item, []);
+  },
+
+  // 2. trainingRecords ("trainingRecords")
+  async getTrainingRecords(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("trainingRecords", defaultItems);
+  },
+  async addTrainingRecord(item: any): Promise<void> {
+    await writeDocument<any>("trainingRecords", item, []);
+  },
+  async updateTrainingRecord(item: any): Promise<void> {
+    await writeDocument<any>("trainingRecords", item, []);
+  },
+
+  // 3. multiProjects (reuses existing "projects" collection)
+  async getProjects(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("projects", defaultItems);
+  },
+  async addProject(item: any): Promise<void> {
+    await writeDocument<any>("projects", item, []);
+  },
+  async updateProject(item: any): Promise<void> {
+    await writeDocument<any>("projects", item, []);
+  },
+
+  // 4. apiLogs ("apiIntegrationLogs")
+  async getApiIntegrationLogs(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("apiIntegrationLogs", defaultItems);
+  },
+  async addApiIntegrationLog(item: any): Promise<void> {
+    await writeDocument<any>("apiIntegrationLogs", item, []);
   }
 };

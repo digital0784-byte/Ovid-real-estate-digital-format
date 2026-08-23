@@ -406,6 +406,49 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["category", "planned", "actual"]
+    },
+    "AiRiskAssessment": {
+      "title": "AiRiskAssessment",
+      "description": "AI-generated risk assessments predicting delays, high winds, shortfalls, and quality anomalies.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "desc": { "type": "string" },
+        "recommendation": { "type": "string" }
+      },
+      "required": ["id", "category", "priority", "desc", "recommendation"]
+    },
+    "TrainingRecord": {
+      "title": "TrainingRecord",
+      "description": "Employee safety competency and certification records enforcing automated operation blocks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employee": { "type": "string" },
+        "course": { "type": "string" },
+        "certDate": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "status": { "type": "string" },
+        "blockStatus": { "type": "string" }
+      },
+      "required": ["id", "employee", "course", "expiryDate", "status"]
+    },
+    "ApiIntegrationLog": {
+      "title": "ApiIntegrationLog",
+      "description": "Enterprise API gateway traffic and sync telemetry records (SAP, ZKTeco, BIM, etc.).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "endpoint": { "type": "string" },
+        "method": { "type": "string" },
+        "status": { "type": "number" },
+        "system": { "type": "string" },
+        "payload": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["id", "endpoint", "method", "status", "system", "timestamp"]
     }
   },
   "firestore": {
@@ -516,6 +559,18 @@
     "/costTrackingItems/{itemId}": {
       "schema": "CostTrackingItem",
       "description": "Project planned budget vs actual expenditure items."
+    },
+    "/aiRiskAssessments/{riskId}": {
+      "schema": "AiRiskAssessment",
+      "description": "Proactive AI risk assessments and predictions."
+    },
+    "/trainingRecords/{recordId}": {
+      "schema": "TrainingRecord",
+      "description": "Employee safety competency and certification registries."
+    },
+    "/apiIntegrationLogs/{logId}": {
+      "schema": "ApiIntegrationLog",
+      "description": "Enterprise API gateway traffic and sync telemetry logs."
     }
   }
 }

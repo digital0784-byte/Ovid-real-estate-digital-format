@@ -760,7 +760,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           dbPermits,
           dbAssets,
           dbMaint,
-          dbCosts
+          dbCosts,
+          dbAiRisks,
+          dbTrainings,
+          dbProjects,
+          dbApiLogs
         ] = await Promise.all([
           DbService.getProcurements(procurements),
           DbService.getEquipmentLogs(equipment),
@@ -777,7 +781,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           DbService.getProjectPermits(permits),
           DbService.getEnterpriseAssets(assets),
           DbService.getMaintenanceSchedules(maintenanceSchedule),
-          DbService.getCostTrackingItems(costItems)
+          DbService.getCostTrackingItems(costItems),
+          DbService.getAiRiskAssessments(aiRisks),
+          DbService.getTrainingRecords(trainingRecords),
+          DbService.getProjects(multiProjects),
+          DbService.getApiIntegrationLogs(apiLogs)
         ]);
         if (active) {
           if (dbProc && dbProc.length > 0) setProcurements(dbProc);
@@ -801,6 +809,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           if (dbAssets && dbAssets.length > 0) setAssets(dbAssets);
           if (dbMaint && dbMaint.length > 0) setMaintenanceSchedule(dbMaint);
           if (dbCosts && dbCosts.length > 0) setCostItems(dbCosts);
+          if (dbAiRisks && dbAiRisks.length > 0) setAiRisks(dbAiRisks);
+          if (dbTrainings && dbTrainings.length > 0) setTrainingRecords(dbTrainings);
+          if (dbProjects && dbProjects.length > 0) setMultiProjects(dbProjects);
+          if (dbApiLogs && dbApiLogs.length > 0) setApiLogs(dbApiLogs);
         }
       } catch (err) {
         console.error("Failed loading Enterprise ERP Firestore collections:", err);
@@ -4014,8 +4026,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3 text-right">
                           {tr.status === "Expired" ? (
                             <button
-                              onClick={() => {
-                                setTrainingRecords(prev => prev.map(item => item.id === tr.id ? { ...item, status: "Valid", blockStatus: "Clear", expiryDate: "2027-07-09" } : item));
+                              onClick={async () => {
+                                const updated = { ...tr, status: "Valid", blockStatus: "Clear", expiryDate: "2027-07-09" };
+                                setTrainingRecords(prev => prev.map(item => item.id === tr.id ? updated : item));
+                                try {
+                                  await DbService.updateTrainingRecord(updated);
+                                } catch (err) {
+                                  console.error("Failed updating training record in Firestore:", err);
+                                }
                                 onLogAction("Renew Safety Certification", `Renewed safety competency for ${tr.employee}`);
                                 alert(`Safety certification successfully RENEWED. All critical task blocks have been lifted.`);
                               }}
@@ -4037,7 +4055,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Add Training Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ ስልጠና መዝግብ" : "Register Safety Competency"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newTraining.employee) return;
                 const newT = {
@@ -4050,6 +4068,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   blockStatus: "Clear"
                 };
                 setTrainingRecords(prev => [newT, ...prev]);
+                try {
+                  await DbService.addTrainingRecord(newT);
+                } catch (err) {
+                  console.error("Failed adding training record to Firestore:", err);
+                }
                 onLogAction("Register Training Certificate", `Registered ${newT.course} for ${newT.employee}`);
                 alert("Certification registered and synced with security biometrics portal!");
                 setNewTraining({
@@ -4135,7 +4158,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* Provision New Project Form */}
             <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4">
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ ፕሮጀክት ይመዝግቡ" : "Provision New Site Workspace"}</h4>
-              <form onSubmit={(e) => {
+              <form onSubmit={async (e) => {
                 e.preventDefault();
                 if (!newProject.name) return;
                 const newP = {
@@ -4150,6 +4173,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   status: "Mobilization"
                 };
                 setMultiProjects(prev => [...prev, newP]);
+                try {
+                  await DbService.addProject(newP);
+                } catch (err) {
+                  console.error("Failed adding project to Firestore:", err);
+                }
                 onLogAction("Provision Project", `Provisioned new workspace ${newP.name} under ${newP.company}`);
                 alert(`Workspace provisioned successfully! Autopilot initiated Firestore replica node for ${newP.name}.`);
                 setNewProject({
@@ -4288,11 +4316,22 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <p className="text-xs text-slate-500">{isAmharic ? "ከ SAP፣ ከባዮሜትሪክ እና ከሂሳብ አያያዝ ሲስተም ጋር ቅጽበታዊ ግንኙነት" : "Real-time sync channels connecting SAP Financials, Autodesk Construction Cloud, and ZKTeco biometric hubs"}</p>
             </div>
             <button
-              onClick={() => {
-                setApiLogs(prev => [
-                  { id: `API-${Math.floor(1000 + Math.random() * 9000)}`, endpoint: "/api/v1/erp/sync-inventory", method: "POST", status: 200, system: "SAP ERP Financials", payload: "Continuous auto-sync finalized with zero lag.", timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16) },
-                  ...prev
-                ]);
+              onClick={async () => {
+                const newLog = {
+                  id: `API-${Math.floor(1000 + Math.random() * 9000)}`,
+                  endpoint: "/api/v1/erp/sync-inventory",
+                  method: "POST",
+                  status: 200,
+                  system: "SAP ERP Financials",
+                  payload: "Continuous auto-sync finalized with zero lag.",
+                  timestamp: new Date().toISOString().replace('T', ' ').substring(0, 16)
+                };
+                setApiLogs(prev => [newLog, ...prev]);
+                try {
+                  await DbService.addApiIntegrationLog(newLog);
+                } catch (err) {
+                  console.error("Failed persisting API integration log to Firestore:", err);
+                }
                 onLogAction("SAP ERP Sync Triggered", "Manual payload synchronization with SAP gateway performed.");
                 alert("ERP synchronization request published! Checked 13 material bundles, status 200 OK.");
               }}

@@ -399,5 +399,23 @@ service cloud.firestore {
       allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
       allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
     }
+
+    // 19. Batch D Enterprise Collections
+    // 19.1 aiRiskAssessments
+    match /aiRiskAssessments/{riskId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+    }
+
+    // 19.2 trainingRecords
+    match /trainingRecords/{recordId} {
+      allow read: if isSignedIn();
+      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+    }
+
+    // 19.3 apiIntegrationLogs
+    match /apiIntegrationLogs/{logId} {
+      allow read, write: if isSuperAdmin() || isHeadOffice();
+    }
   }
 }
