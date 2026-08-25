@@ -428,5 +428,18 @@ service cloud.firestore {
     match /approvalWorkflows/{workflowId} {
       allow read, write: if isSuperAdmin() || isHeadOffice();
     }
+
+    // 21. Finance ERP Collections
+    // 21.1 projectBudgets
+    match /projectBudgets/{budgetId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
+
+    // 21.2 paymentRecords
+    match /paymentRecords/{paymentId} {
+      allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
+      allow write: if isSuperAdmin() || isHeadOffice() || isFinanceManager();
+    }
   }
 }

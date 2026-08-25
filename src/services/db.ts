@@ -1099,5 +1099,39 @@ export const DbService = {
   },
   async updateApprovalWorkflow(item: any): Promise<void> {
     await writeDocument<any>("approvalWorkflows", item, []);
+  },
+
+  // === BATCH F: Finance ERP Collections ===
+  // 1. projectBudgets ("projectBudgets")
+  async getProjectBudgets(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("projectBudgets", defaultItems);
+  },
+  async addProjectBudget(item: any): Promise<void> {
+    await writeDocument<any>("projectBudgets", item, []);
+  },
+  async updateProjectBudget(item: any): Promise<void> {
+    await writeDocument<any>("projectBudgets", item, []);
+  },
+
+  // 2. invoices ("invoices" - reuses existing collection)
+  async getInvoices(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("invoices", defaultItems);
+  },
+  async addInvoice(item: any): Promise<void> {
+    await writeDocument<any>("invoices", item, []);
+  },
+  async updateInvoice(item: any): Promise<void> {
+    await writeDocument<any>("invoices", item, []);
+  },
+
+  // 3. paymentRecords ("paymentRecords")
+  async getPaymentRecords(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("paymentRecords", defaultItems);
+  },
+  async addPaymentRecord(item: any): Promise<void> {
+    await writeDocument<any>("paymentRecords", item, []);
+  },
+  async updatePaymentRecord(item: any): Promise<void> {
+    await writeDocument<any>("paymentRecords", item, []);
   }
 };

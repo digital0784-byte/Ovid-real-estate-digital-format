@@ -480,6 +480,39 @@
         "category": { "type": "string" }
       },
       "required": ["id", "name", "path", "levels", "category"]
+    },
+    "ProjectBudget": {
+      "title": "ProjectBudget",
+      "description": "Project cost center budget allocations, committed costs, and actual incurred expenditure.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "category": { "type": "string" },
+        "allocated": { "type": "number" },
+        "committed": { "type": "number" },
+        "actual": { "type": "number" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "description": { "type": "string" },
+        "descriptionAm": { "type": "string" }
+      },
+      "required": ["id", "category", "allocated", "project"]
+    },
+    "PaymentRecord": {
+      "title": "PaymentRecord",
+      "description": "Invoice settlements, corporate disbursements, and bank transactions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "invoiceId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "amount": { "type": "number" },
+        "date": { "type": "string" },
+        "method": { "type": "string" },
+        "reference": { "type": "string" },
+        "project": { "type": "string" }
+      },
+      "required": ["id", "invoiceId", "amount", "date", "project"]
     }
   },
   "firestore": {
@@ -610,6 +643,14 @@
     "/approvalWorkflows/{workflowId}": {
       "schema": "ApprovalWorkflow",
       "description": "Configurable enterprise approval workflows and routing hierarchies."
+    },
+    "/projectBudgets/{budgetId}": {
+      "schema": "ProjectBudget",
+      "description": "Cost center allocations, approved budgets, and department allocations."
+    },
+    "/paymentRecords/{paymentId}": {
+      "schema": "PaymentRecord",
+      "description": "Disbursements, bank settlement records, and invoice payments."
     }
   }
 }
