@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, Plus, Check, Package, Sparkles, ChevronDown } from 'lucide-react';
+import { Search, Plus, Check, Package, Sparkles, ChevronDown, Scan } from 'lucide-react';
 import { StoreMaterialItem } from './StoreOwnerApp';
 
 export interface MaterialOption {
@@ -100,6 +100,7 @@ interface MaterialSearchAutocompleteProps {
   required?: boolean;
   className?: string;
   isAmharic?: boolean;
+  onScanClick?: () => void;
 }
 
 export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProps> = ({
@@ -111,6 +112,7 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
   required = false,
   className = "",
   isAmharic = false,
+  onScanClick,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState(value);
@@ -204,11 +206,24 @@ export const MaterialSearchAutocomplete: React.FC<MaterialSearchAutocompleteProp
 
   return (
     <div ref={wrapperRef} className={`relative w-full ${className}`}>
-      {label && (
-        <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">
-          {label} {required && <span className="text-red-400">*</span>}
-        </label>
-      )}
+      <div className="flex items-center justify-between mb-1">
+        {label && (
+          <label className="text-[10px] font-bold text-slate-400 uppercase block">
+            {label} {required && <span className="text-red-400">*</span>}
+          </label>
+        )}
+        {onScanClick && (
+          <button
+            type="button"
+            onClick={onScanClick}
+            className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center space-x-1 transition cursor-pointer px-1.5 py-0.5 rounded bg-amber-950/40 border border-amber-500/30 ml-auto"
+            title="Scan QR code with camera to auto-select"
+          >
+            <Scan size={11} className="animate-pulse" />
+            <span>{isAmharic ? "ኪውአር ስካን" : "Scan QR"}</span>
+          </button>
+        )}
+      </div>
 
       <div className="relative flex items-center">
         <input

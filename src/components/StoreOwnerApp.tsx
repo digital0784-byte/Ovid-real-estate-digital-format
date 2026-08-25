@@ -4,6 +4,8 @@ import { NotificationService } from "../services/notificationService";
 import { ProjectZone, AluminumFormworkPanel, PanelStatus, PanelType, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import { MaterialSearchAutocomplete, MaterialOption } from "./MaterialSearchAutocomplete";
+import { QrCodeView } from "./QrCodeView";
+import { QrScannerModal } from "./QrScannerModal";
 import {
   Store,
   Package,
@@ -1600,6 +1602,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   // QR / Barcode Simulator & Label Printing Module State
   const [scannedCode, setScannedCode] = useState("");
   const [scanResult, setScanResult] = useState<any | null>(null);
+  const [showLiveScannerModal, setShowLiveScannerModal] = useState(false);
+  const [scanTargetField, setScanTargetField] = useState<string | null>(null);
   const [qrSubTab, setQrSubTab] = useState<"generator" | "scanner">("generator");
   const [qrSelectedCategory, setQrSelectedCategory] = useState<string>("All");
   const [qrSearch, setQrSearch] = useState<string>("");
@@ -2003,6 +2007,79 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     }
     const found = storeItems.find(i => i.code.toLowerCase() === code.toLowerCase() || i.id.toLowerCase() === code.toLowerCase());
     setScanResult(found || storeItems[0]);
+  };
+
+  const handleStoreScanSuccess = (decodedText: string) => {
+    setShowLiveScannerModal(false);
+    let parsed: any = null;
+    try {
+      parsed = JSON.parse(decodedText);
+    } catch {
+      parsed = null;
+    }
+
+    const codeOrId = parsed?.code || parsed?.id || decodedText;
+    const materialName = parsed?.name || decodedText;
+
+    if (scanTargetField === "receive") {
+      setReceiveForm(prev => ({
+        ...prev,
+        materialName: parsed?.name || decodedText,
+        unit: parsed?.unit || prev.unit,
+        materialType: parsed?.category || parsed?.materialType || prev.materialType
+      }));
+      return;
+    }
+
+    if (scanTargetField === "issue") {
+      setIssueForm(prev => ({
+        ...prev,
+        materialName: parsed?.name || decodedText,
+        unit: parsed?.unit || prev.unit
+      }));
+      return;
+    }
+
+    if (scanTargetField === "transfer") {
+      setNewTransferForm(prev => ({
+        ...prev,
+        materialName: parsed?.name || decodedText,
+        unit: parsed?.unit || prev.unit
+      }));
+      return;
+    }
+
+    if (scanTargetField === "supplier") {
+      setNewSupplierForm(prev => ({
+        ...prev,
+        materialName: parsed?.name || decodedText
+      }));
+      return;
+    }
+
+    if (scanTargetField === "requisition") {
+      setNewReqForm(prev => ({
+        ...prev,
+        materialName: parsed?.name || decodedText,
+        unit: parsed?.unit || prev.unit,
+        materialSize: parsed?.dimensions || parsed?.size || prev.materialSize
+      }));
+      return;
+    }
+
+    if (scanTargetField === "stock") {
+      setNewStockForm(prev => ({
+        ...prev,
+        name: parsed?.name || decodedText,
+        code: parsed?.code || parsed?.id || prev.code,
+        unit: parsed?.unit || prev.unit,
+        dimensions: parsed?.dimensions || prev.dimensions
+      }));
+      return;
+    }
+
+    // Default / General barcode lookup:
+    handleSimulateScan(codeOrId);
   };
 
   return (
@@ -4201,45 +4278,21 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
                                 {/* Label Center - QR Code & Specs */}
                                 <div className="flex items-center space-x-2">
-                                  {/* Crisp SVG QR Code */}
+                                  {/* Real Dynamic QR Code Generator */}
                                   <div className="shrink-0 p-1 bg-white border border-slate-900 rounded">
-                                    <svg viewBox="0 0 100 100" className="w-16 h-16 text-slate-900">
-                                      <rect width="100" height="100" fill="white" />
-                                      {/* Outer Position Detection Squares */}
-                                      <rect x="5" y="5" width="28" height="28" fill="black" />
-                                      <rect x="9" y="9" width="20" height="20" fill="white" />
-                                      <rect x="13" y="13" width="12" height="12" fill="black" />
-
-                                      <rect x="67" y="5" width="28" height="28" fill="black" />
-                                      <rect x="71" y="9" width="20" height="20" fill="white" />
-                                      <rect x="75" y="13" width="12" height="12" fill="black" />
-
-                                      <rect x="5" y="67" width="28" height="28" fill="black" />
-                                      <rect x="9" y="71" width="20" height="20" fill="white" />
-                                      <rect x="13" y="75" width="12" height="12" fill="black" />
-
-                                      {/* High-density QR Module Pattern */}
-                                      <rect x="40" y="8" width="6" height="6" fill="black" />
-                                      <rect x="50" y="12" width="8" height="6" fill="black" />
-                                      <rect x="42" y="24" width="10" height="6" fill="black" />
-                                      <rect x="55" y="22" width="6" height="8" fill="black" />
-                                      <rect x="8" y="42" width="8" height="8" fill="black" />
-                                      <rect x="22" y="45" width="6" height="6" fill="black" />
-                                      <rect x="35" y="38" width="8" height="8" fill="black" />
-                                      <rect x="48" y="40" width="12" height="6" fill="black" />
-                                      <rect x="65" y="42" width="8" height="8" fill="black" />
-                                      <rect x="78" y="45" width="14" height="6" fill="black" />
-                                      <rect x="40" y="55" width="6" height="10" fill="black" />
-                                      <rect x="52" y="58" width="10" height="6" fill="black" />
-                                      <rect x="68" y="55" width="6" height="8" fill="black" />
-                                      <rect x="80" y="60" width="8" height="8" fill="black" />
-                                      <rect x="40" y="72" width="10" height="8" fill="black" />
-                                      <rect x="55" y="75" width="8" height="6" fill="black" />
-                                      <rect x="68" y="72" width="12" height="8" fill="black" />
-                                      <rect x="82" y="78" width="8" height="12" fill="black" />
-                                      <rect x="42" y="86" width="14" height="6" fill="black" />
-                                      <rect x="62" y="85" width="8" height="8" fill="black" />
-                                    </svg>
+                                    <QrCodeView
+                                      value={{
+                                        type: "material",
+                                        id: item.id,
+                                        name: item.name,
+                                        code: item.code,
+                                        unit: item.unit || "pcs",
+                                        material: item.material,
+                                        location: item.warehouseLocation
+                                      }}
+                                      size={64}
+                                      alt={`QR code for ${item.name}`}
+                                    />
                                   </div>
 
                                   <div className="flex-1 min-w-0 space-y-0.5">
@@ -4299,44 +4352,63 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
             {/* SUB-TAB 2: SCANNER SIMULATOR */}
             {qrSubTab === "scanner" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Scan Simulator */}
+                {/* Live Camera Scanner & Code Lookup */}
                 <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-                  <h3 className="text-xs font-black uppercase text-amber-400 flex items-center space-x-2">
-                    <Scan size={16} />
-                    <span>Interactive Scanner Simulation</span>
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-black uppercase text-amber-400 flex items-center space-x-2">
+                      <Scan size={16} />
+                      <span>Live QR & Barcode Scanner</span>
+                    </h3>
+                    <span className="text-[10px] text-emerald-400 font-mono flex items-center space-x-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                      <span>Camera Ready</span>
+                    </span>
+                  </div>
 
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase">Enter Code or Click Quick Test:</label>
+                  <div className="p-4 bg-amber-950/20 border border-amber-500/30 rounded-xl space-y-3">
+                    <p className="text-xs text-amber-200">
+                      Scan physical labels on materials, accessories, or formwork panels using your device camera or barcode scanner gun.
+                    </p>
+                    <button
+                      onClick={() => {
+                        setScanTargetField("general");
+                        setShowLiveScannerModal(true);
+                      }}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider flex items-center justify-center space-x-2 shadow-lg cursor-pointer transition"
+                    >
+                      <Camera size={18} />
+                      <span>Launch Live Camera Scanner</span>
+                    </button>
+                  </div>
+
+                  <div className="space-y-2 pt-2">
+                    <label className="text-[10px] font-bold text-slate-400 uppercase">Or Enter Code Manually:</label>
                     <div className="flex space-x-2">
                       <input
                         type="text"
                         value={scannedCode}
                         onChange={e => setScannedCode(e.target.value)}
-                        placeholder="e.g. PW-1650 or CEM-OPC-50 or ST-REB-16"
+                        placeholder="e.g. PW-1650, CEM-OPC-50, or JSON payload"
                         className="flex-grow bg-slate-900 border border-slate-800 text-xs px-3 py-2 rounded-xl text-white font-mono focus:outline-none focus:border-amber-500"
                       />
                       <button
-                        onClick={() => handleSimulateScan(scannedCode || "PW-1650")}
-                        className="px-4 py-2 bg-amber-600 text-white rounded-xl text-xs font-bold uppercase cursor-pointer"
+                        onClick={() => handleStoreScanSuccess(scannedCode || "PW-1650")}
+                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold uppercase cursor-pointer transition"
                       >
-                        Scan Code
+                        Lookup
                       </button>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 pt-2">
-                    <button onClick={() => handleSimulateScan("PW-1650")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                      Scan Pin & Wedge (PW-1650)
+                    <button onClick={() => handleStoreScanSuccess("PW-1650")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Quick: Pin & Wedge (PW-1650)
                     </button>
-                    <button onClick={() => handleSimulateScan("CEM-OPC-50")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                      Scan Cement (CEM-OPC-50)
+                    <button onClick={() => handleStoreScanSuccess("CEM-OPC-50")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Quick: Cement (CEM-OPC-50)
                     </button>
-                    <button onClick={() => handleSimulateScan("ST-REB-16")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                      Scan Rebar (ST-REB-16)
-                    </button>
-                    <button onClick={() => handleSimulateScan("AL-PNL-1260")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
-                      Scan Formwork (AL-PNL-1260)
+                    <button onClick={() => handleStoreScanSuccess("ST-REB-16")} className="px-2.5 py-1 bg-slate-900 border border-slate-800 text-[10px] font-mono rounded text-slate-300 hover:border-amber-500 cursor-pointer">
+                      Quick: Rebar (ST-REB-16)
                     </button>
                   </div>
 
@@ -4361,16 +4433,25 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   )}
                 </div>
 
-                {/* QR Generator Mock */}
+                {/* Real QR Generator */}
                 <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
                   <h3 className="text-xs font-black uppercase text-emerald-400 flex items-center space-x-2">
                     <QrCode size={16} />
-                    <span>Generated Store Label QR</span>
+                    <span>Generated Store Location QR</span>
                   </h3>
 
                   <div className="flex flex-col items-center justify-center p-6 bg-white rounded-xl text-slate-900 space-y-3">
-                    <div className="p-4 border-4 border-slate-900 rounded-lg">
-                      <QrCode size={96} className="text-slate-900" />
+                    <div className="p-3 border-4 border-slate-900 rounded-lg">
+                      <QrCodeView
+                        value={{
+                          type: "store",
+                          code: "BUILD-SYNC-STORE-2026",
+                          site: "Bole Heights Phase I Site Store Shed A",
+                          timestamp: "2026-08-25"
+                        }}
+                        size={128}
+                        alt="Store QR Code"
+                      />
                     </div>
                     <span className="text-xs font-mono font-bold text-slate-900 tracking-widest">BUILD-SYNC-STORE-2026</span>
                     <span className="text-[10px] font-sans font-semibold text-slate-600">Bole Heights Phase I Site Store Shed A</span>
@@ -4638,6 +4719,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   value={receiveForm.materialName}
                   storeItems={storeItems}
                   isAmharic={isAmharic}
+                  onScanClick={() => {
+                    setScanTargetField("receive");
+                    setShowLiveScannerModal(true);
+                  }}
                   onChange={(name, selectedMat) => {
                     setReceiveForm(prev => ({
                       ...prev,
@@ -4825,6 +4910,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   value={issueForm.materialName}
                   storeItems={storeItems}
                   isAmharic={isAmharic}
+                  onScanClick={() => {
+                    setScanTargetField("issue");
+                    setShowLiveScannerModal(true);
+                  }}
                   onChange={(name, selectedMat) => {
                     setIssueForm(prev => ({
                       ...prev,
@@ -5037,6 +5126,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   value={newTransferForm.materialName}
                   storeItems={storeItems}
                   isAmharic={isAmharic}
+                  onScanClick={() => {
+                    setScanTargetField("transfer");
+                    setShowLiveScannerModal(true);
+                  }}
                   onChange={(name, selectedMat) => {
                     setNewTransferForm(prev => ({
                       ...prev,
@@ -5158,6 +5251,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   value={newSupplierForm.materialName}
                   storeItems={storeItems}
                   isAmharic={isAmharic}
+                  onScanClick={() => {
+                    setScanTargetField("supplier");
+                    setShowLiveScannerModal(true);
+                  }}
                   onChange={(name, selectedMat) => {
                     setNewSupplierForm(prev => ({
                       ...prev,
@@ -5391,6 +5488,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                       value={newReqForm.materialName}
                       storeItems={storeItems}
                       isAmharic={isAmharic}
+                      onScanClick={() => {
+                        setScanTargetField("requisition");
+                        setShowLiveScannerModal(true);
+                      }}
                       onChange={(name, selectedMat) => {
                         setNewReqForm(prev => {
                           let matType: "Formwork Accessory" | "Aluminum Panel" | "Consumable" | "Concrete / Block" = prev.materialType;
@@ -5955,6 +6056,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   value={newStockForm.name}
                   storeItems={storeItems}
                   isAmharic={isAmharic}
+                  onScanClick={() => {
+                    setScanTargetField("stock");
+                    setShowLiveScannerModal(true);
+                  }}
                   onChange={(name, selectedMat) => {
                     setNewStockForm(prev => ({
                       ...prev,
@@ -6744,6 +6849,15 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           </div>
         </div>
       )}
+
+      {/* REUSABLE LIVE QR SCANNER MODAL */}
+      <QrScannerModal
+        isOpen={showLiveScannerModal}
+        onClose={() => setShowLiveScannerModal(false)}
+        onScanSuccess={handleStoreScanSuccess}
+        title={isAmharic ? "የእቃዎች እና ፎርምወርክ ኪውአር ስካነር" : "Material & Formwork QR Scanner"}
+        isAmharic={isAmharic}
+      />
 
     </div>
   );

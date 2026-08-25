@@ -64,6 +64,8 @@ import { PanelMasterDatabaseView } from "./PanelMasterDatabaseView";
 import { AccessoryMasterDatabaseView } from "./AccessoryMasterDatabaseView";
 import { MasterPanelSelector, MasterPanelSelectorResult } from "./MasterPanelSelector";
 import { MASTER_PANEL_DATABASE } from "../data/panelMasterDatabase";
+import { QrCodeView } from "./QrCodeView";
+import { QrScannerModal, ScannedQrPayload } from "./QrScannerModal";
 import { 
   AluminumFormworkPanel, 
   PanelMovementLog, 
@@ -191,6 +193,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   const [showRepairModal, setShowRepairModal] = useState(false);
   const [selectedDamageReportForRepair, setSelectedDamageReportForRepair] = useState<PanelDamageReport | null>(null);
   const [showQRLabelModal, setShowQRLabelModal] = useState<AluminumFormworkPanel | null>(null);
+  const [showLiveScannerModal, setShowLiveScannerModal] = useState(false);
 
   // --- Form States ---
   // Add Panel Form
@@ -1233,6 +1236,37 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
       handleRunOptimization();
     }
   }, [activeSubTab]);
+
+  // --- Real Hardware Camera Panel QR Scan Handler ---
+  const handlePanelScanSuccess = (payload: ScannedQrPayload) => {
+    const scannedId = String(payload.id || "").trim();
+    const scannedSerial = String(payload.serialNumber || "").trim();
+    const raw = String(payload.raw || "").trim();
+
+    const matched = panels.find(p =>
+      (scannedId && (p.id.toLowerCase() === scannedId.toLowerCase() || p.serialNumber.toLowerCase() === scannedId.toLowerCase())) ||
+      (scannedSerial && p.serialNumber.toLowerCase() === scannedSerial.toLowerCase()) ||
+      (raw && (p.id.toLowerCase() === raw.toLowerCase() || p.serialNumber.toLowerCase() === raw.toLowerCase()))
+    );
+
+    if (matched) {
+      setScannedPanel(matched);
+      setActiveSubTab("scanner");
+      setScannerMessage(t(`QR Scan Verified: ${matched.id} (${matched.serialNumber})`, `ኪውአር ተለይቷል፡ ${matched.id} (${matched.serialNumber})`));
+      if ("speechSynthesis" in window) {
+        try {
+          const u = new SpeechSynthesisUtterance("Panel Verified: " + matched.id);
+          u.rate = 1.1;
+          window.speechSynthesis.speak(u);
+        } catch (err) {
+          console.warn(err);
+        }
+      }
+    } else {
+      setActiveSubTab("scanner");
+      setScannerMessage(t(`Scanned code: ${scannedId || raw} - No matching panel found in registry.`, `የተቃኘው ኮድ፡ ${scannedId || raw} - በመዝገብ ውስጥ አልተገኘም።`));
+    }
+  };
 
   // --- Simulate Camera Scanning ---
   const triggerScanSimulation = (code?: string) => {
@@ -3451,146 +3485,119 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
               </div>
             )}
 
-            {/* === CAMERA SCANNER SIMULATOR === */}
+            {/* === CAMERA SCANNER MODULE === */}
             {activeSubTab === "scanner" && (
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* Left Side Camera Scanner Feed Box */}
                 <div className="bg-slate-950 text-white p-5 rounded-2xl border border-slate-800 space-y-4 lg:col-span-2">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center space-x-2">
                       <Camera size={18} className="text-red-500 animate-pulse" />
-                      <span className="text-xs font-mono font-bold tracking-wider">{t("MOBILE CAMERA SCANNER SIMULATOR", "የሞባይል ካሜራ ስካነር ሲሙሌተር")}</span>
+                      <span className="text-xs font-mono font-bold tracking-wider">{t("LIVE CAMERA QR & PANEL CODE SCANNER", "የቀጥታ ካሜራ ኪውአር እና ፓነል ስካነር")}</span>
                     </div>
-                    <div className="flex space-x-1.5">
-                      <button 
-                        onClick={() => setScannerType("camera")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${
-                          scannerType === "camera" ? "bg-red-600 text-white" : "bg-slate-800 text-slate-400"
-                        }`}
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setShowLiveScannerModal(true)}
+                        className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 cursor-pointer shadow-md transition"
                       >
-                        {t("Camera Auto", "ካሜራ")}
-                      </button>
-                      <button 
-                        onClick={() => setScannerType("qr")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${
-                          scannerType === "qr" ? "bg-red-600 text-white" : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {t("QR Target", "ኪውአር")}
-                      </button>
-                      <button 
-                        onClick={() => setScannerType("barcode")}
-                        className={`px-2 py-0.5 rounded text-[10px] font-mono font-semibold ${
-                          scannerType === "barcode" ? "bg-red-600 text-white" : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {t("Barcode", "ባርኮድ")}
+                        <Scan size={14} />
+                        <span>{t("Launch Camera Scanner", "ካሜራ ክፈት")}</span>
                       </button>
                     </div>
                   </div>
 
-                  {/* Simulator Screen Area */}
-                  <div className="relative h-80 bg-slate-900 rounded-xl border border-slate-800 flex flex-col items-center justify-center overflow-hidden">
-                    
+                  {/* Scanner Visual Screen Area */}
+                  <div className="relative min-h-72 bg-slate-900 rounded-xl border border-slate-800 flex flex-col items-center justify-center p-6 text-center overflow-hidden">
                     {/* Pulsing Grid Mesh Background */}
                     <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:24px_24px] opacity-20" />
                     
-                    {scannerActive ? (
-                      <>
-                        {/* Camera Scan feed visuals */}
-                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
-                          <span className="text-[10px] font-mono text-slate-400 animate-pulse absolute top-3 left-3 flex items-center">
-                            <span className="w-2 h-2 bg-red-600 rounded-full mr-1.5 animate-ping" />
-                            LIVE FEED: CAM_REAR_01 (4K)
-                          </span>
-
-                          {/* Dynamic scanning reticle box */}
-                          <div className="w-56 h-56 border-2 border-red-500/50 rounded-lg relative flex items-center justify-center shadow-[0_0_20px_rgba(239,68,68,0.15)] bg-slate-950/45">
-                            {/* Glowing laser scanning horizontal line */}
-                            <div 
-                              className="absolute left-0 right-0 h-1 bg-red-500 shadow-[0_0_15px_#ef4444] transition-all duration-75"
-                              style={{ top: `${laserY}%` }}
-                            />
-                            
-                            {/* Scanned target feedback inside frame */}
-                            {scannedPanel ? (
-                              <motion.div 
-                                initial={{ scale: 0.8, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                className="text-center p-3 space-y-1.5 z-10"
-                              >
-                                <CheckCircle className="text-emerald-500 mx-auto" size={32} />
-                                <p className="text-sm font-mono font-bold tracking-wider text-emerald-400">{scannedPanel.id}</p>
-                                <p className="text-[10px] text-slate-300 bg-slate-900 px-2 py-0.5 rounded font-mono">
-                                  SN: {scannedPanel.serialNumber}
-                                </p>
-                              </motion.div>
-                            ) : (
-                              <div className="text-center space-y-2 p-4 text-slate-400 z-10">
-                                <QrCode size={40} className="mx-auto text-red-500/60 animate-bounce" />
-                                <p className="text-[10px] font-mono">{t("Position code inside reticle", "እባክዎን ኮዱን ማእዘኑ ውስጥ ያስገቡ")}</p>
-                              </div>
-                            )}
-                          </div>
+                    {scannedPanel ? (
+                      <motion.div 
+                        initial={{ scale: 0.9, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        className="space-y-3 z-10 max-w-sm w-full bg-slate-950/90 p-5 rounded-2xl border border-emerald-500/40 shadow-xl"
+                      >
+                        <CheckCircle className="text-emerald-400 mx-auto" size={36} />
+                        <h4 className="text-base font-mono font-bold tracking-wider text-emerald-400">{scannedPanel.id}</h4>
+                        <p className="text-xs text-slate-300 font-medium">{scannedPanel.type} • {scannedPanel.size}</p>
+                        <div className="text-[11px] text-slate-400 font-mono bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-800 flex justify-between items-center">
+                          <span>SN: {scannedPanel.serialNumber}</span>
+                          <span className="text-slate-500">|</span>
+                          <span>Zone: {scannedPanel.zone}</span>
                         </div>
-                      </>
+                        <div className="pt-2 flex justify-center gap-2">
+                          <button
+                            onClick={() => setShowQRLabelModal(scannedPanel)}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer transition"
+                          >
+                            <QrCode size={13} />
+                            <span>{t("Print QR Tag", "የኪውአር ሌብል አትም")}</span>
+                          </button>
+                          <button
+                            onClick={() => setShowLiveScannerModal(true)}
+                            className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-lg flex items-center space-x-1.5 cursor-pointer transition"
+                          >
+                            <Scan size={13} />
+                            <span>{t("Scan Another", "ሌላ ቃኝ")}</span>
+                          </button>
+                        </div>
+                      </motion.div>
                     ) : (
-                      <div className="text-center space-y-3 z-10 p-6">
-                        <Camera size={44} className="mx-auto text-slate-700" />
-                        <p className="text-sm font-bold text-slate-300">{t("Camera Inactive", "የቪዲዮ ካሜራው አልተከፈተም")}</p>
-                        <p className="text-xs text-slate-500 max-w-sm">
-                          {t("Click the trigger below to simulate opening the active camera, initializing overlays, and scanning panel serial matrices.", "ካሜራውን ለመክፈት እና ፓነሎችን መቃኘት ለመጀመር ከታች ያለውን ቁልፍ ይጫኑ::")}
+                      <div className="space-y-3 z-10 max-w-md">
+                        <div className="w-16 h-16 rounded-2xl bg-red-600/10 border border-red-500/30 flex items-center justify-center mx-auto text-red-500">
+                          <Camera size={32} />
+                        </div>
+                        <h4 className="text-sm font-bold text-slate-200">{t("Hardware Camera QR Reader", "የሞባይል/ላፕቶፕ ካሜራ ኪውአር አንባቢ")}</h4>
+                        <p className="text-xs text-slate-400">
+                          {t("Use device camera to instantly scan aluminum formwork QR tags or choose a registered panel from below to inspect.", "የመሳሪያዎን ካሜራ በመጠቀም የአሉሚኒየም ፓነል ኪውአር መለያዎችን በቀጥታ ይቃኙ ወይም ከታች ከተመዘገቡት ይምረጡ::")}
                         </p>
+                        <button
+                          onClick={() => setShowLiveScannerModal(true)}
+                          className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold flex items-center space-x-2 mx-auto cursor-pointer shadow-lg transition"
+                        >
+                          <Scan size={16} />
+                          <span>{t("Open Camera Scanner (Live Stream)", "የካሜራ ስካነር ክፈት (ቀጥታ ፍተሻ)")}</span>
+                        </button>
                       </div>
                     )}
                   </div>
 
-                  {/* Simulator Logs/Feedback footer */}
+                  {/* Scanner Feedback banner */}
                   <div className="bg-slate-900 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between min-h-12 text-xs">
                     <p className="text-slate-300 font-medium">
                       {scannerMessage || t("Status: Camera Ready and Calibrated", "ሁኔታ፡ ካሜራው ዝግጁ ሆኖ ተስተካክሏል")}
                     </p>
-                    {scannerActive && (
+                    {scannedPanel && (
                       <button 
-                        onClick={() => triggerScanSimulation()}
-                        className="text-[10px] text-red-400 font-bold hover:underline"
+                        onClick={() => setScannedPanel(null)}
+                        className="text-[11px] text-slate-400 font-bold hover:text-white cursor-pointer"
                       >
-                        {t("Stop Scan Feed", "ካሜራ አቁም")}
+                        {t("Clear Result", "አጽዳ")}
                       </button>
                     )}
                   </div>
 
-                  {/* Trigger Simulation Button */}
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => triggerScanSimulation()}
-                      className={`flex-1 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-2 ${
-                        scannerActive 
-                          ? "bg-slate-800 text-white hover:bg-slate-700" 
-                          : "bg-red-600 hover:bg-red-700 text-white"
-                      }`}
-                    >
-                      <Scan size={16} />
-                      <span>{scannerActive ? t("Cancel Scanner Simulation", "ፍተሻውን አቋርጥ") : t("Start Scanner Simulation (Auto Pick)", "የካሜራ ፍተሻ አስመስል (በእድል)")}</span>
-                    </button>
-                  </div>
-
-                  {/* Interactive Mock selection barcode scans */}
+                  {/* Fast Panel Lookup / Click to inspect */}
                   <div className="pt-2 border-t border-slate-800">
-                    <p className="text-[10px] font-mono text-slate-500 mb-2">{t("SELECT A SPECIFIC PANEL BARCODE TO SCAN SIMULATION:", "የሚከተሉትን የተወሰኑ ፓነሎች ለመቃኘት ይሞክሩ፡")}</p>
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                      {panels.map((p, idx) => (
+                    <p className="text-[10px] font-mono text-slate-400 mb-2 font-bold uppercase">{t("CLICK ANY REGISTERED PANEL TO VIEW & GENERATE QR TAG:", "የተመዘገበ ፓነል በመምረጥ መለያውን ይመልከቱ፡")}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 max-h-36 overflow-y-auto">
+                      {panels.slice(0, 8).map((p, idx) => (
                         <button
                           key={idx}
-                          disabled={scannerActive}
                           onClick={() => {
-                            triggerScanSimulation(p.serialNumber);
+                            setScannedPanel(p);
+                            setScannerMessage(`Selected ${p.id} (${p.serialNumber})`);
                           }}
-                          className="bg-slate-900 hover:bg-slate-800 border border-slate-800 p-2 rounded text-left text-[10px] font-mono text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={`p-2 rounded text-left text-[10px] font-mono border cursor-pointer transition ${
+                            scannedPanel?.id === p.id 
+                              ? "bg-red-950/40 border-red-500 text-white" 
+                              : "bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300"
+                          }`}
                         >
                           <span className="block font-bold text-slate-100">{p.id}</span>
-                          <span className="block text-slate-500 text-[9px] truncate">SN: {p.serialNumber}</span>
+                          <span className="block text-slate-400 text-[9px] truncate">SN: {p.serialNumber}</span>
+                          <span className="block text-slate-500 text-[8px] truncate">{p.type}</span>
                         </button>
                       ))}
                     </div>
@@ -3614,35 +3621,31 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                       <div className="bg-slate-50 p-4 rounded-xl border border-dashed border-slate-300 space-y-3 relative overflow-hidden">
                         <div className="absolute top-2 right-2 text-[8px] font-mono text-slate-400 border border-slate-200 px-1 rounded bg-white">Digital Construction ERP RFID READY</div>
                         
-                        <div className="flex items-center space-x-2.5">
-                          <QrCode size={40} className="text-slate-900" />
+                        <div className="flex items-center space-x-3">
+                          <div className="shrink-0 p-1 bg-white border border-slate-200 rounded shadow-xs">
+                            <QrCodeView
+                              value={{
+                                type: "panel",
+                                id: scannedPanel.id,
+                                panelType: scannedPanel.type,
+                                zone: scannedPanel.zone,
+                                serialNumber: scannedPanel.serialNumber
+                              }}
+                              size={56}
+                              alt={`QR for ${scannedPanel.id}`}
+                            />
+                          </div>
                           <div>
-                            <h4 className="font-bold text-sm text-slate-950">{scannedPanel.id}</h4>
-                            <p className="text-[10px] text-slate-500 font-semibold">{scannedPanel.type}</p>
+                            <h4 className="font-bold text-sm text-slate-950 font-mono">{scannedPanel.id}</h4>
+                            <p className="text-[10px] text-slate-600 font-semibold">{scannedPanel.type}</p>
+                            <p className="text-[9px] text-slate-400 font-mono">SN: {scannedPanel.serialNumber}</p>
                           </div>
-                        </div>
-
-                        {/* Barcode representation line bars */}
-                        <div className="space-y-1">
-                          <div className="h-6 bg-slate-950 flex space-x-0.5 p-1 rounded items-stretch">
-                            <span className="w-1 bg-white inline-block"></span>
-                            <span className="w-0.5 bg-white inline-block"></span>
-                            <span className="w-1.5 bg-white inline-block"></span>
-                            <span className="w-1 bg-white inline-block"></span>
-                            <span className="w-0.5 bg-white inline-block"></span>
-                            <span className="w-2 bg-white inline-block"></span>
-                            <span className="w-1 bg-white inline-block"></span>
-                            <span className="w-0.5 bg-white inline-block"></span>
-                            <span className="w-1.5 bg-white inline-block"></span>
-                            <span className="w-1 bg-white inline-block"></span>
-                          </div>
-                          <p className="text-[9px] font-mono text-center text-slate-500">{scannedPanel.serialNumber}</p>
                         </div>
 
                         <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 pt-2 border-t border-slate-200">
                           <div>
                             <span className="text-slate-400 block">{t("Bundle Number", "ጥቅል ቁጥር")}</span>
-                            <strong className="text-slate-800">{scannedPanel.bundleNumber}</strong>
+                            <strong className="text-slate-800 font-mono">{scannedPanel.bundleNumber}</strong>
                           </div>
                           <div>
                             <span className="text-slate-400 block">{t("Dimensions Size", "የፓነል መጠን")}</span>
@@ -3730,7 +3733,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                             setMoveZone(scannedPanel.zone);
                             setShowMoveModal(true);
                           }}
-                          className="w-full bg-slate-950 hover:bg-slate-900 text-white py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
+                          className="w-full bg-slate-950 hover:bg-slate-900 text-white py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                         >
                           <MapPin size={14} />
                           <span>{t("Dispatch Relocation", "ፓነሉን ሌላ ቦታ አዛውር")}</span>
@@ -3741,7 +3744,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                             setSelectedPanelForDamage(scannedPanel);
                             setShowDamageModal(true);
                           }}
-                          className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-100 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5"
+                          className="w-full bg-red-50 hover:bg-red-100 text-red-700 border border-red-100 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                         >
                           <AlertTriangle size={14} />
                           <span>{t("Report Damaged Defect", "ብልሽት / ጉዳት ሪፖርት አድርግ")}</span>
@@ -3751,7 +3754,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   ) : (
                     <div className="text-center py-20 text-slate-400 space-y-2">
                       <QrCode size={38} className="mx-auto text-slate-300" />
-                      <p className="text-xs">{t("No active scan audit loaded yet. Scan a serial QR or barcode in the live feed to load details.", "ምንም አይነት የተቃኘ ፓነል የለም። እባክዎን በመጀመሪያ የካሜራ ስካነር ሲሙሌተሩን በመጠቀም ፓነል ይቃኙ።")}</p>
+                      <p className="text-xs">{t("No active scan audit loaded yet. Scan a serial QR or barcode in the live feed to load details.", "ምንም አይነት የተቃኘ ፓነል የለም። እባክዎን በመጀመሪያ የካሜራ ስካነር በመጠቀም ፓነል ይቃኙ።")}</p>
                     </div>
                   )}
                 </div>
