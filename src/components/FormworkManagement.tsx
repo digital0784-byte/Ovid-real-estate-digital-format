@@ -1239,8 +1239,19 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
   // --- Real Hardware Camera Panel QR Scan Handler ---
   const handlePanelScanSuccess = (payload: ScannedQrPayload) => {
-    const scannedId = String(payload.id || "").trim();
-    const scannedSerial = String(payload.serialNumber || "").trim();
+    setShowLiveScannerModal(false);
+
+    let parsed: any = null;
+    try {
+      if (payload.raw) {
+        parsed = JSON.parse(payload.raw);
+      }
+    } catch {
+      parsed = null;
+    }
+
+    const scannedId = String(payload.id || parsed?.id || parsed?.code || "").trim();
+    const scannedSerial = String(payload.serialNumber || parsed?.serialNumber || "").trim();
     const raw = String(payload.raw || "").trim();
 
     const matched = panels.find(p =>
@@ -1251,6 +1262,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
     if (matched) {
       setScannedPanel(matched);
+      setSearchQuery(matched.id);
       setActiveSubTab("scanner");
       setScannerMessage(t(`QR Scan Verified: ${matched.id} (${matched.serialNumber})`, `ኪውአር ተለይቷል፡ ${matched.id} (${matched.serialNumber})`));
       if ("speechSynthesis" in window) {
@@ -1932,16 +1944,27 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                 {/* Search, Filters, and Add Button */}
                 <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
                   
-                  {/* Search input */}
-                  <div className="relative flex-1">
-                    <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
-                    <input
-                      type="text"
-                      placeholder={t("Search by Serial, Bundle, ID, Location...", "በመለያ፣ በሲሪያል፣ በቦታ ወይም በብሎክ ይፈልጉ...")}
-                      value={searchQuery}
-                      onChange={e => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-4 py-2 text-xs w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
-                    />
+                  {/* Search input & Camera QR Scan button */}
+                  <div className="relative flex-1 flex items-center gap-2">
+                    <div className="relative flex-1">
+                      <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+                      <input
+                        type="text"
+                        placeholder={t("Search by Serial, Bundle, ID, Location...", "በመለያ፣ በሲሪያል፣ በቦታ ወይም በብሎክ ይፈልጉ...")}
+                        value={searchQuery}
+                        onChange={e => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-4 py-2 text-xs w-full bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowLiveScannerModal(true)}
+                      className="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center space-x-1.5 shadow-sm transition whitespace-nowrap cursor-pointer shrink-0"
+                      title={t("Scan Panel QR Code using Camera", "በካሜራ የፓነል ኪውአር ኮድ ይቃኙ")}
+                    >
+                      <Camera size={14} className="text-red-400" />
+                      <span>{t("Scan Panel QR", "ፓነል ኪውአር ቃኝ")}</span>
+                    </button>
                   </div>
 
                   {/* Multi Filters and Add actions */}
@@ -5540,7 +5563,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
               </button>
             </div>
 
-            {/* Simulated Printed Tag layout */}
+            {/* Printed Tag layout with real dynamic QR code */}
             <div className="bg-white p-5 rounded-xl border-2 border-slate-850 space-y-4 shadow-inner text-slate-900 font-sans">
               
               <div className="flex items-center justify-between">
@@ -5548,7 +5571,19 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   <span className="text-[10px] uppercase tracking-widest text-red-600 font-bold block">Digital Construction ERP GROUP</span>
                   <span className="text-[8px] font-semibold text-slate-500 block">ALUMINUM FORMWORK LOGISTICS</span>
                 </div>
-                <QrCode size={40} className="text-slate-900" />
+                <div className="p-1 bg-white border border-slate-200 rounded shadow-xs">
+                  <QrCodeView
+                    value={{
+                      type: "panel",
+                      id: showQRLabelModal.id,
+                      panelType: showQRLabelModal.type,
+                      zone: showQRLabelModal.zone,
+                      serialNumber: showQRLabelModal.serialNumber
+                    }}
+                    size={48}
+                    alt={`QR for ${showQRLabelModal.id}`}
+                  />
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -5565,25 +5600,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                 </div>
               </div>
 
-              {/* Barcode bars block */}
-              <div className="space-y-1 pt-1.5 border-t border-slate-200">
-                <div className="h-8 bg-slate-950 flex space-x-0.5 p-1 rounded items-stretch">
-                  <span className="w-1 bg-white inline-block"></span>
-                  <span className="w-0.5 bg-white inline-block"></span>
-                  <span className="w-1.5 bg-white inline-block"></span>
-                  <span className="w-1.5 bg-white inline-block"></span>
-                  <span className="w-0.5 bg-white inline-block"></span>
-                  <span className="w-2 bg-white inline-block"></span>
-                  <span className="w-1 bg-white inline-block"></span>
-                  <span className="w-1.5 bg-white inline-block"></span>
-                  <span className="w-0.5 bg-white inline-block"></span>
-                  <span className="w-1 bg-white inline-block"></span>
-                  <span className="w-1.5 bg-white inline-block"></span>
-                </div>
-                <p className="text-[9px] font-mono text-center text-slate-500">*{showQRLabelModal.serialNumber}*</p>
-              </div>
-
-              <div className="text-[9px] text-slate-400 flex justify-between">
+              <div className="text-[9px] text-slate-400 flex justify-between pt-2 border-t border-slate-200">
                 <span>{t("Size:", "መጠን፡")} <strong>{showQRLabelModal.size}</strong></span>
                 <span>Type: <strong>{showQRLabelModal.type}</strong></span>
               </div>
@@ -5764,6 +5781,20 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           </motion.div>
         </div>
       )}
+
+      {/* --- REAL HARDWARE CAMERA QR SCANNER MODAL --- */}
+      <QrScannerModal
+        isOpen={showLiveScannerModal}
+        onClose={() => setShowLiveScannerModal(false)}
+        onScanSuccess={handlePanelScanSuccess}
+        title={t("Scan Aluminum Formwork Panel QR", "የአሉሚኒየም ፎርምወርክ ፓነል ኪውአር ይቃኙ")}
+        description={t(
+          "Point device camera at the QR code tag on any aluminum formwork panel to instantly load and highlight its record.",
+          "የመሳሪያዎን ካሜራ በማንኛውም የአሉሚኒየም ፎርምወርክ ፓነል ኪውአር መለያ ላይ በማነጣጠር መረጃውን በቀጥታ ያግኙ።"
+        )}
+        expectedType="panel"
+        isAmharic={isAmharic}
+      />
 
     </div>
   );
