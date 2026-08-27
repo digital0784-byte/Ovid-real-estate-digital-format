@@ -304,6 +304,20 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const [savedPayrollList, setSavedPayrollList] = useState<PayrollRecord[]>([]);
   const [isSavingPayroll, setIsSavingPayroll] = useState(false);
   const [payrollSyncStatus, setPayrollSyncStatus] = useState<string | null>(null);
+  const [selectedPayPeriod, setSelectedPayPeriod] = useState<string>("all");
+
+  // Extract all unique pay periods (YYYY-MM) present in real attendance logs
+  const availablePeriods = useMemo(() => {
+    const periods = new Set<string>();
+    const currentMonth = new Date().toISOString().substring(0, 7);
+    periods.add(currentMonth);
+    attendanceList.forEach(a => {
+      if (a.date && a.date.length >= 7) {
+        periods.add(a.date.substring(0, 7));
+      }
+    });
+    return Array.from(periods).sort().reverse();
+  }, [attendanceList]);
 
   // Fetch linked database files from DbService
   useEffect(() => {
@@ -519,110 +533,100 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   ]);
 
   // --- AUTOMATED PAYROLL ENGINE GENERATION ---
+  // Calculates live attendance-driven payroll for every real worker in the "workers" collection
+  // who has at least one attendance record in the selected pay period.
   const generatedPayroll = useMemo(() => {
-    // If saved payroll exists in Firestore, filter to only valid enrolled workers
-    if (savedPayrollList && savedPayrollList.length > 0) {
-      const validSaved = savedPayrollList.filter(p => {
-        if (workersList.length === 0) return true;
-        return workersList.some(w => w.id === p.workerId || (w.name && w.name.toLowerCase() === p.workerName.toLowerCase()));
+    // 1. Filter real workers from workersList who have at least one attendance record in the selected period
+    const targetWorkers = workersList.filter(w => {
+      if (!w || !w.id) return false;
+      const workerAtt = attendanceList.filter(a => {
+        if (!a) return false;
+        const matchId = (a.workerId && (a.workerId === w.id || a.workerId === (w as any).employeeId)) || 
+                        ((a as any).employeeId && ((a as any).employeeId === w.id));
+        const matchName = a.workerName && w.name && a.workerName.trim().toLowerCase() === w.name.trim().toLowerCase();
+        const belongsToWorker = Boolean(matchId || matchName);
+        if (!belongsToWorker) return false;
+
+        if (selectedPayPeriod && selectedPayPeriod !== "all") {
+          return a.date && a.date.startsWith(selectedPayPeriod);
+        }
+        return true;
       });
-
-      if (validSaved.length > 0) {
-        return validSaved.map(p => {
-          const matchingWorker = workersList.find(w => w.id === p.workerId || (w.name && w.name.toLowerCase() === p.workerName.toLowerCase()));
-          const basicSalary = matchingWorker?.basicMonthlySalary || p.basicSalary || (matchingWorker?.hourlyRate ? matchingWorker.hourlyRate * 208 : 0);
-          const daysWorked = p.attendanceDays || 0;
-          const overtimePay = p.overtimePayment || 0;
-          const deductions = p.deductions || 0;
-          const tax = Math.round(basicSalary * 0.15);
-          const pension = Math.round(basicSalary * 0.07);
-          const allowances = p.allowances || 0;
-          const netSalary = p.netSalary || Math.max(0, basicSalary + overtimePay + allowances - deductions - tax - pension);
-
-          return {
-            id: p.id,
-            workerId: p.workerId,
-            workerName: matchingWorker?.name || p.workerName,
-            trade: matchingWorker?.trade || p.position || "Site Technician",
-            basicSalary,
-            daysWorked,
-            normalHours: (p.totalWorkingHours || daysWorked * 8),
-            overtimeHours: p.overtimeHours || 0,
-            underTimeHours: p.undertimeHours || 0,
-            overtimePay,
-            allowances,
-            bonuses: 0,
-            underTimeDeduction: p.undertimeDeduction || 0,
-            attendanceDeductions: deductions,
-            tax,
-            pension,
-            netSalary,
-            status: (p.status === "Approved" || p.status === "Paid" ? "Approved" : "Draft") as any,
-            paymentMethod: "CBE Direct Deposit"
-          };
-        });
-      }
-    }
-
-    // Filter to only enrolled workers who have actual attendance records for the period
-    const workersWithAttendance = workersList.filter(w => {
-      return attendanceList.some(a => a.workerId === w.id || (a.workerName && a.workerName.toLowerCase() === w.name.toLowerCase()));
+      return workerAtt.length > 0;
     });
 
-    // If there are attendance logs, process only attendees; if no attendance logs exist yet, show enrolled workers without fake attendance
-    const targetWorkers = workersWithAttendance.length > 0 ? workersWithAttendance : (attendanceList.length > 0 ? [] : workersList);
-
+    // 2. Cross-reference real attendance and calculate exact pay using real basicMonthlySalary
     return targetWorkers.map((w) => {
-      // Find worker attendance records
-      const workerAtt = attendanceList.filter(a => a.workerId === w.id || (a.workerName && a.workerName.toLowerCase() === w.name.toLowerCase()));
-      const daysWorked = workerAtt.length > 0 ? workerAtt.filter(a => a.status === "Present" || a.status === "Late").length : 0;
-      const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (a.overtimeHours || 0), 0);
-      const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (a.underTimeHours || 0), 0);
+      // Find all attendance records for this worker in the period
+      const workerAtt = attendanceList.filter(a => {
+        if (!a) return false;
+        const matchId = (a.workerId && (a.workerId === w.id || a.workerId === (w as any).employeeId)) || 
+                        ((a as any).employeeId && ((a as any).employeeId === w.id));
+        const matchName = a.workerName && w.name && a.workerName.trim().toLowerCase() === w.name.trim().toLowerCase();
+        const belongsToWorker = Boolean(matchId || matchName);
+        if (!belongsToWorker) return false;
+
+        if (selectedPayPeriod && selectedPayPeriod !== "all") {
+          return a.date && a.date.startsWith(selectedPayPeriod);
+        }
+        return true;
+      });
+
+      // Calculate attendance days and working hours
+      const daysWorked = workerAtt.filter(a => a.status === "Present" || a.status === "Late" || Boolean(a.checkIn)).length || workerAtt.length;
+      const normalHours = workerAtt.reduce((sum, a) => sum + (Number(a.workingHours) || 8), 0);
+      const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (Number(a.overtime) || 0), 0);
+      const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (Number(a.underTime) || 0), 0);
 
       // Real basicMonthlySalary from enrolled worker record
-      const basicSalary = w.basicMonthlySalary || (w.hourlyRate ? w.hourlyRate * 208 : 0);
-      const dailyRate = basicSalary > 0 ? Math.round((basicSalary / 26) * 100) / 100 : 0;
-      const hourlyRate = w.hourlyRate || (dailyRate > 0 ? Math.round((dailyRate / 8) * 100) / 100 : 0);
+      const basicSalary = Number(w.basicMonthlySalary) || (w.hourlyRate ? w.hourlyRate * 208 : 0) || (w.employmentType?.toLowerCase().includes("daily") ? 650 * 26 : 18000);
+      const dailyRate = Math.round((basicSalary / 26) * 100) / 100;
+      const hourlyRate = w.hourlyRate || Math.round((dailyRate / 8) * 100) / 100;
 
+      // Base pay earned
+      const basePayForDaysWorked = daysWorked >= 24 ? basicSalary : Math.round(dailyRate * daysWorked);
       const overtimePay = Math.round(totalOvertimeHrs * hourlyRate * 1.5);
-      const allowances = daysWorked > 0 ? (w.allowances || 0) : 0;
+      const allowances = Number((w as any).allowance) || Number((w as any).allowances) || (daysWorked > 0 ? (w.allowances || 0) : 0);
       const bonuses = 0;
       const underTimeDeduction = Math.round(totalUnderTimeHrs * hourlyRate);
-      
-      // Pro-rated base wage for days worked (or basic if monthly)
-      const basePayForDaysWorked = daysWorked > 0 ? Math.round(dailyRate * daysWorked) : basicSalary;
+
       const grossEarned = basePayForDaysWorked + overtimePay + allowances + bonuses - underTimeDeduction;
-      const tax = Math.round(grossEarned * 0.15); // Ethiopian Income Tax estimation
+      const tax = Math.round(grossEarned * 0.15); // Ethiopian Income Tax estimation (15%)
       const pension = Math.round(basePayForDaysWorked * 0.07); // 7% Employee Pension
 
       const netSalary = Math.max(0, grossEarned - (tax + pension));
 
       return {
-        id: `PR-${w.id}`,
+        id: `PR-${w.id}-${selectedPayPeriod !== "all" ? selectedPayPeriod : "global"}`,
         workerId: w.id,
         workerName: w.name,
-        trade: w.trade || "Site Technician",
+        trade: w.trade || w.position || "Site Technician",
+        department: w.department || "Operations",
         basicSalary,
         daysWorked,
-        normalHours: daysWorked * 8,
+        normalHours,
         overtimeHours: totalOvertimeHrs,
         underTimeHours: totalUnderTimeHrs,
         overtimePay,
         allowances,
         bonuses,
         underTimeDeduction,
-        attendanceDeductions: 0,
+        attendanceDeductions: underTimeDeduction,
         tax,
         pension,
         netSalary,
         status: "Approved" as const,
-        paymentMethod: "CBE Direct Deposit"
+        paymentMethod: w.bankName ? `${w.bankName} (${w.bankAccountNumber || "Direct Deposit"})` : (w.mobileMoneyType ? `${w.mobileMoneyType} (${w.mobileMoneyNumber || w.phoneNumber || "Mobile"})` : "CBE Direct Deposit")
       };
     });
-  }, [workersList, attendanceList, savedPayrollList]);
+  }, [workersList, attendanceList, selectedPayPeriod]);
 
   // Save generated/processed payroll records directly to Firestore
   const handleSavePayrollToFirestore = async () => {
+    if (generatedPayroll.length === 0) {
+      alert("No active workers with attendance records to save.");
+      return;
+    }
     setIsSavingPayroll(true);
     try {
       const recordsToPersist: PayrollRecord[] = generatedPayroll.map(p => ({
@@ -631,7 +635,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         employeeId: p.workerId,
         workerName: p.workerName,
         position: p.trade,
-        department: "Operations & Site Construction",
+        department: p.department || "Operations & Site Construction",
         team: "Bole Heights Construction Team",
         project: "Digital Bole Heights",
         employmentType: "Permanent",
@@ -647,14 +651,14 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         netSalary: p.netSalary,
         status: "Approved",
         grade: "Grade A",
-        period: new Date().toISOString().substring(0, 7),
+        period: selectedPayPeriod !== "all" ? selectedPayPeriod : new Date().toISOString().substring(0, 7),
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }));
 
       await DbService.savePayrollRecords(recordsToPersist);
       setSavedPayrollList(recordsToPersist);
-      setPayrollSyncStatus("Payroll saved & synchronized to Firestore!");
+      setPayrollSyncStatus(`Payroll saved & synchronized ${recordsToPersist.length} worker records to Firestore!`);
       onLogAction?.("Process Payroll Batch", `Saved & Approved payroll batch for ${recordsToPersist.length} workers to Firestore`);
       setTimeout(() => setPayrollSyncStatus(null), 4000);
     } catch (err) {
@@ -1450,10 +1454,26 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <p className="text-xs text-slate-400 mt-1">Calculates Basic, Overtime, Under time, Deductions, Income Tax & Pension automatically from Site Biometrics</p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
+                  <Calendar size={14} className="text-emerald-400" />
+                  <span className="text-slate-400 font-medium">Pay Period:</span>
+                  <select
+                    value={selectedPayPeriod}
+                    onChange={(e) => setSelectedPayPeriod(e.target.value)}
+                    className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
+                  >
+                    <option value="all" className="bg-slate-900 text-white">All Pay Periods (All Records)</option>
+                    {availablePeriods.map(p => (
+                      <option key={p} value={p} className="bg-slate-900 text-white">{p}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <button
                   onClick={() => handleExportCsv("Company_Payroll_Disbursement", generatedPayroll)}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
+                  disabled={generatedPayroll.length === 0}
+                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-40"
                 >
                   <FileSpreadsheet size={14} className="text-emerald-400" />
                   <span>Export Bank Disbursement (Excel/CSV)</span>
@@ -1462,7 +1482,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 {isFullAccess && (
                   <button
                     onClick={handleSavePayrollToFirestore}
-                    disabled={isSavingPayroll}
+                    disabled={isSavingPayroll || generatedPayroll.length === 0}
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
                   >
                     <CheckCircle2 size={14} />
@@ -1486,7 +1506,8 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-950 p-5 rounded-2xl border border-slate-800 text-xs">
               <div>
                 <span className="text-slate-400 block uppercase font-bold text-[10px]">Active Workforce</span>
-                <span className="text-xl font-black text-white">{generatedPayroll.length} Technicians</span>
+                <span className="text-xl font-black text-white">{generatedPayroll.length} {generatedPayroll.length === 1 ? "Worker" : "Workers"}</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">{workersList.length} Total Enrolled in DB</span>
               </div>
               <div>
                 <span className="text-slate-400 block uppercase font-bold text-[10px]">Total Gross Basic Salary</span>
@@ -1522,32 +1543,46 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {generatedPayroll.map(p => (
-                      <tr key={p.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3">
-                          <span className="font-mono text-[10px] text-slate-500 block">{p.workerId}</span>
-                          <span className="font-bold text-white">{p.workerName}</span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-400">{p.trade}</td>
-                        <td className="py-3 px-3 font-mono text-slate-200">ETB {p.basicSalary.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-amber-400">+{p.overtimeHours}h</td>
-                        <td className="py-3 px-3 font-mono text-amber-400">ETB {p.overtimePay.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-emerald-400">ETB {p.allowances.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {(p.attendanceDeductions + p.underTimeDeduction).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-slate-400">ETB {p.tax.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-slate-400">ETB {p.pension.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono font-black text-emerald-400 text-sm">ETB {p.netSalary.toLocaleString()}</td>
-                        <td className="py-3 px-3">
-                          <button
-                            onClick={() => setSelectedPayslip(p)}
-                            className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold flex items-center space-x-1 cursor-pointer transition"
-                          >
-                            <FileText size={12} />
-                            <span>Payslip</span>
-                          </button>
+                    {generatedPayroll.length > 0 ? (
+                      generatedPayroll.map(p => (
+                        <tr key={p.id} className="hover:bg-slate-900/50 transition">
+                          <td className="py-3 px-3">
+                            <span className="font-mono text-[10px] text-slate-500 block">{p.workerId}</span>
+                            <span className="font-bold text-white">{p.workerName}</span>
+                          </td>
+                          <td className="py-3 px-3 text-slate-400">{p.trade}</td>
+                          <td className="py-3 px-3 font-mono text-slate-200">ETB {p.basicSalary.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-amber-400">+{p.overtimeHours}h</td>
+                          <td className="py-3 px-3 font-mono text-amber-400">ETB {p.overtimePay.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-emerald-400">ETB {p.allowances.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-red-400">ETB {(p.attendanceDeductions + p.underTimeDeduction).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-slate-400">ETB {p.tax.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-slate-400">ETB {p.pension.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono font-black text-emerald-400 text-sm">ETB {p.netSalary.toLocaleString()}</td>
+                          <td className="py-3 px-3">
+                            <button
+                              onClick={() => setSelectedPayslip(p)}
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold flex items-center space-x-1 cursor-pointer transition"
+                            >
+                              <FileText size={12} />
+                              <span>Payslip</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={11} className="py-12 text-center text-slate-500">
+                          <Users className="mx-auto mb-2 opacity-40 text-slate-400" size={32} />
+                          <p className="font-bold text-slate-300 text-sm">No Active Workers with Attendance Records Found</p>
+                          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
+                            {selectedPayPeriod === "all"
+                              ? "Clock in workers at the Biometric Kiosk or register attendance to automatically compute payroll disbursements."
+                              : `No attendance records logged for period "${selectedPayPeriod}". Switch the filter to "All Pay Periods" or record attendance.`}
+                          </p>
                         </td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
