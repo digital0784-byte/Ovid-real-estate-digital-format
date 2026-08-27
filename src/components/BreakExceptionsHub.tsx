@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { 
   ShieldCheck, 
   Clock, 
@@ -93,142 +93,46 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
   // Initial Multi-Punch Mock Data for Today (YYYY-MM-DD)
   const todayStr = useMemo(() => new Date().toISOString().split("T")[0], []);
 
-  const [multiPunches, setMultiPunches] = useState<MultiPunchDay[]>([
-    {
-      workerId: "ERP-W-101",
-      workerName: "Bekele Tesfaye",
-      trade: "Carpenter",
-      team: "T-01",
-      date: todayStr,
-      morningIn: "07:52",
-      lunchOut: "12:02",
-      lunchIn: "12:58",
-      eveningOut: null,
-      morningInMethod: "Fingerprint",
-      lunchOutMethod: "Fingerprint",
-      lunchInMethod: "Fingerprint",
-      eveningOutMethod: null,
-      isSynced: true
-    },
-    {
-      workerId: "ERP-W-102",
-      workerName: "Chala Kebede",
-      trade: "Welder",
-      team: "T-01",
-      date: todayStr,
-      morningIn: "08:35", // Late
-      lunchOut: null,
-      lunchIn: null,
-      eveningOut: null,
-      morningInMethod: "Face Recognition",
-      lunchOutMethod: null,
-      lunchInMethod: null,
-      eveningOutMethod: null,
-      isSynced: true
-    },
-    {
-      workerId: "ERP-W-103",
-      workerName: "Yosef Assefa",
-      trade: "Steel Fixer",
-      team: "T-02",
-      date: todayStr,
-      morningIn: "07:58",
-      lunchOut: "12:05",
-      lunchIn: "13:25", // Late lunch return
-      eveningOut: null,
-      morningInMethod: "Fingerprint",
-      lunchOutMethod: "Fingerprint",
-      lunchInMethod: "Face Recognition",
-      eveningOutMethod: null,
-      isSynced: true
-    },
-    {
-      workerId: "ERP-W-104",
-      workerName: "Alemayehu Tekle",
-      trade: "Concrete Worker",
-      team: "T-02",
-      date: todayStr,
-      morningIn: "07:45",
-      lunchOut: "12:01",
-      lunchIn: "12:55",
-      eveningOut: "16:15", // Early Departure
-      morningInMethod: "Face Recognition",
-      lunchOutMethod: "Face Recognition",
-      lunchInMethod: "Face Recognition",
-      eveningOutMethod: "Face Recognition",
-      isSynced: true
-    },
-    {
-      workerId: "ERP-W-105",
-      workerName: "Mulugeta Alene",
-      trade: "Mason",
-      team: "T-03",
-      date: todayStr,
-      morningIn: "07:50",
-      lunchOut: "12:00",
-      lunchIn: "12:50",
-      eveningOut: "19:10", // Overtime Stay
-      morningInMethod: "Fingerprint",
-      lunchOutMethod: "Fingerprint",
-      lunchInMethod: "Fingerprint",
-      eveningOutMethod: "Fingerprint",
-      isSynced: true
+  // Multi-Punch records dynamically populated from real workers and attendance
+  const [multiPunches, setMultiPunches] = useState<MultiPunchDay[]>([]);
+
+  useEffect(() => {
+    if (workers.length > 0) {
+      const generated: MultiPunchDay[] = workers.map(w => {
+        const todayAtt = attendance.find(a => a.workerId === w.id && a.date === todayStr);
+        return {
+          workerId: w.id,
+          workerName: w.name,
+          trade: w.trade || "Worker",
+          team: w.teamId || "T-01",
+          date: todayStr,
+          morningIn: todayAtt?.checkIn ? todayAtt.checkIn.substring(0, 5) : null,
+          lunchOut: todayAtt?.lunchOut ? todayAtt.lunchOut.substring(0, 5) : null,
+          lunchIn: todayAtt?.lunchIn ? todayAtt.lunchIn.substring(0, 5) : null,
+          eveningOut: todayAtt?.checkOut ? todayAtt.checkOut.substring(0, 5) : null,
+          morningInMethod: todayAtt?.method ? "Fingerprint" : null,
+          lunchOutMethod: todayAtt?.lunchOut ? "Fingerprint" : null,
+          lunchInMethod: todayAtt?.lunchIn ? "Fingerprint" : null,
+          eveningOutMethod: todayAtt?.checkOut ? "Fingerprint" : null,
+          isSynced: true
+        };
+      });
+      setMultiPunches(generated);
+    } else {
+      setMultiPunches([]);
     }
-  ]);
+  }, [workers, attendance, todayStr]);
 
   // Initial Exception Logs Data
-  const [exceptions, setExceptions] = useState<ExceptionLog[]>([
-    {
-      id: "EXC-201",
-      workerId: "ERP-W-102",
-      workerName: "Chala Kebede",
-      trade: "Welder",
-      type: "LATE_ARRIVAL",
-      punchTime: "08:35",
-      expectedTime: "08:00 (08:15 with Grace)",
-      reason: "Transportation Delay",
-      comment: "LRT light rail was stuck near Stadium station for 25 minutes.",
-      submittedBy: "Abebe Girma (Time Keeper)",
-      submittedAt: todayStr + " 08:40",
-      approvalStatus: "Pending"
-    },
-    {
-      id: "EXC-202",
-      workerId: "ERP-W-103",
-      workerName: "Yosef Assefa",
-      trade: "Steel Fixer",
-      type: "LATE_LUNCH_RETURN",
-      punchTime: "13:25",
-      expectedTime: "13:00",
-      reason: "Medical / Illness",
-      comment: "Had severe stomach pain, went to site clinic for oral rehydration salt.",
-      submittedBy: "Yohannes Bekele (Team Leader)",
-      submittedAt: todayStr + " 13:30",
-      approvalStatus: "Pending"
-    },
-    {
-      id: "EXC-203",
-      workerId: "ERP-W-104",
-      workerName: "Alemayehu Tekle",
-      trade: "Concrete Worker",
-      type: "EARLY_DEPARTURE",
-      punchTime: "16:15",
-      expectedTime: "17:00",
-      reason: "Personal Emergency",
-      comment: "Left early to attend son's school emergency. Authorized by TL.",
-      submittedBy: "Fikru Tolossa (Gang Chief)",
-      submittedAt: todayStr + " 16:20",
-      approvalStatus: "Pending"
-    }
-  ]);
+  const [exceptions, setExceptions] = useState<ExceptionLog[]>([]);
 
   // Notifications State
   const [notifications, setNotifications] = useState<any[]>([
     {
       id: "NOT-901",
       type: "Late Arrival",
-      title: "Roster Violation: Late Check-In",
-      message: "Chala Kebede (ERP-W-102) logged morning in at 08:35 (Deviation: +35 mins). Exception submitted.",
+      title: "Roster Notification: Late Check-In",
+      message: "Shift check-in recorded past standard grace period. Logged for automated review.",
       time: "08:35 AM",
       role: "Time Keeper",
       status: "Unread"
@@ -237,7 +141,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       id: "NOT-902",
       type: "Lunch Exception",
       title: "Roster Alert: Late Lunch Return",
-      message: "Yosef Assefa (ERP-W-103) clocked back at 13:25 (Lunch break exceeded by 25 mins).",
+      message: "Worker break return recorded with deviation exceeding standard lunch interval.",
       time: "01:25 PM",
       role: "Team Leader",
       status: "Unread"
@@ -248,40 +152,31 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
   const [auditTrail, setAuditTrail] = useState<any[]>([
     {
       timestamp: todayStr + " 07:52:11",
-      workerName: "Bekele Tesfaye",
+      workerName: "Biometric Terminal #1",
       action: "Fingerprint Template Verified",
       verificationMethod: "OS Biometric API (Secure Hello)",
       matchedScore: "99.2%",
       hash: "SHA256:d8a2...3f1c",
-      operator: "Abebe Girma (Time Keeper)"
+      operator: "Site Time Keeper"
     },
     {
       timestamp: todayStr + " 08:35:05",
-      workerName: "Chala Kebede",
+      workerName: "Biometric Terminal #2",
       action: "Face Recognition Vector Checked",
       verificationMethod: "OS Biometric API (AI Node Core)",
       matchedScore: "96.5%",
       hash: "SHA256:4a3d...ef89",
-      operator: "Abebe Girma (Time Keeper)"
-    },
-    {
-      timestamp: todayStr + " 12:02:44",
-      workerName: "Bekele Tesfaye",
-      action: "Fingerprint Template Verified",
-      verificationMethod: "OS Biometric API (Secure Hello)",
-      matchedScore: "98.9%",
-      hash: "SHA256:f12e...b901",
-      operator: "Abebe Girma (Time Keeper)"
+      operator: "Site Time Keeper"
     }
   ]);
 
   // Sync System Status
   const syncApps = [
-    { name: "Team Leader App", desc: "For Yohannes Bekele (Roster Filter)", status: "Synced", lastUpdate: "Real-time stream active" },
-    { name: "Gang Chief App", desc: "For Fikru Tolossa (Gang Assignment)", status: "Synced", lastUpdate: "Real-time stream active" },
-    { name: "Supervisor App", desc: "For Kassa Hunegn (Quality & Forms)", status: "Synced", lastUpdate: "Real-time stream active" },
-    { name: "Project Manager App", desc: "For Eng. Brook (Overall Progress)", status: "Synced", lastUpdate: "Real-time stream active" },
-    { name: "Head Office App", desc: "For HO Dashboard (Global Billing)", status: "Synced", lastUpdate: "Real-time stream active" }
+    { name: "Team Leader App", desc: "Real-time Roster Stream", status: "Synced", lastUpdate: "Real-time stream active" },
+    { name: "Gang Chief App", desc: "Gang Assignment Feed", status: "Synced", lastUpdate: "Real-time stream active" },
+    { name: "Supervisor App", desc: "Quality & Inspection Records", status: "Synced", lastUpdate: "Real-time stream active" },
+    { name: "Project Manager App", desc: "Overall Site Progress Feed", status: "Synced", lastUpdate: "Real-time stream active" },
+    { name: "Head Office App", desc: "Global ERP Billing Pipeline", status: "Synced", lastUpdate: "Real-time stream active" }
   ];
 
   // Simulator Modal / Flow States
@@ -312,7 +207,13 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
 
   // Report Generator settings
   const [activeReportTab, setActiveReportTab] = useState<"daily" | "lunch" | "late" | "early" | "exception" | "overtime" | "history">("daily");
-  const [selectedWorkerHistoryId, setSelectedWorkerHistoryId] = useState("ERP-W-101");
+  const [selectedWorkerHistoryId, setSelectedWorkerHistoryId] = useState("");
+
+  useEffect(() => {
+    if (workers.length > 0 && !selectedWorkerHistoryId) {
+      setSelectedWorkerHistoryId(workers[0].id);
+    }
+  }, [workers, selectedWorkerHistoryId]);
   const [isExporting, setIsExporting] = useState(false);
   const [exportMessage, setExportMessage] = useState("");
 

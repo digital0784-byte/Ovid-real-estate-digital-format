@@ -64,11 +64,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const roleWorkers = useMemo(() => {
     switch (currentUserRole) {
       case UserRole.GANG_CHIEF:
-        return workers.filter(w => w.zone === "Zone B" || w.gangChief === "Fikru Tolossa");
+        return workers.filter(w => w.zone === "Zone B" || (w.gangChief && w.gangChief.length > 0));
       case UserRole.TEAM_LEADER:
-        return workers.filter(w => w.zone === "Zone A" || w.teamLeader === "Yohannes Bekele");
+        return workers.filter(w => w.zone === "Zone A" || (w.teamLeader && w.teamLeader.length > 0));
       case UserRole.SUPERVISOR:
-        return workers.filter(w => w.floor === 4 || w.supervisor === "Kassa Hunegn");
+        return workers.filter(w => w.floor === 4 || (w.supervisor && w.supervisor.length > 0));
       default:
         return workers; // Head Office & Time Keeper see all
     }
@@ -267,17 +267,23 @@ export const Dashboard: React.FC<DashboardProps> = ({
           <div className="space-y-3 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
             <div className="flex items-center space-x-3">
               <div className="w-10 h-10 rounded-full bg-slate-900 text-white font-black flex items-center justify-center text-sm shadow-xs">
-                {currentUserRole === UserRole.HEAD_OFFICE ? "EY" :
-                 currentUserRole === UserRole.TIME_KEEPER ? "AG" :
-                 currentUserRole === UserRole.TEAM_LEADER ? "YB" :
-                 currentUserRole === UserRole.GANG_CHIEF ? "FT" : "BT"}
+                {currentUserRole === UserRole.HEAD_OFFICE ? "HO" :
+                 currentUserRole === UserRole.PROJECT_MANAGER ? "PM" :
+                 currentUserRole === UserRole.TIME_KEEPER ? "TK" :
+                 currentUserRole === UserRole.TEAM_LEADER ? "TL" :
+                 currentUserRole === UserRole.GANG_CHIEF ? "GC" :
+                 currentUserRole === UserRole.SUPERVISOR ? "SV" : "FS"}
               </div>
               <div>
                 <span className="font-bold text-slate-800 block text-sm">
-                  {currentUserRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph" :
-                   currentUserRole === UserRole.TIME_KEEPER ? "Abebe Girma" :
-                   currentUserRole === UserRole.TEAM_LEADER ? "Yohannes Bekele" :
-                   currentUserRole === UserRole.GANG_CHIEF ? "Fikru Tolossa" : "Bekele Tesfaye"}
+                  {currentUserRole === UserRole.HEAD_OFFICE ? "Head Office Manager" :
+                   currentUserRole === UserRole.PROJECT_MANAGER ? "Project Manager" :
+                   currentUserRole === UserRole.TIME_KEEPER ? "Site Time Keeper" :
+                   currentUserRole === UserRole.TEAM_LEADER ? "Team Leader" :
+                   currentUserRole === UserRole.GANG_CHIEF ? "Gang Chief" :
+                   currentUserRole === UserRole.SUPERVISOR ? "Site Supervisor" :
+                   currentUserRole === UserRole.STORE_MANAGER ? "Store Manager" :
+                   currentUserRole === UserRole.WAREHOUSE_MANAGER ? "Warehouse Manager" : "Field Specialist"}
                 </span>
                 <span className="text-[11px] text-slate-500 font-mono block">
                   ID: {currentUserRole === UserRole.HEAD_OFFICE ? "Digital Construction ERP-HO-01" :
@@ -286,7 +292,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                        currentUserRole === UserRole.STORE_MANAGER ? "Digital Construction ERP-SM-01" :
                        currentUserRole === UserRole.TIME_KEEPER ? "Digital Construction ERP-TK-01" :
                        currentUserRole === UserRole.TEAM_LEADER ? "Digital Construction ERP-TL-01" :
-                       currentUserRole === UserRole.GANG_CHIEF ? "Digital Construction ERP-GC-01" : "ERP-W-101"}
+                       currentUserRole === UserRole.GANG_CHIEF ? "Digital Construction ERP-GC-01" :
+                       currentUserRole === UserRole.SUPERVISOR ? "Digital Construction ERP-SV-01" : "Digital Construction ERP-OP-01"}
                 </span>
               </div>
             </div>

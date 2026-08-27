@@ -138,10 +138,13 @@ export const DailyAttendanceReportsHub: React.FC<DailyAttendanceReportsHubProps>
       const absentCount = teamRecs.filter(r => r.status === "Absent").length;
       const leaveCount = teamRecs.filter(r => r.status === "Leave").length;
       const attendanceRate = totalMembers > 0 ? Math.round(((presentCount + lateCount) / totalMembers) * 100) : 0;
+      const teamObj = teams?.find(t => t.name === teamName || t.id === teamName);
+      const leaderWorker = teamObj ? workers.find(w => w.id === teamObj.leaderId) : null;
+      const leaderName = leaderWorker?.name || teamObj?.leaderName || (isAmharic ? "የቡድን መሪ" : "Team Leader");
 
       return {
         teamName,
-        leaderName: teamName.includes("Alpha") ? "Bekele Tesfaye" : teamName.includes("Beta") ? "Chala Kebede" : teamName.includes("Gamma") ? "Almaz Demissie" : "Tariku Mengistu",
+        leaderName,
         totalMembers,
         presentCount,
         lateCount,
@@ -150,7 +153,7 @@ export const DailyAttendanceReportsHub: React.FC<DailyAttendanceReportsHubProps>
         attendanceRate
       };
     });
-  }, [filteredRecords]);
+  }, [filteredRecords, teams, workers, isAmharic]);
 
   // Site Aggregated Report Data
   const siteAggregatedData = useMemo(() => {
@@ -168,7 +171,7 @@ export const DailyAttendanceReportsHub: React.FC<DailyAttendanceReportsHubProps>
         presentOnSite,
         geofencePassed,
         complianceRate,
-        supervisorVerified: "Supervisor Kassa Hunegn"
+        supervisorVerified: "Site Supervisor"
       };
     });
   }, [filteredRecords]);

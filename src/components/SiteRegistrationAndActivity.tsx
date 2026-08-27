@@ -138,7 +138,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
       equipmentUsed: ["Hydraulic Aligners", "Pneumatic Clamps", "Form Oil Sprayer"],
       delaysAndIssues: "None. Weather was ideal for fast formwork assembly.",
       photos: ["https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop&q=60"],
-      photographer: "TL Yohannes Bekele",
+      photographer: "Site Team Leader",
       productivityPerWorker: 4.0,
       supervisorComments: "Checked level pins. Absolute precision of alignment meets the +/- 2mm specification."
     },
@@ -154,7 +154,7 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
       equipmentUsed: ["Hand Tools", "Shoring Jacks", "Level Laser"],
       delaysAndIssues: "Minor shoring leveling offset delayed layout by 45 minutes.",
       photos: ["https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=60"],
-      photographer: "TL Hiwot Girma",
+      photographer: "Site Team Leader",
       productivityPerWorker: 3.5,
       supervisorComments: "Shoring prop adjustment required. Re-leveling completed before next day start."
     }

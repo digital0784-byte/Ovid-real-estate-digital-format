@@ -101,8 +101,8 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
         completionPercentage: 100,
         status: "Completed" as const,
         area: 145,
-        assignedGangChiefId: "ERP-W-103",
-        assignedGangChiefName: "Chala Kebede"
+        assignedGangChiefId: "",
+        assignedGangChiefName: ""
       },
       {
         id: `MOCK-F${selectedFloor}-ZB`,
@@ -122,8 +122,8 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
         completionPercentage: 20,
         status: "In Progress" as const,
         area: 160,
-        assignedGangChiefId: "ERP-W-101",
-        assignedGangChiefName: "Bekele Tesfaye"
+        assignedGangChiefId: "",
+        assignedGangChiefName: ""
       },
       {
         id: `MOCK-F${selectedFloor}-ZC`,
@@ -143,8 +143,8 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
         completionPercentage: 0,
         status: "Not Started" as const,
         area: 110,
-        assignedGangChiefId: "ERP-W-106",
-        assignedGangChiefName: "Tariku Mengistu"
+        assignedGangChiefId: "",
+        assignedGangChiefName: ""
       }
     ];
   }, [activeZonesOnFloor, selectedProject, selectedFloor]);
@@ -172,14 +172,14 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
     if (!selectedZone) return null;
     
     // Find team where leader or member matches the assigned Gang Chief
-    const gangChiefId = selectedZone.assignedGangChiefId || "ERP-W-101";
-    
-    // Search teams
-    const matched = teams.find(t => t.leaderId === gangChiefId || t.memberIds.includes(gangChiefId));
-    if (matched) return matched;
+    const gangChiefId = selectedZone.assignedGangChiefId;
+    if (gangChiefId) {
+      const matched = teams.find(t => t.leaderId === gangChiefId || t.memberIds.includes(gangChiefId));
+      if (matched) return matched;
+    }
 
-    // Default fallback to first team if none
-    return teams[0];
+    // Default fallback to first team if available
+    return teams.length > 0 ? teams[0] : null;
   }, [selectedZone, teams]);
 
   // Workers belonging to the assigned team
@@ -877,11 +877,11 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
                           </span>
                           <h5 className="font-bold text-xs text-slate-700 mt-1">
                             {isAmharic ? "መሪ (Leader):" : "Team Leader:"} {
-                              workers.find(w => w.id === assignedTeam.leaderId)?.name || "Yohannes Bekele"
+                              workers.find(w => w.id === assignedTeam.leaderId)?.name || assignedTeam.leaderName || (isAmharic ? "ያልተመደበ" : "Unassigned")
                             }
                           </h5>
                           <span className="text-[10px] text-slate-500 font-mono">
-                            {isAmharic ? "የጋንግ ቺፍ ኃላፊ:" : "Gang Chief assigned:"} {selectedZone.assignedGangChiefName || "Fikru Tolossa"}
+                            {isAmharic ? "የጋንግ ቺፍ ኃላፊ:" : "Gang Chief assigned:"} {selectedZone.assignedGangChiefName || (isAmharic ? "ያልተመደበ" : "Unassigned")}
                           </span>
                         </div>
 

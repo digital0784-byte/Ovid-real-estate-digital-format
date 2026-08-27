@@ -113,10 +113,10 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   // Role-Based Custom Notifications State
   const [notifications, setNotifications] = useState<any[]>([
-    { id: "not-01", type: "Late Arrival", title: "Roster Delay Warning", message: "Chala Kebede arrived late on Floor 4 Zone B at 08:15:00.", timestamp: "2026-07-01 08:20", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER, UserRole.SUPERVISOR] },
-    { id: "not-02", type: "Biometric Failure", title: "Security Alert: Verification Mismatch", message: "Biometric similarity score was 32.1% (below 85% requirement) for ERP-W-103.", timestamp: "2026-07-01 08:35", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] },
-    { id: "not-03", type: "Location Violation", title: "GPS Geofence Breach Rejected", message: "Check-in request blocked: GPS coordinate mismatch. Deviation: 4.1km (Airport).", timestamp: "2026-07-01 08:42", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER, UserRole.SUPERVISOR] },
-    { id: "not-04", type: "Duplicate Attempt", title: "Roster Integrity: Duplicate Check-In Blocked", message: "Duplicate morning clock-in attempt detected for Bekele Tesfaye (ERP-W-101). Record secure.", timestamp: "2026-07-01 07:58", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] }
+    { id: "not-01", type: "Late Arrival", title: "Roster Delay Warning", message: "Late clock-in recorded on Floor 4 Zone B at 08:15:00.", timestamp: "2026-07-01 08:20", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER, UserRole.SUPERVISOR] },
+    { id: "not-02", type: "Biometric Failure", title: "Security Alert: Verification Mismatch", message: "Biometric similarity score was 32.1% (below 85% requirement) during verification.", timestamp: "2026-07-01 08:35", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] },
+    { id: "not-03", type: "Location Violation", title: "GPS Geofence Breach Rejected", message: "Check-in request blocked: GPS coordinate mismatch outside authorized site boundary.", timestamp: "2026-07-01 08:42", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER, UserRole.SUPERVISOR] },
+    { id: "not-04", type: "Duplicate Attempt", title: "Roster Integrity: Duplicate Check-In Blocked", message: "Duplicate morning clock-in attempt detected. System record is secure.", timestamp: "2026-07-01 07:58", read: false, roles: [UserRole.HEAD_OFFICE, UserRole.TIME_KEEPER] }
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
 
@@ -215,9 +215,9 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [regBuilding, setRegBuilding] = useState("Tower 1");
   const [regFloor, setRegFloor] = useState(4);
   const [regZone, setRegZone] = useState("Zone A");
-  const [regTeamLeader, setRegTeamLeader] = useState("Yohannes Bekele");
-  const [regGangChief, setRegGangChief] = useState("Fikru Tolossa");
-  const [regSupervisor, setRegSupervisor] = useState("Kassa Hunegn");
+  const [regTeamLeader, setRegTeamLeader] = useState("");
+  const [regGangChief, setRegGangChief] = useState("");
+  const [regSupervisor, setRegSupervisor] = useState("");
   const [regPhotoPlaceholder, setRegPhotoPlaceholder] = useState("https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces");
   const [fingerprintEnrolled, setFingerprintEnrolled] = useState(true);
   const [regSuccessMsg, setRegSuccessMsg] = useState("");
@@ -519,8 +519,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   // --- REAL-TIME ALERTS / NOTIFICATIONS STATE ---
   const [alerts, setAlerts] = useState<any[]>([
-    { id: "A-1", type: "Late Check-In", message: "Chala Kebede checked in late (08:15:00) on Floor 3 Zone B.", timestamp: "2026-07-01 08:16", read: false },
-    { id: "A-2", type: "GPS Outside Authorized Area", message: "Yosef Assefa attempted clock-in from 12.4km deviation outside geofence.", timestamp: "2026-07-01 07:45", read: false },
+    { id: "A-1", type: "Late Check-In", message: "Late check-in recorded on Floor 3 Zone B.", timestamp: "2026-07-01 08:16", read: false },
+    { id: "A-2", type: "GPS Outside Authorized Area", message: "Clock-in attempted with deviation outside geofence boundary.", timestamp: "2026-07-01 07:45", read: false },
     { id: "A-3", type: "Face or Fingerprint Verification Failure", message: "Biometric validation mismatch reported on Device-Digital Construction ERP-TK01.", timestamp: "2026-07-01 07:35", read: false }
   ]);
 

@@ -331,11 +331,22 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   ]);
 
   // Live Audit Transaction list
-  const [syncLogs, setSyncLogs] = useState<SyncTransaction[]>([
-    { id: "TX-901", timestamp: "2026-07-08 10:42:15", workerName: "Chala Kebede", type: "Check-In", device: "Time Keeper Tablet", status: "Synced", hash: "SHA256:E9A28B...C21" },
-    { id: "TX-902", timestamp: "2026-07-08 10:15:30", workerName: "Almaz Demissie", type: "Check-Out", device: "Gang Chief Scanner", status: "Synced", hash: "SHA256:4C83AA...F09" },
-    { id: "TX-903", timestamp: "2026-07-08 09:55:00", workerName: "Selamawit Alemu", type: "Check-In", device: "Supervisor Mobile", status: "Synced", hash: "SHA256:F2901B...78A" }
-  ]);
+  const [syncLogs, setSyncLogs] = useState<SyncTransaction[]>([]);
+
+  useEffect(() => {
+    if (attendance.length > 0) {
+      const recent = attendance.slice(0, 10).map((a, idx) => ({
+        id: `TX-${901 + idx}`,
+        timestamp: `${a.date} ${a.checkIn || "08:00:00"}`,
+        workerName: a.workerName,
+        type: a.checkOut ? "Check-Out" : "Check-In",
+        device: "Biometric Terminal",
+        status: "Synced",
+        hash: `SHA256:${a.id}...${idx}`
+      }));
+      setSyncLogs(recent);
+    }
+  }, [attendance]);
 
   // Static list of Projects
   const projectList = ["All Projects", "Digital Bole Heights", "Digital Construction ERP Ayat Project", "Digital Construction ERP CMC Sector", "Digital Construction ERP Lebu site"];

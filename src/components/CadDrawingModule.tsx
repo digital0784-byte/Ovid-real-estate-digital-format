@@ -201,7 +201,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       date: "2026-07-08",
       time: "10:42 AM",
       gps: "9.0118° N, 38.7954° E",
-      photographer: "TL Bekele Tesfaye",
+      photographer: "Site Team Leader",
       remarks: "Wall panels fully aligned. Slabs deck placement starting in northern sector.",
       photoUrl: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop&q=60"
     },
