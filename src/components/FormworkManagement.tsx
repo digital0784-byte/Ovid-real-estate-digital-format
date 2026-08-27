@@ -1263,7 +1263,10 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
     if (matched) {
       setScannedPanel(matched);
       setSearchQuery(matched.id);
-      setActiveSubTab("scanner");
+      setActiveSubTab("database");
+      setTypeFilter("All");
+      setStatusFilter("All");
+      setLocationFilter("All");
       setScannerMessage(t(`QR Scan Verified: ${matched.id} (${matched.serialNumber})`, `ኪውአር ተለይቷል፡ ${matched.id} (${matched.serialNumber})`));
       if ("speechSynthesis" in window) {
         try {
@@ -1275,7 +1278,10 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
         }
       }
     } else {
-      setActiveSubTab("scanner");
+      setActiveSubTab("database");
+      if (scannedId || raw) {
+        setSearchQuery(scannedId || raw);
+      }
       setScannerMessage(t(`Scanned code: ${scannedId || raw} - No matching panel found in registry.`, `የተቃኘው ኮድ፡ ${scannedId || raw} - በመዝገብ ውስጥ አልተገኘም።`));
     }
   };

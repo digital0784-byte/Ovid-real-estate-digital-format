@@ -877,7 +877,7 @@ export const DbService = {
 
   // 16. payroll (payroll)
   async getPayrollRecords(): Promise<PayrollRecord[]> {
-    return fetchCollection<PayrollRecord>("payroll", initialPayrollRecords);
+    return fetchCollection<PayrollRecord>("payroll", []);
   },
   async savePayrollRecord(record: PayrollRecord): Promise<void> {
     const docToSave: PayrollRecord = {

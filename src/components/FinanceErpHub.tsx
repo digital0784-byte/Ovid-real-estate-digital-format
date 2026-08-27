@@ -401,11 +401,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   ]);
 
   const [expenses, setExpenses] = useState<Expense[]>([
-    { id: "EXP-01", category: "Material", amount: 8500000, date: "2026-07-02", vendor: "Mugher Cement PLC", description: "C30 Pre-mix Bulk Supply Bole Site", project: "Bole Heights Phase I", costCenter: "CC-101 Material", approvedBy: "Eng. Dawit" },
+    { id: "EXP-01", category: "Material", amount: 8500000, date: "2026-07-02", vendor: "Mugher Cement PLC", description: "C30 Pre-mix Bulk Supply Bole Site", project: "Bole Heights Phase I", costCenter: "CC-101 Material", approvedBy: "Site Engineering" },
     { id: "EXP-02", category: "Labor", amount: 4200000, date: "2026-07-05", vendor: "BuildSync Payroll Ledger", description: "Formwork gang floor 4 assembly wages", project: "Bole Heights Phase I", costCenter: "CC-102 Workforce", approvedBy: "Finance Director" },
-    { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Cranes Ethiopia", description: "Tower crane monthly mobilization & lease", project: "Bole Heights Phase I", costCenter: "CC-103 Machinery", approvedBy: "Mulugeta Assefa" },
-    { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Engineers", description: "Consultant structural milestone inspection fee", project: "Bole Heights Phase I", costCenter: "CC-104 Supervision", approvedBy: "Eng. Dawit" },
-    { id: "EXP-05", category: "Material", amount: 9400000, date: "2026-07-12", vendor: "Ethio Steel Mills", description: "High-Tensile Reinforcement Rebar 16mm & 20mm", project: "Yeka Hills Estate", costCenter: "CC-101 Material", approvedBy: "Abebe Worku" }
+    { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Cranes Ethiopia", description: "Tower crane monthly mobilization & lease", project: "Bole Heights Phase I", costCenter: "CC-103 Machinery", approvedBy: "Equipment Lead" },
+    { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Engineers", description: "Consultant structural milestone inspection fee", project: "Bole Heights Phase I", costCenter: "CC-104 Supervision", approvedBy: "Project Lead" },
+    { id: "EXP-05", category: "Material", amount: 9400000, date: "2026-07-12", vendor: "Ethio Steel Mills", description: "High-Tensile Reinforcement Rebar 16mm & 20mm", project: "Yeka Hills Estate", costCenter: "CC-101 Material", approvedBy: "Procurement Lead" }
   ]);
 
   const [invoices, setInvoices] = useState<Invoice[]>([
@@ -514,78 +514,85 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   // Security Audit Log Store
   const [auditLogsList, setAuditLogsList] = useState<SecurityAuditItem[]>([
     { id: "AUD-1001", userName: currentUserName, userId: "FIN-01", role: currentUserRole, timestamp: "2026-07-22 08:30:15", device: "Chrome 126.0 (Macintosh)", action: "Accessed Corporate Finance Dashboard", financialImpact: "N/A", encrypted: true },
-    { id: "AUD-1002", userName: "Abebe Worku (Procurement Manager)", userId: "PROC-02", role: "Procurement Manager", timestamp: "2026-07-22 07:15:42", device: "BuildSync Mobile POS", action: "Approved PO-2026-882 Cement Purchase", financialImpact: "ETB 12,000,000", encrypted: true },
-    { id: "AUD-1003", userName: "Eng. Dawit (Project Manager)", userId: "PM-01", role: "Project Manager", timestamp: "2026-07-21 16:45:00", device: "Windows 11 Workstation", action: "Requested Budget Variance Adjustment", financialImpact: "ETB 3,500,000", encrypted: true }
+    { id: "AUD-1002", userName: "Procurement Manager", userId: "PROC-02", role: "Procurement Manager", timestamp: "2026-07-22 07:15:42", device: "BuildSync Mobile POS", action: "Approved PO-2026-882 Cement Purchase", financialImpact: "ETB 12,000,000", encrypted: true },
+    { id: "AUD-1003", userName: "Site Project Manager", userId: "PM-01", role: "Project Manager", timestamp: "2026-07-21 16:45:00", device: "Windows 11 Workstation", action: "Requested Budget Variance Adjustment", financialImpact: "ETB 3,500,000", encrypted: true }
   ]);
 
   // --- AUTOMATED PAYROLL ENGINE GENERATION ---
   const generatedPayroll = useMemo(() => {
-    // If saved payroll exists in Firestore, use it or merge worker data
+    // If saved payroll exists in Firestore, filter to only valid enrolled workers
     if (savedPayrollList && savedPayrollList.length > 0) {
-      return savedPayrollList.map(p => {
-        const matchingWorker = workersList.find(w => w.id === p.workerId);
-        const basicSalary = matchingWorker?.basicMonthlySalary || p.basicSalary || 18000;
-        const daysWorked = p.attendanceDays || 22;
-        const overtimePay = p.overtimePayment || 0;
-        const deductions = p.deductions || 0;
-        const tax = Math.round(basicSalary * 0.15);
-        const pension = Math.round(basicSalary * 0.07);
-        const allowances = p.allowances || 3500;
-        const netSalary = p.netSalary || Math.max(0, basicSalary + overtimePay + allowances - deductions - tax - pension);
-
-        return {
-          id: p.id,
-          workerId: p.workerId,
-          workerName: p.workerName,
-          trade: p.position || matchingWorker?.trade || "Site Technician",
-          basicSalary,
-          daysWorked,
-          normalHours: (p.totalWorkingHours || daysWorked * 8),
-          overtimeHours: p.overtimeHours || 0,
-          underTimeHours: p.undertimeHours || 0,
-          overtimePay,
-          allowances,
-          bonuses: 1000,
-          underTimeDeduction: p.undertimeDeduction || 0,
-          attendanceDeductions: deductions,
-          tax,
-          pension,
-          netSalary,
-          status: (p.status === "Approved" || p.status === "Paid" ? "Approved" : "Draft") as any,
-          paymentMethod: "CBE Direct Deposit"
-        };
+      const validSaved = savedPayrollList.filter(p => {
+        if (workersList.length === 0) return true;
+        return workersList.some(w => w.id === p.workerId || (w.name && w.name.toLowerCase() === p.workerName.toLowerCase()));
       });
+
+      if (validSaved.length > 0) {
+        return validSaved.map(p => {
+          const matchingWorker = workersList.find(w => w.id === p.workerId || (w.name && w.name.toLowerCase() === p.workerName.toLowerCase()));
+          const basicSalary = matchingWorker?.basicMonthlySalary || p.basicSalary || (matchingWorker?.hourlyRate ? matchingWorker.hourlyRate * 208 : 0);
+          const daysWorked = p.attendanceDays || 0;
+          const overtimePay = p.overtimePayment || 0;
+          const deductions = p.deductions || 0;
+          const tax = Math.round(basicSalary * 0.15);
+          const pension = Math.round(basicSalary * 0.07);
+          const allowances = p.allowances || 0;
+          const netSalary = p.netSalary || Math.max(0, basicSalary + overtimePay + allowances - deductions - tax - pension);
+
+          return {
+            id: p.id,
+            workerId: p.workerId,
+            workerName: matchingWorker?.name || p.workerName,
+            trade: matchingWorker?.trade || p.position || "Site Technician",
+            basicSalary,
+            daysWorked,
+            normalHours: (p.totalWorkingHours || daysWorked * 8),
+            overtimeHours: p.overtimeHours || 0,
+            underTimeHours: p.undertimeHours || 0,
+            overtimePay,
+            allowances,
+            bonuses: 0,
+            underTimeDeduction: p.undertimeDeduction || 0,
+            attendanceDeductions: deductions,
+            tax,
+            pension,
+            netSalary,
+            status: (p.status === "Approved" || p.status === "Paid" ? "Approved" : "Draft") as any,
+            paymentMethod: "CBE Direct Deposit"
+          };
+        });
+      }
     }
 
-    const list = workersList.length > 0 ? workersList : [
-      { id: "W-101", name: "Kassa Hunegn", trade: "Formwork Carpenter", company: "BuildSync", status: "Active", basicMonthlySalary: 18000 },
-      { id: "W-102", name: "Sintayehu Alula", trade: "Steel Fixer", company: "BuildSync", status: "Active", basicMonthlySalary: 20500 },
-      { id: "W-103", name: "Tadesse Chala", trade: "Concrete Labourer", company: "Subcontractor", status: "Active", basicMonthlySalary: 15000 },
-      { id: "W-104", name: "Abebe Kassaye", trade: "Formwork Stripper", company: "BuildSync", status: "Active", basicMonthlySalary: 17500 },
-      { id: "W-105", name: "Mulugeta Assefa", trade: "Tower Crane Operator", company: "BuildSync", status: "Active", basicMonthlySalary: 28000 }
-    ];
+    // Filter to only enrolled workers who have actual attendance records for the period
+    const workersWithAttendance = workersList.filter(w => {
+      return attendanceList.some(a => a.workerId === w.id || (a.workerName && a.workerName.toLowerCase() === w.name.toLowerCase()));
+    });
 
-    return list.map((w, idx) => {
+    // If there are attendance logs, process only attendees; if no attendance logs exist yet, show enrolled workers without fake attendance
+    const targetWorkers = workersWithAttendance.length > 0 ? workersWithAttendance : (attendanceList.length > 0 ? [] : workersList);
+
+    return targetWorkers.map((w) => {
       // Find worker attendance records
-      const workerAtt = attendanceList.filter(a => a.workerId === w.id || a.workerName === w.name);
-      const daysWorked = workerAtt.length > 0 ? workerAtt.filter(a => a.status === "Present").length : 0;
+      const workerAtt = attendanceList.filter(a => a.workerId === w.id || (a.workerName && a.workerName.toLowerCase() === w.name.toLowerCase()));
+      const daysWorked = workerAtt.length > 0 ? workerAtt.filter(a => a.status === "Present" || a.status === "Late").length : 0;
       const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (a.overtimeHours || 0), 0);
       const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (a.underTimeHours || 0), 0);
 
-      // Priority 1: Use basicMonthlySalary from enrollment form
-      const basicSalary = w.basicMonthlySalary || (w.hourlyRate ? w.hourlyRate * 208 : 18000);
-      const dailyRate = Math.round((basicSalary / 26) * 100) / 100;
-      const hourlyRate = Math.round((dailyRate / 8) * 100) / 100;
+      // Real basicMonthlySalary from enrolled worker record
+      const basicSalary = w.basicMonthlySalary || (w.hourlyRate ? w.hourlyRate * 208 : 0);
+      const dailyRate = basicSalary > 0 ? Math.round((basicSalary / 26) * 100) / 100 : 0;
+      const hourlyRate = w.hourlyRate || (dailyRate > 0 ? Math.round((dailyRate / 8) * 100) / 100 : 0);
 
       const overtimePay = Math.round(totalOvertimeHrs * hourlyRate * 1.5);
-      const allowances = daysWorked > 0 ? 1500 : 0; // Site allowance prorated if active
+      const allowances = daysWorked > 0 ? (w.allowances || 0) : 0;
       const bonuses = 0;
       const underTimeDeduction = Math.round(totalUnderTimeHrs * hourlyRate);
       
-      // Pro-rated base wage for days worked (even for a single day)
-      const basePayForDaysWorked = Math.round(dailyRate * daysWorked);
+      // Pro-rated base wage for days worked (or basic if monthly)
+      const basePayForDaysWorked = daysWorked > 0 ? Math.round(dailyRate * daysWorked) : basicSalary;
       const grossEarned = basePayForDaysWorked + overtimePay + allowances + bonuses - underTimeDeduction;
-      const tax = Math.round(grossEarned * 0.15); // Progressive Ethiopian Income Tax estimation
+      const tax = Math.round(grossEarned * 0.15); // Ethiopian Income Tax estimation
       const pension = Math.round(basePayForDaysWorked * 0.07); // 7% Employee Pension
 
       const netSalary = Math.max(0, grossEarned - (tax + pension));

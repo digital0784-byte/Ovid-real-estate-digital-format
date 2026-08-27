@@ -182,7 +182,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     },
     {
       id: "FB-003",
-      userName: "Kassa Haile",
+      userName: "Site Operations Supervisor",
       userRole: "Supervisor",
       project: "Bole Heights Bloc B1",
       site: "Bole Heights",
@@ -426,14 +426,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- 2. EQUIPMENT STATE ---
   const [equipment, setEquipment] = useState([
-    { id: "EQ-01", name: "Tower Crane 01 (Potain)", status: "Active", fuel: "450L", usage: "8.5 Hrs", maintenance: "2026-07-20", inspector: "Alemayehu K.", operator: "Kassahun T.", breakdown: "None" },
-    { id: "EQ-02", name: "Mobile Crane (Sany 50T)", status: "Active", fuel: "210L", usage: "4.0 Hrs", maintenance: "2026-07-25", inspector: "Alemayehu K.", operator: "Chala B.", breakdown: "Hydraulic Leak fixed" },
-    { id: "EQ-03", name: "Passenger Hoist Block B1", status: "Active", fuel: "N/A (Electric)", usage: "16 Hrs", maintenance: "2026-07-12", inspector: "Mulugeta S.", operator: "Automation", breakdown: "Relay replaced" },
-    { id: "EQ-04", name: "Concrete Pump Truck 02", status: "Maintenance", fuel: "120L", usage: "0 Hrs", maintenance: "2026-07-09", inspector: "Eng. Dawit", operator: "Zewdu A.", breakdown: "Piston Seal Wear Out" },
-    { id: "EQ-05", name: "Backup Generator 250kVA", status: "Standby", fuel: "800L", usage: "1.2 Hrs", maintenance: "2026-08-01", inspector: "Yoseph H.", operator: "Abebe G.", breakdown: "None" },
-    { id: "EQ-06", name: "High-Freq Concrete Vibrators", status: "Active", fuel: "Petrol (45L)", usage: "6.5 Hrs", maintenance: "2026-07-15", inspector: "Fikru T.", operator: "Subcontractor Gangs", breakdown: "Flexible shaft replaced" },
-    { id: "EQ-07", name: "Surveying Total Station (Leica)", status: "Active", fuel: "Battery (90%)", usage: "7.0 Hrs", maintenance: "2026-07-11", inspector: "Survey Team", operator: "Yohannes B.", breakdown: "Recalibrated" },
-    { id: "EQ-08", name: "Site Recon Drone (DJI RTK)", status: "Standby", fuel: "Battery (100%)", usage: "1.5 Hrs", maintenance: "2026-07-10", inspector: "Safety Team", operator: "Eng. Yoseph", breakdown: "None" }
+    { id: "EQ-01", name: "Tower Crane 01 (Potain)", status: "Active", fuel: "450L", usage: "8.5 Hrs", maintenance: "2026-07-20", inspector: "Plant Inspector", operator: "Heavy Crane Operator", breakdown: "None" },
+    { id: "EQ-02", name: "Mobile Crane (Sany 50T)", status: "Active", fuel: "210L", usage: "4.0 Hrs", maintenance: "2026-07-25", inspector: "Plant Inspector", operator: "Mobile Crane Operator", breakdown: "Hydraulic Leak fixed" },
+    { id: "EQ-03", name: "Passenger Hoist Block B1", status: "Active", fuel: "N/A (Electric)", usage: "16 Hrs", maintenance: "2026-07-12", inspector: "Electrical Supervisor", operator: "Automation", breakdown: "Relay replaced" },
+    { id: "EQ-04", name: "Concrete Pump Truck 02", status: "Maintenance", fuel: "120L", usage: "0 Hrs", maintenance: "2026-07-09", inspector: "Mechanical Lead", operator: "Pump Operator", breakdown: "Piston Seal Wear Out" },
+    { id: "EQ-05", name: "Backup Generator 250kVA", status: "Standby", fuel: "800L", usage: "1.2 Hrs", maintenance: "2026-08-01", inspector: "Electrical Lead", operator: "Generator Operator", breakdown: "None" },
+    { id: "EQ-06", name: "High-Freq Concrete Vibrators", status: "Active", fuel: "Petrol (45L)", usage: "6.5 Hrs", maintenance: "2026-07-15", inspector: "Site Technician", operator: "Subcontractor Gangs", breakdown: "Flexible shaft replaced" },
+    { id: "EQ-07", name: "Surveying Total Station (Leica)", status: "Active", fuel: "Battery (90%)", usage: "7.0 Hrs", maintenance: "2026-07-11", inspector: "Survey Team", operator: "Chief Surveyor", breakdown: "Recalibrated" },
+    { id: "EQ-08", name: "Site Recon Drone (DJI RTK)", status: "Standby", fuel: "Battery (100%)", usage: "1.5 Hrs", maintenance: "2026-07-10", inspector: "Safety Team", operator: "Drone Pilot", breakdown: "None" }
   ]);
 
   const [newEqLog, setNewEqLog] = useState({ eqId: "EQ-01", fuelUsed: 45, usageHrs: 8, reportText: "" });
@@ -441,7 +441,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   // --- 3. PROCUREMENT STATE ---
   const [procurements, setProcurements] = useState([
     { id: "PR-304", item: "M20 Heavy Tie-Rods (High Tensile)", qty: "1,500 Pcs", cost: "ETB 240,000", supplier: "Ethio-Steel Ltd", status: "Approved", date: "2026-07-08", approvalBy: currentAdminName },
-    { id: "PR-303", item: "Aluminum Formwork Pin Wedges", qty: "10,000 Pcs", cost: "ETB 95,000", supplier: "Global Fasteners PLC", status: "Goods Received", date: "2026-07-06", approvalBy: "Eng. Dawit" },
+    { id: "PR-303", item: "Aluminum Formwork Pin Wedges", qty: "10,000 Pcs", cost: "ETB 95,000", supplier: "Global Fasteners PLC", status: "Goods Received", date: "2026-07-06", approvalBy: "Project Engineer" },
     { id: "PR-302", item: "High Performance Formwork Release Agent", qty: "10 Drums", cost: "ETB 115,000", supplier: "Nile Chemicals Co.", status: "Payment Completed", date: "2026-07-02", approvalBy: currentAdminName },
     { id: "PR-301", item: "Steel Props Adjusting Sleeves", qty: "300 Pcs", cost: "ETB 180,000", supplier: "Bole Structural Casting", status: "Pending Approval", date: "2026-07-09", approvalBy: "Awaiting Approval" }
   ]);
@@ -450,10 +450,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- 4. SAFETY (HSE) STATE ---
   const [hseLogs, setHseLogs] = useState([
-    { id: "HSE-901", type: "Toolbox Meeting", topic: "Safe Handling & Stripping of Aluminum Formwork Panels", attendees: 42, supervisor: "Kassa Hunegn", status: "Completed", date: "2026-07-09" },
-    { id: "HSE-902", type: "PPE Inspection", topic: "Mandatory Safety Harness Lock checks for Block B1 Level 5", attendees: 38, supervisor: "Fikru Tolossa", status: "All Complied", date: "2026-07-09" },
-    { id: "HSE-903", type: "Near Miss Report", topic: "Loose Wedge Pin dropped from Floor 5 near walkways (No injuries, safety nets pre-installed)", attendees: 0, supervisor: "Kassa Hunegn", status: "Investigated & Net Reinforced", date: "2026-07-08" },
-    { id: "HSE-904", type: "Hazard Report", topic: "Slurry splash hazard on column C3 scaffolding plank. Fixed alignment.", attendees: 0, supervisor: "Yohannes B.", status: "Mitigated Immediately", date: "2026-07-07" }
+    { id: "HSE-901", type: "Toolbox Meeting", topic: "Safe Handling & Stripping of Aluminum Formwork Panels", attendees: 42, supervisor: "HSE Lead Supervisor", status: "Completed", date: "2026-07-09" },
+    { id: "HSE-902", type: "PPE Inspection", topic: "Mandatory Safety Harness Lock checks for Block B1 Level 5", attendees: 38, supervisor: "Site Safety Officer", status: "All Complied", date: "2026-07-09" },
+    { id: "HSE-903", type: "Near Miss Report", topic: "Loose Wedge Pin dropped from Floor 5 near walkways (No injuries, safety nets pre-installed)", attendees: 0, supervisor: "HSE Lead Supervisor", status: "Investigated & Net Reinforced", date: "2026-07-08" },
+    { id: "HSE-904", type: "Hazard Report", topic: "Slurry splash hazard on column C3 scaffolding plank. Fixed alignment.", attendees: 0, supervisor: "Safety Marshal", status: "Mitigated Immediately", date: "2026-07-07" }
   ]);
 
   const [newHseReport, setNewHseReport] = useState({ topic: "", type: "Incident Report", details: "" });
@@ -461,8 +461,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   // --- 5. QUALITY CONTROL STATE ---
   const [qualityControls, setQualityControls] = useState([
     { id: "QC-801", type: "Concrete Pour Checklist", zone: "B1-Floor 4-Zone A", checklist: "Pre-pour slump 120mm, Cover blocks 25mm, Rebars clean", status: "Passed & Signed", approvedBy: currentAdminName, date: "2026-07-08" },
-    { id: "QC-802", type: "Formwork Inspection", zone: "B1-Floor 4-Zone B", checklist: "Wall panel verticality check, wedge pin engagement > 98%", status: "NCR Issued (2mm variance)", approvedBy: "Eng. Dawit", date: "2026-07-09" },
-    { id: "QC-803", type: "Reinforcement Inspection", zone: "B1-Floor 4-Zone B", checklist: "Tension lap length checks (50D compliance), links spacing", status: "Pending Check", approvedBy: "Alemayehu Kebede", date: "2026-07-09" }
+    { id: "QC-802", type: "Formwork Inspection", zone: "B1-Floor 4-Zone B", checklist: "Wall panel verticality check, wedge pin engagement > 98%", status: "NCR Issued (2mm variance)", approvedBy: "QA/QC Lead Engineer", date: "2026-07-09" },
+    { id: "QC-803", type: "Reinforcement Inspection", zone: "B1-Floor 4-Zone B", checklist: "Tension lap length checks (50D compliance), links spacing", status: "Pending Check", approvedBy: "Structural Inspector", date: "2026-07-09" }
   ]);
 
   const [newQc, setNewQc] = useState({ type: "Aluminum Formwork Inspection", zone: "B1-Floor 4-Zone C", status: "Pending Check", checklist: "" });
@@ -480,7 +480,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   // --- 7. DOCUMENT MANAGEMENT STATE ---
   const [documents, setDocuments] = useState([
     { id: "CAD-101", name: "FormworkLayout_Floor4_B1.dwg", type: "CAD Drawing", ver: "v2.4", syncDate: "2026-07-08", approval: "Approved by Admin" },
-    { id: "SD-304", name: "CornerBracket_AssemblyDetail_Shop.pdf", type: "Shop Drawing", ver: "v1.2", syncDate: "2026-07-05", approval: "Approved by Eng. Dawit" },
+    { id: "SD-304", name: "CornerBracket_AssemblyDetail_Shop.pdf", type: "Shop Drawing", ver: "v1.2", syncDate: "2026-07-05", approval: "Approved by Project Engineering" },
     { id: "MTS-501", name: "MethodStatement_HighRiseFormwork_Digital Construction ERP.pdf", type: "Method Statement", ver: "v3.0", syncDate: "2026-06-15", approval: "Lead Admin Signed" },
     { id: "RFI-221", name: "RFI_SlabConduits_Elect_ZoneB.docx", type: "RFI", ver: "v1.0", syncDate: "2026-07-09", approval: "Awaiting Consultant" }
   ]);
@@ -491,8 +491,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   // --- 8. COMMUNICATION CENTER STATE ---
   const [chats, setChats] = useState([
     { id: 1, sender: `${currentAdminName} (Admin)`, text: "Team, we have 2 ready mix trucks incoming for Floor 4 Column Pour. Ensure stripping is finished on Area B.", time: "09:12 AM" },
-    { id: 2, sender: "Eng. Dawit (PM)", text: "Confirming. Wedge pins are secure on Block B1-A. Surveyors have aligned verticality.", time: "09:14 AM" },
-    { id: 3, sender: "Kassa Hunegn (Supervisor)", text: "Assembly Team Alpha is checking pins now. Scraping panels complete.", time: "09:18 AM" }
+    { id: 2, sender: "Project Manager", text: "Confirming. Wedge pins are secure on Block B1-A. Surveyors have aligned verticality.", time: "09:14 AM" },
+    { id: 3, sender: "Site Supervisor", text: "Assembly Team Alpha is checking pins now. Scraping panels complete.", time: "09:18 AM" }
   ]);
 
   const [chatInput, setChatInput] = useState("");
@@ -574,29 +574,29 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // Req 15: Work Permit Management
   const [permits, setPermits] = useState([
-    { id: "PER-801", type: "Hot Work", zone: "Block B1-Floor 4-Zone A", requestedBy: "Chala B. (Welder Lead)", approvedBy: currentAdminName, expiry: "2026-07-09 18:00", status: "Active", alerts: "No alerts" },
-    { id: "PER-802", type: "Height Work", zone: "Tower Crane MC125 Boom Support", requestedBy: "Kassahun T. (Crane Op)", approvedBy: "Eng. Dawit", expiry: "2026-07-10 12:00", status: "Approved", alerts: "Alert: Winds forecast 25+ km/h tomorrow" },
-    { id: "PER-803", type: "Excavation", zone: "Tower B2 Gate Base Foundation", requestedBy: "Mulugeta S. (Gangs Chief)", approvedBy: "Alemayehu Kebede", expiry: "2026-07-08 17:00", status: "Expired", alerts: "Expired: Auto-archived" },
-    { id: "PER-804", type: "Crane Lifting", zone: "Heavy Bundle Unloading Yard", requestedBy: "Yoseph H. (Supervisor)", approvedBy: currentAdminName, expiry: "2026-07-09 17:30", status: "Active", alerts: "No alerts" },
-    { id: "PER-805", type: "Confined Space", zone: "Block B1 Sewer Connection Tank", requestedBy: "Zewdu A. (Plumber Lead)", approvedBy: "Pending", expiry: "2026-07-10 18:00", status: "Pending Approval", alerts: "Check oxygen levels before entry" },
-    { id: "PER-806", type: "Concrete Pour", zone: "Block B1-Floor 5-Slab Base", requestedBy: "Fikru T. (Concrete Supervisor)", approvedBy: "Pending", expiry: "2026-07-11 18:00", status: "Pending Approval", alerts: "Awaiting slump report" },
-    { id: "PER-807", type: "Formwork Removal", zone: "Block B1-Floor 3-Zone B Column", requestedBy: "Kassa H. (Formwork Lead)", approvedBy: "Eng. Dawit", expiry: "2026-07-09 12:00", status: "Active", alerts: "Cure cycle verified 72 Hrs" }
+    { id: "PER-801", type: "Hot Work", zone: "Block B1-Floor 4-Zone A", requestedBy: "Welding Lead", approvedBy: currentAdminName, expiry: "2026-07-09 18:00", status: "Active", alerts: "No alerts" },
+    { id: "PER-802", type: "Height Work", zone: "Tower Crane MC125 Boom Support", requestedBy: "Crane Operations Lead", approvedBy: "Project Manager", expiry: "2026-07-10 12:00", status: "Approved", alerts: "Alert: Winds forecast 25+ km/h tomorrow" },
+    { id: "PER-803", type: "Excavation", zone: "Tower B2 Gate Base Foundation", requestedBy: "Earthworks Chief", approvedBy: "Site Engineer", expiry: "2026-07-08 17:00", status: "Expired", alerts: "Expired: Auto-archived" },
+    { id: "PER-804", type: "Crane Lifting", zone: "Heavy Bundle Unloading Yard", requestedBy: "Logistics Supervisor", approvedBy: currentAdminName, expiry: "2026-07-09 17:30", status: "Active", alerts: "No alerts" },
+    { id: "PER-805", type: "Confined Space", zone: "Block B1 Sewer Connection Tank", requestedBy: "Plumbing Lead", approvedBy: "Pending", expiry: "2026-07-10 18:00", status: "Pending Approval", alerts: "Check oxygen levels before entry" },
+    { id: "PER-806", type: "Concrete Pour", zone: "Block B1-Floor 5-Slab Base", requestedBy: "Concrete Supervisor", approvedBy: "Pending", expiry: "2026-07-11 18:00", status: "Pending Approval", alerts: "Awaiting slump report" },
+    { id: "PER-807", type: "Formwork Removal", zone: "Block B1-Floor 3-Zone B Column", requestedBy: "Formwork Stripping Lead", approvedBy: "Project Manager", expiry: "2026-07-09 12:00", status: "Active", alerts: "Cure cycle verified 72 Hrs" }
   ]);
   const [newPermit, setNewPermit] = useState({
     type: "Hot Work",
     zone: "Floor 4-Zone B",
-    requestedBy: "Chala B.",
+    requestedBy: "Welding Lead",
     expiry: "2026-07-10 18:00"
   });
 
   // Req 16: Asset Tracking
   const [assets, setAssets] = useState([
     { id: "AST-401", code: "QR-ALUM-PAN-401", name: "Aluminum Formwork Panel Set A", category: "Aluminum Panels", location: "Block B1-Floor 4", assignedTo: "Assembly Team Alpha", status: "In Use", serviceHistory: "Last repaired on 2026-06-15" },
-    { id: "AST-402", code: "RFID-SURV-TS16", name: "Leica TS16 Total Station Precision", category: "Survey Instruments", location: "Surveying Yard Office", assignedTo: "Yohannes B. (Surveyor)", status: "Healthy", serviceHistory: "Calibrated on 2026-07-01 by Leica Ethio" },
-    { id: "AST-403", code: "QR-CRANE-POTAIN", name: "Potain Tower Crane MC125", category: "Cranes", location: "Block B1 Construction Center", assignedTo: "Chala B. (Operator)", status: "Active", serviceHistory: "Slew ring safety overhaul completed 2026-05-10" },
-    { id: "AST-404", code: "QR-GEN-CAT250", name: "Caterpillar 250kVA Generator", category: "Generators", location: "Power Station South Yard", assignedTo: "Yoseph H. (Supervisor)", status: "Standby", serviceHistory: "Engine oil, filters replaced on 2026-06-20" },
-    { id: "AST-405", code: "QR-PUMP-SANY32", name: "Sany Concrete Pump Truck 32m", category: "Concrete Pumps", location: "Digital Construction ERP Central Yard", assignedTo: "Zewdu A. (Operator)", status: "Maintenance", serviceHistory: "Piston seal wearing out, spare parts on order" },
-    { id: "AST-406", code: "RFID-DRONE-RTK", name: "DJI Matrice 300 RTK Survey Drone", category: "Drones", location: "Engineering Office Block", assignedTo: "Eng. Yoseph (Tech Lead)", status: "Healthy", serviceHistory: "Compass recalibrated, firmware updated 2026-07-05" },
+    { id: "AST-402", code: "RFID-SURV-TS16", name: "Leica TS16 Total Station Precision", category: "Survey Instruments", location: "Surveying Yard Office", assignedTo: "Chief Surveyor", status: "Healthy", serviceHistory: "Calibrated on 2026-07-01 by Leica Ethio" },
+    { id: "AST-403", code: "QR-CRANE-POTAIN", name: "Potain Tower Crane MC125", category: "Cranes", location: "Block B1 Construction Center", assignedTo: "Heavy Crane Operator", status: "Active", serviceHistory: "Slew ring safety overhaul completed 2026-05-10" },
+    { id: "AST-404", code: "QR-GEN-CAT250", name: "Caterpillar 250kVA Generator", category: "Generators", location: "Power Station South Yard", assignedTo: "Power Plant Supervisor", status: "Standby", serviceHistory: "Engine oil, filters replaced on 2026-06-20" },
+    { id: "AST-405", code: "QR-PUMP-SANY32", name: "Sany Concrete Pump Truck 32m", category: "Concrete Pumps", location: "Digital Construction ERP Central Yard", assignedTo: "Pump Operator", status: "Maintenance", serviceHistory: "Piston seal wearing out, spare parts on order" },
+    { id: "AST-406", code: "RFID-DRONE-RTK", name: "DJI Matrice 300 RTK Survey Drone", category: "Drones", location: "Engineering Office Block", assignedTo: "Drone Operations Lead", status: "Healthy", serviceHistory: "Compass recalibrated, firmware updated 2026-07-05" },
     { id: "AST-407", code: "QR-TOOL-HILTI", name: "Hilti TE-70 Heavy Rotary Hammer", category: "Power Tools", location: "Central Tool Store", assignedTo: "Gangs Crew Alpha", status: "Healthy", serviceHistory: "Trigger assembly replaced 2026-04-18" }
   ]);
   const [assetSearch, setAssetSearch] = useState("");
@@ -610,11 +610,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // Req 17: Maintenance Management
   const [maintenanceSchedule, setMaintenanceSchedule] = useState([
-    { id: "MNT-901", asset: "Potain Tower Crane MC125", type: "Slew Ring Greasing & Wire rope integrity", dueDate: "2026-07-12", assignedTo: "Fikru Tolossa (Safety Tech)", status: "Notification Sent", alertTime: "3 Days Before" },
-    { id: "MNT-902", asset: "Leica TS16 Total Station", type: "Prism alignment & Laser recalibration", dueDate: "2026-07-11", assignedTo: "Yohannes B. (Surveyor)", status: "Pending Alert", alertTime: "2 Days Before" },
-    { id: "MNT-903", asset: "Caterpillar 250kVA Generator", type: "Radiator Coolant flush & Fuel injector check", dueDate: "2026-07-20", assignedTo: "Yoseph H. (Supervisor)", status: "Scheduled", alertTime: "11 Days Before" },
-    { id: "MNT-904", asset: "Sany Concrete Pump Truck 32m", type: "Piston seal replacement & Hydraulic cylinder check", dueDate: "2026-07-09", assignedTo: "Eng. Dawit", status: "Undergoing Repair", alertTime: "Overdue" },
-    { id: "MNT-905", asset: "DJI Matrice 300 RTK Survey Drone", type: "Rotor blade replacement & Battery diagnostic cycle", dueDate: "2026-07-25", assignedTo: "Eng. Yoseph", status: "Scheduled", alertTime: "16 Days Before" }
+    { id: "MNT-901", asset: "Potain Tower Crane MC125", type: "Slew Ring Greasing & Wire rope integrity", dueDate: "2026-07-12", assignedTo: "Safety Tech Lead", status: "Notification Sent", alertTime: "3 Days Before" },
+    { id: "MNT-902", asset: "Leica TS16 Total Station", type: "Prism alignment & Laser recalibration", dueDate: "2026-07-11", assignedTo: "Chief Surveyor", status: "Pending Alert", alertTime: "2 Days Before" },
+    { id: "MNT-903", asset: "Caterpillar 250kVA Generator", type: "Radiator Coolant flush & Fuel injector check", dueDate: "2026-07-20", assignedTo: "Power Systems Lead", status: "Scheduled", alertTime: "11 Days Before" },
+    { id: "MNT-904", asset: "Sany Concrete Pump Truck 32m", type: "Piston seal replacement & Hydraulic cylinder check", dueDate: "2026-07-09", assignedTo: "Mechanical Lead", status: "Undergoing Repair", alertTime: "Overdue" },
+    { id: "MNT-905", asset: "DJI Matrice 300 RTK Survey Drone", type: "Rotor blade replacement & Battery diagnostic cycle", dueDate: "2026-07-25", assignedTo: "Drone Operations Lead", status: "Scheduled", alertTime: "16 Days Before" }
   ]);
   const [newMaintItem, setNewMaintItem] = useState({
     asset: "Leica TS16 Total Station",
@@ -662,11 +662,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // Req 21: Training & Competency
   const [trainingRecords, setTrainingRecords] = useState([
-    { id: "EMP-082", employee: "Chala B. (Welder Lead)", course: "Height Work & Safety Harness Lock", certDate: "2026-01-15", expiryDate: "2026-12-15", status: "Valid", blockStatus: "Clear" },
-    { id: "EMP-011", employee: "Kassahun T. (Crane Op)", course: "Tower Crane Operation Level II Certification", certDate: "2025-06-30", expiryDate: "2026-06-30", status: "Expired", blockStatus: "Blocked from Task" },
-    { id: "EMP-090", employee: "Yohannes B. (Surveyor)", course: "Survey Instrument Calibration & Leica GS18 T", certDate: "2025-04-10", expiryDate: "2027-04-10", status: "Valid", blockStatus: "Clear" },
-    { id: "EMP-045", employee: "Alemayehu K. (QC Engineer)", course: "Reinforcement Tensile Testing & ASTM Standards", certDate: "2025-10-02", expiryDate: "2026-10-02", status: "Valid", blockStatus: "Clear" },
-    { id: "EMP-102", employee: "Mulugeta S. (Supervisor)", course: "Confined Space Entry Safety Marshal Certification", certDate: "2025-01-20", expiryDate: "2026-01-20", status: "Expired", blockStatus: "Blocked from Task" }
+    { id: "EMP-082", employee: "Welding Lead", course: "Height Work & Safety Harness Lock", certDate: "2026-01-15", expiryDate: "2026-12-15", status: "Valid", blockStatus: "Clear" },
+    { id: "EMP-011", employee: "Heavy Crane Operator", course: "Tower Crane Operation Level II Certification", certDate: "2025-06-30", expiryDate: "2026-06-30", status: "Expired", blockStatus: "Blocked from Task" },
+    { id: "EMP-090", employee: "Chief Surveyor", course: "Survey Instrument Calibration & Leica GS18 T", certDate: "2025-04-10", expiryDate: "2027-04-10", status: "Valid", blockStatus: "Clear" },
+    { id: "EMP-045", employee: "QC Engineer Lead", course: "Reinforcement Tensile Testing & ASTM Standards", certDate: "2025-10-02", expiryDate: "2026-10-02", status: "Valid", blockStatus: "Clear" },
+    { id: "EMP-102", employee: "Safety Supervisor", course: "Confined Space Entry Safety Marshal Certification", certDate: "2025-01-20", expiryDate: "2026-01-20", status: "Expired", blockStatus: "Blocked from Task" }
   ]);
   const [newTraining, setNewTraining] = useState({
     employee: "",
@@ -833,9 +833,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
   
   // Simulated Workflow Engine Requests (for the 18 configurable processes)
   const [simulatedWorkflowRequests, setSimulatedWorkflowRequests] = useState([
-    { id: "REQ-101", workflowId: "WFK-13", workflowName: "Concrete Pour Approval", initiator: "Eng. Yoseph", project: "Bole Heights Phase I", details: "Floor 4 Zone A Column Pour - 45 m³ C30 mix", levels: ["Supervisor Approved", "QC Approved", "Pending Consultant Sign-off"], currentLevel: 2, maxLevel: 3, status: "Pending" },
-    { id: "REQ-102", workflowId: "WFK-08", workflowName: "Material Request", initiator: "Supervisor Mulugeta", project: "Yeka Hills Premium Gated Estate", details: "Require 150 standard wall panels, 80 props", levels: ["Pending Warehouse Check", "Upcoming PM Sign-off"], currentLevel: 0, maxLevel: 3, status: "Pending" },
-    { id: "REQ-103", workflowId: "WFK-11", workflowName: "Purchase Request", initiator: "PM Chala", project: "Lemi National Cement Plant Expansion", details: "Procurement of 500 liters formwork release agent", levels: ["Approved by PM", "Approved by Finance", "Approved by GM"], currentLevel: 3, maxLevel: 3, status: "Approved" }
+    { id: "REQ-101", workflowId: "WFK-13", workflowName: "Concrete Pour Approval", initiator: "Structural Engineer", project: "Bole Heights Phase I", details: "Floor 4 Zone A Column Pour - 45 m³ C30 mix", levels: ["Supervisor Approved", "QC Approved", "Pending Consultant Sign-off"], currentLevel: 2, maxLevel: 3, status: "Pending" },
+    { id: "REQ-102", workflowId: "WFK-08", workflowName: "Material Request", initiator: "Site Supervisor", project: "Yeka Hills Premium Gated Estate", details: "Require 150 standard wall panels, 80 props", levels: ["Pending Warehouse Check", "Upcoming PM Sign-off"], currentLevel: 0, maxLevel: 3, status: "Pending" },
+    { id: "REQ-103", workflowId: "WFK-11", workflowName: "Purchase Request", initiator: "Project Manager", project: "Lemi National Cement Plant Expansion", details: "Procurement of 500 liters formwork release agent", levels: ["Approved by PM", "Approved by Finance", "Approved by GM"], currentLevel: 3, maxLevel: 3, status: "Approved" }
   ]);
 
   // Smart Scheduling States
@@ -4885,7 +4885,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <p className="text-slate-400 uppercase font-black text-[9px]">Assigned Sections</p>
                         <div className="bg-slate-950 p-2 rounded border border-slate-800">
                           <p className="text-white font-bold">Bole Heights Bloc B1 & B2</p>
-                          <p className="text-[8px] text-slate-500">Supervisors: Fikru T., Kassa H.</p>
+                          <p className="text-[8px] text-slate-500">Supervisors: Assigned Field Supervisors</p>
                         </div>
                       </div>
 
@@ -7519,7 +7519,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <div>
                           <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ቡድን" : "RANK 2 TEAM"}</p>
                           <h4 className="text-xs font-black text-slate-900 mt-1">Assembly Team Beta (Shoring & Props)</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Supervisor: <strong>Kassahun T.</strong> | 10 Assemblers</p>
+                          <p className="text-[10px] text-slate-500 mt-0.5">Supervisor: <strong>Site Formwork Lead</strong> | 10 Assemblers</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-slate-700 font-mono block">91.2% Avg</span>
@@ -7644,8 +7644,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     setPerfDigestActive(true);
                     setPerfDigestContent(
                       isAmharic 
-                        ? "በሳይት Bole Heights የሚገኘው Assembly Team Alpha ከፍተኛ የ96.6% ብቃት አሳይቷል። በሌላ በኩል በGotera ኮንዶሚኒየም የሚገኘው የKassahun T. ቡድን በሰዓት አክብሮትና በproductivity ላይ መጠነኛ ቅናሽ ስላሳየ (88% እና 85%) የክህሎት ማሻሻያ ስልጠና በፎርምወርክ መመሪያ ላይ እንዲያገኙ ይመከራል።" 
-                        : "Assembly Team Alpha under Gang Chief Chala Chuko exceeds standard productivity vectors at 96.6%. Corrective training recommended for Kassahun T's crew on Floor 3 Gotera Condos to bolster concrete pour cyclical times (currently 85% velocity)."
+                        ? "በሳይት Bole Heights የሚገኘው Assembly Team Alpha ከፍተኛ የ96.6% ብቃት አሳይቷል። በሌላ በኩል በGotera ኮንዶሚኒየም የሚገኘው የTeam Beta ቡድን በሰዓት አክብሮትና በproductivity ላይ መጠነኛ ቅናሽ ስላሳየ (88% እና 85%) የክህሎት ማሻሻያ ስልጠና በፎርምወርክ መመሪያ ላይ እንዲያገኙ ይመከራል።" 
+                        : "Assembly Team Alpha under Gang Chief Chala Chuko exceeds standard productivity vectors at 96.6%. Corrective training recommended for Assembly Team Beta on Floor 3 Gotera Condos to bolster concrete pour cyclical times (currently 85% velocity)."
                     );
                     onLogAction("AI Performance Digest", "Compiled multi-metric optimization directive via deep-learning model on workforce indicators.");
                   }}
