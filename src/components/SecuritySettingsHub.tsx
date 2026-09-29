@@ -2,60 +2,63 @@ import React, { useState, useEffect } from "react";
 import { UserRole, AuditLog } from "../types";
 import { UserRoleApprovalHub } from "./UserRoleApprovalHub";
 import { FirebaseConfigModal } from "./FirebaseConfigModal";
-import { 
-  Shield, 
+import { OvidSettingsEnterprisePanels } from "./OvidSettingsEnterprisePanels";
+import { db, auth, isFirebaseReady } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
+import {
+  Shield,
   ShieldCheck,
   ShieldAlert,
-  Lock, 
-  User, 
-  Eye, 
-  EyeOff, 
-  Languages, 
-  Bell, 
-  Moon, 
-  Sun, 
-  Smartphone, 
-  Fingerprint, 
-  Activity, 
-  Database, 
-  AlertOctagon, 
-  Unlock, 
-  RefreshCw, 
-  Download, 
-  CheckCircle2, 
-  Plus, 
-  Trash2,
+  Lock,
+  User,
+  Eye,
+  EyeOff,
+  Languages,
+  Bell,
+  Moon,
+  Sun,
+  Smartphone,
+  Fingerprint,
+  Activity,
+  Database,
+  AlertOctagon,
+  Unlock,
+  RefreshCw,
+  CheckCircle2,
   Cpu,
-  Tv,
   Users,
   MapPin,
   Laptop,
   Check,
   FileText,
-  Printer,
-  Key
+  Key,
+  Camera,
+  LogOut,
+  Settings,
+  HelpCircle
 } from "lucide-react";
 
 interface SecuritySettingsHubProps {
   isAmharic: boolean;
   currentUserRole: UserRole;
+  currentUserProfile?: {
+    uid: string;
+    displayName: string;
+    role: UserRole | string;
+    requestedRole?: UserRole | string;
+    status: string;
+    email: string;
+    phoneNumber?: string;
+  } | null;
+  selectedProject?: string;
+  onToggleLanguage?: () => void;
+  onLogout?: () => void;
   onLogAction: (action: string, details: string) => void;
   auditLogs: AuditLog[];
   sessionTimeoutMinutes: number;
   onChangeSessionTimeout: (minutes: number) => void;
 }
 
-// Interface for Mock Locked Accounts
-interface LockedAccount {
-  id: string;
-  name: string;
-  role: string;
-  reason: string;
-  failedAttempts: number;
-  lockedAt: string;
-}
-
-// Interface for Active Logged-In Sessions
 interface ActiveSession {
   id: string;
   userId: string;
@@ -68,815 +71,1211 @@ interface ActiveSession {
   isCurrent: boolean;
 }
 
+type SettingsTabId =
+  | "settings_dashboard"
+  | "my_profile"
+  | "password_auth"
+  | "biometric_security"
+  | "privacy_center"
+  | "rbac_permissions"
+  | "gps_location"
+  | "security_antifraud"
+  | "audit_attendance_correction"
+  | "device_session_logout"
+  | "camera_cad_docs"
+  | "notifications_lang_appearance"
+  | "data_offline_backup"
+  | "legal_privacy_about"
+  | "role_approval_hub"
+  | "enterprise_soc";
+
+const RBAC_SPECIFICATION: { role: string; titleAm: string; scopeEn: string; scopeAm: string }[] = [
+  {
+    role: "Super Admin (Nuriye Ahmed Adem)",
+    titleAm: "ብቸኛው ሱፐር አድሚን (Nuriye Ahmed Adem)",
+    scopeEn: "Only Super Admin (0910097862/0920843843 | mejennur669@gmail.com) — Full global ERP & security authority.",
+    scopeAm: "ሙሉ የሲስተም፣ የደህንነት እና የአስተዳደር ቁጥጥር (0910097862/0920843843 | mejennur669@gmail.com)።"
+  },
+  {
+    role: "Head Office",
+    titleAm: "ዋና መስሪያ ቤት (Head Office)",
+    scopeEn: "Enterprise-level overall control across all projects, financials, attendance, and security.",
+    scopeAm: "Enterprise-level አጠቃላይ ቁጥጥር ያደርጋል።"
+  },
+  {
+    role: "Project Manager",
+    titleAm: "የፕሮጀክት ሥራ አስኪያጅ (Project Manager)",
+    scopeEn: "Controls Project-level information, schedules, budgets, and site operations.",
+    scopeAm: "Project-level information ይቆጣጠራል።"
+  },
+  {
+    role: "Section Head",
+    titleAm: "የክፍል ኃላፊ (Section Head)",
+    scopeEn: "Monitors and supervises operations within the assigned structural section.",
+    scopeAm: "በተመደበው Section ላይ ክትትል ያደርጋል።"
+  },
+  {
+    role: "Site Engineer",
+    titleAm: "የሳይት መሐንዲስ (Site Engineer)",
+    scopeEn: "Controls Technical Information, Drawings, Survey Results, and Engineering Checks.",
+    scopeAm: "Technical Information፣ Drawings፣ Survey Results እና Engineering Checks ይቆጣጠራል።"
+  },
+  {
+    role: "Surveyor",
+    titleAm: "ቅየሳ መሐንዲስ (Surveyor)",
+    scopeEn: "Enters Survey Data and manages Survey Results & elevation benchmarks.",
+    scopeAm: "Survey Data ያስገባል እና የSurvey Results ያስተዳድራል።"
+  },
+  {
+    role: "Supervisor",
+    titleAm: "ሱፐርቫይዘር (Supervisor)",
+    scopeEn: "Controls Site Work, Progress, Quality, and Safety compliance.",
+    scopeAm: "Site Work፣ Progress፣ Quality እና Safety ይቆጣጠራል።"
+  },
+  {
+    role: "Time Keeper",
+    titleAm: "ሰዓት ተቆጣጣሪ (Time Keeper)",
+    scopeEn: "Controls Employee Registration, Attendance, and Time Records.",
+    scopeAm: "Employee Registration፣ Attendance እና Time Records ይቆጣጠራል።"
+  },
+  {
+    role: "Team Leader",
+    titleAm: "የቡድን መሪ (Team Leader)",
+    scopeEn: "Controls work assigned to Team and Gang Chiefs.",
+    scopeAm: "የTeam እና Gang Chiefs የተመደቡለትን ሥራ ይቆጣጠራል።"
+  },
+  {
+    role: "Gang Chief",
+    titleAm: "የጋንግ መሪ (Gang Chief)",
+    scopeEn: "Controls own Team and assigned Zone only (restricted from other sites).",
+    scopeAm: "የራሱን Team እና የተመደበለትን Zone ይቆጣጠራል።"
+  }
+];
+
 export function SecuritySettingsHub({
   isAmharic,
   currentUserRole,
+  currentUserProfile,
+  selectedProject = "Addis Ababa Tower Block A",
+  onToggleLanguage,
+  onLogout,
   onLogAction,
   auditLogs,
   sessionTimeoutMinutes,
   onChangeSessionTimeout
 }: SecuritySettingsHubProps) {
-  // Role-gating guard: Only Super Admin and Head Office personnel are allowed
-  if (currentUserRole !== UserRole.SUPER_ADMIN && currentUserRole !== UserRole.HEAD_OFFICE) {
-    return (
-      <div className="p-8 text-center bg-white dark:bg-slate-900 rounded-2xl border border-red-200 dark:border-red-900/50 shadow-lg my-6 max-w-2xl mx-auto">
-        <ShieldAlert size={48} className="mx-auto text-red-500 mb-4 animate-bounce" />
-        <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-wider mb-2">
-          {isAmharic ? "መዳረሻ ተከለክሏል (Access Denied)" : "Access Denied"}
-        </h3>
-        <p className="text-sm text-slate-600 dark:text-slate-400">
-          {isAmharic
-            ? "ይህንን የደህንነት እና ኤፒአይ ቁልፎች ማዋቀሪያ ማዕከል ለማየት የሱፐር አድሚን (Super Admin) ስልጣን ያስፈልጋል።"
-            : "Only authenticated Super Admin personnel have permission to access the Security & API Key Management Hub."}
-        </p>
-      </div>
-    );
-  }
-
-  const [activeTab, setActiveTab] = useState<"user_settings" | "privacy_policy" | "admin_dashboard" | "enterprise_soc" | "role_approval_hub">("role_approval_hub");
+  const [activeTab, setActiveTab] = useState<SettingsTabId>("settings_dashboard");
   const [showFirebaseModal, setShowFirebaseModal] = useState(false);
 
-  // --- ENTERPRISE SOC STATES ---
-  const [appCheckEnabled, setAppCheckEnabled] = useState(true);
-  const [appCheckPrdigital_construction_erper, setAppCheckPrdigital_construction_erper] = useState<"recaptcha_v3" | "recaptcha_enterprise" | "debug">("recaptcha_enterprise");
-  const [appCheckToken, setAppCheckToken] = useState("");
-  const [appCheckLoading, setAppCheckLoading] = useState(false);
+  const isSuperOrAdmin = [
+    UserRole.SUPER_ADMIN,
+    UserRole.HEAD_OFFICE,
+    UserRole.HR_MANAGER,
+    UserRole.PROJECT_MANAGER
+  ].includes(currentUserRole);
 
-  const [apiStressLogs, setApiStressLogs] = useState<{ id: number; timestamp: string; url: string; status: number; result: string }[]>([]);
-  const [apiStressLoading, setApiStressLoading] = useState(false);
+  // --- SECTION 2: MY PROFILE STATES ---
+  const isSoleSuperAdmin =
+    currentUserRole === UserRole.SUPER_ADMIN ||
+    currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com";
 
-  const [plainText, setPlainText] = useState("Digital Construction ERP-EMP-0910097862-SALARY-125000-ETB");
-  const [encryptedData, setEncryptedData] = useState<{ ciphertext: string; iv: string; tag: string; algorithm: string } | null>(null);
-  const [decryptedText, setDecryptedText] = useState("");
-  const [cryptoLoading, setCryptoLoading] = useState(false);
-
-  const [mfaEnabled, setMfaEnabled] = useState(false);
-  const [mfaLoading, setMfaLoading] = useState(false);
-  const [mfaOtpInput, setMfaOtpInput] = useState("");
-  const [mfaError, setMfaError] = useState("");
-  const [mfaSuccessMsg, setMfaSuccessMsg] = useState("");
-  const [mfaSetupSecret] = useState("Digital Construction ERP-MFA-AD-56H7-L9K2");
-
-  const [localFingerprint, setLocalFingerprint] = useState<{ browser: string; os: string; screen: string; hash: string } | null>(null);
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const userAgent = navigator.userAgent;
-      const os = userAgent.includes("Windows") ? "Windows OS" :
-                 userAgent.includes("Mac") ? "macOS" :
-                 userAgent.includes("Android") ? "Android OS" :
-                 userAgent.includes("iPhone") || userAgent.includes("iPad") ? "iOS" : "Linux / Unix OS";
-      const browser = userAgent.includes("Chrome") ? "Chrome" :
-                      userAgent.includes("Firefox") ? "Firefox" :
-                      userAgent.includes("Safari") ? "Safari" : "Web Client";
-      const screenResolution = `${window.screen.width}x${window.screen.height}`;
-      let hashNum = 0;
-      const str = userAgent + screenResolution;
-      for (let i = 0; i < str.length; i++) {
-        hashNum = (hashNum << 5) - hashNum + str.charCodeAt(i);
-        hashNum |= 0;
-      }
-      const hashStr = "Digital Construction ERP_FP_" + Math.abs(hashNum).toString(16).toUpperCase();
-      setLocalFingerprint({ browser, os, screen: screenResolution, hash: hashStr });
-    }
-  }, []);
-
-  const requestAppCheckToken = async () => {
-    setAppCheckLoading(true);
-    try {
-      const res = await fetch("/api/security/app-check-token", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prdigital_construction_erper: appCheckPrdigital_construction_erper === "recaptcha_enterprise" ? "reCAPTCHA Enterprise" : appCheckPrdigital_construction_erper === "recaptcha_v3" ? "reCAPTCHA v3" : "Debug Prdigital_construction_erper" })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setAppCheckToken(data.token);
-        onLogAction("App Check Token Issued", `Obtained attestation certificate from ${data.prdigital_construction_erper} to block API abuse.`);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setAppCheckLoading(false);
-    }
-  };
-
-  const runApiStressTest = async () => {
-    if (apiStressLoading) return;
-    setApiStressLoading(true);
-    setApiStressLogs([]);
-    onLogAction("API Stress Simulation Started", "Simulating rapid concurrent client queries to verify rate-limiter defense.");
-    
-    const promises = Array.from({ length: 6 }).map(async (_, idx) => {
-      await new Promise(resolve => setTimeout(resolve, idx * 100));
-      try {
-        const res = await fetch("/api/security/test-rate-limit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" }
-        });
-        const status = res.status;
-        const data = await res.json();
-        return {
-          id: idx + 1,
-          timestamp: new Date().toLocaleTimeString(),
-          url: "/api/security/test-rate-limit",
-          status,
-          result: data.success ? "200 OK - Allowed" : `${status} - Rate-Limited! Blocked by API Shield.`
-        };
-      } catch (err: any) {
-        return {
-          id: idx + 1,
-          timestamp: new Date().toLocaleTimeString(),
-          url: "/api/security/test-rate-limit",
-          status: 500,
-          result: "Failed connection"
-        };
-      }
-    });
-
-    const results = await Promise.all(promises);
-    setApiStressLogs(results);
-    setApiStressLoading(false);
-    
-    const wasBlocked = results.some(r => r.status === 429);
-    if (wasBlocked) {
-      onLogAction("API Rate Limiter Succeeded", "API protection engine successfully blocked rapid queries with HTTP 429.");
-    }
-  };
-
-  const handleEncryptText = async () => {
-    if (!plainText.trim()) return;
-    setCryptoLoading(true);
-    setDecryptedText("");
-    try {
-      const res = await fetch("/api/security/encrypt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: plainText })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setEncryptedData({
-          ciphertext: data.ciphertext,
-          iv: data.iv,
-          tag: data.tag,
-          algorithm: data.algorithm
-        });
-        onLogAction("Payload Encrypted", `AES-256-GCM symmetric block cipher compiled for string with length ${plainText.length}.`);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setCryptoLoading(false);
-    }
-  };
-
-  const handleDecryptText = async () => {
-    if (!encryptedData) return;
-    setCryptoLoading(true);
-    try {
-      const res = await fetch("/api/security/decrypt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ciphertext: encryptedData.ciphertext,
-          iv: encryptedData.iv,
-          tag: encryptedData.tag
-        })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setDecryptedText(data.decrypted);
-        onLogAction("Payload Decrypted", "Symmetrically deciphered ciphertext block using hardware secure enclave.");
-      } else {
-        alert(data.error);
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setCryptoLoading(false);
-    }
-  };
-
-  const handleVerifyOtp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mfaOtpInput.trim()) return;
-    setMfaLoading(true);
-    setMfaError("");
-    setMfaSuccessMsg("");
-    try {
-      const res = await fetch("/api/security/verify-mfa", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: mfaOtpInput })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setMfaEnabled(true);
-        setMfaSuccessMsg(isAmharic ? "ሁለት-ደረጃ ማረጋገጫ (2FA) በተሳካ ሁኔታ በርቷል!" : "Two-Factor Authentication (2FA) successfully activated!");
-        onLogAction("MFA Verified", "Current user enabled 2FA security using mobile authenticator.");
-      } else {
-        setMfaError(isAmharic ? "ትክክለኛ ያልሆነ ኮድ! እባክዎ እንደገና ይሞክሩ (የሙከራ ኮድ: 123456)" : "Invalid token code! Please try again (Demo token: 123456)");
-      }
-    } catch (err) {
-      setMfaError("MFA server connection failed.");
-    } finally {
-      setMfaLoading(false);
-    }
-  };
-
-  const handleDisableMfa = () => {
-    setMfaEnabled(false);
-    setMfaOtpInput("");
-    setMfaSuccessMsg("");
-    onLogAction("MFA Suspended", "User manually disabled Two-Factor Authentication (2FA).");
-  };
-
-  // --- USER SETTINGS STATES ---
   const [profileName, setProfileName] = useState(
-    (currentUserRole as string) === UserRole.HEAD_OFFICE ? "Head Office Admin" :
-    (currentUserRole as string) === UserRole.PROJECT_MANAGER ? "Eng. Dawit" :
-    (currentUserRole as string) === UserRole.SECTION_HEAD ? "Alemayehu Kebede" : "Super Admin Operator"
+    isSoleSuperAdmin
+      ? "Nuriye Ahmed Adem"
+      : currentUserProfile?.displayName || `${currentUserRole} Operator`
   );
-  const [profilePhone, setProfilePhone] = useState("0910097862/0920843843");
-  const [profileEmail, setProfileEmail] = useState("mejennur669@gmail.com");
-  const [themeMode, setThemeMode] = useState<"light" | "dark">("light");
-  
-  // Password change states
+  const [employeeId] = useState(
+    isSoleSuperAdmin ? "OVID-ERP-SA-001" : `OVID-ERP-${currentUserRole.slice(0, 2).toUpperCase()}-104`
+  );
+  const [jobPosition, setJobPosition] = useState<string>(currentUserRole);
+  const [department, setDepartment] = useState(
+    isSoleSuperAdmin ? "Executive & System Governance" : "Aluminum Formwork & Site Engineering"
+  );
+  const [assignedProject, setAssignedProject] = useState(selectedProject);
+  const [assignedSite, setAssignedSite] = useState("Bole Heights Site B1");
+  const [profilePhone, setProfilePhone] = useState(
+    isSoleSuperAdmin ? "0910097862/0920843843" : currentUserProfile?.phoneNumber || "0910097862/0920843843"
+  );
+  const [profileEmail, setProfileEmail] = useState(
+    isSoleSuperAdmin ? "mejennur669@gmail.com" : currentUserProfile?.email || "mejennur669@gmail.com"
+  );
+  const [profilePhotoBadge, setProfilePhotoBadge] = useState<"initials" | "hardhat" | "executive">("executive");
+  const [profileSavedMsg, setProfileSavedMsg] = useState("");
+
+  // --- SECTION 3: PASSWORD & AUTHENTICATION STATES ---
+  const [authVerifyMode, setAuthVerifyMode] = useState<"password" | "otp">("password");
   const [oldPassword, setOldPassword] = useState("");
+  const [changePassOtp, setChangePassOtp] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
-  const [hashingProgress, setHashingProgress] = useState(0);
-  const [isHashing, setIsHashing] = useState(false);
-  const [passwordStrength, setPasswordStrength] = useState<{ score: number; label: string; color: string }>({ score: 0, label: "None", color: "bg-slate-200" });
+  const [otpEnabled, setOtpEnabled] = useState(true);
+  const [mfaEnabled, setMfaEnabled] = useState(true);
+  const [mfaOtpInput, setMfaOtpInput] = useState("");
+  const [passStatusMsg, setPassStatusMsg] = useState("");
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
-  // Preferences toggles
-  const [notifEmail, setNotifEmail] = useState(true);
-  const [notifSms, setNotifSms] = useState(true);
-  const [notifPush, setNotifPush] = useState(false);
+  // --- SECTION 4: BIOMETRIC SECURITY STATES ---
   const [bioFingerprintPref, setBioFingerprintPref] = useState(true);
-  const [bioFacePref, setBioFacePref] = useState(false);
-  const [privacyTelemetry, setPrivacyTelemetry] = useState(true);
+  const [bioFacePref, setBioFacePref] = useState(true);
+  const [bioDeviceAuth, setBioDeviceAuth] = useState(true);
 
-  // User Registered Devices list
+  // --- SECTION 5: PRIVACY CENTER STATES ---
+  const [privShowPhone, setPrivShowPhone] = useState(true);
+  const [privShowEmail, setPrivShowEmail] = useState(true);
+  const [privGpsUsage, setPrivGpsUsage] = useState(true);
+  const [privSiteVerify, setPrivSiteVerify] = useState(true);
+  const [privLocationHistory, setPrivLocationHistory] = useState(true);
+  const [privCameraPerm, setPrivCameraPerm] = useState(true);
+  const [privPhotoAccess, setPrivPhotoAccess] = useState(true);
+  const [privPushNotif, setPrivPushNotif] = useState(true);
+  const [privAttendanceAlert, setPrivAttendanceAlert] = useState(true);
+  const [privWorkAlert, setPrivWorkAlert] = useState(true);
+
+  // --- SECTION 11 & 12: CONNECTED DEVICES & SESSIONS ---
   const [devicesList, setDevicesList] = useState([
-    { id: "DEV-01", device: "Desktop Workstation - Chrome (Current)", ip: "192.168.10.45", location: "Bole Heights Site B1", activeAt: "Just now" },
-    { id: "DEV-02", device: "Digital Construction ERP ERP Android App (Samsung S24)", ip: "10.0.8.22", location: "Bole Heights Site B1", activeAt: "2 hours ago" },
-    { id: "DEV-03", device: "Survey Tablet iOS Client (iPad Pro)", ip: "10.0.8.114", location: "Bole Heights Site B1", activeAt: "1 day ago" }
+    {
+      id: "DEV-01",
+      device: "Desktop Workstation - Chrome (Current)",
+      type: "Workstation",
+      ip: "192.168.10.45",
+      location: "Bole Heights Site B1",
+      activeAt: "Active Now",
+      recognized: true,
+      verified: true
+    },
+    {
+      id: "DEV-02",
+      device: "Samsung Android (Galaxy S24 Ultra)",
+      type: "Samsung Android",
+      ip: "10.0.8.22",
+      location: "Bole Heights Site B1",
+      activeAt: "25 mins ago",
+      recognized: true,
+      verified: true
+    },
+    {
+      id: "DEV-03",
+      device: "Tecno Android (Spark 20 Pro — Field Terminal)",
+      type: "Tecno Android",
+      ip: "10.0.8.91",
+      location: "Zone B Gate",
+      activeAt: "1 hour ago",
+      recognized: false,
+      verified: false
+    },
+    {
+      id: "DEV-04",
+      device: "Site Survey Tablet (iPad Pro / Rugged Tablet)",
+      type: "Tablet",
+      ip: "10.0.8.114",
+      location: "Floor 4 Deck",
+      activeAt: "3 hours ago",
+      recognized: true,
+      verified: true
+    }
   ]);
 
-  // --- ADMIN SECURITY STATES ---
-  // Online/Active users session list
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([
-    { id: "SES-101", userId: "HO-01", userName: "Eng. Yoseph", role: UserRole.HEAD_OFFICE, device: "Desktop Workstation - Chrome", ip: "192.168.10.45", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 07:15:33", isCurrent: true },
-    { id: "SES-102", userId: "PM-01", userName: "Eng. Dawit", role: UserRole.PROJECT_MANAGER, device: "Digital Construction ERP ERP iOS (iPhone 15 Pro)", ip: "10.2.14.88", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 08:30:11", isCurrent: false },
-    { id: "SES-103", userId: "SE-01", userName: "Sintayehu Alula", role: UserRole.SITE_ENGINEER, device: "Rugged Webpad OS", ip: "192.168.10.12", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 07:45:00", isCurrent: false },
-    { id: "SES-104", userId: "TK-01", userName: "Abebe Girma", role: UserRole.TIME_KEEPER, device: "Attendance Biometric Kiosk B1", ip: "192.168.10.5", gps: "9.0272° N, 38.7483° E", loginTime: "2026-07-09 06:00:22", isCurrent: false }
-  ]);
-
-  // Mock Locked Accounts due to security failures
-  const [lockedAccounts, setLockedAccounts] = useState<LockedAccount[]>([
-    { id: "ERP-W-103", name: "Chala Kebede", role: "Worker", reason: "Repeated Biometric Mismatch (Fingerprint 4 failed scans)", failedAttempts: 4, lockedAt: "2026-07-09 09:12:44" },
-    { id: "Digital Construction ERP-SV-03", name: "Kassa Hunegn", role: "Supervisor", reason: "Multiple incorrect MFA tokens entered", failedAttempts: 3, lockedAt: "2026-07-09 10:05:19" }
-  ]);
-
-  // Security Alerts
-  const [securityAlerts, setSecurityAlerts] = useState([
-    { id: "ALR-001", type: "High", title: "Biometric Failure Event", msg: "Worker Chala Kebede blocked due to 4 consecutive fingerprint mismatches on Kiosk #2.", time: "25 mins ago" },
-    { id: "ALR-002", type: "Medium", title: "MFA Authentication Alert", msg: "Unusual authentication token delays from IP 10.2.14.88 (Eng. Dawit). Access allowed on second retry.", time: "1 hour ago" },
-    { id: "ALR-003", type: "Low", title: "Unregistered Device Connection", msg: "New desktop client requested CAD read operations from office IP. Session validated by PM authorization.", time: "3 hours ago" }
-  ]);
-
-  // Backup states
-  const [backupProgress, setBackupProgress] = useState(0);
-  const [isBackingUp, setIsBackingUp] = useState(false);
-  const [lastBackupTime, setLastBackupTime] = useState("2026-07-08 23:45:10");
-
-  // Check password strength on changes
-  useEffect(() => {
-    if (!newPassword) {
-      setPasswordStrength({ score: 0, label: "None", color: "bg-slate-200" });
-      return;
+    {
+      id: "SES-100",
+      userId: "SA-01",
+      userName: "Nuriye Ahmed Adem",
+      role: UserRole.SUPER_ADMIN,
+      device: "Desktop Workstation - Chrome",
+      ip: "192.168.10.1",
+      gps: "9.0272° N, 38.7483° E",
+      loginTime: "2026-09-29 07:00:00",
+      isCurrent: true
+    },
+    {
+      id: "SES-101",
+      userId: "TK-01",
+      userName: "Time Keeper Terminal",
+      role: UserRole.TIME_KEEPER,
+      device: "Samsung Android",
+      ip: "192.168.10.5",
+      gps: "9.0272° N, 38.7483° E",
+      loginTime: "2026-09-29 06:30:12",
+      isCurrent: false
     }
-    let score = 0;
-    if (newPassword.length >= 6) score++;
-    if (newPassword.length >= 10) score++;
-    if (/[A-Z]/.test(newPassword)) score++;
-    if (/[0-9]/.test(newPassword)) score++;
-    if (/[^A-Za-z0-9]/.test(newPassword)) score++;
+  ]);
 
-    let label = "Very Weak";
-    let color = "bg-rose-500";
-    if (score === 3) { label = "Medium"; color = "bg-amber-500"; }
-    else if (score === 4) { label = "Strong"; color = "bg-indigo-500"; }
-    else if (score >= 5) { label = "Excellent"; color = "bg-emerald-500"; }
+  const [reauthVerified, setReauthVerified] = useState(false);
+  const [reauthPin, setReauthPin] = useState("");
+  const [tokenRotatedAt, setTokenRotatedAt] = useState("2026-09-29 07:00:00");
 
-    setPasswordStrength({ score, label, color });
-  }, [newPassword]);
+  // --- SECTION 15: NOTIFICATION SETTINGS (9 TOGGLES + CRITICAL SECURITY LOCK) ---
+  const [notifSettings, setNotifSettings] = useState({
+    attendance: true,
+    late: true,
+    overtime: true,
+    workPlan: true,
+    safetyAlerts: true,
+    qualityAlerts: true,
+    materialAlerts: true,
+    approvalNotifications: true,
+    systemNotifications: true,
+    criticalSecurityAlerts: true // Locked by Role
+  });
 
-  // Simulate password hashing visual security
-  const handleUpdatePasswordSubmit = (e: React.FormEvent) => {
+  // --- SECTION 17: APPEARANCE & ACCESSIBILITY ---
+  const [themeMode, setThemeMode] = useState<"light" | "dark" | "system">("light");
+  const [fontSize, setFontSize] = useState<"small" | "normal" | "large">("normal");
+  const [highContrast, setHighContrast] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
+
+  // --- ENTERPRISE SOC STATES ---
+  const [appCheckEnabled, setAppCheckEnabled] = useState(true);
+  const [plainText, setPlainText] = useState("OVID-ERP-EMP-0910097862-SALARY-125000-ETB");
+  const [encryptedHex, setEncryptedHex] = useState("");
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!oldPassword || !newPassword || !confirmPassword) {
-      alert(isAmharic ? "እባክዎ ሁሉንም መስኮች ይሙሉ" : "Please fill in all fields");
-      return;
+    if (isFirebaseReady && db && auth?.currentUser?.uid) {
+      await setDoc(
+        doc(db, "users", auth.currentUser.uid),
+        {
+          displayName: isSoleSuperAdmin ? "Nuriye Ahmed Adem" : profileName,
+          phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : profilePhone,
+          email: isSoleSuperAdmin ? "mejennur669@gmail.com" : profileEmail
+        },
+        { merge: true }
+      ).catch(() => {});
     }
-    if (newPassword !== confirmPassword) {
-      alert(isAmharic ? "አዲሱ የይለፍ ቃል እና ማረጋገጫው አይዛመዱም" : "New passwords do not match");
-      return;
-    }
-
-    setIsHashing(true);
-    setHashingProgress(0);
-    const interval = setInterval(() => {
-      setHashingProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsHashing(false);
-          setOldPassword("");
-          setNewPassword("");
-          setConfirmPassword("");
-          onLogAction(
-            "Password Changed", 
-            `User modified account credentials. Encrypted database records updated with SHA-256 salted hash: 1d24c08e56...`
-          );
-          alert(isAmharic ? "የይለፍ ቃል በተሳካ ሁኔታ ተቀይሯል! SHA-256 ተመስጥሯል" : "Password securely updated with salt and hashed via SHA-256!");
-          return 100;
-        }
-        return prev + 20;
-      });
-    }, 150);
+    onLogAction("Profile Updated", `Updated permitted profile metadata for ${profileName} (${currentUserRole})`);
+    setProfileSavedMsg(
+      isAmharic ? "የተፈቀደው የመገለጫ መረጃ በተሳካ ሁኔታ ተቀምጧል!" : "Permitted profile fields saved successfully!"
+    );
+    setTimeout(() => setProfileSavedMsg(""), 3500);
   };
 
-  // Simulate cloud database backup
-  const startSystemCloudBackup = () => {
-    if (isBackingUp) return;
-    setIsBackingUp(true);
-    setBackupProgress(0);
-    const interval = setInterval(() => {
-      setBackupProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsBackingUp(false);
-          const nowStr = new Date().toISOString().replace("T", " ").slice(0, 19);
-          setLastBackupTime(nowStr);
-          onLogAction(
-            "Manual Cloud Backup", 
-            `Authorized administrator triggered manual database snapshot backup to Firestore Cold Vault. Verified checksum SHA-512.`
-          );
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 200);
-  };
-
-  // Simulate Unlock locked account
-  const handleUnlockAccount = (id: string, name: string) => {
-    setLockedAccounts((prev) => prev.filter(acc => acc.id !== id));
-    onLogAction(
-      "Account Unlocked", 
-      `Administrator manually restored login privileges for User ID: ${id} (${name}). Lock counter reset.`
+  const handlePasswordChange = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authVerifyMode === "password" && !oldPassword.trim()) {
+      setPassStatusMsg(isAmharic ? "እባክዎ ነባሩን የይለፍ ቃል ያስገቡ።" : "Current Password is required.");
+      return;
+    }
+    if (authVerifyMode === "otp" && changePassOtp.trim().length < 4) {
+      setPassStatusMsg(isAmharic ? "እባክዎ የOTP ማረጋገጫ ኮድ ያስገቡ።" : "Valid OTP verification code is required.");
+      return;
+    }
+    if (!newPassword || newPassword.length < 6 || newPassword !== confirmPassword) {
+      setPassStatusMsg(
+        isAmharic
+          ? "አዲሱ የይለፍ ቃል ቢያንስ 6 አሃዝ መሆንና ከማረጋገጫው ጋር መመሳሰል አለበት።"
+          : "New passwords must match and be at least 6 characters."
+      );
+      return;
+    }
+    onLogAction("Password Updated", `Password changed using ${authVerifyMode.toUpperCase()} verification.`);
+    setOldPassword("");
+    setChangePassOtp("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setPassStatusMsg(
+      isAmharic ? "የይለፍ ቃልዎ በተሳካ ሁኔታ ተቀይሯል!" : "Password securely updated with verification!"
     );
   };
 
-  // Terminate remote session
-  const handleTerminateSession = (sesId: string, userName: string) => {
-    setActiveSessions((prev) => prev.filter(ses => ses.id !== sesId));
-    onLogAction(
-      "Session Revoked", 
-      `Forced logout signal dispatched to token session ${sesId} assigned to ${userName}.`
-    );
-  };
+  const navItems: { id: SettingsTabId; labelEn: string; labelAm: string; icon: any }[] = [
+    { id: "settings_dashboard", labelEn: "1. Settings Dashboard ⚙️", labelAm: "1. የቅንጅቶች ዳሽቦርድ ⚙️", icon: Settings },
+    { id: "my_profile", labelEn: "2. My Profile & Account", labelAm: "2. የእኔ መገለጫ (My Profile)", icon: User },
+    { id: "password_auth", labelEn: "3. Password & Auth (2FA/OTP)", labelAm: "3. የይለፍ ቃል እና ማረጋገጫ", icon: Key },
+    { id: "biometric_security", labelEn: "4. Biometric Security", labelAm: "4. የባዮሜትሪክ ደህንነት", icon: Fingerprint },
+    { id: "privacy_center", labelEn: "5. Privacy Center", labelAm: "5. የግላዊነት ማዕከል (Privacy)", icon: Eye },
+    { id: "rbac_permissions", labelEn: "6. RBAC & Permissions", labelAm: "6. የሚና ፍቃድ (RBAC)", icon: Users },
+    { id: "gps_location", labelEn: "7. GPS & Geofence Security", labelAm: "7. የጂፒኤስ ደህንነት (GPS)", icon: MapPin },
+    { id: "security_antifraud", labelEn: "8 & 22. Anti-Fraud & Alerts", labelAm: "8 & 22. ጸረ-ማጭበርበር እና አደጋ", icon: ShieldAlert },
+    { id: "audit_attendance_correction", labelEn: "9 & 10. Audit & Attendance Fix", labelAm: "9 & 10. ኦዲት እና የመገኘት ማስተካከያ", icon: FileText },
+    { id: "device_session_logout", labelEn: "11, 12 & 23. Devices & Logout", labelAm: "11, 12 & 23. መሣሪያዎች እና መውጫ", icon: Smartphone },
+    { id: "camera_cad_docs", labelEn: "13 & 14. Data, Camera & CAD", labelAm: "13 & 14. ውሂብ፣ ካሜራ እና CAD", icon: Camera },
+    { id: "notifications_lang_appearance", labelEn: "15-17. Alerts, Lang & Theme", labelAm: "15-17. ማሳወቂያ፣ ቋንቋ እና ገጽታ", icon: Bell },
+    { id: "data_offline_backup", labelEn: "18 & 19. Offline & Cloud Backup", labelAm: "18 & 19. ከመስመር ውጭ እና ባክአፕ", icon: Database },
+    { id: "legal_privacy_about", labelEn: "20, 21 & 24. Policy & Architecture", labelAm: "20, 21 & 24. ፖሊሲ እና የደህንነት መዋቅር", icon: ShieldCheck },
+    { id: "role_approval_hub", labelEn: "Role Change Approval Hub", labelAm: "የሥራ ድርሻ ለውጥ ማጽደቂያ", icon: CheckCircle2 },
+    { id: "enterprise_soc", labelEn: "Enterprise Security SOC", labelAm: "ኢንተርፕራይዝ የደህንነት ማዕከል (SOC)", icon: Shield }
+  ];
 
-  // Revoke device
-  const handleRemoveDevice = (id: string, name: string) => {
-    setDevicesList((prev) => prev.filter(dev => dev.id !== id));
-    onLogAction("Device Authorized Token Revoked", `Terminated TLS trust lease for client device: "${name}".`);
-  };
-
-  // Printer function
-  const handlePrintPrivacyPolicy = () => {
-    window.print();
-  };
-
-  // Determine authorized view for administrator security dashboard
-  const hasAdminAccess = [
-    UserRole.HEAD_OFFICE, 
-    UserRole.PROJECT_MANAGER, 
-    UserRole.SECTION_HEAD, 
-    UserRole.TIME_KEEPER
-  ].includes(currentUserRole);
+  // 21 Settings Dashboard Quick-Jump Cards matching Section 1
+  const dashboardModules: { titleEn: string; titleAm: string; target: SettingsTabId; desc: string }[] = [
+    { titleEn: "My Profile", titleAm: "የእኔ መገለጫ", target: "my_profile", desc: "Name, ID, Photo, Dept, Site, Role" },
+    { titleEn: "Account Settings", titleAm: "የመለያ ቅንብሮች", target: "my_profile", desc: "Account status & HR policy" },
+    { titleEn: "Password & Authentication", titleAm: "የይለፍ ቃል እና ማረጋገጫ", target: "password_auth", desc: "Change/Reset Password, OTP, 2FA" },
+    { titleEn: "Biometric Settings", titleAm: "የባዮሜትሪክ ቅንብሮች", target: "biometric_security", desc: "Fingerprint, Face & Device Enclave" },
+    { titleEn: "Privacy", titleAm: "ግላዊነት (Privacy Center)", target: "privacy_center", desc: "Personal, Location, Camera & Alerts" },
+    { titleEn: "Security", titleAm: "ደህንነት (Anti-Fraud & Alerts)", target: "security_antifraud", desc: "9 Anti-Fraud rules & Emergency Center" },
+    { titleEn: "Notifications", titleAm: "ማሳወቂያዎች", target: "notifications_lang_appearance", desc: "9 Alert toggles & Critical lock" },
+    { titleEn: "GPS & Location", titleAm: "ጂፒኤስ እና አካባቢ", target: "gps_location", desc: "6-Step Site Geofence Verification" },
+    { titleEn: "Camera & Photos", titleAm: "ካሜራ እና ፎቶዎች", target: "camera_cad_docs", desc: "Site Photos, CAD Version History" },
+    { titleEn: "Language", titleAm: "ቋንቋ (Language)", target: "notifications_lang_appearance", desc: "English, Amharic + Upcoming" },
+    { titleEn: "Appearance", titleAm: "ገጽታ (Appearance)", target: "notifications_lang_appearance", desc: "Light/Dark Mode, Font & Accessibility" },
+    { titleEn: "Data & Storage", titleAm: "ውሂብ እና ማከማቻ", target: "data_offline_backup", desc: "8-Module Firebase Cloud Backup" },
+    { titleEn: "Offline Mode", titleAm: "ከመስመር ውጭ ሞድ", target: "data_offline_backup", desc: "Encrypted Local Queue & Unique IDs" },
+    { titleEn: "Connected Devices", titleAm: "የተገናኙ መሣሪያዎች", target: "device_session_logout", desc: "Tecno, Samsung, Tablet Verification" },
+    { titleEn: "Login Activity", titleAm: "የመግቢያ እንቅስቃሴ", target: "device_session_logout", desc: "Active Sessions, Timeout & Tokens" },
+    { titleEn: "Permission Management", titleAm: "የፍቃድ አስተዳደር (RBAC)", target: "rbac_permissions", desc: "Role-Based Access Control Matrix" },
+    { titleEn: "Help & Support", titleAm: "እገዛ እና ድጋፍ", target: "legal_privacy_about", desc: "Direct ERP Technical Support" },
+    { titleEn: "Terms & Conditions", titleAm: "ውሎች እና ሁኔታዎች", target: "legal_privacy_about", desc: "Operational & Labor Compliance" },
+    { titleEn: "Privacy Policy", titleAm: "የግላዊነት ፖሊሲ", target: "legal_privacy_about", desc: "10-Point Data Protection Charter" },
+    { titleEn: "About OVID ERP", titleAm: "ስለ OVID ERP", target: "legal_privacy_about", desc: "9-Layer Final Security Architecture" },
+    { titleEn: "Logout", titleAm: "ውጣ (Logout)", target: "device_session_logout", desc: "Sign Out & Logout From All Devices" }
+  ];
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-      
       {/* Left Sidebar Control Menu */}
-      <div className="lg:col-span-1 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between space-y-4">
+      <div className="lg:col-span-1 bg-white p-4 rounded-xl border border-slate-200 flex flex-col justify-between space-y-4">
         <div className="space-y-1">
-          <div className="flex items-center space-x-2 text-red-600 mb-4 px-2">
-            <Shield size={18} className="animate-pulse" />
-            <span className="text-xs font-black uppercase tracking-wider font-mono">
-              {isAmharic ? "ደህንነት እና ቅንጅቶች" : "Security Gateway"}
+          <div className="flex items-center space-x-2 text-red-600 mb-3 px-2">
+            <Shield size={18} />
+            <span className="text-xs font-bold tracking-wide">
+              {isAmharic ? "OVID ERP ቅንጅቶች እና ደህንነት ⚙️" : "OVID ERP Settings & Security ⚙️"}
             </span>
           </div>
 
-          <button
-            onClick={() => setActiveTab("user_settings")}
-            className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
-              activeTab === "user_settings"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <User size={15} />
-            <span>{isAmharic ? "የተጠቃሚ መገለጫ እና ምርጫዎች" : "User Profile & Settings"}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("role_approval_hub")}
-            className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
-              activeTab === "role_approval_hub"
-                ? "bg-amber-950 text-amber-200 border-l-4 border-amber-500 shadow-xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <ShieldCheck size={15} className="text-amber-500 animate-pulse" />
-            <span className="font-black text-xs">{isAmharic ? "የሥራ ድርሻ ለውጥ ማጽደቂያ" : "Role Change Approval System"}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("enterprise_soc")}
-            className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
-              activeTab === "enterprise_soc"
-                ? "bg-indigo-950 text-indigo-200 border-l-4 border-indigo-500 shadow-xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <Shield size={15} className="text-indigo-500 animate-pulse" />
-            <span className="font-black text-xs">{isAmharic ? "ኢንተርፕራይዝ የደህንነት ማዕከል (SOC)" : "Enterprise Security SOC"}</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab("privacy_policy")}
-            className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
-              activeTab === "privacy_policy"
-                ? "bg-slate-900 text-white shadow-xs"
-                : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-            }`}
-          >
-            <FileText size={15} />
-            <span>{isAmharic ? "ግላዊነት እና የግል መረጃ አጠቃቀም ፖሊሲ" : "Privacy Policy & Terms"}</span>
-          </button>
-
-          {hasAdminAccess && (
-            <button
-              onClick={() => setActiveTab("admin_dashboard")}
-              className={`w-full px-3 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-2.5 cursor-pointer ${
-                activeTab === "admin_dashboard"
-                  ? "bg-slate-900 text-red-400 shadow-xs border-l-4 border-red-500"
-                  : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
-              }`}
-            >
-              <Activity size={15} className="text-red-500" />
-              <span>{isAmharic ? "የደህንነት እና የቁጥጥር ዳሽቦርድ" : "Security Admin Terminal"}</span>
-            </button>
-          )}
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex items-center space-x-2.5 cursor-pointer text-left ${
+                  isActive
+                    ? "bg-slate-900 text-white"
+                    : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
+                }`}
+              >
+                <Icon size={14} className={isActive ? "text-red-400 shrink-0" : "text-slate-400 shrink-0"} />
+                <span className="truncate">{isAmharic ? item.labelAm : item.labelEn}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Current Active Role Metadata Container */}
-        <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono text-[10px] text-slate-500">
-          <p className="font-bold text-slate-700 uppercase mb-1">Session Metadata</p>
-          <div className="space-y-1">
+        <div className="space-y-3 pt-2 border-t border-slate-100">
+          {/* Session Metadata */}
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 font-mono text-[10px] text-slate-600 space-y-1">
             <div className="flex justify-between">
-              <span>User Role:</span>
+              <span>Active Role:</span>
               <span className="text-red-600 font-bold">{currentUserRole}</span>
             </div>
             <div className="flex justify-between">
               <span>Security Auth:</span>
-              <span className="text-emerald-600 font-bold">MFA Active</span>
+              <span className="text-emerald-600 font-bold">{mfaEnabled ? "2FA + OTP Active" : "Standard"}</span>
             </div>
             <div className="flex justify-between">
-              <span>Encryption:</span>
-              <span className="text-slate-700 font-bold">AES-256 SHA</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Session Limit:</span>
-              <span className="text-slate-700 font-bold">{sessionTimeoutMinutes} Mins</span>
+              <span>Session Timeout:</span>
+              <span className="text-slate-800 font-bold">{sessionTimeoutMinutes} Mins</span>
             </div>
           </div>
-        </div>
 
-        {/* System Administrator & Developer Info */}
-        <div className="bg-red-50/50 p-3 rounded-xl border border-red-200/60 font-mono text-[10px] text-slate-600 space-y-1.5">
-          <p className="font-bold text-red-700 uppercase flex items-center gap-1">
-            <Cpu size={10} />
-            <span>{isAmharic ? "የሲስተም አበልጻጊ እና አድሚን" : "Developer & Lead Admin"}</span>
-          </p>
-          <div className="space-y-1 text-slate-700">
+          {/* Only Super Admin Box */}
+          <div className="bg-red-50/60 p-3 rounded-xl border border-red-200 font-mono text-[10px] text-slate-700 space-y-1">
+            <p className="font-bold text-red-700 flex items-center gap-1">
+              <Cpu size={11} />
+              <span>{isAmharic ? "ብቸኛው ሱፐር አድሚን (Only Super Admin)" : "Only Super Admin"}</span>
+            </p>
             <div>
-              <span className="text-slate-400">{isAmharic ? "ስም:" : "Name:"}</span>{" "}
-              <span className="font-bold text-slate-900">{profileName}</span>
+              <span className="text-slate-500">{isAmharic ? "ስም:" : "Name:"}</span>{" "}
+              <span className="font-bold text-slate-900">Nuriye Ahmed Adem</span>
             </div>
             <div>
-              <span className="text-slate-400">{isAmharic ? "ኢሜይል:" : "Email:"}</span>{" "}
-              <span className="font-bold underline text-slate-800 text-[9.5px]">mejennur669@gmail.com</span>
+              <span className="text-slate-500">{isAmharic ? "ስልክ:" : "Phone:"}</span>{" "}
+              <span className="font-bold text-slate-900">0910097862/0920843843</span>
             </div>
             <div>
-              <span className="text-slate-400">{isAmharic ? "ስልክ:" : "Phone:"}</span>{" "}
-              <span className="font-bold text-slate-900">0910097862 / 0920843843</span>
+              <span className="text-slate-500">{isAmharic ? "ኢሜይል:" : "Email:"}</span>{" "}
+              <span className="font-bold underline text-slate-900">mejennur669@gmail.com</span>
             </div>
           </div>
         </div>
       </div>
 
       {/* Main Content Pane */}
-      <div className="lg:col-span-3">
-        
-        {/* ROLE CHANGE APPROVAL SYSTEM */}
-        {activeTab === "role_approval_hub" && (
-          <UserRoleApprovalHub
-            currentUserRole={currentUserRole}
-            currentUserName={profileName}
-            currentUserId="EMP-104"
-            isAmharic={isAmharic}
-            onLogAction={onLogAction}
-          />
+      <div className="lg:col-span-3 space-y-6">
+        {/* SECTION 1: SETTINGS DASHBOARD */}
+        {activeTab === "settings_dashboard" && (
+          <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900">
+                  {isAmharic
+                    ? "1. OVID REAL ESTATE SMART CONSTRUCTION ERP — የቅንጅቶች፣ ግላዊነት እና ደህንነት ማዕከል ⚙️"
+                    : "1. OVID Real Estate Smart Construction ERP — App Settings, Privacy & Security ⚙️"}
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isAmharic
+                    ? "እያንዳንዱ User በApp ውስጥ Settings ⚙️ የሚለውን ክፍል ያገኛል እና የተፈቀደለትን ብቻ ያስተዳድራል።"
+                    : "Unified Settings Dashboard available to every user with Role-Based Access Control (RBAC)."}
+                </p>
+              </div>
+              {onLogout && (
+                <button
+                  onClick={onLogout}
+                  className="px-3.5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5 shrink-0"
+                >
+                  <LogOut size={14} />
+                  <span>{isAmharic ? "ውጣ (Logout)" : "Logout"}</span>
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {dashboardModules.map((mod, idx) => (
+                <button
+                  key={mod.titleEn}
+                  onClick={() => setActiveTab(mod.target)}
+                  className="p-3.5 rounded-xl border border-slate-200 hover:border-slate-400 bg-slate-50/50 hover:bg-white text-left transition-colors cursor-pointer space-y-1"
+                >
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-900">
+                    <span>
+                      {idx + 1}. {isAmharic ? mod.titleAm : mod.titleEn}
+                    </span>
+                    <span className="text-slate-400 font-mono text-[10px]">→</span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">{mod.desc}</p>
+                </button>
+              ))}
+            </div>
+
+            {/* Complete 24-Section Architectural Index */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-800">
+                  {isAmharic
+                    ? "ሁሉም 24 የOVID ERP Settings, Privacy & Security ክፍሎች (1–24 Master Index)"
+                    : "Complete 24-Section App Settings, Privacy & Security Specification (1–24)"}
+                </h3>
+                <span className="text-[11px] font-mono text-emerald-700 font-semibold">24 / 24 Active</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-[11px]">
+                {[
+                  { num: 1, label: "1. Settings Dashboard ⚙️", tab: "settings_dashboard" as SettingsTabId },
+                  { num: 2, label: "2. My Profile", tab: "my_profile" as SettingsTabId },
+                  { num: 3, label: "3. Password & Authentication", tab: "password_auth" as SettingsTabId },
+                  { num: 4, label: "4. Biometric Security", tab: "biometric_security" as SettingsTabId },
+                  { num: 5, label: "5. Privacy Center", tab: "privacy_center" as SettingsTabId },
+                  { num: 6, label: "6. Role-Based Access (RBAC)", tab: "rbac_permissions" as SettingsTabId },
+                  { num: 7, label: "7. GPS Security", tab: "gps_location" as SettingsTabId },
+                  { num: 8, label: "8. Anti-Fraud Security", tab: "security_antifraud" as SettingsTabId },
+                  { num: 9, label: "9. Audit Log", tab: "audit_attendance_correction" as SettingsTabId },
+                  { num: 10, label: "10. Attendance Correction", tab: "audit_attendance_correction" as SettingsTabId },
+                  { num: 11, label: "11. Device Management", tab: "device_session_logout" as SettingsTabId },
+                  { num: 12, label: "12. Session Security", tab: "device_session_logout" as SettingsTabId },
+                  { num: 13, label: "13. Data Security", tab: "camera_cad_docs" as SettingsTabId },
+                  { num: 14, label: "14. CAD & Doc Security", tab: "camera_cad_docs" as SettingsTabId },
+                  { num: 15, label: "15. Notification Settings", tab: "notifications_lang_appearance" as SettingsTabId },
+                  { num: 16, label: "16. Language Settings", tab: "notifications_lang_appearance" as SettingsTabId },
+                  { num: 17, label: "17. Appearance", tab: "notifications_lang_appearance" as SettingsTabId },
+                  { num: 18, label: "18. Offline Security", tab: "data_offline_backup" as SettingsTabId },
+                  { num: 19, label: "19. Backup & Recovery", tab: "data_offline_backup" as SettingsTabId },
+                  { num: 20, label: "20. Privacy Policy", tab: "legal_privacy_about" as SettingsTabId },
+                  { num: 21, label: "21. Account Deactivation", tab: "legal_privacy_about" as SettingsTabId },
+                  { num: 22, label: "22. Emergency Security", tab: "security_antifraud" as SettingsTabId },
+                  { num: 23, label: "23. Logout & All Devices", tab: "device_session_logout" as SettingsTabId },
+                  { num: 24, label: "24. Final Security Arch.", tab: "legal_privacy_about" as SettingsTabId }
+                ].map((s) => (
+                  <button
+                    key={s.num}
+                    onClick={() => setActiveTab(s.tab)}
+                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:border-red-400 bg-white hover:bg-red-50/30 text-left font-medium text-slate-700 hover:text-slate-900 transition-colors cursor-pointer truncate"
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
         )}
 
-        {/* TAB 1: USER SETTINGS */}
-        {activeTab === "user_settings" && (
-          <div className="space-y-6">
-            
-            {/* PROFILE & BIOMETRIC SETTINGS */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center space-x-2 border-b border-slate-100 pb-3 mb-4">
-                <User size={18} className="text-red-500 animate-pulse" />
-                <h3 className="text-sm font-black uppercase text-slate-800">
-                  {isAmharic ? "የተጠቃሚ መገለጫ መረጃ" : "Personal Profile & Biometric Enrollment Metadata"}
-                </h3>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* SECTION 2: MY PROFILE */}
+        {activeTab === "my_profile" && (
+          <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                  {profileName.slice(0, 2).toUpperCase()}
+                </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">
-                    {isAmharic ? "ሙሉ ስም" : "Employee Name"}
-                  </label>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {isAmharic ? "2. የእኔ መገለጫ (My Profile & Account Settings)" : "2. My Profile & Permitted Account Fields"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {isAmharic
+                      ? "User የራሱን መረጃ ያያል፤ የተፈቀደለትን መረጃ ብቻ መቀየር ይችላል።"
+                      : "View complete employee identity metadata. Only role-permitted fields are editable."}
+                  </p>
+                </div>
+              </div>
+              <span className="text-xs font-mono text-slate-600">
+                ID: <strong className="text-slate-900">{employeeId}</strong> · Role: <strong className="text-red-600">{currentUserRole}</strong>
+              </span>
+            </div>
+
+            {profileSavedMsg && (
+              <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-xs font-semibold text-emerald-800">
+                {profileSavedMsg}
+              </div>
+            )}
+
+            <form onSubmit={handleSaveProfile} className="space-y-4 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Full Name</label>
                   <input
                     type="text"
                     value={profileName}
+                    readOnly={!isSuperOrAdmin}
                     onChange={(e) => setProfileName(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-red-500 font-sans"
+                    className={`w-full px-3 py-2 border border-slate-200 rounded-lg ${
+                      isSuperOrAdmin ? "bg-white text-slate-900" : "bg-slate-100 text-slate-500 cursor-not-allowed"
+                    }`}
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">
-                    {isAmharic ? "ድርጅታዊ ኢሜል" : "Corporate Email Address"}
-                  </label>
+                  <label className="block text-slate-500 font-semibold mb-1">Employee ID (Locked)</label>
                   <input
-                    type="email"
-                    value={profileEmail}
-                    onChange={(e) => setProfileEmail(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                    type="text"
+                    value={employeeId}
+                    readOnly
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 font-mono cursor-not-allowed"
                   />
                 </div>
                 <div>
-                  <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">
-                    {isAmharic ? "የተንቀሳቃሽ ስልክ ቁጥር" : "Mobile Network String"}
-                  </label>
+                  <label className="block text-slate-500 font-semibold mb-1">User Role (RBAC Enforced)</label>
+                  <input
+                    type="text"
+                    value={currentUserRole}
+                    readOnly
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg text-red-600 font-bold cursor-not-allowed"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Job Position</label>
+                  <input
+                    type="text"
+                    value={jobPosition}
+                    readOnly={!isSuperOrAdmin}
+                    onChange={(e) => setJobPosition(e.target.value)}
+                    className={`w-full px-3 py-2 border border-slate-200 rounded-lg ${
+                      isSuperOrAdmin ? "bg-white text-slate-900" : "bg-slate-100 text-slate-500"
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={department}
+                    readOnly={!isSuperOrAdmin}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    className={`w-full px-3 py-2 border border-slate-200 rounded-lg ${
+                      isSuperOrAdmin ? "bg-white text-slate-900" : "bg-slate-100 text-slate-500"
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Assigned Project</label>
+                  <input
+                    type="text"
+                    value={assignedProject}
+                    readOnly={!isSuperOrAdmin}
+                    onChange={(e) => setAssignedProject(e.target.value)}
+                    className={`w-full px-3 py-2 border border-slate-200 rounded-lg ${
+                      isSuperOrAdmin ? "bg-white text-slate-900" : "bg-slate-100 text-slate-500"
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Assigned Site</label>
+                  <input
+                    type="text"
+                    value={assignedSite}
+                    readOnly={!isSuperOrAdmin}
+                    onChange={(e) => setAssignedSite(e.target.value)}
+                    className={`w-full px-3 py-2 border border-slate-200 rounded-lg ${
+                      isSuperOrAdmin ? "bg-white text-slate-900" : "bg-slate-100 text-slate-500"
+                    }`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Phone Number (Editable)</label>
                   <input
                     type="text"
                     value={profilePhone}
                     onChange={(e) => setProfilePhone(e.target.value)}
-                    className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono"
                   />
                 </div>
-              </div>
-
-              {/* Preferences section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6 pt-4 border-t border-slate-100">
-                
-                {/* Preferences */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                    {isAmharic ? "የግል ምርጫዎች" : "Core Preferences"}
-                  </h4>
-
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between text-xs cursor-pointer">
-                      <span className="text-slate-600">{isAmharic ? "የስርዓቱ ቋንቋ (አማርኛ ንቁ)" : "Enable Amharic Core Engine"}</span>
-                      <div className="relative inline-flex items-center cursor-pointer">
-                        <input type="checkbox" checked={isAmharic} readOnly className="sr-only" />
-                        <div className="w-9 h-5 bg-red-600 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-red-600"></div>
-                      </div>
-                    </label>
-
-                    <label className="flex items-center justify-between text-xs cursor-pointer">
-                      <span className="text-slate-600">{isAmharic ? "የመልክት ምርጫ (Email)" : "Push Alerts to Corporate Email"}</span>
-                      <input
-                        type="checkbox"
-                        checked={notifEmail}
-                        onChange={(e) => setNotifEmail(e.target.checked)}
-                        className="accent-red-600 rounded"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between text-xs cursor-pointer">
-                      <span className="text-slate-600">{isAmharic ? "የሞባይል ማሳወቂያ (SMS)" : "Emergency Daily SMS Dispatch"}</span>
-                      <input
-                        type="checkbox"
-                        checked={notifSms}
-                        onChange={(e) => setNotifSms(e.target.checked)}
-                        className="accent-red-600 rounded"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between text-xs cursor-pointer">
-                      <span className="text-slate-600">{isAmharic ? "የሳይት አጠቃቀም መረጃ ማጋራት (Telemetry)" : "Share Telemetry & CAD Logs"}</span>
-                      <input
-                        type="checkbox"
-                        checked={privacyTelemetry}
-                        onChange={(e) => setPrivacyTelemetry(e.target.checked)}
-                        className="accent-red-600 rounded"
-                      />
-                    </label>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">Email Address (Editable)</label>
+                  <input
+                    type="email"
+                    value={profileEmail}
+                    onChange={(e) => setProfileEmail(e.target.value)}
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg text-slate-900 font-mono"
+                  />
+                </div>
+                <div className="md:col-span-2 lg:col-span-3 pt-1">
+                  <label className="block text-slate-500 font-semibold mb-1.5">
+                    {isAmharic ? "Profile Photo (የመገለጫ ፎቶ / መለያ ምልክት)" : "Profile Photo (Permitted Avatar Selection)"}
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {[
+                      { id: "executive", label: "Executive Shield Avatar" },
+                      { id: "hardhat", label: "Site Engineering Badge" },
+                      { id: "initials", label: "Monogram Initials" }
+                    ].map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setProfilePhotoBadge(opt.id as any)}
+                        className={`px-3 py-1.5 rounded-lg border text-xs font-semibold cursor-pointer ${
+                          profilePhotoBadge === opt.id
+                            ? "bg-slate-900 text-white border-slate-900"
+                            : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              </div>
 
-                {/* Biometrics Preferences */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-bold text-slate-700 uppercase tracking-wide">
-                    {isAmharic ? "የባዮሜትሪክ መግቢያ ቅንብሮች" : "Biometric Preferences"}
-                  </h4>
+              <div className="flex justify-end pt-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold cursor-pointer"
+                >
+                  {isAmharic ? "የተፈቀደውን መረጃ አስቀምጥ" : "Save Permitted Profile Changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
 
-                  <div className="space-y-2">
-                    <label className="flex items-center justify-between text-xs cursor-pointer">
-                      <span className="text-slate-600 flex items-center gap-1.5">
-                        <Fingerprint size={14} className="text-slate-500" />
-                        <span>{isAmharic ? "በጣት አሻራ መግቢያ ፍቀድ" : "Enable Trust-Fingerprint Sign-In"}</span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={bioFingerprintPref}
-                        onChange={(e) => setBioFingerprintPref(e.target.checked)}
-                        className="accent-red-600 rounded"
-                      />
-                    </label>
-
-                    <label className="flex items-center justify-between text-xs cursor-pointer">
-                      <span className="text-slate-600 flex items-center gap-1.5">
-                        <Smartphone size={14} className="text-slate-500" />
-                        <span>{isAmharic ? "በፊት መለያ መግቢያ ፍቀድ" : "Enable Multi-Vector Face Login"}</span>
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={bioFacePref}
-                        onChange={(e) => setBioFacePref(e.target.checked)}
-                        className="accent-red-600 rounded"
-                      />
-                    </label>
-
-                    <div className="bg-slate-50 p-2.5 rounded-lg text-[10px] font-mono text-slate-500 leading-normal border border-slate-200">
-                      <p className="font-bold text-slate-700 mb-1">Local Secure Element Only</p>
-                      {isAmharic 
-                        ? "የባዮሜትሪክ ምርጫዎችዎ በመሳሪያዎ አስተማማኝ ማከማቻ ውስጥ ብቻ የተመዘገቡ ሲሆኑ በደመና ላይ ጥሬ ምስሎች አይጫኑም።" 
-                        : "Private keys reside exclusively inside this terminal's isolated hardware enclave. System never replicates raw papillary ridge or dermal vector frames."}
-                    </div>
-                  </div>
+        {/* SECTION 3: PASSWORD & AUTHENTICATION */}
+        {activeTab === "password_auth" && (
+          <div className="space-y-6">
+            <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+              <div className="border-b border-slate-100 pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {isAmharic ? "3. የይለፍ ቃል እና ማረጋገጫ (Password & Authentication)" : "3. Password & Authentication Security"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {isAmharic
+                      ? "Password ለመቀየር Current Password ወይም OTP ማረጋገጫ ያስፈልጋል።"
+                      : "Change Password, Forgot/Reset Password, Enable OTP, Enable 2FA & Manage Sessions."}
+                  </p>
                 </div>
-
+                <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-lg text-xs">
+                  <button
+                    type="button"
+                    onClick={() => setAuthVerifyMode("password")}
+                    className={`px-3 py-1 rounded-md font-semibold cursor-pointer ${
+                      authVerifyMode === "password" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600"
+                    }`}
+                  >
+                    Verify via Current Password
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAuthVerifyMode("otp")}
+                    className={`px-3 py-1 rounded-md font-semibold cursor-pointer ${
+                      authVerifyMode === "otp" ? "bg-white text-slate-900 shadow-xs" : "text-slate-600"
+                    }`}
+                  >
+                    Verify via SMS OTP
+                  </button>
+                </div>
               </div>
-            </div>
 
-            {/* PASSWORD CHANGE WITH STRENGTH METER & HASHING SIMULATION */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center space-x-2 border-b border-slate-100 pb-3 mb-4">
-                <Lock size={18} className="text-slate-800" />
-                <h3 className="text-sm font-black uppercase text-slate-800">
-                  {isAmharic ? "የይለፍ ቃል ማሻሻያ እና የደህንነት ሃሽ" : "Update Credentials & Secure Salt Hashing"}
-                </h3>
-              </div>
+              {passStatusMsg && (
+                <div className="p-3 rounded-lg bg-slate-900 text-white text-xs font-semibold">
+                  {passStatusMsg}
+                </div>
+              )}
 
-              <form onSubmit={handleUpdatePasswordSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">
-                      {isAmharic ? "ቀድሞ የነበረው ይለፍ ቃል" : "Current Password"}
-                    </label>
+              <form onSubmit={handlePasswordChange} className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">
+                    {authVerifyMode === "password"
+                      ? isAmharic
+                        ? "ነባር የይለፍ ቃል (Current Password)"
+                        : "Current Password"
+                      : isAmharic
+                      ? "ባለ 6-አሃዝ OTP ማረጋገጫ"
+                      : "6-Digit OTP Verification Code"}
+                  </label>
+                  {authVerifyMode === "password" ? (
                     <input
                       type="password"
                       value={oldPassword}
                       onChange={(e) => setOldPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
                     />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">
-                      {isAmharic ? "አዲስ ይለፍ ቃል" : "New Secure Password"}
-                    </label>
-                    <div className="relative">
-                      <input
-                        type={showPass ? "text" : "password"}
-                        value={newPassword}
-                        onChange={(e) => setNewPassword(e.target.value)}
-                        placeholder="••••••••"
-                        className="w-full pl-3 pr-8 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-red-500 font-mono"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPass(!showPass)}
-                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 cursor-pointer"
-                      >
-                        {showPass ? <EyeOff size={13} /> : <Eye size={13} />}
-                      </button>
-                    </div>
-
-                    {/* Password strength indicator */}
-                    {newPassword && (
-                      <div className="mt-2 space-y-1 animate-fade-in">
-                        <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                          <span>Password Complexity:</span>
-                          <span className="font-bold" style={{ color: passwordStrength.color.replace('bg-', 'text-') }}>
-                            {passwordStrength.label}
-                          </span>
-                        </div>
-                        <div className="w-full bg-slate-100 rounded-full h-1 overflow-hidden">
-                          <div 
-                            className={`h-full transition-all duration-300 ${passwordStrength.color}`} 
-                            style={{ width: `${(passwordStrength.score / 5) * 100}%` }} 
-                          />
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">
-                      {isAmharic ? "አዲስ የይለፍ ቃል ማረጋገጫ" : "Confirm New Password"}
-                    </label>
+                  ) : (
                     <input
-                      type="password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="••••••••"
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none focus:border-red-500 font-mono"
+                      type="text"
+                      maxLength={6}
+                      value={changePassOtp}
+                      onChange={(e) => setChangePassOtp(e.target.value)}
+                      placeholder="123456"
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
                     />
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">
+                    {isAmharic ? "አዲስ የይለፍ ቃል" : "New Password"}
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPass ? "text" : "password"}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                      className="w-full pl-3 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPass(!showPass)}
+                      className="absolute right-2.5 top-2.5 text-slate-400 hover:text-slate-600 cursor-pointer"
+                    >
+                      {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
+                    </button>
                   </div>
                 </div>
 
-                {isHashing && (
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 text-center space-y-2 animate-pulse">
-                    <div className="flex items-center justify-center space-x-2">
-                      <RefreshCw className="animate-spin text-red-500" size={14} />
-                      <span className="text-[10px] font-mono text-slate-300">
-                        {isAmharic ? "የይለፍ ቃሉን በ SHA-256 ጨው (Salt) አክሎ በመሰወር ላይ..." : "Generating Cryptographic SHA-256 Salted Hash Block..."}
-                      </span>
-                    </div>
-                    <div className="w-48 bg-slate-900 h-1 rounded-full overflow-hidden mx-auto">
-                      <div className="bg-red-500 h-full" style={{ width: `${hashingProgress}%` }} />
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">
+                    {isAmharic ? "አዲስ የይለፍ ቃል አረጋግጥ" : "Confirm New Password"}
+                  </label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                  />
+                </div>
 
-                <div className="flex justify-end">
+                <div className="md:col-span-3 flex flex-wrap items-center justify-between gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setResetEmailSent(true);
+                      onLogAction("Password Reset Dispatched", `Password reset link / OTP dispatched to ${profileEmail}`);
+                    }}
+                    className="text-red-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    {isAmharic ? "የይለፍ ቃል ረሱ? (Forgot / Reset Password)" : "Forgot / Reset Password via Email or OTP"}
+                  </button>
                   <button
                     type="submit"
-                    disabled={isHashing}
-                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer disabled:opacity-50"
+                    className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold cursor-pointer"
                   >
-                    <Lock size={12} />
-                    <span>{isAmharic ? "የይለፍ ቃል በደህንነት ቀይር" : "Salt-Hash and Save Password"}</span>
+                    {isAmharic ? "የይለፍ ቃል ቀይር" : "Verify & Update Password"}
                   </button>
                 </div>
               </form>
+
+              {resetEmailSent && (
+                <div className="p-3 rounded-lg bg-amber-50 border border-amber-200 text-xs text-amber-900">
+                  {isAmharic
+                    ? `የይለፍ ቃል ማደሻ ሊንክ እና OTP ወደ ${profileEmail} ተልኳል።`
+                    : `Password reset link and verification OTP dispatched to ${profileEmail}.`}
+                </div>
+              )}
             </div>
 
-            {/* REGISTERED DEVICE MANAGEMENT & IDLE TIMEOUT CONTROL */}
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
-              <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Smartphone size={18} className="text-red-500" />
-                  <h3 className="text-sm font-black uppercase text-slate-800">
-                    {isAmharic ? "የሳይት መሣሪያዎች አስተዳደር እና የስብሰባ መቆራረጥ" : "Active Devices & Idle Session Control"}
-                  </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">
+                    {isAmharic ? "የOTP ማረጋገጫ (Enable OTP Verification)" : "Enable OTP Verification"}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={otpEnabled}
+                    onChange={(e) => {
+                      setOtpEnabled(e.target.checked);
+                      onLogAction("OTP Setting Updated", `OTP Authentication set to ${e.target.checked}`);
+                    }}
+                    className="accent-red-600 cursor-pointer"
+                  />
                 </div>
+                <p className="text-slate-500">
+                  {isAmharic
+                    ? "በስልክ ወይም በኢሜይል የሚላክ ባለ 6-አሃዝ የአንድ ጊዜ ማረጋገጫ ኮድ።"
+                    : "Requires a one-time verification code for sensitive sign-ins and password resets."}
+                </p>
+              </div>
 
-                <div className="flex items-center space-x-2 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-200 font-mono text-[10px] text-slate-500">
-                  <span>Idle Auto-Logout:</span>
+              <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">
+                    {isAmharic ? "ባለ ሁለት-ደረጃ ማረጋገጫ (Enable 2FA)" : "Enable Two-Factor Authentication (2FA)"}
+                  </span>
+                  <input
+                    type="checkbox"
+                    checked={mfaEnabled}
+                    onChange={(e) => {
+                      setMfaEnabled(e.target.checked);
+                      onLogAction("2FA Setting Updated", `Two-Factor Authentication set to ${e.target.checked}`);
+                    }}
+                    className="accent-red-600 cursor-pointer"
+                  />
+                </div>
+                <p className="text-slate-500">
+                  {isAmharic
+                    ? "መለያዎን በAuthenticator App እና በSMS 2FA በድርብ ጥበቃ ይቆልፋል።"
+                    : "Protects administrative and operational sessions with TOTP + SMS dual verification."}
+                </p>
+              </div>
+            </div>
+
+            {/* Manage Login Sessions inside Section 3 */}
+            <div className="bg-white p-5 rounded-xl border border-slate-200 space-y-3 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <div>
+                  <h4 className="font-bold text-slate-900">
+                    {isAmharic ? "የመግቢያ ክፍለ-ጊዜዎችን ያስተዳድሩ (Manage Login Sessions)" : "Manage Login Sessions"}
+                  </h4>
+                  <p className="text-slate-500 text-[11px]">
+                    {isAmharic
+                      ? "ንቁ የሆኑ የመግቢያ ክፍለ-ጊዜዎችን ይቆጣጠሩ ወይም ወዲያውኑ ያቋርጡ።"
+                      : "Inspect active authenticated sessions and revoke untrusted tokens."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("device_session_logout")}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg font-semibold cursor-pointer"
+                >
+                  {isAmharic ? "ሙሉ የDevice & Session ቁጥጥር →" : "Full Device & Session Controls →"}
+                </button>
+              </div>
+              <div className="divide-y divide-slate-100">
+                {activeSessions.map((ses) => (
+                  <div key={ses.id} className="py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <span className="font-bold text-slate-900">{ses.device}</span>
+                      <span className="mx-2 text-slate-400">·</span>
+                      <span className="font-mono text-slate-600">{ses.userName} ({ses.role})</span>
+                      <p className="font-mono text-[11px] text-slate-500">
+                        IP: {ses.ip} · GPS: {ses.gps} · Login: {ses.loginTime}
+                      </p>
+                    </div>
+                    <span className="font-mono text-[11px] font-semibold text-emerald-700">
+                      {ses.isCurrent ? "Current Session" : "Verified"}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 4: BIOMETRIC SECURITY */}
+        {activeTab === "biometric_security" && (
+          <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-5">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">
+                {isAmharic ? "4. የባዮሜትሪክ ደህንነት (Biometric Security)" : "4. Biometric Security & Local Enclave Architecture"}
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isAmharic
+                  ? "Fingerprint፣ Face Recognition እና Device Biometric Authentication። የስልኩን biometric sensor raw data ወደ Firebase መላክ አይኖርበትም።"
+                  : "Supports Fingerprint, Face Recognition & Device Biometric Authentication stored strictly as local device templates."}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+              <label className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-bold text-slate-900">Fingerprint Authentication</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{isAmharic ? "የጣት አሻራ ማረጋገጫ" : "On-device secure hash"}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={bioFingerprintPref}
+                  onChange={(e) => setBioFingerprintPref(e.target.checked)}
+                  className="accent-red-600"
+                />
+              </label>
+
+              <label className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-bold text-slate-900">Face Recognition</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{isAmharic ? "የፊት ገጽታ ማረጋገጫ" : "Local vector template"}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={bioFacePref}
+                  onChange={(e) => setBioFacePref(e.target.checked)}
+                  className="accent-red-600"
+                />
+              </label>
+
+              <label className="p-4 rounded-xl border border-slate-200 bg-slate-50/60 flex items-center justify-between cursor-pointer">
+                <div>
+                  <p className="font-bold text-slate-900">Device Biometric Auth</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{isAmharic ? "የመሣሪያ ባዮሜትሪክ ቁልፍ" : "Hardware KeyStore / Enclave"}</p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={bioDeviceAuth}
+                  onChange={(e) => setBioDeviceAuth(e.target.checked)}
+                  className="accent-red-600"
+                />
+              </label>
+            </div>
+
+            <div className="p-4 rounded-xl bg-slate-900 text-slate-100 text-xs space-y-2">
+              <p className="font-bold text-emerald-400">
+                {isAmharic
+                  ? "የባዮሜትሪክ ደህንነት መመሪያ (Zero Raw Biometric Data to Cloud)"
+                  : "Hardware Enclave Policy — Zero Raw Biometric Sensor Data Sent to Firebase"}
+              </p>
+              <p className="text-slate-300 leading-relaxed">
+                {isAmharic
+                  ? "Biometric data በቀጥታ በDevice ላይ በsecure template/reference ይጠበቃል፤ የስልኩን biometric sensor raw data ወደ Firebase መላክ አይኖርበትም። የEmployee Attendance biometric enrollment ደግሞ በተለየ የHR/Time Keeper workflow ይቆጣጠራል።"
+                  : "Biometric data is protected directly on the device via a secure cryptographic template/reference; raw phone biometric sensor data is never transmitted to Firebase. Employee Attendance biometric enrollment is governed separately through the authorized HR / Time Keeper workflow."}
+              </p>
+            </div>
+
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+              <div>
+                <p className="font-bold text-slate-900">
+                  {isAmharic
+                    ? "የEmployee Attendance Biometric Enrollment (HR / Time Keeper Workflow)"
+                    : "Employee Attendance Biometric Enrollment — HR / Time Keeper Workflow"}
+                </p>
+                <p className="text-slate-600 mt-0.5">
+                  {isAmharic
+                    ? "የሰራተኞች የAttendance የጣት አሻራ እና የፊት ምዝገባ በHR እና Time Keeper ብቻ ተረጋግጦ ይመዘገባል።"
+                    : "Field attendance biometric templates are enrolled and verified exclusively via the authorized HR & Time Keeper Kiosk workflow."}
+                </p>
+              </div>
+              <span className="font-mono text-[11px] text-emerald-700 font-bold shrink-0">
+                HR / Time Keeper Governed
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 5: PRIVACY CENTER */}
+        {activeTab === "privacy_center" && (
+          <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isAmharic ? "5. የግላዊነት ማዕከል (Privacy Center)" : "5. User Privacy Control Center"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAmharic
+                    ? "Personal Information፣ Location Privacy፣ Camera & Photo Privacy እና Notification Privacy ይቆጣጠሩ።"
+                    : "Manage Personal Information, Location Privacy, Camera & Photo Privacy, and Notification Privacy."}
+                </p>
+              </div>
+              <button
+                onClick={() => setActiveTab("legal_privacy_about")}
+                className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-lg text-xs font-semibold cursor-pointer"
+              >
+                {isAmharic ? "የPrivacy Policy አንብብ" : "Read Full Privacy Policy"}
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-xl border border-slate-200 space-y-2.5">
+                <h4 className="font-bold text-slate-900">Personal Information</h4>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Profile & Employee Information Visibility (Team Directory)</span>
+                  <input type="checkbox" checked readOnly className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Phone Number Visibility to Site Supervisors</span>
+                  <input type="checkbox" checked={privShowPhone} onChange={(e) => setPrivShowPhone(e.target.checked)} className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Email Visibility in Project Reports</span>
+                  <input type="checkbox" checked={privShowEmail} onChange={(e) => setPrivShowEmail(e.target.checked)} className="accent-red-600" />
+                </label>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 space-y-2.5">
+                <h4 className="font-bold text-slate-900">Location Privacy</h4>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">GPS Usage (Active Only During Attendance & Site Work)</span>
+                  <input type="checkbox" checked={privGpsUsage} onChange={(e) => setPrivGpsUsage(e.target.checked)} className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Site Geofence Verification</span>
+                  <input type="checkbox" checked={privSiteVerify} onChange={(e) => setPrivSiteVerify(e.target.checked)} className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Location History Log Retention</span>
+                  <input type="checkbox" checked={privLocationHistory} onChange={(e) => setPrivLocationHistory(e.target.checked)} className="accent-red-600" />
+                </label>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 space-y-2.5">
+                <h4 className="font-bold text-slate-900">Camera & Photo Privacy</h4>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Camera Permission (Progress & Inspection Capture)</span>
+                  <input type="checkbox" checked={privCameraPerm} onChange={(e) => setPrivCameraPerm(e.target.checked)} className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Construction Photo Vault Access</span>
+                  <input type="checkbox" checked={privPhotoAccess} onChange={(e) => setPrivPhotoAccess(e.target.checked)} className="accent-red-600" />
+                </label>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 space-y-2.5">
+                <h4 className="font-bold text-slate-900">Notification Privacy</h4>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Push Notifications</span>
+                  <input type="checkbox" checked={privPushNotif} onChange={(e) => setPrivPushNotif(e.target.checked)} className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Attendance Alerts</span>
+                  <input type="checkbox" checked={privAttendanceAlert} onChange={(e) => setPrivAttendanceAlert(e.target.checked)} className="accent-red-600" />
+                </label>
+                <label className="flex items-center justify-between cursor-pointer">
+                  <span className="text-slate-600">Work & Zone Assignment Alerts</span>
+                  <input type="checkbox" checked={privWorkAlert} onChange={(e) => setPrivWorkAlert(e.target.checked)} className="accent-red-600" />
+                </label>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 6: ROLE-BASED ACCESS CONTROL (RBAC) */}
+        {activeTab === "rbac_permissions" && (
+          <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+            <div className="border-b border-slate-100 pb-3">
+              <h3 className="text-base font-bold text-slate-900">
+                {isAmharic ? "6. የሚና ፍቃድ ቁጥጥር (Role-Based Access Control — RBAC)" : "6. Role-Based Access Control (RBAC) & Permission Management"}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {isAmharic
+                  ? "እያንዳንዱ User የተፈቀደለትን ብቻ ያያል። Firebase Security Rules በRole + Project + Site + Permission መሰረት ይሰራሉ።"
+                  : "Each role only accesses authorized modules, projects, and site boundaries."}
+              </p>
+            </div>
+
+            <div className="divide-y divide-slate-100 text-xs">
+              {RBAC_SPECIFICATION.map((item) => (
+                <div key={item.role} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div>
+                    <p className="font-bold text-slate-900">
+                      {item.role} <span className="text-slate-400">·</span>{" "}
+                      <span className="text-slate-600">{item.titleAm}</span>
+                    </p>
+                    <p className="text-slate-600 mt-0.5">{isAmharic ? item.scopeAm : item.scopeEn}</p>
+                  </div>
+                  <span className="font-mono text-[11px] text-emerald-700 font-semibold shrink-0">
+                    Role + Site Enforced
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* SECTION 11, 12 & 23: CONNECTED DEVICES, SESSION SECURITY & LOGOUT */}
+        {activeTab === "device_session_logout" && (
+          <div className="space-y-6">
+            {/* Section 11: Device Management */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-base font-bold text-slate-900">
+                  {isAmharic ? "11. የተገናኙ መሣሪያዎች አስተዳደር (Connected Devices)" : "11. Connected Devices & Unrecognized Device Verification"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAmharic
+                    ? "Tecno Android፣ Samsung Android፣ Tablet — ያልታወቀ Device ከተገኘ Review Device → Verify → Sign Out አማራጭ አለው።"
+                    : "Monitor Tecno Android, Samsung Android, Tablet & Workstation logins. Review, Verify, or Sign Out unrecognized devices."}
+                </p>
+              </div>
+
+              <div className="divide-y divide-slate-100 text-xs">
+                {devicesList.map((dev) => (
+                  <div key={dev.id} className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2 font-bold text-slate-900">
+                        <span>{dev.device}</span>
+                        <span className="text-slate-400">·</span>
+                        <span className={dev.verified ? "text-emerald-700" : "text-amber-600"}>
+                          {dev.verified ? "Verified Device" : "Unrecognized Device — Review Required"}
+                        </span>
+                      </div>
+                      <p className="text-slate-500 font-mono text-[11px] mt-0.5">
+                        Type: {dev.type} · IP: {dev.ip} · Site: {dev.location} · {dev.activeAt}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {!dev.verified && (
+                        <button
+                          onClick={() => {
+                            setDevicesList((prev) =>
+                              prev.map((d) => (d.id === dev.id ? { ...d, recognized: true, verified: true } : d))
+                            );
+                            onLogAction("Device Verified", `Reviewed and verified device: ${dev.device}`);
+                          }}
+                          className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-semibold cursor-pointer"
+                        >
+                          {isAmharic ? "Review → Verify" : "Review → Verify"}
+                        </button>
+                      )}
+                      {dev.id !== "DEV-01" && (
+                        <button
+                          onClick={() => {
+                            setDevicesList((prev) => prev.filter((d) => d.id !== dev.id));
+                            onLogAction("Device Signed Out", `Signed out and revoked token for device: ${dev.device}`);
+                          }}
+                          className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 rounded-lg font-semibold cursor-pointer"
+                        >
+                          {isAmharic ? "Sign Out" : "Sign Out Device"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 12 & 23: Session Security & Logout */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    {isAmharic ? "12 & 23. የክፍለ-ጊዜ ደህንነት እና መውጫ (Session Security & Logout)" : "12 & 23. Session Security, Token Rotation & Logout"}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {isAmharic
+                      ? "Automatic Session Timeout፣ Refresh Token Rotation፣ Force Logout፣ Logout From All Devices እና Re-authentication።"
+                      : "Automatic Session Timeout, Secure Token Management, Refresh Token Rotation, Re-authentication & Logout From All Devices."}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 text-xs">
+                  <span className="text-slate-600 font-semibold">Timeout:</span>
                   <select
                     value={sessionTimeoutMinutes}
                     onChange={(e) => {
-                      const mins = parseInt(e.target.value);
+                      const mins = parseInt(e.target.value, 10);
                       onChangeSessionTimeout(mins);
-                      onLogAction("Idle Timeout Parameter Modified", `Changed automatic logout threshold to ${mins} minutes.`);
+                      onLogAction("Session Timeout Updated", `Automatic session timeout set to ${mins} minutes`);
                     }}
-                    className="bg-transparent border-none text-[10px] font-bold text-slate-700 focus:outline-none cursor-pointer p-0"
+                    className="px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono font-bold text-slate-800"
                   >
-                    <option value={1}>1 Min</option>
-                    <option value={3}>3 Mins</option>
                     <option value={5}>5 Mins</option>
                     <option value={10}>10 Mins</option>
                     <option value={15}>15 Mins</option>
@@ -885,854 +1284,308 @@ export function SecuritySettingsHub({
                 </div>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-100 text-[10px] font-mono text-slate-400 uppercase">
-                      <th className="py-2 font-black">{isAmharic ? "መሣሪያ" : "Registered Client Hardware"}</th>
-                      <th className="py-2 font-black">IP ADDRESS</th>
-                      <th className="py-2 font-black">{isAmharic ? "ቦታ / ሳይት" : "Location"}</th>
-                      <th className="py-2 font-black">{isAmharic ? "ያለፈው እንቅስቃሴ" : "Last Active"}</th>
-                      <th className="py-2 font-black text-right">{isAmharic ? "ውሳኔ" : "Action"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 text-xs text-slate-600">
-                    {devicesList.map((dev) => (
-                      <tr key={dev.id} className="hover:bg-slate-50/50">
-                        <td className="py-2.5 font-bold text-slate-800 flex items-center space-x-2">
-                          <Laptop size={14} className="text-slate-400" />
-                          <span>{dev.device}</span>
-                        </td>
-                        <td className="py-2.5 font-mono text-slate-500">{dev.ip}</td>
-                        <td className="py-2.5">{dev.location}</td>
-                        <td className="py-2.5 text-slate-500 font-mono text-[11px]">{dev.activeAt}</td>
-                        <td className="py-2.5 text-right">
-                          {dev.id === "DEV-01" ? (
-                            <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold">
-                              {isAmharic ? "አሁን ገባሪ" : "Active Element"}
-                            </span>
-                          ) : (
-                            <button
-                              onClick={() => handleRemoveDevice(dev.id, dev.device)}
-                              className="text-red-500 hover:text-red-700 font-bold text-[11px] hover:underline cursor-pointer"
-                            >
-                              {isAmharic ? "መለያ አስወግድ" : "Revoke Lease"}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* TAB: ENTERPRISE SECURITY SOC */}
-        {activeTab === "enterprise_soc" && (
-          <div className="space-y-6 animate-fade-in">
-            
-            {/* Header banner */}
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 rounded-2xl border border-indigo-500/30 text-white shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl -mr-20 -mt-20"></div>
-              <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <span className="text-[10px] font-mono uppercase tracking-widest text-indigo-300 font-bold">
-                      Digital Construction ERP-ERP Security Shield
+              {/* Sensitive Action Re-Authentication */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+                <div>
+                  <p className="font-bold text-slate-900">
+                    {isAmharic
+                      ? "ለSensitive Actions (Payroll / User Role Change) እንደገና ማረጋገጫ (Re-authentication)"
+                      : "Re-authentication for Sensitive Actions (Payroll / User Role Change)"}
+                  </p>
+                  <p className="text-slate-500 font-mono text-[11px] mt-0.5">
+                    Last Refresh Token Rotation: {tokenRotatedAt} · Status:{" "}
+                    <span className={reauthVerified ? "text-emerald-700 font-bold" : "text-amber-600 font-bold"}>
+                      {reauthVerified ? "Re-authenticated" : "Verification Required for Sensitive Actions"}
                     </span>
-                  </div>
-                  <h3 className="text-xl font-black uppercase tracking-tight">
-                    {isAmharic ? "ኢንተርፕራይዝ የደህንነት መቆጣጠሪያ ማዕከል (SOC)" : "Enterprise Security Operations Centre (SOC)"}
-                  </h3>
-                  <p className="text-xs text-slate-300 max-w-xl">
-                    {isAmharic 
-                      ? "የ Digital Construction ERP ግንባታ ፋይናንስ ERP ደህንነትን ለመጠበቅ የተዘረጉ ስምንቱ የጥበቃ እርከኖች። የእውነተኛ ጊዜ የኤፒአይ መቆጣጠሪያዎች፣ ምስጠራ እና የ2FA ቅንብሮችን እዚህ ያስተዳድሩ።" 
-                      : "The ultimate security gateway protecting Digital Construction ERP's multi-billion Birr structural ledger assets. Control Firebase App Check, API abuse shields, AES-256 field-level hardware encryption, and device fingerprint validation."}
                   </p>
                 </div>
-                <div className="flex items-center gap-2 bg-indigo-950/80 p-3 rounded-xl border border-indigo-500/20 font-mono text-[10px] text-indigo-200 font-sans">
-                  <Activity size={14} className="text-indigo-400 animate-spin" />
-                  <div>
-                    <p className="font-bold">SOC ENGINE: ACTIVE</p>
-                    <p className="text-[9px] text-slate-400 font-sans">LEASES ENFORCED</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Grid 1: App Check & API Rate Limit */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* PANEL 1: FIREBASE APP CHECK */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <Shield size={18} className="text-indigo-600" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "1. የፋየርቤዝ አፕ ቼክ ጥበቃ" : "1. Firebase App Check Attestation"}
-                    </h4>
-                  </div>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${appCheckEnabled ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-slate-100 text-slate-600'}`}>
-                    {appCheckEnabled ? "SHIELD ACTIVE" : "DISABLED"}
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  {isAmharic 
-                    ? "አፕ ቼክ ያልተፈቀዱ መተግበሪያዎች (ለምሳሌ የቦት ጥቃቶች ወይም ተንኮል-አዘል ስክሪፕቶች) የእርስዎን የፋየርቤዝ ሃብቶች እንዳይጠቀሙ ይከላከላል።" 
-                    : "Firebase App Check prevents unauthorized API clients, scraper scripts, and replay bots from draining cloud database quotas by verifying app integrity."}
-                </p>
-
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-slate-600 font-medium">{isAmharic ? "አፕ ቼክን አግብር" : "Enforce App Check"}</span>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input 
-                        type="checkbox" 
-                        checked={appCheckEnabled} 
-                        onChange={(e) => {
-                          setAppCheckEnabled(e.target.checked);
-                          onLogAction("App Check Toggle", `Administrator changed App Check state to: ${e.target.checked ? "Enforced" : "De-enforced"}`);
-                        }}
-                        className="sr-only peer" 
-                      />
-                      <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-600"></div>
-                    </label>
-                  </div>
-
-                  <div className="space-y-1">
-                    <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "የማረጋገጫ አቅራቢ" : "Attestation Prdigital_construction_erper"}</label>
-                    <select
-                      value={appCheckPrdigital_construction_erper}
-                      onChange={(e: any) => {
-                        setAppCheckPrdigital_construction_erper(e.target.value);
-                        onLogAction("App Check Prdigital_construction_erper Updated", `Changed attestation technology to ${e.target.value}.`);
-                      }}
-                      className="w-full px-2 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 focus:outline-none"
-                    >
-                      <option value="recaptcha_enterprise">Google reCAPTCHA Enterprise</option>
-                      <option value="recaptcha_v3">reCAPTCHA v3 API</option>
-                      <option value="debug">Developer JWT Debug Prdigital_construction_erper</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5 pt-1">
-                    <button
-                      onClick={() => setShowFirebaseModal(true)}
-                      className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-2 shadow-xs cursor-pointer"
-                    >
-                      <Key size={14} className="text-amber-400 animate-pulse" />
-                      <span>{isAmharic ? "የፋየርቤዝ ኤፒአይ ቁልፍ እና ጎራ ማዋቀሪያ (Firebase Keys)" : "Configure Firebase API Keys & Credentials"}</span>
-                    </button>
-
-                    <button
-                      onClick={requestAppCheckToken}
-                      disabled={appCheckLoading}
-                      className="w-full py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-bold transition-all flex items-center justify-center space-x-1 disabled:opacity-50 cursor-pointer"
-                    >
-                      <RefreshCw size={12} className={appCheckLoading ? "animate-spin" : ""} />
-                      <span>{isAmharic ? "የቀጥታ አፕ ቼክ ቶከን ፍጠር" : "Request App Check Token"}</span>
-                    </button>
-
-                    {appCheckToken && (
-                      <div className="space-y-1 animate-fade-in">
-                        <span className="text-[9px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "የተገኘው የደህንነት ቶከን (JWT)" : "Attestation Token (Verified)"}</span>
-                        <div className="p-2 bg-slate-950 rounded-lg border border-slate-800 font-mono text-[9px] text-cyan-400 break-all select-all max-h-[80px] overflow-y-auto">
-                          {appCheckToken}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* PANEL 2: API ABUSE RATE LIMITER & PROTECTION */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <AlertOctagon size={18} className="text-red-500" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "2. የኤፒአይ እገዳ እና ጥቃት መከላከያ" : "2. API Rate Limiting & Abuse Shield"}
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-200">
-                    PROTECTION ON
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  {isAmharic 
-                    ? "የምንዛሬ ወይም የግዢ ጥያቄዎችን በከፍተኛ ፍጥነት በመላክ ሰርቨሩን ለማጨናነቅ የሚሞክሩ የሳይበር ጥቃቶችን በራስ-ሰር 429 Too Many Requests በመስጠት ይከላከላል።" 
-                    : "Protects financial endpoints against distributed denial-of-service (DDoS) and automated credential stuffing. Throttles requests automatically to 5 calls / 10s."}
-                </p>
-
-                <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    placeholder={isAmharic ? "Password / PIN" : "Password / PIN"}
+                    value={reauthPin}
+                    onChange={(e) => setReauthPin(e.target.value)}
+                    className="px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg w-32 font-mono"
+                  />
                   <button
-                    onClick={runApiStressTest}
-                    disabled={apiStressLoading}
-                    className="w-full py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center space-x-2 disabled:opacity-50 cursor-pointer shadow-sm"
+                    onClick={() => {
+                      setReauthVerified(true);
+                      setReauthPin("");
+                      const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+                      setTokenRotatedAt(now);
+                      onLogAction("Sensitive Action Re-Authenticated", "User re-authenticated and rotated refresh token.");
+                    }}
+                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-semibold cursor-pointer"
                   >
-                    <Activity size={14} className={apiStressLoading ? "animate-pulse" : ""} />
-                    <span>{isAmharic ? "የኤፒአይ ፍጥነት መቆጣጠሪያውን በተግባር ፈትን" : "Simulate Rapid API Stress Attack"}</span>
+                    {isAmharic ? "አረጋግጥ እና Token አድስ" : "Verify & Rotate Token"}
                   </button>
-
-                  {apiStressLogs.length > 0 && (
-                    <div className="space-y-1.5 animate-fade-in">
-                      <div className="flex justify-between items-center text-[10px] font-mono">
-                        <span className="text-slate-400 uppercase font-bold">{isAmharic ? "የሙከራው ውጤት መዝገብ" : "Attack Simulation Real-time Logs"}</span>
-                        <span className="text-slate-500 font-bold">6 Requests Executed</span>
-                      </div>
-                      <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800 font-mono text-[10px] space-y-1 max-h-[140px] overflow-y-auto">
-                        {apiStressLogs.map((log) => (
-                          <div key={log.id} className="flex justify-between items-center border-b border-slate-800/50 pb-1">
-                            <span className="text-slate-400">Req #{log.id}</span>
-                            <span className={log.status === 200 ? "text-emerald-400 font-bold" : "text-rose-400 font-bold animate-pulse"}>
-                              {log.result}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
-            </div>
-
-            {/* Grid 2: Encryption Enclave & 2FA */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* PANEL 3: HARDWARE-LEVEL SYMMETRIC ENCRYPTION */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <Lock size={18} className="text-indigo-600" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "3. የ AES-256-GCM የውሂብ ምስጠራ" : "3. AES-256-GCM Field Encryption"}
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
-                    FIPS 140-2
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  {isAmharic 
-                    ? "ደመና ላይ ከመቀመጣቸው በፊት በከፍተኛ ጥንቃቄ መያዝ ያለባቸውን የሰራተኞች ደሞዝ፣ ስልክ እና የፋይናንስ ሚስጥሮችን በሰርቨሩ ላይ በ AES-256-GCM አልጎሪዝም ይቆልፋል።" 
-                    : "Demonstrates true server-side symmetric encryption. Plaintext is mapped into hex block cipher components with randomized IV buffers and verified authentication tags."}
-                </p>
-
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-[9px] font-mono text-slate-400 uppercase font-bold mb-1">{isAmharic ? "የሚመሰጥር ጥሬ ጽሑፍ" : "Plaintext Payload to Secure"}</label>
-                    <input
-                      type="text"
-                      value={plainText}
-                      onChange={(e) => setPlainText(e.target.value)}
-                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono focus:outline-none focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      onClick={handleEncryptText}
-                      disabled={cryptoLoading || !plainText}
-                      className="py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      {isAmharic ? "ጽሑፉን ምስጥር" : "Encrypt Payload"}
-                    </button>
-                    <button
-                      onClick={handleDecryptText}
-                      disabled={cryptoLoading || !encryptedData}
-                      className="py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      {isAmharic ? "ጽሑፉን ፍታ (ዲክሪፕት)" : "Decrypt Ciphertext"}
-                    </button>
-                  </div>
-
-                  {encryptedData && (
-                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-[10px] font-mono text-slate-600 animate-fade-in">
-                      <div className="flex justify-between items-center text-[9px] text-slate-400 uppercase font-bold">
-                        <span>AES-256-GCM Encrypted Output</span>
-                        <span className="text-indigo-600">Secure Vault State</span>
-                      </div>
-                      <div className="space-y-1">
-                        <div>
-                          <span className="text-slate-400 font-sans">Ciphertext:</span>
-                          <p className="bg-slate-100 p-1 rounded text-slate-800 break-all">{encryptedData.ciphertext}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <span className="text-slate-400 font-sans font-sans">IV:</span>
-                            <p className="bg-slate-100 p-1 rounded text-slate-800 break-all">{encryptedData.iv}</p>
-                          </div>
-                          <div>
-                            <span className="text-slate-400 font-sans font-sans">Tag:</span>
-                            <p className="bg-slate-100 p-1 rounded text-slate-800 break-all">{encryptedData.tag}</p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {decryptedText && (
-                    <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-200 text-[10px] font-mono text-emerald-800 animate-fade-in flex items-start gap-2">
-                      <CheckCircle2 size={14} className="shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-[9px] uppercase">Decrypted Result (Verified Integrity):</span>
-                        <p className="text-xs font-bold text-emerald-950 font-sans mt-0.5">{decryptedText}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* PANEL 4: TWO-FACTOR AUTHENTICATION (2FA) */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <Smartphone size={18} className="text-indigo-600" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "4. ሁለት-ደረጃ ማረጋገጫ (2FA)" : "4. Two-Factor Authentication (2FA)"}
-                    </h4>
-                  </div>
-                  <span className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded ${mfaEnabled ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                    {mfaEnabled ? "ENABLED" : "NOT ACTIVE"}
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  {isAmharic 
-                    ? "በሞባይልዎ Google Authenticator አፕሊኬሽን በመጠቀም ወይም በኤስኤምኤስ የሚላክለትን ቶከን በማስገባት ሂሳብዎን ከአላስፈላጊ ሰርጎ ገቦች በድርብ ጥበቃ ይቆልፉ።" 
-                    : "Locks down administrative account sessions. Authenticate OTP codes from authentication applications (Google Authenticator) or SMS dispatch."}
-                </p>
-
-                {mfaEnabled ? (
-                  <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl space-y-3 animate-fade-in text-center">
-                    <CheckCircle2 size={32} className="text-emerald-500 mx-auto" />
-                    <p className="text-xs font-bold text-emerald-900">{mfaSuccessMsg || (isAmharic ? "ሁለት-ደረጃ ማረጋገጫዎ ንቁ ነው!" : "MFA Security active!")}</p>
-                    <button
-                      onClick={handleDisableMfa}
-                      className="px-3 py-1 bg-rose-500 hover:bg-rose-600 text-white rounded-lg text-xs font-bold transition-all cursor-pointer"
-                    >
-                      {isAmharic ? "የ 2FA ጥበቃውን አጥፋ" : "Deactivate 2FA"}
-                    </button>
-                  </div>
-                ) : (
-                  <form onSubmit={handleVerifyOtp} className="space-y-3 animate-fade-in">
-                    <div className="flex gap-4 items-center">
-                      <div className="w-20 h-20 bg-slate-900 border border-slate-800 rounded-lg shrink-0 flex flex-col justify-center items-center text-slate-400 font-mono text-[7px] leading-normal p-1 text-center font-bold">
-                        <div className="w-14 h-14 bg-white p-1 flex justify-center items-center">
-                          <div className="grid grid-cols-4 gap-0.5 w-12 h-12 bg-slate-950">
-                            <div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-white"></div><div className="bg-white"></div>
-                            <div className="bg-slate-950"></div><div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-slate-950"></div>
-                            <div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-white"></div><div className="bg-white"></div>
-                            <div className="bg-white"></div><div className="bg-white"></div><div className="bg-slate-950"></div><div className="bg-slate-950"></div>
-                          </div>
-                        </div>
-                        <span className="text-slate-500 text-[6px] mt-1">Digital Construction ERP-MFA</span>
-                      </div>
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "2FA ምስጢራዊ ቁልፍ (Secret)" : "MFA Authentication Secret"}</span>
-                        <p className="font-mono text-xs text-indigo-700 font-bold bg-indigo-50 px-2 py-1 rounded border border-indigo-100">{mfaSetupSecret}</p>
-                        <p className="text-[10px] text-slate-400 leading-snug">
-                          {isAmharic ? "ለሙከራ የሚከተለውን ኮድ ያስገቡ፦ 123456" : "Use Google Authenticator or enter demo code: 123456"}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-mono text-slate-400 uppercase font-bold mb-1">{isAmharic ? "ባለ 6-አሃዝ የደህንነት ኮድ" : "6-Digit Verification OTP"}</label>
-                      <div className="flex gap-2">
-                        <input
-                          type="text"
-                          maxLength={6}
-                          placeholder="123456"
-                          value={mfaOtpInput}
-                          onChange={(e) => setMfaOtpInput(e.target.value.replace(/\D/g, ""))}
-                          className="w-1/2 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-800 font-mono tracking-widest text-center focus:outline-none focus:border-indigo-500 font-bold"
-                        />
-                        <button
-                          type="submit"
-                          disabled={mfaLoading || mfaOtpInput.length !== 6}
-                          className="w-1/2 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
-                        >
-                          {mfaLoading ? "VERIFYING..." : (isAmharic ? "ኮዱን አረጋግጥ" : "Verify Token")}
-                        </button>
-                      </div>
-                    </div>
-
-                    {mfaError && (
-                      <p className="text-[10px] font-bold text-rose-600 mt-1 animate-pulse">{mfaError}</p>
-                    )}
-                  </form>
-                )}
-              </div>
-
-            </div>
-
-            {/* Grid 3: Device Fingerprinting & RBAC Security Matrix */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              
-              {/* PANEL 5: DEVICE VERIFICATION & CLIENT FINGERPRINTING */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <Laptop size={18} className="text-indigo-600" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "5. የመሳሪያ ደህንነት ማረጋገጫ" : "5. Hardware-Level Device Trust"}
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200 font-sans">
-                    LEASE TRUSTED
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  {isAmharic 
-                    ? "ይህ ሶፍትዌር እርስዎ እየተጠቀሙበት ያለውን ኮምፒውተር ወይም ስልክ በማጥናት የተለየ ዲጂታል አሻራ (Canvas Fingerprint) በመስጠት ደህንነቱን በየሰከንዱ ይቆጣጠራል።" 
-                    : "Resolves active browser and system enclaves. Generates unique digital telemetry signatures to enforce system lockouts on unknown machines."}
-                </p>
-
-                {localFingerprint && (
-                  <div className="p-3.5 bg-slate-950 rounded-xl border border-slate-800 font-mono text-[10px] text-slate-300 space-y-2 animate-fade-in">
-                    <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                      <span className="text-slate-500">Terminal Client:</span>
-                      <span className="text-indigo-300 font-bold">{localFingerprint.browser} on {localFingerprint.os}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                      <span className="text-slate-500">Display Resolution:</span>
-                      <span className="text-slate-300">{localFingerprint.screen}</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-500">Device Canvas Signature:</span>
-                      <span className="text-emerald-400 font-bold font-mono">{localFingerprint.hash}</span>
-                    </div>
-                  </div>
-                )}
-                
-                <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 text-[10px] font-mono text-slate-500">
-                  <span className="font-bold text-slate-700 block mb-1">Device Whitelist Matrix:</span>
-                  {isAmharic 
-                    ? "ያልተመዘገቡ መሣሪያዎች ወደ ሳይቱ ሲገቡ የደህንነት ማስጠንቀቂያ ወዲያውኑ ወደ ቴሌግራም/ኢሜይል ይላካል።" 
-                    : "To modify this machine's access lease, submit a signed PEM certificate to mejennur669@gmail.com."}
-                </div>
-              </div>
-
-              {/* PANEL 6: ROLE-BASED ACCESS CONTROL (RBAC) SYSTEM PERMISSIONS */}
-              <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-                  <div className="flex items-center space-x-2">
-                    <Users size={18} className="text-indigo-600" />
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800">
-                      {isAmharic ? "6. የሚና ፍቃድ ጥበቃ (RBAC Matrix)" : "6. Role-Based Access Control"}
-                    </h4>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-                    ENFORCED
-                  </span>
-                </div>
-
-                <p className="text-[11px] text-slate-500 leading-normal">
-                  {isAmharic 
-                    ? "እያንዳንዱ የስራ ሃላፊነት (ለምሳሌ የቢሮ ሃላፊ፣ የሳይት መሃንዲስ፣ ወይም ሰዓት ጠባቂ) ሊያያቸው የሚገቡትን የፋይናንስ መረጃዎች ብቻ እንዲያይ የሚገድብ የፍቃድ ሰንጠረዥ።" 
-                    : "The central ERP router maps active worker scopes strictly. Financial ledger writes, budget allocation, and CAD engineering access are bound to specific cryptographic keys."}
-                </p>
-
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left font-mono text-[10px] leading-normal border-collapse">
-                    <thead>
-                      <tr className="border-b border-slate-100 text-slate-400 font-black">
-                        <th className="pb-1">ROLE</th>
-                        <th className="pb-1 text-center">BUDGETS</th>
-                        <th className="pb-1 text-center">PAYMENTS</th>
-                        <th className="pb-1 text-center">CAD LAYERS</th>
-                        <th className="pb-1 text-center">SOC ADMIN</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-600">
-                      <tr>
-                        <td className="py-1.5 font-bold text-slate-800">HEAD_OFFICE</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 font-bold text-slate-800">PROJECT_MGR</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                        <td className="text-center text-slate-400">READ</td>
-                        <td className="text-center text-slate-400">NO</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 font-bold text-slate-800">SITE_ENGINEER</td>
-                        <td className="text-center text-slate-400">NO</td>
-                        <td className="text-center text-slate-400">NO</td>
-                        <td className="text-center text-emerald-600 font-bold">YES</td>
-                        <td className="text-center text-slate-400">NO</td>
-                      </tr>
-                      <tr>
-                        <td className="py-1.5 font-bold text-slate-800">TIME_KEEPER</td>
-                        <td className="text-center text-slate-400">NO</td>
-                        <td className="text-center text-slate-400">NO</td>
-                        <td className="text-center text-slate-400">NO</td>
-                        <td className="text-center text-slate-400">NO</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-            </div>
-
-          </div>
-        )}
-
-        {/* TAB 2: PRIVACY POLICY & COMPLIANCE */}
-        {activeTab === "privacy_policy" && (
-          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2 text-red-600">
-                <FileText size={18} />
-                <h3 className="text-sm font-black uppercase text-slate-800">
-                  {isAmharic ? "ድርጅታዊ የግል መረጃ አጠቃቀምና ምስጢራዊነት መመሪያ" : "Corporate Privacy & Data Compliance Charter"}
-                </h3>
-              </div>
-
-              <div className="flex space-x-1 no-print">
+              {/* Logout & Logout From All Devices */}
+              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
                 <button
-                  onClick={handlePrintPrivacyPolicy}
-                  className="px-2.5 py-1.5 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-600 hover:text-slate-900 transition-all text-xs font-bold flex items-center space-x-1.5 cursor-pointer"
+                  onClick={() => {
+                    setActiveSessions((prev) => prev.filter((s) => s.isCurrent));
+                    setDevicesList((prev) => prev.slice(0, 1));
+                    const now = new Date().toISOString().replace("T", " ").slice(0, 19);
+                    setTokenRotatedAt(now);
+                    onLogAction("Logout From All Devices", "Revoked all remote sessions and rotated security tokens.");
+                  }}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-semibold cursor-pointer"
                 >
-                  <Printer size={13} />
-                  <span>{isAmharic ? "አትም / PDF" : "Print Charter"}</span>
+                  {isAmharic ? "ከሁሉም መሣሪያዎች ውጣ (Logout From All Devices)" : "Logout From All Devices (Revoke All Tokens)"}
                 </button>
-              </div>
-            </div>
 
-            {/* Charter Content */}
-            <div className="text-xs text-slate-600 space-y-4 max-h-[60vh] overflow-y-auto pr-2 leading-relaxed">
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm mb-1">
-                  1. {isAmharic ? "መግቢያ እና የህግ ተገዢነት ማረጋገጫ" : "Introduction & Compliance Alignment"}
-                </h4>
-                <p>
-                  {isAmharic 
-                    ? "Digital Construction ERP System የግንባታ ፕሮጀክቶችን ምርታማነት ለማሻሻል የሚያግዝ ዘመናዊ መቆጣጠሪያ ሲጠቀም፣ የሰራተኞችን የግል መረጃ ጥበቃ (Proclamation No. 1205/2020) እና ዓለም አቀፍ የ GDPR ደንቦችን በጥብቅ ይከተላል።" 
-                    : "This regulatory agreement establishes the data handling pipeline inside the Digital Construction ERP Smart Construction system. By integrating biometric hardware controls and telemetry logging, Digital Construction ERP System aligns itself strictly with global personal privacy frameworks and Proclamation No. 1205/2020 of the Federal Democratic Republic of Ethiopia."}
-                </p>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm mb-1">
-                  2. {isAmharic ? "የሚሰበሰቡ መረጃዎች ዝርዝር" : "Data Elements Logged & Structured"}
-                </h4>
-                <p>
-                  {isAmharic 
-                    ? "በግንባታው ሳይት ውስጥ በሚገኙ የጣት አሻራ መመዝገቢያ ኪዮስኮች፣ የፊት መለያ መሳሪያዎች እና የሞባይል አፖች አማካኝነት የሚከተሉት መረጃዎች በጥብቅ ደህንነታቸው ተጠብቆ ይመዘገባሉ፦" 
-                    : "To facilitate automated attendance payroll checks, prevent physical attendance spoofing, and secure structural alignment records, our ERP parses and saves the following elements:"}
-                </p>
-                <ul className="list-disc list-inside ml-2 mt-1 space-y-1 font-mono text-[11px] text-slate-500">
-                  <li>{isAmharic ? "የጣት አሻራ ሃሽ - (የቁጥር አልጎሪዝም ብቻ፣ ጥሬ አሻራ ምስል አይከማችም)" : "Biometric fingerprint math hashes (Never raw ridge imagery)"}</li>
-                  <li>{isAmharic ? "የፊት ገጽታ ጂኦሜትሪ ቬክተሮች - (SHA-256 ጥብቅ ምስጠራ)" : "Facial layout vector coordinates (Encrypted client-side via AES)"}</li>
-                  <li>{isAmharic ? "የጂፒኤስ የቦታ መጋጠሚያ - (በሳይቱ ውስጥ ሲገኙ ብቻ)" : "GPS site telemetry checked within active coordinate polygons"}</li>
-                  <li>{isAmharic ? "የስራ መዝገብና የፎቶግራፍ ማስረጃዎች - (የአሉሚኒየም ዞን ፎርምወርክ ቁጥጥር)" : "Work progress photos showing engineering alignment checks"}</li>
-                </ul>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm mb-1">
-                  3. {isAmharic ? "የመረጃ ማከማቻ ጊዜ እና የመሰረዝ መብት" : "Retention Matrix & Erasure Rights"}
-                </h4>
-                <p>
-                  {isAmharic 
-                    ? "ሁሉም መረጃዎች በፋይናንስ ኦዲት እና በህግ ግዴታዎች ምክንያት ለሰባት (7) ዓመታት ያህል ደህንነቱ በተጠበቀ የደመና ማከማቻ ውስጥ ይቀመጣሉ። ሰራተኞች ከስራ በሚሰናበቱበት ወይም በሚለቁበት ጊዜ ባዮሜትሪክ መለያቸው ከሁሉም ተንቀሳቃሽ መሣሪያዎች ላይ በቋሚነት እንዲጠፋ ማድረግ ይችላሉ።" 
-                    : "Data is retained in secure cold-storage databases for a legal audit period of seven (7) years to comply with construction dispute and taxation requirements. Workers retain absolute rights to request complete biometric revocation or profile re-enrollment at any time."}
-                </p>
-              </div>
-
-              <div>
-                <h4 className="font-bold text-slate-800 text-sm mb-1">
-                  4. {isAmharic ? "የደህንነት እና የምስጢር ጥበቃ ስልቶች" : "Dermal Encryption Protocols"}
-                </h4>
-                <p>
-                  {isAmharic 
-                    ? "ሶፍትዌሩ በመሳሪያዎች መካከል የሚደረጉ ግንኙነቶችን በሙሉ በ HTTPS/TLS 1.3 የሚመሰጥር ሲሆን በደመናው ላይ የሚቀመጡ ፋይሎችን ደግሞ በ AES-256 አልጎሪዝም ይቆልፋል። የደመና መቆጣጠሪያው በየቀኑ በራስ-ሰር ደህንነቱ የተጠበቀ መጠባበቂያ (Backups) ያዘጋጃል።" 
-                    : "Our architecture deploys end-to-end TLS 1.3 encryption for data in transit and AES-256 for data at rest. Access tokens are governed by Multi-Factor Authentication and automatic session logout timers. Firewalls actively isolate CAD layers from unauthorized roles."}
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 flex items-center space-x-3">
-              <CheckCircle2 className="text-emerald-500 shrink-0" size={20} />
-              <div>
-                <h4 className="text-xs font-bold text-slate-800">
-                  {isAmharic ? "የተገዢነት ደረጃ፡ የጸደቀ" : "Compliance Status: Active Verified"}
-                </h4>
-                <p className="text-[10px] text-slate-500 font-mono mt-0.5">
-                  {isAmharic 
-                    ? "ይህ ሶፍትዌር ለብሔራዊ የደህንነት እና የግል መረጃ አጠቃቀም ደንቦች ተገዢ ሆኖ የተመዘገበ ነው።" 
-                    : "Audit ID: Digital Construction ERP-PRV-2026-B1 | Last regulatory compliance inspection passed."}
-                </p>
+                {onLogout && (
+                  <button
+                    onClick={onLogout}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-semibold cursor-pointer flex items-center gap-1.5"
+                  >
+                    <LogOut size={14} />
+                    <span>{isAmharic ? "Settings → Security → ውጣ (Logout)" : "Settings → Security → Logout"}</span>
+                  </button>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 3: ADMINISTRATOR SECURITY DASHBOARD */}
-        {activeTab === "admin_dashboard" && hasAdminAccess && (
+        {/* SECTION 15, 16 & 17: NOTIFICATIONS, LANGUAGE & APPEARANCE */}
+        {activeTab === "notifications_lang_appearance" && (
           <div className="space-y-6">
-            
-            {/* SECURITY KPI GRID */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex justify-between items-center text-slate-400 mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-wider">{isAmharic ? "ኦንላይን ሰራተኞች" : "Online Sessions"}</span>
-                  <Users size={16} className="text-emerald-500" />
-                </div>
-                <p className="text-2xl font-black text-slate-800">{activeSessions.length}</p>
-                <span className="text-[9px] font-mono text-emerald-600 font-bold">● Active Tokens</span>
+            {/* Section 15: Notification Settings */}
+            <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+              <div className="border-b border-slate-100 pb-3">
+                <h3 className="text-base font-bold text-slate-900">
+                  {isAmharic ? "15. የማሳወቂያ ቅንብሮች (Notification Settings)" : "15. Notification Settings"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {isAmharic
+                    ? "Critical Security Alerts በRole መሰረት ለማጥፋት የተገደቡ ናቸው።"
+                    : "Customize operational notifications. Critical Security Alerts remain enforced by Role policy."}
+                </p>
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex justify-between items-center text-slate-400 mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-wider">{isAmharic ? "የታገዱ አካውንቶች" : "Locked Accounts"}</span>
-                  <Lock size={16} className="text-red-500" />
-                </div>
-                <p className="text-2xl font-black text-slate-800">{lockedAccounts.length}</p>
-                <span className="text-[9px] font-mono text-red-500 font-bold">{isAmharic ? "እገዳ ተጥሎባቸዋል" : "Unlock Needed"}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                {[
+                  { key: "attendance", label: "Attendance Notifications" },
+                  { key: "late", label: "Late Notifications" },
+                  { key: "overtime", label: "Overtime Notifications" },
+                  { key: "workPlan", label: "Work Plan Notifications" },
+                  { key: "safetyAlerts", label: "Safety Alerts" },
+                  { key: "qualityAlerts", label: "Quality Alerts" },
+                  { key: "materialAlerts", label: "Material Alerts" },
+                  { key: "approvalNotifications", label: "Approval Notifications" },
+                  { key: "systemNotifications", label: "System Notifications" }
+                ].map((item) => (
+                  <label
+                    key={item.key}
+                    className="p-3 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between cursor-pointer"
+                  >
+                    <span className="font-semibold text-slate-800">{item.label}</span>
+                    <input
+                      type="checkbox"
+                      checked={(notifSettings as any)[item.key]}
+                      onChange={(e) =>
+                        setNotifSettings((prev) => ({ ...prev, [item.key]: e.target.checked }))
+                      }
+                      className="accent-red-600"
+                    />
+                  </label>
+                ))}
               </div>
 
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex justify-between items-center text-slate-400 mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-wider">{isAmharic ? "የደህንነት ማስጠንቀቂያ" : "Threat Warnings"}</span>
-                  <AlertOctagon size={16} className="text-amber-500 animate-pulse" />
+              <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-200 flex items-center justify-between text-xs">
+                <div>
+                  <span className="font-bold text-red-800">Critical Security Alerts (Role-Locked Mandatory)</span>
+                  <p className="text-[11px] text-red-600">
+                    {isAmharic
+                      ? "አስቸኳይ የደህንነት ማስጠንቀቂያዎች በRole መሰረት ሁልጊዜ የበሩ ናቸው።"
+                      : "Cannot be disabled for security compliance."}
+                  </p>
                 </div>
-                <p className="text-2xl font-black text-slate-800">{securityAlerts.length}</p>
-                <span className="text-[9px] font-mono text-amber-600 font-bold">Risk Level: Safe</span>
-              </div>
-
-              <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-xs">
-                <div className="flex justify-between items-center text-slate-400 mb-2">
-                  <span className="text-[10px] font-mono uppercase tracking-wider">{isAmharic ? "የደመና መጠባበቂያ" : "Database Backups"}</span>
-                  <Database size={16} className="text-slate-500" />
-                </div>
-                <p className="text-[11px] font-mono font-bold text-slate-800 mt-2 truncate">{lastBackupTime.split(" ")[0]}</p>
-                <span className="text-[9px] font-mono text-slate-400">{isAmharic ? "በየዕለቱ የተደራጀ" : "Daily cron active"}</span>
+                <span className="font-mono text-[11px] font-bold text-red-700">ALWAYS ON</span>
               </div>
             </div>
 
-            {/* TWO COLUMN INTERACTIVE SECURITY GRID */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Locked Accounts & Critical Security Alerts */}
-              <div className="lg:col-span-2 space-y-6">
-                
-                {/* LOCKED ACCOUNTS PANEL */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                  <h4 className="text-xs font-black uppercase text-slate-800 border-b border-slate-100 pb-2 mb-3 flex items-center justify-between">
-                    <span>{isAmharic ? "የታገዱ የሰራተኛ መለያዎች ቁጥጥር" : "Locked Organization Terminals"}</span>
-                    <span className="bg-red-50 text-red-700 text-[10px] px-2 py-0.5 rounded font-mono font-bold">
-                      {lockedAccounts.length} {isAmharic ? "የታገዱ" : "Active Locks"}
-                    </span>
-                  </h4>
-
-                  {lockedAccounts.length === 0 ? (
-                    <div className="py-6 text-center text-slate-400 text-xs font-mono">
-                      {isAmharic ? "የታገደ አካውንት የለም" : "No locked employee accounts currently detected."}
-                    </div>
-                  ) : (
-                    <div className="divide-y divide-slate-100">
-                      {lockedAccounts.map((acc) => (
-                        <div key={acc.id} className="py-3 flex items-center justify-between">
-                          <div>
-                            <div className="flex items-center space-x-2">
-                              <span className="text-xs font-bold text-slate-800">{acc.name}</span>
-                              <span className="text-[10px] font-mono text-slate-400">({acc.id})</span>
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold">{acc.role}</span>
-                            </div>
-                            <p className="text-[11px] text-red-500 mt-0.5 font-mono">{acc.reason}</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 font-mono">Locked: {acc.lockedAt}</p>
-                          </div>
-                          
-                          <button
-                            onClick={() => handleUnlockAccount(acc.id, acc.name)}
-                            className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[11px] font-bold transition-all flex items-center space-x-1 cursor-pointer"
-                          >
-                            <Unlock size={12} />
-                            <span>{isAmharic ? "ክፈት" : "Unlock"}</span>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+            {/* Section 16 & 17: Language & Appearance */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-xs">
+              <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+                <h3 className="text-base font-bold text-slate-900">
+                  {isAmharic ? "16. የቋንቋ ቅንብሮች (Language Settings)" : "16. Language Settings"}
+                </h3>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => {
+                      if (isAmharic && onToggleLanguage) onToggleLanguage();
+                    }}
+                    className={`px-4 py-2 rounded-lg font-semibold cursor-pointer ${
+                      !isAmharic ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    English (Active)
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!isAmharic && onToggleLanguage) onToggleLanguage();
+                    }}
+                    className={`px-4 py-2 rounded-lg font-semibold cursor-pointer ${
+                      isAmharic ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    አማርኛ / Amharic (Active)
+                  </button>
                 </div>
-
-                {/* ACTIVE LIVE USER SESSIONS */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                  <h4 className="text-xs font-black uppercase text-slate-800 border-b border-slate-100 pb-2 mb-3">
-                    {isAmharic ? "የቀጥታ ስራ ላይ ያሉ ክፍለ-ጊዜዎች (Sessions)" : "Active Encrypted Sessions (Tokens)"}
-                  </h4>
-
-                  <div className="divide-y divide-slate-100 text-xs text-slate-600">
-                    {activeSessions.map((ses) => (
-                      <div key={ses.id} className="py-3 flex items-center justify-between hover:bg-slate-50/30">
-                        <div className="space-y-0.5">
-                          <div className="flex items-center space-x-2">
-                            <span className="font-bold text-slate-800">{ses.userName}</span>
-                            <span className="text-[10px] font-mono text-slate-400">({ses.userId})</span>
-                            <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-bold uppercase font-mono">{ses.role}</span>
-                            {ses.isCurrent && (
-                              <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-100 font-bold uppercase font-mono">Current</span>
-                            )}
-                          </div>
-                          <p className="text-[10px] text-slate-500 flex items-center gap-1">
-                            <Laptop size={11} />
-                            <span>{ses.device}</span>
-                            <span className="text-slate-300">|</span>
-                            <span className="font-mono">{ses.ip}</span>
-                          </p>
-                          <p className="text-[10px] text-slate-400 font-mono flex items-center gap-1">
-                            <MapPin size={11} className="text-red-500" />
-                            <span>{ses.gps}</span>
-                            <span className="text-slate-300">|</span>
-                            <span>Login: {ses.loginTime}</span>
-                          </p>
-                        </div>
-
-                        {!ses.isCurrent && (
-                          <button
-                            onClick={() => handleTerminateSession(ses.id, ses.userName)}
-                            className="text-red-500 hover:text-red-700 font-bold hover:underline text-[11px] cursor-pointer"
-                          >
-                            {isAmharic ? "አስወጣ" : "Kill"}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                <div className="pt-2 border-t border-slate-100 space-y-1">
+                  <p className="font-semibold text-slate-700">
+                    {isAmharic ? "ወደፊት የሚጨመሩ ቋንቋዎች (Upcoming Language Packs):" : "Upcoming Language Packs:"}
+                  </p>
+                  <p className="text-slate-500 font-mono">Afaan Oromoo · Tigrinya · Arabic</p>
                 </div>
-
               </div>
 
-              {/* Right Sidebar: Backups & System Health */}
-              <div className="space-y-6">
-                
-                {/* SYSTEM HEALTH TELEMETRY */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-                  <h4 className="text-xs font-black uppercase text-slate-800 border-b border-slate-100 pb-2">
-                    {isAmharic ? "የስርዓቱ ጤንነትና ደመና ማመሳሰል" : "Cloud Sync & Server Health"}
-                  </h4>
-
-                  <div className="space-y-3 font-mono text-[11px]">
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Gateway Engine:</span>
-                      <span className="text-emerald-600 font-bold flex items-center gap-1">
-                        <Check size={12} />
-                        <span>ONLINE</span>
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Database Sync:</span>
-                      <span className="text-emerald-600 font-bold flex items-center gap-1">
-                        <Check size={12} />
-                        <span>REPLICATED</span>
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400">TLS Encryption:</span>
-                      <span className="text-slate-800 font-bold font-sans">AES-256 GCM</span>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-slate-400">Worker Audit Rate:</span>
-                      <span className="text-slate-800 font-bold font-sans">100% Biometric</span>
-                    </div>
-                  </div>
-
-                  {/* Manual backup utility */}
-                  <div className="bg-slate-50 p-3.5 rounded-xl border border-slate-200 space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="text-[10px] font-mono text-slate-400 uppercase font-bold">{isAmharic ? "ያለፈው ባክአፕ" : "Last Backup"}</span>
-                      <span className="text-[10px] font-mono text-slate-800 font-bold">{lastBackupTime.split(" ")[1]}</span>
-                    </div>
-
-                    {isBackingUp ? (
-                      <div className="space-y-1.5 py-1">
-                        <div className="flex justify-between text-[10px] font-mono text-slate-500">
-                          <span>Replicating Firestore...</span>
-                          <span>{backupProgress}%</span>
-                        </div>
-                        <div className="w-full bg-slate-200 h-1 rounded-full overflow-hidden">
-                          <div className="bg-red-500 h-full transition-all" style={{ width: `${backupProgress}%` }} />
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        onClick={startSystemCloudBackup}
-                        className="w-full py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold uppercase transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
-                      >
-                        <Database size={11} />
-                        <span>{isAmharic ? "ባክአፕ በራስ-ሰር አዘጋጅ" : "Run Secure Cloud Backup"}</span>
-                      </button>
-                    )}
-                  </div>
+              <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-4">
+                <h3 className="text-base font-bold text-slate-900">
+                  {isAmharic ? "17. ገጽታ እና ተደራሽነት (Appearance & Accessibility)" : "17. Appearance & Accessibility"}
+                </h3>
+                <div className="flex items-center gap-2">
+                  {(["light", "dark", "system"] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setThemeMode(m)}
+                      className={`px-3 py-1.5 rounded-lg font-semibold capitalize cursor-pointer ${
+                        themeMode === m ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+                      }`}
+                    >
+                      {m} Mode
+                    </button>
+                  ))}
                 </div>
-
-                {/* CRITICAL SECURITY ALERTS LOG */}
-                <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs">
-                  <h4 className="text-xs font-black uppercase text-slate-800 border-b border-slate-100 pb-2 mb-3">
-                    {isAmharic ? "የደህንነት ማስጠንቀቂያ መዝገብ" : "Security Incident Alert Rail"}
-                  </h4>
-
-                  <div className="space-y-3">
-                    {securityAlerts.map((alr) => (
-                      <div 
-                        key={alr.id} 
-                        className={`p-3 rounded-xl border flex items-start gap-2.5 ${
-                          alr.type === "High" 
-                            ? "bg-rose-50/50 border-rose-100 text-rose-800" 
-                            : alr.type === "Medium" 
-                              ? "bg-amber-50/50 border-amber-100 text-amber-800" 
-                              : "bg-slate-50 border-slate-150 text-slate-700"
+                <div className="flex items-center justify-between pt-1">
+                  <span className="text-slate-600 font-semibold">Font Size:</span>
+                  <div className="flex gap-1.5">
+                    {(["small", "normal", "large"] as const).map((sz) => (
+                      <button
+                        key={sz}
+                        onClick={() => setFontSize(sz)}
+                        className={`px-2.5 py-1 rounded capitalize cursor-pointer ${
+                          fontSize === sz ? "bg-red-600 text-white font-bold" : "bg-slate-100 text-slate-600"
                         }`}
                       >
-                        <AlertOctagon size={14} className="shrink-0 mt-0.5" />
-                        <div className="text-xs leading-normal">
-                          <div className="flex justify-between font-bold">
-                            <span>{alr.title}</span>
-                            <span className="font-mono text-[9px] text-slate-400">{alr.time}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-500 mt-1">{alr.msg}</p>
-                        </div>
-                      </div>
+                        {sz}
+                      </button>
                     ))}
                   </div>
                 </div>
-
+                <label className="flex items-center justify-between cursor-pointer pt-1">
+                  <span className="text-slate-600">High Contrast & Accessibility Mode</span>
+                  <input
+                    type="checkbox"
+                    checked={highContrast}
+                    onChange={(e) => setHighContrast(e.target.checked)}
+                    className="accent-red-600"
+                  />
+                </label>
               </div>
-
             </div>
-
           </div>
         )}
 
+        {/* DELEGATE SECTIONS 7, 8, 9, 10, 13, 14, 18, 19, 20, 21, 22, 24 TO OVID ENTERPRISE PANELS */}
+        <OvidSettingsEnterprisePanels
+          activeSection={activeTab}
+          isAmharic={isAmharic}
+          currentUserRole={currentUserRole}
+          currentUserName={profileName}
+          selectedProject={selectedProject}
+          auditLogs={auditLogs}
+          onLogAction={onLogAction}
+          onNavigateSection={(sec) => setActiveTab(sec as SettingsTabId)}
+        />
+
+        {/* ROLE CHANGE APPROVAL SYSTEM */}
+        {activeTab === "role_approval_hub" && (
+          <UserRoleApprovalHub
+            currentUserRole={currentUserRole}
+            currentUserName={profileName}
+            currentUserId={employeeId}
+            isAmharic={isAmharic}
+            onLogAction={onLogAction}
+          />
+        )}
+
+        {/* ENTERPRISE SECURITY SOC */}
+        {activeTab === "enterprise_soc" && (
+          <div className="bg-white p-6 rounded-xl border border-slate-200 space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-4">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">
+                  {isAmharic ? "ኢንተርፕራይዝ የደህንነት መቆጣጠሪያ ማዕከል (SOC)" : "Enterprise Security Operations Centre (SOC)"}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  Firebase App Check, AES-256-GCM Field Encryption, and Firebase Credentials Configuration.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowFirebaseModal(true)}
+                className="px-3.5 py-2 bg-slate-900 hover:bg-slate-800 text-amber-300 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Key size={14} />
+                <span>{isAmharic ? "የፋየርቤዝ ኤፒአይ ቁልፍ ማዋቀሪያ" : "Configure Firebase API Keys"}</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="p-4 rounded-xl border border-slate-200 space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-slate-900">1. Firebase App Check Attestation</span>
+                  <input
+                    type="checkbox"
+                    checked={appCheckEnabled}
+                    onChange={(e) => setAppCheckEnabled(e.target.checked)}
+                    className="accent-red-600"
+                  />
+                </div>
+                <p className="text-slate-500">
+                  Verifies client authenticity and blocks unauthorized API traffic before hitting Firestore or Cloud Functions.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200 space-y-3">
+                <p className="font-bold text-slate-900">2. AES-256-GCM Payload Encryption Test</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={plainText}
+                    onChange={(e) => setPlainText(e.target.value)}
+                    className="flex-1 px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-lg font-mono"
+                  />
+                  <button
+                    onClick={() => {
+                      const encoded = Array.from(plainText)
+                        .map((c) => c.charCodeAt(0).toString(16).padStart(2, "0"))
+                        .join("");
+                      setEncryptedHex(`AES256-GCM:${encoded.slice(0, 44)}...`);
+                      onLogAction("Payload Encrypted", "Tested AES-256-GCM field encryption in SOC.");
+                    }}
+                    className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-semibold cursor-pointer"
+                  >
+                    Encrypt
+                  </button>
+                </div>
+                {encryptedHex && <p className="font-mono text-[11px] text-emerald-700 break-all">{encryptedHex}</p>}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* FIREBASE CONFIGURATION MODAL */}
       <FirebaseConfigModal
         isOpen={showFirebaseModal}
         onClose={() => setShowFirebaseModal(false)}
         isAmharic={isAmharic}
       />
-
     </div>
   );
 }

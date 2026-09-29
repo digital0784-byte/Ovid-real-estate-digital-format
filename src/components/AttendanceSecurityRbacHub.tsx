@@ -52,9 +52,9 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
   description: string;
 }> = {
   [UserRole.SUPER_ADMIN]: {
-    title: "1. Admin",
+    title: "1. Super Admin (Nuriye Ahmed Adem)",
     category: "Executive & Admin",
-    description: "Full system access & administrative governance.",
+    description: "Only Super Admin: Nuriye Ahmed Adem | Phone: 0910097862/0920843843 | Email: mejennur669@gmail.com. Full system access & administrative governance.",
     canDo: [
       "Create, Edit & Delete Users",
       "Assign & Revoke System Roles",

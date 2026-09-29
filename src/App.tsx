@@ -239,21 +239,49 @@ export default function App() {
                 let effectiveRole = (data.role as UserRole) || UserRole.WORKER;
                 let effectiveStatus = data.status || "Pending";
 
-                // Enforce Super Admin only for owner email
-                const userEmailLower = (data.email || firebaseUser.email || "").toLowerCase();
-                if (userEmailLower === "mejennur669@gmail.com") {
+                // Enforce Super Admin strictly for the only Super Admin:
+                // Name: Nuriye Ahmed Adem | Phone: 0910097862/0920843843 | Email: mejennur669@gmail.com
+                const userEmailLower = (data.email || firebaseUser.email || "").toLowerCase().trim();
+                const userPhoneRaw = (data.phoneNumber || firebaseUser.phoneNumber || "").trim();
+                const isSoleSuperAdmin =
+                  userEmailLower === "mejennur669@gmail.com" ||
+                  userPhoneRaw.includes("910097862") ||
+                  userPhoneRaw.includes("920843843");
+
+                if (isSoleSuperAdmin) {
                   effectiveRole = UserRole.SUPER_ADMIN;
                   effectiveStatus = "Active";
+                  if (
+                    data.role !== UserRole.SUPER_ADMIN ||
+                    data.status !== "Active" ||
+                    data.displayName !== "Nuriye Ahmed Adem" ||
+                    data.phoneNumber !== "0910097862/0920843843"
+                  ) {
+                    setDoc(
+                      userDocRef,
+                      {
+                        displayName: "Nuriye Ahmed Adem",
+                        email: "mejennur669@gmail.com",
+                        phoneNumber: "0910097862/0920843843",
+                        role: UserRole.SUPER_ADMIN,
+                        requestedRole: UserRole.SUPER_ADMIN,
+                        status: "Active"
+                      },
+                      { merge: true }
+                    ).catch(() => {});
+                  }
                 } else if (effectiveRole === UserRole.SUPER_ADMIN) {
                   effectiveRole = UserRole.HEAD_OFFICE;
                 }
 
                 if (effectiveStatus === "Active" && (effectiveRole === ("Pending" as any) || !effectiveRole) && data.requestedRole) {
-                  effectiveRole = data.requestedRole as UserRole;
+                  effectiveRole = (data.requestedRole === UserRole.SUPER_ADMIN && !isSoleSuperAdmin)
+                    ? UserRole.HEAD_OFFICE
+                    : (data.requestedRole as UserRole);
                 }
 
                 // Check RoleChangeApprovalService in case it was approved in app memory or Firestore
-                if (effectiveRole === ("Pending" as any) && userEmailLower !== "mejennur669@gmail.com") {
+                if (effectiveRole === ("Pending" as any) && !isSoleSuperAdmin) {
                   try {
                     const reqs = RoleChangeApprovalService.getRequests();
                     const appReq = reqs.find(r => 
@@ -275,12 +303,14 @@ export default function App() {
 
                 const profile: UserProfile = {
                   uid: firebaseUser.uid,
-                  displayName: data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
+                  displayName: isSoleSuperAdmin
+                    ? "Nuriye Ahmed Adem"
+                    : (data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User"),
                   role: effectiveRole,
-                  requestedRole: data.requestedRole || "",
+                  requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || ""),
                   status: effectiveStatus,
-                  email: data.email || firebaseUser.email || "",
-                  phoneNumber: data.phoneNumber || firebaseUser.phoneNumber || "",
+                  email: isSoleSuperAdmin ? "mejennur669@gmail.com" : (data.email || firebaseUser.email || ""),
+                  phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : (data.phoneNumber || firebaseUser.phoneNumber || ""),
                   createdAt: data.createdAt
                 };
                 setCurrentUserProfile(profile);
@@ -291,16 +321,22 @@ export default function App() {
                   }
                 }
               } else {
-                const userEmailLower = (firebaseUser.email || "").toLowerCase();
-                const isOwner = userEmailLower === "mejennur669@gmail.com";
+                const userEmailLower = (firebaseUser.email || "").toLowerCase().trim();
+                const userPhoneRaw = (firebaseUser.phoneNumber || "").trim();
+                const isOwner =
+                  userEmailLower === "mejennur669@gmail.com" ||
+                  userPhoneRaw.includes("910097862") ||
+                  userPhoneRaw.includes("920843843");
                 
                 let initialRole: UserRole = isOwner ? UserRole.SUPER_ADMIN : ("Pending" as any);
                 let initialStatus = isOwner ? "Active" : "Pending";
 
                 const newUserProfileData = {
-                  displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User",
-                  email: firebaseUser.email || "",
-                  phoneNumber: firebaseUser.phoneNumber || "",
+                  displayName: isOwner
+                    ? "Nuriye Ahmed Adem"
+                    : (firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User"),
+                  email: isOwner ? "mejennur669@gmail.com" : (firebaseUser.email || ""),
+                  phoneNumber: isOwner ? "0910097862/0920843843" : (firebaseUser.phoneNumber || ""),
                   role: initialRole,
                   requestedRole: isOwner ? UserRole.SUPER_ADMIN : "Worker",
                   status: initialStatus,
@@ -384,19 +420,30 @@ export default function App() {
         const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
         if (snap.exists()) {
           const data = snap.data();
+          const userEmailLower = (data.email || auth.currentUser.email || "").toLowerCase().trim();
+          const userPhoneRaw = (data.phoneNumber || auth.currentUser.phoneNumber || "").trim();
+          const isSoleSuperAdmin =
+            userEmailLower === "mejennur669@gmail.com" ||
+            userPhoneRaw.includes("910097862") ||
+            userPhoneRaw.includes("920843843");
+          const resolvedRole = isSoleSuperAdmin
+            ? UserRole.SUPER_ADMIN
+            : (data.role === UserRole.SUPER_ADMIN ? UserRole.HEAD_OFFICE : ((data.role as UserRole) || UserRole.WORKER));
           const profile: UserProfile = {
             uid: auth.currentUser.uid,
-            displayName: data.displayName || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Authenticated User",
-            role: (data.role as UserRole) || UserRole.WORKER,
-            requestedRole: data.requestedRole || "",
-            status: data.status || "Pending",
-            email: data.email || auth.currentUser.email || "",
-            phoneNumber: data.phoneNumber || auth.currentUser.phoneNumber || "",
+            displayName: isSoleSuperAdmin
+              ? "Nuriye Ahmed Adem"
+              : (data.displayName || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Authenticated User"),
+            role: resolvedRole,
+            requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || ""),
+            status: isSoleSuperAdmin ? "Active" : (data.status || "Pending"),
+            email: isSoleSuperAdmin ? "mejennur669@gmail.com" : (data.email || auth.currentUser.email || ""),
+            phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : (data.phoneNumber || auth.currentUser.phoneNumber || ""),
             createdAt: data.createdAt
           };
           setCurrentUserProfile(profile);
-          if (data.role && data.role !== "Pending") {
-            setCurrentUserRole(data.role as UserRole);
+          if (resolvedRole && resolvedRole !== ("Pending" as any)) {
+            setCurrentUserRole(resolvedRole);
           }
         }
       } catch (err) {
@@ -554,23 +601,23 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "mobileApps"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "mobileApps"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "mobileApps"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "mobileApps"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "safetyQuality", "siteLayout", "mobileApps"],
-    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "mobileApps"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp", "formworkManagement", "enterpriseErp", "projectDocs", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "mobileApps"],
-    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "mobileApps"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "formworkManagement", "mobileApps"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "mobileApps"],
-    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "mobileApps"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "formworkManagement", "securitySettings", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "mobileApps"],
-    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "workerProfiles", "attendance", "projectDocs", "mobileApps"]
+    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
+    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
   };
 
   const hasAccess = (tab: string): boolean => {
@@ -602,7 +649,9 @@ export default function App() {
     currentUserProfile?.status === "Pending" || 
     currentUserProfile?.role === ("Pending" as any) || 
     currentUserRole === ("Pending" as any)
-  ) && currentUserProfile?.email?.toLowerCase() !== "mejennur669@gmail.com";
+  ) && currentUserProfile?.email?.toLowerCase() !== "mejennur669@gmail.com"
+    && !currentUserProfile?.phoneNumber?.includes("910097862")
+    && !currentUserProfile?.phoneNumber?.includes("920843843");
 
   // Load master datasets from the real database service ONLY when user is authenticated & authorized
   React.useEffect(() => {
@@ -1401,7 +1450,17 @@ export default function App() {
           setLocationGranted(null);
           setIsCheckingLocation(false);
 
-          if (!auth?.currentUser && !currentUserProfile) {
+          if (activeRole === UserRole.SUPER_ADMIN) {
+            setCurrentUserProfile({
+              uid: auth?.currentUser?.uid || "super-admin-nuriye",
+              displayName: "Nuriye Ahmed Adem",
+              role: UserRole.SUPER_ADMIN,
+              requestedRole: UserRole.SUPER_ADMIN,
+              status: "Active",
+              email: "mejennur669@gmail.com",
+              phoneNumber: "0910097862/0920843843"
+            });
+          } else if (!auth?.currentUser && !currentUserProfile) {
             setCurrentUserProfile({
               uid: "demo-" + activeRole,
               displayName: `${activeRole} User`,
@@ -1478,7 +1537,9 @@ export default function App() {
           </div>
 
           {/* Account Approval Status Panel */}
-          {currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com" ? (
+          {currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com" ||
+           currentUserProfile?.phoneNumber?.includes("910097862") ||
+           currentUserProfile?.phoneNumber?.includes("920843843") ? (
             <div className="bg-slate-800/80 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
               <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
                 <ShieldCheck size={16} />
@@ -1491,6 +1552,9 @@ export default function App() {
                     if (currentUserProfile) {
                       setCurrentUserProfile({
                         ...currentUserProfile,
+                        displayName: "Nuriye Ahmed Adem",
+                        email: "mejennur669@gmail.com",
+                        phoneNumber: "0910097862/0920843843",
                         status: "Active",
                         role: UserRole.SUPER_ADMIN
                       });
@@ -1500,6 +1564,9 @@ export default function App() {
                     }
                     if (db && auth?.currentUser?.uid) {
                       setDoc(doc(db, "users", auth.currentUser.uid), {
+                        displayName: "Nuriye Ahmed Adem",
+                        email: "mejennur669@gmail.com",
+                        phoneNumber: "0910097862/0920843843",
                         status: "Active",
                         role: UserRole.SUPER_ADMIN
                       }, { merge: true }).catch(err => console.error("Error updating owner status in Firestore:", err));
@@ -1589,14 +1656,30 @@ export default function App() {
               <Building2 size={22} />
             </div>
             <div>
-              <span className="text-xs uppercase tracking-widest font-black text-red-600">{isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ሲስተም" : "Digital Construction ERP System"}</span>
+              <span className="text-xs uppercase tracking-widest font-black text-red-600">
+                {isAmharic ? "OVID REAL ESTATE SMART CONSTRUCTION ERP" : "OVID REAL ESTATE SMART CONSTRUCTION ERP"}
+              </span>
               <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
                 Aluminum Formwork Attendance & Productivity System
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-3">
+            {/* Settings ⚙️ Quick Access Button for Every User */}
+            <button
+              onClick={() => setActiveTab("securitySettings")}
+              className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+                activeTab === "securitySettings"
+                  ? "bg-slate-900 text-white border-slate-900"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200"
+              }`}
+              title={isAmharic ? "ቅንጅቶች፣ ግላዊነት እና ደህንነት (Settings ⚙️)" : "App Settings, Privacy & Security (Settings ⚙️)"}
+            >
+              <Settings size={14} className={activeTab === "securitySettings" ? "text-red-400" : "text-slate-700"} />
+              <span>{isAmharic ? "Settings ⚙️" : "Settings ⚙️"}</span>
+            </button>
+
             {/* Locked Duty Profile Badge */}
             <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
               <div className="relative">
@@ -1622,7 +1705,7 @@ export default function App() {
                       {currentUserRole === UserRole.GANG_CHIEF && (isAmharic ? "ጋንግ ቺፍ / ፎርማን" : "Gang Chief")}
                       {currentUserRole === UserRole.TIME_KEEPER && (isAmharic ? "የመገኘት ተቆጣጣሪ" : "Time Keeper")}
                       {currentUserRole === UserRole.WORKER && (isAmharic ? "ሳይት ሰራተኛ" : "Worker")}
-                      {currentUserRole === UserRole.SUPER_ADMIN && (isAmharic ? "ሱፐር አድሚን" : "Super Admin")}
+                      {currentUserRole === UserRole.SUPER_ADMIN && "Nuriye Ahmed Adem (Super Admin)"}
                       {currentUserRole === UserRole.WAREHOUSE_MANAGER && (isAmharic ? "የመጋዘን ሥራ አስኪያጅ" : "Warehouse Manager")}
                       {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የሳይት ስቶር አቃቤ" : "Store Manager")}
                       {currentUserRole === UserRole.HR_MANAGER && (isAmharic ? "የሰው ኃይል ኃላፊ" : "HR Manager")}
@@ -2722,6 +2805,10 @@ export default function App() {
           <SecuritySettingsHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            selectedProject={selectedProject}
+            onToggleLanguage={() => setIsAmharic(!isAmharic)}
+            onLogout={handleLogout}
             onLogAction={(action, details) => logAction(action, details)}
             auditLogs={auditLogs}
             sessionTimeoutMinutes={sessionTimeoutMinutes}
@@ -2759,9 +2846,9 @@ export default function App() {
           <p>© {new Date().getFullYear()} Digital Construction ERP System. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
           <p className="font-semibold text-slate-500">
             {isAmharic 
-              ? `የአድሚን መተግበሪያ በ${currentUserProfile?.displayName || "ዲጂታል ኮንስትራክሽን ኢአርፒ"} የተገነባ` 
-              : `Admin App developed by: ${currentUserProfile?.displayName || "Digital Construction ERP Engineering"}`} 
-            {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862 / 0920843843
+              ? "ሱፐር አድሚን (Super Admin): Nuriye Ahmed Adem" 
+              : "Super Admin: Nuriye Ahmed Adem"} 
+            {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843 | {isAmharic ? "ኢሜይል:" : "Email:"} mejennur669@gmail.com
           </p>
           <p className="font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>
         </div>

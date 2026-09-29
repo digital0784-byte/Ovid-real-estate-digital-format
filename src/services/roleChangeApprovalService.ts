@@ -99,7 +99,7 @@ const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
     requestedByRole: "Time Keeper",
     requestedDate: "2026-07-18",
     requestedTime: "11:00 AM",
-    approvedBy: "Super Admin (System)",
+    approvedBy: "Nuriye Ahmed Adem",
     approvedByRole: "Super Admin",
     approvedDate: "2026-07-18",
     approvedTime: "02:45 PM",
@@ -149,7 +149,7 @@ const INITIAL_SEED_AUDITS: RoleChangeAuditLog[] = [
     previousRole: "Time Keeper",
     newRole: "Supervisor",
     requestedBy: "Abebe Bikila",
-    approvedBy: "Super Admin (System)",
+    approvedBy: "Nuriye Ahmed Adem",
     approverRole: "Super Admin",
     status: "Approved",
     reason: "Completed 3 years site operations training and appointed site supervisor for Zone 4.",
@@ -362,7 +362,16 @@ export class RoleChangeApprovalService {
     const now = new Date();
     const currentDate = now.toISOString().slice(0, 10);
     const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-    const finalRole = params.assignedRoleOverride || req.requestedRole;
+    let finalRole = params.assignedRoleOverride || req.requestedRole;
+
+    // Enforce that Nuriye Ahmed Adem (mejennur669@gmail.com / 0910097862 / 0920843843) is the only Super Admin
+    const isReqOwnerSuperAdmin =
+      req.userEmail?.toLowerCase().trim() === "mejennur669@gmail.com" ||
+      req.phoneNumber?.includes("910097862") ||
+      req.phoneNumber?.includes("920843843");
+    if ((finalRole === UserRole.SUPER_ADMIN || finalRole === "Super Admin") && !isReqOwnerSuperAdmin) {
+      finalRole = UserRole.HEAD_OFFICE;
+    }
 
     req.status = "Approved";
     req.assignedRole = finalRole;

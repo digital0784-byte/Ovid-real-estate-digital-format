@@ -177,8 +177,16 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     if (formatted.startsWith("DIGITAL CONSTRUCTION ERP-")) {
       formatted = formatted.replace("DIGITAL CONSTRUCTION ERP-", "");
     }
-    if (formatted.startsWith("SA") || formatted === "SUPERADMIN" || formatted === "ADMIN") return UserRole.SUPER_ADMIN;
-    if (formatted.startsWith("HO") || formatted === "YOSEPH" || formatted === "NURIYE" || formatted === "NURI") return UserRole.HEAD_OFFICE;
+    if (
+      formatted === "NURIYE AHMED ADEM" ||
+      formatted === "NURIYE" ||
+      formatted === "MEJENNUR669@GMAIL.COM" ||
+      formatted.includes("910097862") ||
+      formatted.includes("920843843")
+    ) {
+      return UserRole.SUPER_ADMIN;
+    }
+    if (formatted.startsWith("HO") || formatted === "YOSEPH") return UserRole.HEAD_OFFICE;
     if (formatted.startsWith("PM") || formatted === "DAWIT") return UserRole.PROJECT_MANAGER;
     if (formatted.startsWith("SE") || formatted === "SINTAYEHU") return UserRole.SITE_ENGINEER;
     if (formatted.startsWith("SV") || formatted === "KASSA") return UserRole.SUPERVISOR;
@@ -245,9 +253,14 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       return;
     }
 
-    // Prevent self-registering as Super Admin
-    let sanitizedRegRole = regRole || UserRole.WORKER;
-    if (sanitizedRegRole === UserRole.SUPER_ADMIN) {
+    const isSoleSuperAdminReg =
+      regEmail.trim().toLowerCase() === "mejennur669@gmail.com" ||
+      regPhone.includes("910097862") ||
+      regPhone.includes("920843843");
+
+    // Prevent non-owner from self-registering as Super Admin
+    let sanitizedRegRole = isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : (regRole || UserRole.WORKER);
+    if (!isSoleSuperAdminReg && sanitizedRegRole === UserRole.SUPER_ADMIN) {
       sanitizedRegRole = UserRole.PROJECT_MANAGER;
     }
 
@@ -257,12 +270,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           const userCred = await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
           if (userCred?.user?.uid && db) {
             await setDoc(doc(db, "users", userCred.user.uid), {
-              displayName: regName.trim(),
-              email: regEmail.trim().toLowerCase(),
-              phoneNumber: regPhone.trim(),
-              role: "Pending",
+              displayName: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
+              email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : regEmail.trim().toLowerCase(),
+              phoneNumber: isSoleSuperAdminReg ? "0910097862/0920843843" : regPhone.trim(),
+              role: isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : "Pending",
               requestedRole: sanitizedRegRole,
-              status: "Pending",
+              status: isSoleSuperAdminReg ? "Active" : "Pending",
               createdAt: new Date().toISOString()
             });
           }
@@ -380,7 +393,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       };
 
       setTimeout(() => {
-        const isOwner = regEmail.trim().toLowerCase() === "mejennur669@gmail.com";
+        const isOwner =
+          regEmail.trim().toLowerCase() === "mejennur669@gmail.com" ||
+          regPhone.includes("910097862") ||
+          regPhone.includes("920843843");
         onLoginSuccess(isOwner ? UserRole.SUPER_ADMIN : ("Pending" as UserRole), `Registered User ID (${fullEmpId})`, simulatedLog);
       }, 1500);
 
@@ -529,12 +545,19 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       let foundRoleInDb = false;
       const currentUid = authedUid || auth?.currentUser?.uid;
 
-      // Owner Email absolute Super Admin override
+      // Owner Email absolute Super Admin override (Only Super Admin: Nuriye Ahmed Adem)
       if (lowerEmail === "mejennur669@gmail.com") {
         targetRole = UserRole.SUPER_ADMIN;
         foundRoleInDb = true;
         if (currentUid && db) {
-          await setDoc(doc(db, "users", currentUid), { role: UserRole.SUPER_ADMIN, status: "Active" }, { merge: true }).catch(() => {});
+          await setDoc(doc(db, "users", currentUid), {
+            displayName: "Nuriye Ahmed Adem",
+            email: "mejennur669@gmail.com",
+            phoneNumber: "0910097862/0920843843",
+            role: UserRole.SUPER_ADMIN,
+            requestedRole: UserRole.SUPER_ADMIN,
+            status: "Active"
+          }, { merge: true }).catch(() => {});
         }
       }
 
@@ -545,12 +568,16 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             if (userData.role && userData.role !== "Pending") {
-              targetRole = userData.role as UserRole;
+              targetRole = (userData.role === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
+                ? UserRole.HEAD_OFFICE
+                : (userData.role as UserRole);
               foundRoleInDb = true;
             } else if (userData.status === "Active" && userData.requestedRole && userData.requestedRole !== "Pending") {
-              targetRole = userData.requestedRole as UserRole;
+              targetRole = (userData.requestedRole === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
+                ? UserRole.HEAD_OFFICE
+                : (userData.requestedRole as UserRole);
               foundRoleInDb = true;
-              await setDoc(doc(db, "users", currentUid), { role: userData.requestedRole, status: "Active" }, { merge: true }).catch(() => {});
+              await setDoc(doc(db, "users", currentUid), { role: targetRole, status: "Active" }, { merge: true }).catch(() => {});
             }
           }
         } catch (e) {
@@ -734,10 +761,20 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           setPhoneLoading(false);
         }
 
-        // Smart Auto-detection of roles based on phone
+        // Smart Auto-detection of the only Super Admin (Nuriye Ahmed Adem) based on phone (0910097862 / 0920843843)
         const cleanPhone = formattedPhone;
-        if (cleanPhone.includes("0910097862") || cleanPhone.includes("0920843843") || cleanPhone.includes("0911223344") || cleanPhone.includes("911223344")) {
-          targetRole = UserRole.HEAD_OFFICE;
+        if (cleanPhone.includes("910097862") || cleanPhone.includes("920843843")) {
+          targetRole = UserRole.SUPER_ADMIN;
+          if (auth?.currentUser?.uid && db) {
+            await setDoc(doc(db, "users", auth.currentUser.uid), {
+              displayName: "Nuriye Ahmed Adem",
+              email: "mejennur669@gmail.com",
+              phoneNumber: "0910097862/0920843843",
+              role: UserRole.SUPER_ADMIN,
+              requestedRole: UserRole.SUPER_ADMIN,
+              status: "Active"
+            }, { merge: true }).catch(() => {});
+          }
         }
 
         identifiedMethod = "Mobile SMS OTP";
@@ -1675,9 +1712,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         <p>© {new Date().getFullYear()} Digital Construction ERP System Engineering Division. All rights reserved.</p>
         <p className="text-slate-400 font-bold">
           {isAmharic 
-            ? "የአድሚን መተግበሪያ በዲጂታል ኮንስትራክሽን ኢአርፒ የተገነባ" 
-            : "Admin App developed by: Digital Construction ERP Engineering"} 
-          {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843
+            ? "ሱፐር አድሚን (Super Admin): Nuriye Ahmed Adem" 
+            : "Super Admin: Nuriye Ahmed Adem"} 
+          {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843 | {isAmharic ? "ኢሜይል:" : "Email:"} mejennur669@gmail.com
         </p>
         <p className="text-[10px] text-slate-600">
           Authorized ERP Terminal ID: Digital Construction ERP-ET-ADB-B1 | Registered Audit Logs Count: {auditLogsCount} | mejennur669@gmail.com

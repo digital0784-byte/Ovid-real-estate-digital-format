@@ -32,8 +32,21 @@ service cloud.firestore {
       return isSignedIn() && getUserRole() == role;
     }
 
+    // Only Super Admin: Name Nuriye Ahmed Adem, phone 0910097862/0920843843, email mejennur669@gmail.com
     function isSuperAdmin() {
-      return hasRole('Super Admin');
+      return (isSignedIn() && (
+        request.auth.token.email == 'mejennur669@gmail.com' ||
+        request.auth.token.phone_number == '+251910097862' ||
+        request.auth.token.phone_number == '+251920843843' ||
+        (userDocExists() && (
+          getUserData().email == 'mejennur669@gmail.com' ||
+          getUserData().phoneNumber == '0910097862/0920843843' ||
+          getUserData().phoneNumber == '0910097862' ||
+          getUserData().phoneNumber == '0920843843' ||
+          getUserData().phoneNumber == '+251910097862' ||
+          getUserData().phoneNumber == '+251920843843'
+        ))
+      )) || hasRole('Super Admin');
     }
 
     function isHeadOffice() {

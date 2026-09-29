@@ -1,11 +1,12 @@
 {
   "projectId": "digital-construction-erp",
-  "appId": "1:314689308142:web:c972b8ad452b5f54497aff",
+  "appId": "1:314689308142:web:0d8aeeeb464d7fd3497aff",
   "apiKey": "AIzaSyBPTdVds6lOBeVE0chrjngubIEpLxE_BmQ",
   "authDomain": "digital-construction-erp.firebaseapp.com",
-  "firestoreDatabaseId": "(default)",
+  "firestoreDatabaseId": "ai-studio-ovidrealestateal-2aa0489d-a7f9-4ce4-a1a5-8c801423f125",
   "storageBucket": "digital-construction-erp.firebasestorage.app",
   "messagingSenderId": "314689308142",
   "measurementId": "",
+  "oAuthClientId": "314689308142-vpul354pfpd208ltl7c4c92kb7b70rav.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

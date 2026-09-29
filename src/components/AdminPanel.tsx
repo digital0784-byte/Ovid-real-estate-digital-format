@@ -122,18 +122,28 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </p>
         </div>
 
-        {/* User Role Simulation Dropdown */}
-        <div className="flex items-center space-x-2 text-xs">
-          <span className="font-semibold text-slate-500">Active Duty Role:</span>
-          <select 
-            value={currentUserRole}
-            onChange={(e) => onChangeUserRole(e.target.value as UserRole)}
-            className="bg-white border border-slate-200 rounded p-1.5 font-bold text-slate-800 outline-none"
-          >
-            {Array.from(new Set(Object.values(UserRole))).map(role => (
-              <option key={role} value={role}>{role}</option>
-            ))}
-          </select>
+        {/* User Role Simulation Dropdown & Sole Super Admin Badge */}
+        <div className="flex flex-col items-end gap-2 text-xs">
+          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 text-[11px] font-mono text-slate-700">
+            <span className="font-black text-red-700 uppercase">Only Super Admin:</span>{" "}
+            <span className="font-bold text-slate-900">Nuriye Ahmed Adem</span>{" | "}
+            <span>0910097862/0920843843</span>{" | "}
+            <span className="underline">mejennur669@gmail.com</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="font-semibold text-slate-500">Active Duty Role:</span>
+            <select 
+              value={currentUserRole}
+              onChange={(e) => onChangeUserRole(e.target.value as UserRole)}
+              className="bg-white border border-slate-200 rounded p-1.5 font-bold text-slate-800 outline-none"
+            >
+              {Array.from(new Set(Object.values(UserRole)))
+                .filter(role => role !== UserRole.SUPER_ADMIN || currentUserRole === UserRole.SUPER_ADMIN)
+                .map(role => (
+                  <option key={role} value={role}>{role}</option>
+                ))}
+            </select>
+          </div>
         </div>
       </div>
 
