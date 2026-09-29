@@ -326,34 +326,37 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
   const handleRegisterSite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canRegisterSite) return;
+    if (!formProjName.trim() || !formClient.trim() || !formCityWoreda.trim() || !formManager.trim() || !formSupervisor.trim()) {
+      return;
+    }
 
     const generatedSiteId = `Digital Construction ERP-SITE-2026-00${sites.length + 1}`;
     
     // Initial standard documents pack for new site
     const initialDocs = [
-      { id: `S-DOC-${Date.now()}-1`, name: `${(formProjName || "New_Site").replace(/\s+/g, "_")}_FormworkMethodStatement.pdf`, type: "Method Statement" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.4 MB" },
-      { id: `S-DOC-${Date.now()}-2`, name: `${(formProjName || "New_Site").replace(/\s+/g, "_")}_SafetyProtocol.pdf`, type: "Safety Document" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.1 MB" }
+      { id: `S-DOC-${Date.now()}-1`, name: `${formProjName.trim().replace(/\s+/g, "_")}_FormworkMethodStatement.pdf`, type: "Method Statement" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.4 MB" },
+      { id: `S-DOC-${Date.now()}-2`, name: `${formProjName.trim().replace(/\s+/g, "_")}_SafetyProtocol.pdf`, type: "Safety Document" as const, uploadDate: new Date().toISOString().split("T")[0], uploadedBy: currentUserRole, fileSize: "1.1 MB" }
     ];
 
     const newSite: RegisteredSite = {
       id: generatedSiteId,
-      projectName: formProjName || "Digital Construction ERP New Site Project",
-      clientName: formClient || "Internal Digital Construction ERP Development",
+      projectName: formProjName.trim(),
+      clientName: formClient.trim(),
       contractorName: formContractor,
       region: formRegion,
-      cityWoreda: formCityWoreda || "Addis Ababa Woreda 04",
+      cityWoreda: formCityWoreda.trim(),
       gpsLocation: deviceGps,
       googleMapsCoords: deviceMapCoords,
       startDate: formStart || new Date().toISOString().split("T")[0],
-      plannedCompletionDate: formEnd || "2027-12-31",
+      plannedCompletionDate: formEnd || "",
       buildingsCount: Number(formBldCount),
       floorsCount: Number(formFlrCount),
       zonesPerFloor: Number(formZoneCount),
-      siteManager: formManager || "Eng. Samuel Alene",
-      supervisor: formSupervisor || "Kassa Hunegn",
-      teamLeaders: ["Yohannes Bekele", "Bekele Tesfaye"],
-      gangChiefs: ["Fikru Tolossa", "Yosef Assefa"],
-      timeKeepers: ["Tsion Demeke"],
+      siteManager: formManager.trim(),
+      supervisor: formSupervisor.trim(),
+      teamLeaders: [],
+      gangChiefs: [],
+      timeKeepers: [],
       status: "Active",
       documents: initialDocs
     };
@@ -369,6 +372,8 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
     setFormCityWoreda("");
     setFormStart("");
     setFormEnd("");
+    setFormManager("");
+    setFormSupervisor("");
 
     if (onLogAction) {
       onLogAction("Registered New Site", `Created site record ${generatedSiteId} for ${newSite.projectName}. Persistent storage & Cloud partitions allocated.`);
@@ -727,23 +732,25 @@ export const SiteRegistrationAndActivity: React.FC<SiteRegistrationAndActivityPr
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Site Manager Assignment</label>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Site Manager Assignment *</label>
                         <input 
                           type="text" 
+                          required
                           value={formManager}
                           onChange={(e) => setFormManager(e.target.value)}
-                          placeholder="e.g. Eng. Yoseph Hailu"
+                          placeholder="Enter Site Manager Name"
                           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500"
                         />
                       </div>
 
                       <div>
-                        <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Supervisor Assignment</label>
+                        <label className="text-[10px] text-slate-500 font-bold uppercase block mb-1">Supervisor Assignment *</label>
                         <input 
                           type="text" 
+                          required
                           value={formSupervisor}
                           onChange={(e) => setFormSupervisor(e.target.value)}
-                          placeholder="e.g. Martha Hagos"
+                          placeholder="Enter Supervisor Name"
                           className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500"
                         />
                       </div>

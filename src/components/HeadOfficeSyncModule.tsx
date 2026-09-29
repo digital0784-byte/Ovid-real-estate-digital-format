@@ -286,49 +286,8 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
     { id: "DEV-GC-08", name: "Gang Chief Biometric Scanner", role: "Gang Chief", lastActive: "30 min ago", pendingSyncCount: 0, status: "online" }
   ]);
 
-  // Smart Live Notifications state initialized with seed alerts
-  const [notifications, setNotifications] = useState<SmartNotification[]>([
-    {
-      id: "NOT-001",
-      type: "outside_geofence",
-      titleEn: "Geofence Violation Attempt",
-      titleAm: "የአጥር ክልል ጥሰት ሙከራ",
-      messageEn: "Worker Bekele Tesfaye attempted Check-In 120m outside the authorized Digital Construction ERP Heights Site. Blocked.",
-      messageAm: "ሰራተኛ በቀለ ተስፋዬ ከተፈቀደው የቦሌ ሃይትስ ጊቢ ውጭ ሆኖ 120ሜ ርቀት ላይ ለመግባት ሙከራ አድርጓል። ታግዷል።",
-      timestamp: "10:45 AM",
-      isRead: false
-    },
-    {
-      id: "NOT-002",
-      type: "late",
-      titleEn: "Late Check-In Registered",
-      titleAm: "የዘገየ መግቢያ ተመዝግቧል",
-      messageEn: "Worker Aster Gudeta clocked in late at 08:32 AM (Threshold is 08:15 AM).",
-      messageAm: "ሰራተኛ አስቴር ጉደታ በ08:32 ላይ ዘግይቶ ገብቷል (መግቢያው 08:15 ነበረ)።",
-      timestamp: "08:32 AM",
-      isRead: false
-    },
-    {
-      id: "NOT-003",
-      type: "overtime_limit",
-      titleEn: "Overtime Limit Exceeded Warning",
-      titleAm: "የትርፍ ሰዓት ገደብ ማስጠንቀቂያ",
-      messageEn: "Worker Yohannes Bekele has exceeded company overtime limit (>2 hours). Cumulative today: 2.5 hours.",
-      messageAm: "ሰራተኛ ዮሐንስ በቀለ የድርጅቱን የትርፍ ሰዓት ገደብ (>2 ሰዓት) አልፏል። ዛሬ የሰራው: 2.5 ሰዓት።",
-      timestamp: "Yesterday",
-      isRead: true
-    },
-    {
-      id: "NOT-004",
-      type: "verification_fail",
-      titleEn: "Biometric Verification Failure",
-      titleAm: "የባዮሜትሪክ መለያ ስህተት",
-      messageEn: "Multiple fingerprint recognition failures (3 times) on Scanner Digital Construction ERP-PAD-03.",
-      messageAm: "በመለያ ቁጥር Digital Construction ERP-PAD-03 ላይ የጣት አሻራ መለያ 3 ጊዜ በተደጋጋሚ አልተሳካም።",
-      timestamp: "Yesterday",
-      isRead: true
-    }
-  ]);
+  // Smart Live Notifications state initialized empty (populated only by real events)
+  const [notifications, setNotifications] = useState<SmartNotification[]>([]);
 
   // Live Audit Transaction list
   const [syncLogs, setSyncLogs] = useState<SyncTransaction[]>([]);
@@ -2020,7 +1979,12 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
           </div>
 
           <div className="space-y-3">
-            {notifications.map((notif) => (
+            {notifications.length === 0 ? (
+              <div className="text-center py-8 text-xs text-slate-400 italic border border-dashed border-slate-200 rounded-xl">
+                {isAmharic ? "ምንም የደህንነት ወይም የመገኘት ማሳወቂያዎች የሉም።" : "No notifications yet. Real-time events will appear here as they occur."}
+              </div>
+            ) : (
+              notifications.map((notif) => (
               <div
                 key={notif.id}
                 className={`p-4 rounded-xl border flex items-start space-x-3.5 transition-colors relative ${
@@ -2063,7 +2027,8 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                   </p>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       )}
