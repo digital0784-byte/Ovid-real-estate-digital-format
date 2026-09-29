@@ -32,7 +32,7 @@ import {
   ArrowDown
 } from "lucide-react";
 
-export interface OvidEnterprisePanelsProps {
+export interface EnterprisePanelsProps {
   activeSection: string;
   isAmharic: boolean;
   currentUserRole: UserRole;
@@ -43,7 +43,7 @@ export interface OvidEnterprisePanelsProps {
   onNavigateSection: (section: string) => void;
 }
 
-export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> = ({
+export const EnterpriseSettingsPanels: React.FC<EnterprisePanelsProps> = ({
   activeSection,
   isAmharic,
   currentUserRole,
@@ -168,7 +168,7 @@ export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> =
   const [cadVersions, setCadVersions] = useState([
     {
       id: "CAD-VER-03",
-      fileName: "OVID_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
+      fileName: "DCERP_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
       version: "v3.0 (Current Active)",
       uploadedBy: "Site Engineer",
       uploadedAt: "2026-09-29 08:30",
@@ -178,7 +178,7 @@ export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> =
     },
     {
       id: "CAD-VER-02",
-      fileName: "OVID_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
+      fileName: "DCERP_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
       version: "v2.0 (Archived History)",
       uploadedBy: "Site Engineer",
       uploadedAt: "2026-09-24 14:15",
@@ -188,7 +188,7 @@ export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> =
     },
     {
       id: "CAD-VER-01",
-      fileName: "OVID_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
+      fileName: "DCERP_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
       version: "v1.0 (Initial Baseline)",
       uploadedBy: "Project Manager",
       uploadedAt: "2026-09-18 09:00",
@@ -672,7 +672,7 @@ export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> =
                 const nextVerNum = cadVersions.length + 1;
                 const newVer = {
                   id: `CAD-VER-0${nextVerNum}`,
-                  fileName: "OVID_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
+                  fileName: "DCERP_Bole_Heights_B1_Fl04_Formwork_Layout.dwg",
                   version: `v${nextVerNum}.0 (Current Active)`,
                   uploadedBy: `${currentUserName} (${currentUserRole})`,
                   uploadedAt: new Date().toISOString().replace("T", " ").slice(0, 16),
@@ -879,7 +879,7 @@ export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> =
           <div className="flex items-center justify-between border-b border-slate-100 pb-3">
             <div>
               <h3 className="text-base font-bold text-slate-900">
-                {isAmharic ? "20. የግላዊነት ፖሊሲ፣ ውሎች እና እገዛ (Privacy Policy, Terms & Help)" : "20. OVID ERP Privacy Policy, Terms & Support"}
+                {isAmharic ? "20. የግላዊነት ፖሊሲ፣ ውሎች እና እገዛ (Privacy Policy, Terms & Help)" : "20. Digital Construction ERP System — Privacy Policy, Terms & Support"}
               </h3>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isAmharic
@@ -949,7 +949,7 @@ export const OvidSettingsEnterprisePanels: React.FC<OvidEnterprisePanelsProps> =
         <div className="bg-slate-900 text-white p-6 rounded-xl border border-slate-800 space-y-4">
           <div>
             <h3 className="text-base font-bold">
-              {isAmharic ? "24. የOVID ERP የመጨረሻ የደህንነት መዋቅር (Final Security Architecture)" : "24. OVID Real Estate Smart Construction ERP — Final Security Architecture"}
+              {isAmharic ? "24. የDigital Construction ERP System የመጨረሻ የደህንነት መዋቅር (Final Security Architecture)" : "24. Digital Construction ERP System — Final Security Architecture"}
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
               {isAmharic

@@ -1466,7 +1466,7 @@ export default function App() {
               displayName: `${activeRole} User`,
               role: activeRole,
               status: "Active",
-              email: `${activeRole.toLowerCase()}@ovid.et`
+              email: `${activeRole.toLowerCase().replace(/\s+/g, ".")}@company.com`
             });
           }
 
@@ -1657,10 +1657,10 @@ export default function App() {
             </div>
             <div>
               <span className="text-xs uppercase tracking-widest font-black text-red-600">
-                {isAmharic ? "OVID REAL ESTATE SMART CONSTRUCTION ERP" : "OVID REAL ESTATE SMART CONSTRUCTION ERP"}
+                {isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ሲስተም" : "DIGITAL CONSTRUCTION ERP SYSTEM"}
               </span>
               <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
-                Aluminum Formwork Attendance & Productivity System
+                Digital Construction ERP System
               </h1>
             </div>
           </div>

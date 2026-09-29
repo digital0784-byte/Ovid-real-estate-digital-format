@@ -19,7 +19,7 @@ describe('DbService - Master Data & Offline Outbox Tests', () => {
     const newWorker: Worker = {
       id: 'TEST-W-01',
       name: 'Abebe Bikila Test',
-      company: 'OVID Construction',
+      company: 'Digital Construction ERP System',
       department: 'Formwork Operations',
       trade: 'Formwork Carpenter',
       joinedDate: '2026-01-15',

@@ -962,8 +962,8 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                 </h2>
                 <p className="text-xs text-slate-300">
                   {isAmharic
-                    ? "ለ OVID Smart Construction ERP የተሰጡ ኦፊሴላዊ የደህንነት፣ የአቅም፣ የአፈጻጸም እና የንግድ ማስጀመሪያ ሰነዶች።"
-                    : "Cryptographically certified, board-approved evaluation reports for OVID Global Construction Operating System."}
+                    ? "ለ Digital Construction ERP System የተሰጡ ኦፊሴላዊ የደህንነት፣ የአቅም፣ የአፈጻጸም እና የንግድ ማስጀመሪያ ሰነዶች።"
+                    : "Cryptographically certified, board-approved evaluation reports for Digital Construction ERP System."}
                 </p>
               </div>
 
@@ -1035,7 +1035,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                     <div className="flex items-center space-x-2">
                       <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                       <span className="text-[10px] font-mono text-slate-500 font-bold uppercase tracking-wider">
-                        Document Hash: OVID-{selectedReport.toUpperCase()}-2026-X8B9
+                        Document Hash: DC-ERP-{selectedReport.toUpperCase()}-2026-X8B9
                       </span>
                     </div>
                     <button
@@ -1075,11 +1075,11 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                       <div className="space-y-4">
                         <div className="text-center space-y-1">
                           <h4 className="text-sm font-black text-slate-900 uppercase tracking-wide">Enterprise Scale & Tenant Isolation Certification</h4>
-                          <p className="text-[10px] text-slate-400 font-mono">Issued to: OVID GROUP plc • Global Construction Operating System</p>
+                          <p className="text-[10px] text-slate-400 font-mono">Issued to: Digital Construction ERP System • Global Construction Operating System</p>
                         </div>
                         <div className="border-t border-slate-100 pt-3 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                           <p>
-                            We hereby certify that the <strong>OVID Smart Construction ERP System</strong> has successfully passed rigorous horizontal and vertical scalability audits. The platform structure natively supports hierarchical corporate structures of any depth.
+                            We hereby certify that the <strong>Digital Construction ERP System</strong> has successfully passed rigorous horizontal and vertical scalability audits. The platform structure natively supports hierarchical corporate structures of any depth.
                           </p>
                           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 grid grid-cols-2 gap-4">
                             <div>
@@ -1117,7 +1117,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                         </div>
                         <div className="border-t border-slate-100 pt-3 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                           <p>
-                            This certificate validates that the cryptographic foundation, local-first syncing databases, and biometric enrollment APIs of the OVID ERP Platform comply fully with SOC 2 Type II security principles.
+                            This certificate validates that the cryptographic foundation, local-first syncing databases, and biometric enrollment APIs of the Digital Construction ERP System comply fully with SOC 2 Type II security principles.
                           </p>
                           <div className="grid grid-cols-3 gap-2.5">
                             <div className="p-2.5 bg-slate-50 rounded-lg border border-slate-100 text-center">
@@ -1151,7 +1151,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                         </div>
                         <div className="border-t border-slate-100 pt-3 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                           <p>
-                            This technical document details the scalability matrix of the OVID ERP operating system under severe load, designed for seamless enterprise-wide execution.
+                            This technical document details the scalability matrix of the Digital Construction ERP System under severe load, designed for seamless enterprise-wide execution.
                           </p>
                           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 space-y-2">
                             <div className="flex justify-between text-[11px]">
@@ -1168,7 +1168,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                             </div>
                           </div>
                           <p>
-                            Site engineers often work in remote construction yards with dead cellular coverage. OVID ERP resolves this using a specialized offline database framework. Survey data, daily site diaries, material logs, and worker biometric check-ins are securely buffered locally, and then auto-replicated to the central cloud as soon as cellular links are restored.
+                            Site engineers often work in remote construction yards with dead cellular coverage. Digital Construction ERP System resolves this using a specialized offline database framework. Survey data, daily site diaries, material logs, and worker biometric check-ins are securely buffered locally, and then auto-replicated to the central cloud as soon as cellular links are restored.
                           </p>
                         </div>
                       </div>
@@ -1213,7 +1213,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                         </div>
                         <div className="border-t border-slate-100 pt-3 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                           <p>
-                            This report covers the cognitive capabilities of OVID's integrated construction intelligence module, which utilizes deep learning model frameworks for proactive on-site forecasting.
+                            This report covers the cognitive capabilities of the Digital Construction ERP System integrated construction intelligence module, which utilizes deep learning model frameworks for proactive on-site forecasting.
                           </p>
                           <div className="p-4 bg-slate-50 rounded-xl border border-slate-200/60 space-y-2 text-xs">
                             <p><strong>1. AI Delay Risk Engine:</strong> Automatically correlates daily local weather patterns, cement pour schedules, and material stock charts to forecast schedule bottlenecks 7 days in advance.</p>
@@ -1232,7 +1232,7 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                         </div>
                         <div className="border-t border-slate-100 pt-3 space-y-3.5 text-xs text-slate-600 leading-relaxed">
                           <p>
-                            Following successful multi-agent testing, security penetration matrices, automated database migration tests, and stress testing, the OVID Global Smart Construction Operating System is officially approved for commercial market launch.
+                            Following successful multi-agent testing, security penetration matrices, automated database migration tests, and stress testing, the Digital Construction ERP System is officially approved for commercial market launch.
                           </p>
                           <div className="p-4 bg-slate-900 text-white rounded-xl space-y-2 font-mono text-[11px] border border-slate-800">
                             <div className="flex justify-between">
@@ -1263,12 +1263,12 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                         <p className="text-[8px] font-mono text-indigo-600 font-bold">Signed: ALEMAYEHU_K_SHA256_HASH_VALID</p>
                       </div>
                       <div className="text-center px-4 py-2 border border-dashed border-indigo-200 rounded bg-indigo-50/50">
-                        <span className="block text-[8px] text-slate-400 uppercase tracking-wider font-extrabold">OVID Digital Seal</span>
+                        <span className="block text-[8px] text-slate-400 uppercase tracking-wider font-extrabold">Digital Construction ERP Seal</span>
                         <span className="text-[9px] font-mono font-black text-indigo-900">VERIFIED SYSTEM</span>
                       </div>
                       <div className="text-right">
                         <p className="font-extrabold text-slate-800 uppercase">Eng. Yoseph</p>
-                        <p className="text-slate-400">CEO OVID Group</p>
+                        <p className="text-slate-400">Executive Director, Digital Construction ERP System</p>
                         <p className="text-[8px] font-mono text-indigo-600 font-bold">Signed: YOSEPH_CEO_SECURE_KEY</p>
                       </div>
                     </div>

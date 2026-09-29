@@ -4149,7 +4149,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                                         <body>
                                           <div class="header">
                                             <span class="mtn">${item.id}</span>
-                                            <h2>OVID Construction Group</h2>
+                                            <h2>Digital Construction ERP System</h2>
                                             <h4>Aluminum Formwork Logistics Division</h4>
                                           </div>
                                           <h3>MATERIAL TRANSFER NOTE (MTN)</h3>
@@ -4167,7 +4167,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                                             <div class="sig-box">Warehouse Dispatcher Signature<br/><strong>${item.senderApproval}</strong></div>
                                             <div class="sig-box">Receiving Site Engineer Signature<br/><strong>${item.receiverApproval || "Pending"}</strong></div>
                                           </div>
-                                          <p style="text-align:center; font-size:10px; margin-top:100px; color:#aaa;">OVID Construction ERP - Aluminum Formwork Logistics</p>
+                                          <p style="text-align:center; font-size:10px; margin-top:100px; color:#aaa;">Digital Construction ERP System - Aluminum Formwork Logistics</p>
                                         </body>
                                       </html>
                                     `);
@@ -4636,7 +4636,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                           const url = URL.createObjectURL(blob);
                           const link = document.createElement("a");
                           link.setAttribute("href", url);
-                          link.setAttribute("download", `OVID_Formwork_Stock_Balance_${new Date().toISOString().slice(0,10)}.csv`);
+                          link.setAttribute("download", `Digital_Construction_ERP_Formwork_Stock_Balance_${new Date().toISOString().slice(0,10)}.csv`);
                           document.body.appendChild(link);
                           link.click();
                           document.body.removeChild(link);
@@ -4948,7 +4948,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   truckPlate: transferTruck || "AA-3-B99011",
                   senderApproval: currentUserName || "Warehouse Dispatcher",
                   receiverApproval: "",
-                  signature: transferSignature || "OVID Dispatcher",
+                  signature: transferSignature || "Authorized Dispatcher",
                   gpsTracking: "9.0210° N, 38.7495° E",
                   panelsCount: 120,
                   panelsList: [
@@ -5413,7 +5413,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                     <label className="block font-semibold text-slate-700 mb-1">{t("Or Enter Custom/New Panel ID", "ወይም አዲስ የፓነል መለያ ቁጥር እዚህ ይፃፉ")}</label>
                     <input
                       type="text"
-                      placeholder="e.g. OVID-PANEL-999"
+                      placeholder="e.g. DC-ERP-PANEL-999"
                       value={directDamagePanelId}
                       onChange={e => setDirectDamagePanelId(e.target.value)}
                       className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none text-xs font-mono"

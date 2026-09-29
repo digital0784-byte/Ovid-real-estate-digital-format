@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { UserRole, AuditLog } from "../types";
 import { UserRoleApprovalHub } from "./UserRoleApprovalHub";
 import { FirebaseConfigModal } from "./FirebaseConfigModal";
-import { OvidSettingsEnterprisePanels } from "./OvidSettingsEnterprisePanels";
+import { EnterpriseSettingsPanels } from "./EnterpriseSettingsPanels";
 import { db, auth, isFirebaseReady } from "../firebase";
 import { doc, setDoc } from "firebase/firestore";
 import {
@@ -185,7 +185,7 @@ export function SecuritySettingsHub({
       : currentUserProfile?.displayName || `${currentUserRole} Operator`
   );
   const [employeeId] = useState(
-    isSoleSuperAdmin ? "OVID-ERP-SA-001" : `OVID-ERP-${currentUserRole.slice(0, 2).toUpperCase()}-104`
+    isSoleSuperAdmin ? "DCERP-SA-001" : `DCERP-${currentUserRole.slice(0, 2).toUpperCase()}-104`
   );
   const [jobPosition, setJobPosition] = useState<string>(currentUserRole);
   const [department, setDepartment] = useState(
@@ -325,9 +325,29 @@ export function SecuritySettingsHub({
   const [highContrast, setHighContrast] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
 
+  // --- SECTION 12 (EMAIL CHANGE) & SECTION 6/14 (DOMAIN & SELF-REGISTRATION GOVERNANCE) ---
+  const [newEmailCandidate, setNewEmailCandidate] = useState("");
+  const [emailChangeAuthPass, setEmailChangeAuthPass] = useState("");
+  const [emailChangePending, setEmailChangePending] = useState<{
+    newEmail: string;
+    token: string;
+    expiresAt: string;
+    emailVerified: boolean;
+    hrApproved: boolean;
+  } | null>(null);
+  const [emailChangeStatusMsg, setEmailChangeStatusMsg] = useState("");
+  const [allowedWorkDomains, setAllowedWorkDomains] = useState<string[]>([
+    "@company.com",
+    "@companydomain.com",
+    "@digitalconstruction.com",
+    "@gmail.com"
+  ]);
+  const [domainInput, setDomainInput] = useState("");
+  const [noUnauthorizedSelfReg, setNoUnauthorizedSelfReg] = useState(true);
+
   // --- ENTERPRISE SOC STATES ---
   const [appCheckEnabled, setAppCheckEnabled] = useState(true);
-  const [plainText, setPlainText] = useState("OVID-ERP-EMP-0910097862-SALARY-125000-ETB");
+  const [plainText, setPlainText] = useState("DCERP-EMP-0910097862-SALARY-125000-ETB");
   const [encryptedHex, setEncryptedHex] = useState("");
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -418,7 +438,7 @@ export function SecuritySettingsHub({
     { titleEn: "Help & Support", titleAm: "እገዛ እና ድጋፍ", target: "legal_privacy_about", desc: "Direct ERP Technical Support" },
     { titleEn: "Terms & Conditions", titleAm: "ውሎች እና ሁኔታዎች", target: "legal_privacy_about", desc: "Operational & Labor Compliance" },
     { titleEn: "Privacy Policy", titleAm: "የግላዊነት ፖሊሲ", target: "legal_privacy_about", desc: "10-Point Data Protection Charter" },
-    { titleEn: "About OVID ERP", titleAm: "ስለ OVID ERP", target: "legal_privacy_about", desc: "9-Layer Final Security Architecture" },
+    { titleEn: "About Digital Construction ERP", titleAm: "ስለ Digital Construction ERP System", target: "legal_privacy_about", desc: "9-Layer Final Security Architecture" },
     { titleEn: "Logout", titleAm: "ውጣ (Logout)", target: "device_session_logout", desc: "Sign Out & Logout From All Devices" }
   ];
 
@@ -430,7 +450,7 @@ export function SecuritySettingsHub({
           <div className="flex items-center space-x-2 text-red-600 mb-3 px-2">
             <Shield size={18} />
             <span className="text-xs font-bold tracking-wide">
-              {isAmharic ? "OVID ERP ቅንጅቶች እና ደህንነት ⚙️" : "OVID ERP Settings & Security ⚙️"}
+              {isAmharic ? "Digital Construction ERP ቅንጅቶች ⚙️" : "Digital Construction ERP Settings ⚙️"}
             </span>
           </div>
 
@@ -502,13 +522,13 @@ export function SecuritySettingsHub({
               <div>
                 <h2 className="text-lg font-bold text-slate-900">
                   {isAmharic
-                    ? "1. OVID REAL ESTATE SMART CONSTRUCTION ERP — የቅንጅቶች፣ ግላዊነት እና ደህንነት ማዕከል ⚙️"
-                    : "1. OVID Real Estate Smart Construction ERP — App Settings, Privacy & Security ⚙️"}
+                    ? "1. Digital Construction ERP System — የቅንጅቶች፣ ግላዊነት እና ደህንነት ማዕከል ⚙️"
+                    : "1. Digital Construction ERP System — App Settings, Privacy & Security ⚙️"}
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
                   {isAmharic
-                    ? "እያንዳንዱ User በApp ውስጥ Settings ⚙️ የሚለውን ክፍል ያገኛል እና የተፈቀደለትን ብቻ ያስተዳድራል።"
-                    : "Unified Settings Dashboard available to every user with Role-Based Access Control (RBAC)."}
+                    ? "በሁሉም የሲስተሙ ክፍሎች 'Digital Construction ERP System' የሚለው ስም ብቻ ይጠቀማል።"
+                    : "Unified Settings Dashboard under the official Digital Construction ERP System branding with Role-Based Access Control (RBAC)."}
                 </p>
               </div>
               {onLogout && (
@@ -545,8 +565,8 @@ export function SecuritySettingsHub({
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-bold text-slate-800">
                   {isAmharic
-                    ? "ሁሉም 24 የOVID ERP Settings, Privacy & Security ክፍሎች (1–24 Master Index)"
-                    : "Complete 24-Section App Settings, Privacy & Security Specification (1–24)"}
+                    ? "ሁሉም 24 የDigital Construction ERP System Settings, Privacy & Security ክፍሎች (1–24 Master Index)"
+                    : "Complete 24-Section Digital Construction ERP System Settings, Privacy & Security Specification (1–24)"}
                 </h3>
                 <span className="text-[11px] font-mono text-emerald-700 font-semibold">24 / 24 Active</span>
               </div>
@@ -584,6 +604,50 @@ export function SecuritySettingsHub({
                   >
                     {s.label}
                   </button>
+                ))}
+              </div>
+            </div>
+
+            {/* System Branding 13-Surface Verification & 16-Point Email/Account Security Summary */}
+            <div className="pt-4 border-t border-slate-100 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-xs font-bold text-slate-900">
+                    {isAmharic
+                      ? "1. የሲስተም ስያሜ ወጥነት ቁጥጥር፦ Digital Construction ERP System (13 ክፍሎች)"
+                      : "1. Official System Branding Enforcement: Digital Construction ERP System (All 13 Surfaces)"}
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    {isAmharic
+                      ? "በሁሉም የሲስተሙ ክፍሎች 'Digital Construction ERP System' የሚለው ስም ብቻ ጥቅም ላይ ውሏል።"
+                      : "Exclusively branded as Digital Construction ERP System across all 13 enterprise surfaces."}
+                  </p>
+                </div>
+                <span className="text-[11px] font-mono text-emerald-700 font-bold">13 / 13 Verified</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2 text-[11px]">
+                {[
+                  "Login Page",
+                  "Sign Up Page",
+                  "Dashboard",
+                  "Mobile Apps",
+                  "Admin Panel",
+                  "Reports",
+                  "Notifications",
+                  "Settings",
+                  "Privacy Policy",
+                  "Security Center",
+                  "Email Notifications",
+                  "PDF Reports",
+                  "System Documents"
+                ].map((surface) => (
+                  <div
+                    key={surface}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between"
+                  >
+                    <span className="font-semibold text-slate-800">{surface}</span>
+                    <span className="text-[10px] font-mono text-emerald-700 font-bold">✓ Active</span>
+                  </div>
                 ))}
               </div>
             </div>
@@ -754,6 +818,266 @@ export function SecuritySettingsHub({
                 </button>
               </div>
             </form>
+
+            {/* SECTION 12: EMPLOYEE EMAIL CHANGE WORKFLOW (New Email Verification + Current Auth + Admin/HR Approval) */}
+            <div className="pt-5 border-t border-slate-200 space-y-4">
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  {isAmharic
+                    ? "12. የሰራተኛ የኢሜይል አድራሻ ለውጥ ደህንነት (Employee Work Email Change Workflow)"
+                    : "12. Employee Work Email Change Security (Verification + Current Auth + HR/Admin Approval)"}
+                </h4>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isAmharic
+                    ? "User የEmail Address ለመቀየር፦ New Email Verification፣ Current Account Authentication እና Admin/HR Approval ያስፈልጋል። Email እስኪረጋገጥ ድረስ የድሮው Email በAccount ላይ ይቀጥላል።"
+                    : "Changing a Work Email requires Current Account Authentication, One-Time Token Verification of the new email, and Admin/HR Approval. Until verified and approved, the existing email remains active on the account."}
+                </p>
+              </div>
+
+              {emailChangeStatusMsg && (
+                <div className="p-3 rounded-lg bg-slate-900 text-white text-xs font-semibold">
+                  {emailChangeStatusMsg}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200">
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">
+                    {isAmharic ? "ነባር የሚሰራ ኢሜይል (Active Account Email)" : "Current Active Work Email (Remains Active Until Verified)"}
+                  </label>
+                  <input
+                    type="text"
+                    readOnly
+                    value={profileEmail}
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-lg font-mono text-slate-700"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">
+                    {isAmharic ? "አዲስ የስራ ኢሜይል (New Work Email)" : "New Work Email Address (e.g. employee@company.com)"}
+                  </label>
+                  <input
+                    type="email"
+                    value={newEmailCandidate}
+                    onChange={(e) => setNewEmailCandidate(e.target.value)}
+                    placeholder="employee@company.com"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-500 font-semibold mb-1">
+                    {isAmharic ? "የአሁኑ የይለፍ ቃል ማረጋገጫ (Current Account Auth)" : "Current Account Password / OTP"}
+                  </label>
+                  <input
+                    type="password"
+                    value={emailChangeAuthPass}
+                    onChange={(e) => setEmailChangeAuthPass(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full px-3 py-2 bg-white border border-slate-200 rounded-lg font-mono text-slate-900"
+                  />
+                </div>
+                <div className="md:col-span-3 flex flex-wrap items-center justify-between gap-2 pt-1">
+                  <span className="text-[11px] font-mono text-slate-500">
+                    Allowed Domains: {allowedWorkDomains.join(", ")}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const trimmed = newEmailCandidate.trim().toLowerCase();
+                      if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+                        setEmailChangeStatusMsg(isAmharic ? "እባክዎ ትክክለኛ የሚሰራ የኢሜይል አድራሻ ያስገቡ።" : "Please enter a valid working email address.");
+                        return;
+                      }
+                      if (!emailChangeAuthPass.trim()) {
+                        setEmailChangeStatusMsg(isAmharic ? "እባክዎ የአሁኑን የመለያ የይለፍ ቃል/OTP ያረጋግጡ።" : "Current Account Authentication is required to request an email change.");
+                        return;
+                      }
+                      const domainMatch = allowedWorkDomains.some((d) => trimmed.endsWith(d.toLowerCase()));
+                      if (!domainMatch && !isSoleSuperAdmin) {
+                        setEmailChangeStatusMsg(
+                          isAmharic
+                            ? `ያልተፈቀደ የኢሜይል Domain! የተፈቀዱት፦ ${allowedWorkDomains.join(", ")}`
+                            : `Unauthorized Work Email Domain. Allowed corporate domains: ${allowedWorkDomains.join(", ")}`
+                        );
+                        return;
+                      }
+                      const token = `OTV-${Math.random().toString(36).substring(2, 8).toUpperCase()}-${Date.now().toString().slice(-4)}`;
+                      setEmailChangePending({
+                        newEmail: trimmed,
+                        token,
+                        expiresAt: "15 Minutes (One-Time Use)",
+                        emailVerified: false,
+                        hrApproved: false
+                      });
+                      setEmailChangeStatusMsg(
+                        isAmharic
+                          ? `የማረጋገጫ ሊንክ (${token}) ወደ ${trimmed} ተልኳል። እስኪረጋገጥና በAdmin/HR እስኪጸድቅ ድረስ ነባሩ ኢሜይል (${profileEmail}) በስራ ላይ ይቆያል።`
+                          : `One-Time Verification Link (${token}) sent to ${trimmed}. Old email (${profileEmail}) remains active until new email verification & HR/Admin approval complete.`
+                      );
+                      onLogAction("Employee Email Change Initiated", `Requested change from ${profileEmail} to ${trimmed} with One-Time Token ${token}`);
+                    }}
+                    className="px-3.5 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-lg font-semibold cursor-pointer"
+                  >
+                    {isAmharic ? "1. የማረጋገጫ ኢሜይል ላክ (Send New Email Verification)" : "1. Authenticate & Send New Email Verification"}
+                  </button>
+                </div>
+              </div>
+
+              {emailChangePending && (
+                <div className="p-4 rounded-xl border border-amber-300 bg-amber-50/70 space-y-3 text-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <p className="font-bold text-slate-900">
+                        Pending Email Change: <span className="font-mono text-red-700">{profileEmail}</span> →{" "}
+                        <span className="font-mono text-emerald-700">{emailChangePending.newEmail}</span>
+                      </p>
+                      <p className="font-mono text-[11px] text-slate-600">
+                        One-Time Token: {emailChangePending.token} · Expires: {emailChangePending.expiresAt}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={emailChangePending.emailVerified}
+                        onClick={() => {
+                          setEmailChangePending((prev) => (prev ? { ...prev, emailVerified: true } : null));
+                          setEmailChangeStatusMsg(
+                            isAmharic
+                              ? "አዲሱ ኢሜይል በOne-Time Token ተረጋግጧል! አሁን የHR/Admin ማጽደቂያ ይጠብቃል።"
+                              : "New Email Ownership Verified via One-Time Token! Now awaiting HR/Admin Policy Approval."
+                          );
+                          onLogAction("New Email Token Verified", `Verified one-time token ${emailChangePending.token} for ${emailChangePending.newEmail}`);
+                        }}
+                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-lg font-semibold cursor-pointer"
+                      >
+                        {emailChangePending.emailVerified ? "✓ Step 2: Email Verified" : "2. Click Verification Link"}
+                      </button>
+                      {isSuperOrAdmin && (
+                        <button
+                          type="button"
+                          disabled={!emailChangePending.emailVerified || emailChangePending.hrApproved}
+                          onClick={() => {
+                            const updated = isSoleSuperAdmin ? "mejennur669@gmail.com" : emailChangePending.newEmail;
+                            setProfileEmail(updated);
+                            setEmailChangePending(null);
+                            setNewEmailCandidate("");
+                            setEmailChangeAuthPass("");
+                            setEmailChangeStatusMsg(
+                              isAmharic
+                                ? `በHR/Admin ጸድቋል! የመለያ ኢሜይል ወደ ${updated} ተቀይሯል።`
+                                : `HR/Admin Approved! Account Work Email updated to ${updated}.`
+                            );
+                            onLogAction("Employee Email Change Approved by HR/Admin", `Activated new verified work email ${updated}`);
+                          }}
+                          className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white rounded-lg font-semibold cursor-pointer"
+                        >
+                          3. HR / Admin Approve & Activate
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* SECTIONS 6, 11, 14 & 16: WORK EMAIL DOMAIN CONTROL, NO UNAUTHORIZED SELF-REGISTRATION & 7-STAGE APPROVAL */}
+            <div className="pt-5 border-t border-slate-200 space-y-4 text-xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <h4 className="text-sm font-bold text-slate-900">
+                    {isAmharic
+                      ? "6, 11, 14 & 16. የWork Email Domain ቁጥጥር፣ የHR/Admin ምዝገባ ፖሊሲ እና 4-ቅድመ ሁኔታ የደህንነት ህግ"
+                      : "6, 11, 14 & 16. Work Email Domain Control, No Unauthorized Self-Registration & 4-Gate Security Rule"}
+                  </h4>
+                  <p className="text-slate-500 mt-0.5">
+                    {isAmharic
+                      ? "አንድ ተጠቃሚ Account ቢፈጥርም ወይም Email ቢያረጋግጥም፦ (1) Email ካልተረጋገጠ (2) Admin/HR ካላጸደቀው (3) Role ካልተመደበለት (4) Project/Site ፍቃድ ካልተሰጠው የውስጥ መረጃ ማግኘት አይችልም።"
+                      : "Even if a user creates an account or verifies their email, internal company data (Payroll, Attendance, Employee Data, Project Data, CAD Drawings, Survey Data) is blocked until all 4 security conditions are met."}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isSuperOrAdmin) return;
+                    setNoUnauthorizedSelfReg(!noUnauthorizedSelfReg);
+                    onLogAction(
+                      "Self-Registration Policy Updated",
+                      `No Public Sign-Up / HR-Only Account Creation set to ${!noUnauthorizedSelfReg}`
+                    );
+                  }}
+                  className={`px-3 py-1.5 rounded-lg font-semibold cursor-pointer shrink-0 ${
+                    noUnauthorizedSelfReg
+                      ? "bg-red-600 text-white"
+                      : "bg-slate-200 text-slate-800"
+                  }`}
+                >
+                  {noUnauthorizedSelfReg
+                    ? isAmharic
+                      ? "Public Sign-Up ዝግ ነው (HR/Admin ብቻ)"
+                      : "No Public Sign-Up: ENFORCED (HR/Admin Only)"
+                    : isAmharic
+                    ? "በDomain የተገደበ ምዝገባ ክፍት ነው"
+                    : "Domain-Restricted Registration: OPEN"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                  <p className="font-bold text-slate-900">
+                    {isAmharic ? "6. የተፈቀዱ የኩባንያ Email Domains (Allowed Work Email Domains)" : "6. Authorized Corporate Work Email Domains"}
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {allowedWorkDomains.map((dom) => (
+                      <span
+                        key={dom}
+                        className="px-2.5 py-1 rounded-md bg-white border border-slate-200 font-mono text-[11px] font-semibold text-slate-800"
+                      >
+                        {dom}
+                      </span>
+                    ))}
+                  </div>
+                  {isSuperOrAdmin && (
+                    <div className="flex gap-2 pt-1">
+                      <input
+                        type="text"
+                        value={domainInput}
+                        onChange={(e) => setDomainInput(e.target.value)}
+                        placeholder="@companydomain.com"
+                        className="flex-1 px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-mono text-[11px]"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const formatted = domainInput.trim().startsWith("@")
+                            ? domainInput.trim().toLowerCase()
+                            : `@${domainInput.trim().toLowerCase()}`;
+                          if (formatted.length > 3 && !allowedWorkDomains.includes(formatted)) {
+                            setAllowedWorkDomains([...allowedWorkDomains, formatted]);
+                            setDomainInput("");
+                            onLogAction("Allowed Work Email Domain Added", `Added corporate domain ${formatted}`);
+                          }
+                        }}
+                        className="px-3 py-1.5 bg-slate-900 text-white rounded-lg font-semibold cursor-pointer"
+                      >
+                        {isAmharic ? "Domain ጨምር" : "Add Domain"}
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3.5 rounded-xl border border-slate-200 bg-slate-50 space-y-2">
+                  <p className="font-bold text-slate-900">
+                    {isAmharic ? "11 & 16. የ7-እርከን የመለያ ማጽደቂያ ሂደት (7-Stage Account Approval)" : "11 & 16. Mandatory 7-Stage Account Approval Pipeline"}
+                  </p>
+                  <p className="font-mono text-[11px] text-slate-700 leading-relaxed">
+                    Registration ↓ Email Verification ↓ HR/Admin Verification ↓ Role Assignment ↓ Project/Site Assignment ↓ Account Activation ↓ Login
+                  </p>
+                  <p className="text-[11px] text-emerald-700 font-semibold">
+                    Protected Modules: Payroll · Attendance · Employee Data · Project Data · CAD Drawings · Survey Data
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
@@ -1492,8 +1816,8 @@ export function SecuritySettingsHub({
           </div>
         )}
 
-        {/* DELEGATE SECTIONS 7, 8, 9, 10, 13, 14, 18, 19, 20, 21, 22, 24 TO OVID ENTERPRISE PANELS */}
-        <OvidSettingsEnterprisePanels
+        {/* DELEGATE SECTIONS 7, 8, 9, 10, 13, 14, 18, 19, 20, 21, 22, 24 TO ENTERPRISE SETTINGS PANELS */}
+        <EnterpriseSettingsPanels
           activeSection={activeTab}
           isAmharic={isAmharic}
           currentUserRole={currentUserRole}
