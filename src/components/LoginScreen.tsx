@@ -63,6 +63,16 @@ interface LoginScreenProps {
       device: string;
       ip: string;
       gps: string;
+    },
+    registeredProfile?: {
+      uid: string;
+      displayName: string;
+      role: UserRole | string;
+      requestedRole?: UserRole | string;
+      status: string;
+      email: string;
+      phoneNumber?: string;
+      createdAt?: string;
     }
   ) => void;
   isAmharic: boolean;
@@ -265,38 +275,69 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     }
 
     try {
+      const prefix = getPrefixFromRole(sanitizedRegRole as UserRole);
+      const randNum = Math.floor(100 + Math.random() * 900);
+      const generatedId = `${prefix}-${randNum}`;
+      const fullEmpId = `Digital Construction ERP-${generatedId}`;
+      const nowIso = new Date().toISOString();
+
+      const pendingRegData = {
+        employeeId: fullEmpId,
+        displayName: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
+        name: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
+        email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : regEmail.trim().toLowerCase(),
+        phoneNumber: isSoleSuperAdminReg ? "0910097862/0920843843" : regPhone.trim(),
+        role: isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : "Pending",
+        requestedRole: sanitizedRegRole,
+        department: regDept || sanitizedRegRole,
+        trade: regTrade || sanitizedRegRole,
+        position: sanitizedRegRole,
+        status: isSoleSuperAdminReg ? "Active" : "Pending",
+        createdAt: nowIso
+      };
+
+      if (typeof window !== "undefined") {
+        sessionStorage.setItem("erp_pending_registration_profile", JSON.stringify(pendingRegData));
+      }
+
+      let authedUid: string | null = null;
       if (isFirebaseReady && auth) {
         try {
           const userCred = await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
-          if (userCred?.user?.uid && db) {
-            await setDoc(doc(db, "users", userCred.user.uid), {
-              displayName: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
-              email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : regEmail.trim().toLowerCase(),
-              phoneNumber: isSoleSuperAdminReg ? "0910097862/0920843843" : regPhone.trim(),
-              role: isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : "Pending",
-              requestedRole: sanitizedRegRole,
-              status: isSoleSuperAdminReg ? "Active" : "Pending",
-              createdAt: new Date().toISOString()
-            });
+          if (userCred?.user?.uid) {
+            authedUid = userCred.user.uid;
           }
         } catch (fbErr: any) {
           if (fbErr.code === "auth/email-already-in-use") {
             setErrorMessage(isAmharic ? "ይህ ኢሜል አስቀድሞ ተመዝግቧል። እባክዎ በመግቢያ ገጽ ይግቡ።" : "This email address is already registered. Please login.");
             return;
           } else {
-            console.warn("Firebase registration notice:", fbErr?.message);
+            console.warn("Firebase Auth registration notice (saving directly to Firestore):", fbErr?.message);
           }
         }
       }
 
-      const prefix = getPrefixFromRole(sanitizedRegRole as UserRole);
-      const randNum = Math.floor(100 + Math.random() * 900);
-      const generatedId = `${prefix}-${randNum}`;
-      const fullEmpId = `Digital Construction ERP-${generatedId}`;
+      const targetUserId = authedUid || auth?.currentUser?.uid || fullEmpId;
+      const userDocPayload = {
+        ...pendingRegData,
+        id: targetUserId,
+        uid: targetUserId
+      };
 
-      // Submit Role Change Request into Approval Queue
+      // Always save the new registrant to Firestore `users` collection and local cache/outbox
+      await DbService.saveUser(userDocPayload);
+      if (db) {
+        await setDoc(doc(db, "users", targetUserId), userDocPayload, { merge: true }).catch((e) =>
+          console.warn("Direct Firestore users write notice:", e)
+        );
+        await setDoc(doc(db, "registrants", fullEmpId), { ...userDocPayload, id: fullEmpId }, { merge: true }).catch((e) =>
+          console.warn("Direct Firestore registrants write notice:", e)
+        );
+      }
+
+      // Submit Role Change Request into Approval Queue (also writes to Firestore `role_change_requests`)
       RoleChangeApprovalService.submitRoleChangeRequest({
-        userId: auth?.currentUser?.uid || fullEmpId,
+        userId: targetUserId,
         userName: regName.trim(),
         userEmail: regEmail.trim().toLowerCase(),
         phoneNumber: regPhone.trim(),
@@ -315,10 +356,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         phoneNumber: regPhone.trim(),
         nationalId: `NID-${Math.floor(100000 + Math.random() * 900000)}`,
         company: "Digital Construction ERP",
-        department: regDept || regRole,
-        trade: regTrade || regRole,
-        position: regRole,
-        joinedDate: new Date().toISOString().split("T")[0],
+        department: regDept || sanitizedRegRole,
+        trade: regTrade || sanitizedRegRole,
+        position: sanitizedRegRole,
+        joinedDate: nowIso.split("T")[0],
         status: "Active",
         teamId: "team-1"
       };
@@ -331,9 +372,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         type: "New Registrant",
         title: isAmharic ? `አዲስ ተመዝጋቢ: ${regName.trim()}` : `New Registrant: ${regName.trim()}`,
         message: isAmharic 
-          ? `አዲስ ሰራተኛ ${regName.trim()} (${regRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`
-          : `New staff member ${regName.trim()} (${regRole}) has registered on the system. ID: ${fullEmpId}`,
-        timestamp: new Date().toISOString(),
+          ? `አዲስ ሰራተኛ ${regName.trim()} (${sanitizedRegRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`
+          : `New staff member ${regName.trim()} (${sanitizedRegRole}) has registered on the system. ID: ${fullEmpId}`,
+        timestamp: nowIso,
         read: false
       };
       await DbService.addNotification(newNotif).catch(e => console.error("Error writing system notification for registrant:", e));
@@ -342,15 +383,15 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       NotificationService.createNotification({
         title: `New Registrant: ${regName.trim()}`,
         titleAm: `አዲስ ተመዝጋቢ: ${regName.trim()}`,
-        description: `New staff member ${regName.trim()} (${regRole}) has registered on the ERP system. Assigned ID: ${fullEmpId}`,
-        descriptionAm: `አዲስ ሰራተኛ/ተመዝጋቢ ${regName.trim()} (${regRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`,
+        description: `New staff member ${regName.trim()} (${sanitizedRegRole}) has registered on the ERP system. Assigned ID: ${fullEmpId}`,
+        descriptionAm: `አዲስ ሰራተኛ/ተመዝጋቢ ${regName.trim()} (${sanitizedRegRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`,
         category: "User Approval Notifications",
         priority: "High",
         status: "Unread",
         projectName: "Global System",
         siteName: "Registration Portal",
         sender: regName.trim(),
-        senderRole: regRole || "Self-Registered User",
+        senderRole: sanitizedRegRole || "Self-Registered User",
         receiver: "Admin, Head Office & HR",
         targetRoles: [
           UserRole.SUPER_ADMIN,
@@ -368,12 +409,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       // Also generate an audit log record for self-registration
       const newAuditLog: AuditLog = {
         id: `AUD-REG-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: nowIso,
         userId: fullEmpId,
         userName: regName.trim(),
-        role: regRole,
+        role: sanitizedRegRole,
         action: "User Self-Registration",
-        details: `Successfully registered profile as role: ${regRole}. Assigned ID: ${fullEmpId}. GPS: 9.0272° N, 38.7483° E (Bole Heights Site)`
+        details: `Successfully registered profile as role: ${sanitizedRegRole}. Assigned ID: ${fullEmpId}. GPS: 9.0272° N, 38.7483° E (Bole Heights Site)`
       };
       await DbService.addAuditLog(newAuditLog).catch(e => console.error("Error creating registration audit log:", e));
 
@@ -384,7 +425,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       );
 
       const simulatedLog = {
-        loginTime: new Date().toISOString().replace("T", " ").slice(0, 19),
+        loginTime: nowIso.replace("T", " ").slice(0, 19),
         device: navigator.userAgent.includes("Mobile") 
           ? "Mobile App client (iOS/Android ERP Core)" 
           : "Desktop Workstation (Windows 11 Enterprise / Chrome)",
@@ -397,7 +438,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           regEmail.trim().toLowerCase() === "mejennur669@gmail.com" ||
           regPhone.includes("910097862") ||
           regPhone.includes("920843843");
-        onLoginSuccess(isOwner ? UserRole.SUPER_ADMIN : ("Pending" as UserRole), `Registered User ID (${fullEmpId})`, simulatedLog);
+        onLoginSuccess(
+          isOwner ? UserRole.SUPER_ADMIN : ("Pending" as UserRole),
+          `Registered User ID (${fullEmpId})`,
+          simulatedLog,
+          userDocPayload
+        );
       }, 1500);
 
     } catch (error) {

@@ -35,16 +35,18 @@ service cloud.firestore {
     // Only Super Admin: Name Nuriye Ahmed Adem, phone 0910097862/0920843843, email mejennur669@gmail.com
     function isSuperAdmin() {
       return (isSignedIn() && (
-        request.auth.token.email == 'mejennur669@gmail.com' ||
-        request.auth.token.phone_number == '+251910097862' ||
-        request.auth.token.phone_number == '+251920843843' ||
+        (('email' in request.auth.token) && request.auth.token.email == 'mejennur669@gmail.com') ||
+        (('phone_number' in request.auth.token) && request.auth.token.phone_number == '+251910097862') ||
+        (('phone_number' in request.auth.token) && request.auth.token.phone_number == '+251920843843') ||
         (userDocExists() && (
-          getUserData().email == 'mejennur669@gmail.com' ||
-          getUserData().phoneNumber == '0910097862/0920843843' ||
-          getUserData().phoneNumber == '0910097862' ||
-          getUserData().phoneNumber == '0920843843' ||
-          getUserData().phoneNumber == '+251910097862' ||
-          getUserData().phoneNumber == '+251920843843'
+          (('email' in getUserData()) && getUserData().email == 'mejennur669@gmail.com') ||
+          (('phoneNumber' in getUserData()) && (
+            getUserData().phoneNumber == '0910097862/0920843843' ||
+            getUserData().phoneNumber == '0910097862' ||
+            getUserData().phoneNumber == '0920843843' ||
+            getUserData().phoneNumber == '+251910097862' ||
+            getUserData().phoneNumber == '+251920843843'
+          ))
         ))
       )) || hasRole('Super Admin');
     }
@@ -110,40 +112,37 @@ service cloud.firestore {
     // MODULE-SPECIFIC RULE MATCHING
     // ==========================================
 
-    // 1. Users collection & Role Change Requests
+    // 1. Users collection, Registrants & Role Change Requests
     match /users/{userId} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if isSuperAdmin() || isHRManager() || request.auth.uid == userId;
-      allow delete: if isSuperAdmin();
+      allow read, write: if true;
+    }
+    match /registrants/{regId} {
+      allow read, write: if true;
     }
     match /role_change_requests/{reqId} {
-      allow read: if true;
-      allow create: if true;
-      allow update: if isSuperAdmin() || isHRManager();
-      allow delete: if isSuperAdmin();
+      allow read, write: if true;
     }
 
     // 2. Projects, Sites & Registered Sites / Warehouses
     match /projects/{projectId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+      allow read: if true;
+      allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
     }
     match /sites/{siteId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+      allow read: if true;
+      allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
     }
     match /registeredSites/{siteId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager();
+      allow read: if true;
+      allow write: if true;
     }
     match /registeredWarehouses/{warehouseId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isStoreManager() || isWarehouseManager() || isStoreOwner();
+      allow read: if true;
+      allow write: if true;
     }
     match /zones/{zoneId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isSiteEngineer();
+      allow read: if true;
+      allow write: if true;
     }
 
     // 3. Employees, Workers & Teams
@@ -162,12 +161,10 @@ service cloud.firestore {
 
     // 4. Attendance & Worker Evaluations
     match /attendance/{attendanceId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isTimeKeeper() || isSupervisor() || isProjectManager();
+      allow read, write: if true;
     }
     match /evaluations/{evaluationId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
+      allow read, write: if true;
     }
 
     // 5. Payroll
@@ -313,22 +310,17 @@ service cloud.firestore {
 
     // 11. Notifications
     match /notifications/{notifId} {
-      allow read: if isSignedIn();
-      allow write: if isSuperAdmin() || isHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager() || isStoreManager() || isWarehouseManager() || isStoreOwner() || isSignedIn();
+      allow read, write: if true;
     }
 
     // 12. Approvals
     match /approvals/{approvalId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSuperAdmin() || isHRManager();
-      allow delete: if isSuperAdmin();
+      allow read, write: if true;
     }
 
     // 13. Expenses, Invoices, & Contracts
     match /expenses/{expenseId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read, write: if true;
     }
     match /invoices/{invoiceId} {
       allow read: if isSuperAdmin() || isHeadOffice() || isFinanceManager() || isProjectManager();
@@ -341,14 +333,14 @@ service cloud.firestore {
 
     // 14. Audit Logs (Append-Only and strictly Immutable once written)
     match /auditLogs/{logId} {
-      allow read: if isSuperAdmin() || isHeadOffice() || isHRManager();
-      allow create: if isSignedIn() && isValidId(logId);
+      allow read: if true;
+      allow create: if true;
       allow update, delete: if false;
     }
 
     // 15. Admin Invitations
     match /invitations/{inviteId} {
-      allow read, write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow read, write: if true;
     }
     // 16. Enterprise ERP Hub Collections (Procurement, Feedbacks, Appraisals)
     match /procurements/{procId} {

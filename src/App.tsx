@@ -328,21 +328,38 @@ export default function App() {
                   userPhoneRaw.includes("910097862") ||
                   userPhoneRaw.includes("920843843");
                 
+                let pendingReg: any = null;
+                if (typeof window !== "undefined") {
+                  try {
+                    const raw = sessionStorage.getItem("erp_pending_registration_profile");
+                    if (raw) pendingReg = JSON.parse(raw);
+                  } catch {}
+                }
+
                 let initialRole: UserRole = isOwner ? UserRole.SUPER_ADMIN : ("Pending" as any);
                 let initialStatus = isOwner ? "Active" : "Pending";
 
                 const newUserProfileData = {
+                  id: firebaseUser.uid,
+                  uid: firebaseUser.uid,
+                  employeeId: pendingReg?.employeeId || `DCERP-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
                   displayName: isOwner
                     ? "Nuriye Ahmed Adem"
-                    : (firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User"),
-                  email: isOwner ? "mejennur669@gmail.com" : (firebaseUser.email || ""),
-                  phoneNumber: isOwner ? "0910097862/0920843843" : (firebaseUser.phoneNumber || ""),
+                    : (pendingReg?.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User"),
+                  name: isOwner
+                    ? "Nuriye Ahmed Adem"
+                    : (pendingReg?.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User"),
+                  email: isOwner ? "mejennur669@gmail.com" : (pendingReg?.email || firebaseUser.email || ""),
+                  phoneNumber: isOwner ? "0910097862/0920843843" : (pendingReg?.phoneNumber || firebaseUser.phoneNumber || ""),
                   role: initialRole,
-                  requestedRole: isOwner ? UserRole.SUPER_ADMIN : "Worker",
+                  requestedRole: isOwner ? UserRole.SUPER_ADMIN : (pendingReg?.requestedRole || "Worker"),
+                  department: pendingReg?.department || "",
+                  trade: pendingReg?.trade || "",
+                  position: pendingReg?.position || pendingReg?.requestedRole || "Worker",
                   status: initialStatus,
-                  createdAt: new Date().toISOString()
+                  createdAt: pendingReg?.createdAt || new Date().toISOString()
                 };
-                setDoc(userDocRef, newUserProfileData).catch((err) => {
+                setDoc(userDocRef, newUserProfileData, { merge: true }).catch((err) => {
                   console.error("Auto-creating user profile in Firestore failed:", err);
                 });
 
@@ -745,9 +762,15 @@ export default function App() {
     };
   }, [isAuthenticated, isPendingUser]);
 
-  // Handle real-time workers list update from DbService or cross-component registrations
+  // Handle real-time workers list update from DbService (Firestore onSnapshot) or cross-component registrations
   React.useEffect(() => {
     if (typeof window === "undefined" || !isAuthenticated || isPendingUser) return;
+
+    const unsubWorkers = DbService.subscribeWorkers((liveWorkers) => {
+      if (liveWorkers && liveWorkers.length > 0) {
+        setWorkers(liveWorkers);
+      }
+    });
 
     const syncWorkersList = async () => {
       try {
@@ -764,6 +787,7 @@ export default function App() {
     window.addEventListener("storage", syncWorkersList);
 
     return () => {
+      unsubWorkers();
       window.removeEventListener("workers_updated", syncWorkersList);
       window.removeEventListener("storage", syncWorkersList);
     };
@@ -1207,6 +1231,21 @@ export default function App() {
   const handleAddWorker = async (w: Worker) => {
     setWorkers((prev) => [w, ...prev.filter(existing => existing.id !== w.id)]);
     await DbService.addWorker(w);
+    await DbService.saveUser({
+      id: w.id,
+      uid: w.id,
+      employeeId: w.id,
+      displayName: w.name,
+      name: w.name,
+      phoneNumber: w.phoneNumber || "",
+      email: (w as any).email || "",
+      role: w.position || w.trade || UserRole.WORKER,
+      requestedRole: w.position || w.trade || UserRole.WORKER,
+      department: w.department || "",
+      trade: w.trade || "",
+      status: w.status || "Active",
+      createdAt: new Date().toISOString()
+    });
     logAction("Worker Registered", `Added/Updated worker ${w.name} (${w.trade}) to department ${w.department}`);
 
     // Create a system notification so Admin and Head Office can see the new registrant
@@ -1435,13 +1474,14 @@ export default function App() {
         isAmharic={isAmharic}
         onLanguageToggle={() => setIsAmharic(!isAmharic)}
         auditLogsCount={auditLogs.length}
-        onLoginSuccess={(role, method, loginLog) => {
-          // Unlock ERP session - prioritize active non-pending profile role
+        onLoginSuccess={(role, method, loginLog, registeredProfile) => {
+          // Unlock ERP session - prioritize registeredProfile if this is a fresh registration
           let activeRole = role;
-          if (currentUserProfile?.role && currentUserProfile.role !== ("Pending" as any) && currentUserProfile.status === "Active") {
-            activeRole = currentUserProfile.role;
-          } else if (role === ("Pending" as any) && currentUserRole && currentUserRole !== ("Pending" as any)) {
-            activeRole = currentUserRole;
+          if (registeredProfile) {
+            activeRole = (registeredProfile.role as UserRole) || role;
+            setCurrentUserProfile(registeredProfile);
+          } else if (currentUserProfile?.role && currentUserProfile.role !== ("Pending" as any) && currentUserProfile.status === "Active") {
+            activeRole = currentUserProfile.role as UserRole;
           }
 
           setCurrentUserRole(activeRole);
@@ -1460,13 +1500,13 @@ export default function App() {
               email: "mejennur669@gmail.com",
               phoneNumber: "0910097862/0920843843"
             });
-          } else if (!auth?.currentUser && !currentUserProfile) {
+          } else if (!registeredProfile && !auth?.currentUser && !currentUserProfile) {
             setCurrentUserProfile({
               uid: "demo-" + activeRole,
               displayName: `${activeRole} User`,
               role: activeRole,
-              status: "Active",
-              email: `${activeRole.toLowerCase().replace(/\s+/g, ".")}@company.com`
+              status: activeRole === ("Pending" as any) ? "Pending" : "Active",
+              email: `${String(activeRole).toLowerCase().replace(/\s+/g, ".")}@company.com`
             });
           }
 

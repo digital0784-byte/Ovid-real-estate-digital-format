@@ -1,4 +1,4 @@
-import { db, auth, isFirebaseReady, handleFirestoreError, OperationType } from "../firebase";
+import { db, auth, isFirebaseReady, handleFirestoreError, OperationType, sanitizeForFirestore } from "../firebase";
 import { NotificationService } from "./notificationService";
 import { 
   collection, 
@@ -185,7 +185,7 @@ class OfflineCacheAndOutboxEngine {
       for (const item of queue) {
         try {
           if (item.action === "set") {
-            await setDoc(doc(db, item.collectionName, item.id), item.data, { merge: true });
+            await setDoc(doc(db, item.collectionName, item.id), sanitizeForFirestore(item.data), { merge: true });
           } else if (item.action === "delete") {
             await deleteDoc(doc(db, item.collectionName, item.id));
           }
@@ -241,7 +241,7 @@ async function fetchCollection<T extends { id: string }>(collectionName: string,
         if (localOnly.length > 0) {
           console.log(`[DbService] Found ${localOnly.length} local-only item(s) in "${collectionName}". Syncing to Firestore...`);
           localOnly.forEach(item => {
-            setDoc(doc(db, collectionName, item.id), item, { merge: true }).catch(err => {
+            setDoc(doc(db, collectionName, item.id), sanitizeForFirestore(item), { merge: true }).catch(err => {
               console.warn(`[DbService] Auto-syncing local document ${item.id} to Firestore failed:`, err);
             });
           });
@@ -253,7 +253,7 @@ async function fetchCollection<T extends { id: string }>(collectionName: string,
         // If Firestore is empty, upload all cached items to Firestore if available
         if (cached && cached.length > 0) {
           cached.forEach(item => {
-            setDoc(doc(db, collectionName, item.id), item, { merge: true }).catch(err => {
+            setDoc(doc(db, collectionName, item.id), sanitizeForFirestore(item), { merge: true }).catch(err => {
               console.warn(`[DbService] Initial seed sync for ${item.id} failed:`, err);
             });
           });
@@ -268,21 +268,22 @@ async function fetchCollection<T extends { id: string }>(collectionName: string,
 }
 
 async function writeDocument<T extends { id: string }>(collectionName: string, item: T, defaultData: T[]): Promise<void> {
+  const sanitizedItem = sanitizeForFirestore(item);
   // 1. Update local cache immediately for instantaneous UI updates
-  offlineEngine.updateCacheItem<T>(collectionName, item, defaultData);
+  offlineEngine.updateCacheItem<T>(collectionName, sanitizedItem, defaultData);
 
   // 2. Primary Firestore sync or Outbox Queue
   if (isFirebaseReady && db) {
     try {
-      console.log(`[DbService] Writing document "${item.id}" to Firestore collection "${collectionName}"...`);
-      await setDoc(doc(db, collectionName, item.id), item, { merge: true });
-      console.log(`[DbService] Successfully saved document "${item.id}" to Firestore collection "${collectionName}".`);
+      console.log(`[DbService] Writing document "${sanitizedItem.id}" to Firestore collection "${collectionName}"...`);
+      await setDoc(doc(db, collectionName, sanitizedItem.id), sanitizedItem, { merge: true });
+      console.log(`[DbService] Successfully saved document "${sanitizedItem.id}" to Firestore collection "${collectionName}".`);
     } catch (err) {
-      console.warn(`Firestore primary write failed for "${collectionName}/${item.id}". Enqueueing in outbox:`, err);
-      offlineEngine.queueOutbox("set", collectionName, item.id, item);
+      console.warn(`Firestore primary write failed for "${collectionName}/${sanitizedItem.id}". Enqueueing in outbox:`, err);
+      offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
     }
   } else {
-    offlineEngine.queueOutbox("set", collectionName, item.id, item);
+    offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
   }
 }
 
@@ -310,13 +311,117 @@ export const DbService = {
     await offlineEngine.flushOutbox();
   },
 
+  // === USERS & REGISTRANTS ===
+  async getUsers(): Promise<any[]> {
+    return fetchCollection<any>("users", []);
+  },
+
+  async saveUser(userRecord: any): Promise<void> {
+    const id = userRecord.uid || userRecord.id;
+    if (!id) return;
+    const normalized = sanitizeForFirestore({
+      ...userRecord,
+      id,
+      uid: id,
+      updatedAt: new Date().toISOString()
+    });
+    await writeDocument<any>("users", normalized, []);
+  },
+
+  subscribeUsers(
+    callback: (users: any[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "users");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const cached = offlineEngine.getCache<any>("users", []);
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data();
+            return { ...data, id: data.id || data.uid || docSnap.id, uid: data.uid || docSnap.id };
+          });
+          const fsIds = new Set(items.map(x => x.id));
+          const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));
+          const combined = [...items, ...localOnly];
+          offlineEngine.saveCache("users", combined);
+          if (localOnly.length > 0) {
+            localOnly.forEach(item => {
+              setDoc(doc(db, "users", item.id), sanitizeForFirestore(item), { merge: true }).catch(() => {});
+            });
+          }
+          callback(combined);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "users");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<any>("users", []));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<any>("users", []));
+      return () => {};
+    }
+  },
+
   // === WORKERS ===
   async getWorkers(): Promise<Worker[]> {
     return fetchCollection<Worker>("workers", initialWorkers);
   },
 
+  subscribeWorkers(
+    callback: (workersList: Worker[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "workers");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const cached = offlineEngine.getCache<Worker>("workers", initialWorkers);
+          if (!snapshot.empty) {
+            const items = snapshot.docs.map(docSnap => {
+              const data = docSnap.data() as Worker;
+              return { ...data, id: data.id || docSnap.id };
+            });
+            const fsIds = new Set(items.map(x => x.id));
+            const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));
+            const combined = [...items, ...localOnly];
+            offlineEngine.saveCache("workers", combined);
+            if (localOnly.length > 0) {
+              localOnly.forEach(item => {
+                setDoc(doc(db, "workers", item.id), sanitizeForFirestore(item), { merge: true }).catch(() => {});
+              });
+            }
+            callback(combined);
+          } else {
+            if (cached && cached.length > 0) {
+              cached.forEach(item => {
+                setDoc(doc(db, "workers", item.id), sanitizeForFirestore(item), { merge: true }).catch(() => {});
+              });
+            }
+            callback(cached);
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "workers");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<Worker>("workers", initialWorkers));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<Worker>("workers", initialWorkers));
+      return () => {};
+    }
+  },
+
   async addWorker(worker: Worker): Promise<void> {
-    await writeDocument<Worker>("workers", worker, initialWorkers);
+    const cleanWorker = sanitizeForFirestore(worker);
+    await writeDocument<Worker>("workers", cleanWorker, initialWorkers);
+    await writeDocument<Worker>("employees", cleanWorker, []);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workers_updated"));
       try {
@@ -352,7 +457,9 @@ export const DbService = {
   },
 
   async updateWorker(worker: Worker): Promise<void> {
-    await writeDocument<Worker>("workers", worker, initialWorkers);
+    const cleanWorker = sanitizeForFirestore(worker);
+    await writeDocument<Worker>("workers", cleanWorker, initialWorkers);
+    await writeDocument<Worker>("employees", cleanWorker, []);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workers_updated"));
     }
@@ -360,6 +467,7 @@ export const DbService = {
 
   async deleteWorker(id: string): Promise<void> {
     await removeDocument<Worker>("workers", id, initialWorkers);
+    await removeDocument<Worker>("employees", id, []);
     if (typeof window !== "undefined") {
       window.dispatchEvent(new CustomEvent("workers_updated"));
     }

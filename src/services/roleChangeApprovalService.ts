@@ -1,6 +1,6 @@
 import { UserRole, RoleChangeRequest, RoleChangeAuditLog, RoleChangeRequestDoc } from "../types";
 import { NotificationService } from "./notificationService";
-import { db, isFirebaseReady } from "../firebase";
+import { db, isFirebaseReady, sanitizeForFirestore } from "../firebase";
 import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 
 const STORAGE_KEY_REQUESTS = "buildsync_role_change_requests_v1";
@@ -276,11 +276,11 @@ export class RoleChangeApprovalService {
     const browserOs = userAgent.includes("Chrome") ? "Chrome" : userAgent.includes("Firefox") ? "Firefox" : "Web Browser";
 
     const newReq: RoleChangeRequest = {
-      id: `RCR-2026-${Math.floor(100 + Math.random() * 900)}`,
+      id: `RCR-2026-${Math.floor(100 + Math.random() * 900)}-${Date.now().toString().slice(-3)}`,
       userId: params.userId,
       userName: params.userName,
-      userEmail: params.userEmail,
-      phoneNumber: params.phoneNumber,
+      userEmail: params.userEmail || "",
+      phoneNumber: params.phoneNumber || "",
       currentRole: params.currentRole,
       requestedRole: params.requestedRole,
       reason: params.reason.trim(),
@@ -303,7 +303,7 @@ export class RoleChangeApprovalService {
 
     // Save to Firestore role_change_requests collection
     if (isFirebaseReady && db) {
-      setDoc(doc(db, "role_change_requests", newReq.id), newReq, { merge: true }).catch(e => console.warn("Error saving request to Firestore:", e));
+      setDoc(doc(db, "role_change_requests", newReq.id), sanitizeForFirestore(newReq), { merge: true }).catch(e => console.warn("Error saving request to Firestore:", e));
     }
 
     // Trigger Notification for Admin & Head Office
@@ -384,7 +384,7 @@ export class RoleChangeApprovalService {
 
     // Sync to Firestore user document and role_change_requests collection
     if (isFirebaseReady && db) {
-      setDoc(doc(db, "role_change_requests", req.id), req, { merge: true }).catch(() => {});
+      setDoc(doc(db, "role_change_requests", req.id), sanitizeForFirestore(req), { merge: true }).catch(() => {});
 
       if (req.userId) {
         setDoc(doc(db, "users", req.userId), {
@@ -495,6 +495,16 @@ export class RoleChangeApprovalService {
     req.rejectionReason = params.rejectionReason.trim();
 
     this.saveRequests(requests);
+
+    if (isFirebaseReady && db) {
+      setDoc(doc(db, "role_change_requests", req.id), sanitizeForFirestore(req), { merge: true }).catch(() => {});
+      if (req.userId) {
+        setDoc(doc(db, "users", req.userId), {
+          status: "Rejected",
+          rejectionReason: params.rejectionReason.trim()
+        }, { merge: true }).catch(() => {});
+      }
+    }
 
     // Record Audit Log
     const auditLogs = this.getAuditLogs();

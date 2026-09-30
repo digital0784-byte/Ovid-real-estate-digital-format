@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import { getFirestore, initializeFirestore, enableIndexedDbPersistence } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import firebaseConfigJson from "../firebase-applet-config.json";
 
@@ -49,7 +49,13 @@ if (isConfigValid) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     const databaseId = firebaseConfig.firestoreDatabaseId;
-    db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+    try {
+      db = databaseId
+        ? initializeFirestore(app, { ignoreUndefinedProperties: true }, databaseId)
+        : initializeFirestore(app, { ignoreUndefinedProperties: true });
+    } catch {
+      db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
+    }
     auth = getAuth(app);
     isFirebaseReady = true;
 
@@ -71,6 +77,22 @@ if (isConfigValid) {
   }
 } else {
   console.info("Firebase environment variables not fully set. Defaulting to local persistent storage engine.");
+}
+
+export function sanitizeForFirestore<T>(obj: T): T {
+  if (obj === null || obj === undefined || typeof obj !== "object") {
+    return obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map((item) => sanitizeForFirestore(item)) as unknown as T;
+  }
+  const cleaned: Record<string, any> = {};
+  for (const [key, value] of Object.entries(obj as Record<string, any>)) {
+    if (value !== undefined) {
+      cleaned[key] = sanitizeForFirestore(value);
+    }
+  }
+  return cleaned as T;
 }
 
 export function getFirebaseConfigDetails() {

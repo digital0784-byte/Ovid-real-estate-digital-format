@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { UserRole, RoleChangeRequest, RoleChangeAuditLog, RoleChangeRequestDoc } from "../types";
 import { RoleChangeApprovalService } from "../services/roleChangeApprovalService";
-import { db, isFirebaseReady } from "../firebase";
-import { collection, getDocs, doc, setDoc, query, where } from "firebase/firestore";
+import { db, isFirebaseReady, sanitizeForFirestore } from "../firebase";
+import { collection, getDocs, doc, setDoc, query, where, onSnapshot } from "firebase/firestore";
 import { 
   ShieldCheck, 
   ShieldAlert, 
@@ -105,9 +105,32 @@ export function UserRoleApprovalHub({
 
   const canApprove = RoleChangeApprovalService.canApproveRoleChange(currentUserRole);
 
-  // Load requests and audit logs on mount
+  // Load requests and audit logs on mount and subscribe in real-time to Firestore
   useEffect(() => {
     refreshData();
+
+    if (!isFirebaseReady || !db) return;
+
+    const unsubReqs = onSnapshot(
+      collection(db, "role_change_requests"),
+      () => {
+        refreshData();
+      },
+      () => {}
+    );
+
+    const unsubUsers = onSnapshot(
+      collection(db, "users"),
+      () => {
+        refreshData();
+      },
+      () => {}
+    );
+
+    return () => {
+      unsubReqs();
+      unsubUsers();
+    };
   }, []);
 
   const refreshData = async () => {
@@ -138,11 +161,14 @@ export function UserRoleApprovalHub({
           if (u.status === "Pending" || u.role === "Pending") {
             const userId = docSnap.id;
             const reqId = `RCR-FS-${userId.slice(0, 6)}`;
-            if (!firestoreReqsMap.has(reqId)) {
+            const alreadyByUser = Array.from(firestoreReqsMap.values()).some(
+              (r) => r.userId === userId || (u.email && r.userEmail?.toLowerCase() === u.email.toLowerCase())
+            );
+            if (!firestoreReqsMap.has(reqId) && !alreadyByUser) {
               firestoreReqsMap.set(reqId, {
                 id: reqId,
                 userId: userId,
-                userName: u.displayName || u.email || "Registered User",
+                userName: u.displayName || u.name || u.email || "Registered User",
                 userEmail: u.email || "",
                 phoneNumber: u.phoneNumber || "",
                 currentRole: u.role || "Pending",
@@ -152,7 +178,7 @@ export function UserRoleApprovalHub({
                   : `New self-registered user via link. Requested Role: ${u.requestedRole || "Unspecified"}`,
                 supportingDocuments: [],
                 status: "Pending Approval",
-                requestedBy: u.displayName || u.email || "Self Registration",
+                requestedBy: u.displayName || u.name || u.email || "Self Registration",
                 requestedByRole: "Pending User",
                 requestedDate: u.createdAt ? u.createdAt.slice(0, 10) : new Date().toISOString().slice(0, 10),
                 requestedTime: "Registration",
@@ -166,10 +192,11 @@ export function UserRoleApprovalHub({
           }
         });
 
-        // 3. Merge with local cache requests
+        // 3. Merge with local cache requests and back-fill local-only requests to Firestore
         localReqs.forEach(lr => {
           if (!firestoreReqsMap.has(lr.id)) {
             firestoreReqsMap.set(lr.id, lr);
+            setDoc(doc(db, "role_change_requests", lr.id), sanitizeForFirestore(lr), { merge: true }).catch(() => {});
           }
         });
 
