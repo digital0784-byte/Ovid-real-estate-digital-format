@@ -267,9 +267,9 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
 
   // --- Master Prompt Warehouse Management States ---
   const [warehouses, setWarehouses] = useState<any[]>([
-    { name: "Central Bole Warehouse", code: "WH-BOLE-01", location: "Bole Subcity, Addis Ababa", gps: "9.0125° N, 38.7850° E", manager: "Abebe Kebede", capacity: 5000, minStock: 500, maxStock: 4500, currentStock: 1200 },
-    { name: "Saris Industrial Yard", code: "WH-SARIS-02", location: "Nifas Silk, Addis Ababa", gps: "8.9723° N, 38.7490° E", manager: "Eng. Chala", capacity: 8000, minStock: 800, maxStock: 7500, currentStock: 1800 },
-    { name: "Gotera Storage Depot", code: "WH-GOTERA-03", location: "Kirkos, Addis Ababa", gps: "9.0012° N, 38.7610° E", manager: "Mulugeta Tesfaye", capacity: 4000, minStock: 400, maxStock: 3500, currentStock: 950 },
+    { name: "Central Bole Warehouse", code: "WH-BOLE-01", location: "Bole Subcity, Addis Ababa", gps: "9.0125° N, 38.7850° E", manager: "Warehouse Manager", capacity: 5000, minStock: 500, maxStock: 4500, currentStock: 1200 },
+    { name: "Saris Industrial Yard", code: "WH-SARIS-02", location: "Nifas Silk, Addis Ababa", gps: "8.9723° N, 38.7490° E", manager: "Yard Supervisor", capacity: 8000, minStock: 800, maxStock: 7500, currentStock: 1800 },
+    { name: "Gotera Storage Depot", code: "WH-GOTERA-03", location: "Kirkos, Addis Ababa", gps: "9.0012° N, 38.7610° E", manager: "Depot Manager", capacity: 4000, minStock: 400, maxStock: 3500, currentStock: 950 },
   ]);
   const [showAddWarehouseModal, setShowAddWarehouseModal] = useState(false);
   const [newWhName, setNewWhName] = useState("");
@@ -4799,7 +4799,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Mulugeta Tesfaye"
+                    placeholder="Enter Yard Manager Name"
                     value={newWhManager}
                     onChange={e => setNewWhManager(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-slate-800 outline-none"

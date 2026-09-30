@@ -148,7 +148,7 @@ export const SafetyQuality: React.FC<SafetyQualityProps> = ({
       defectType,
       status: "Open",
       reportedDate: new Date().toISOString().split("T")[0],
-      reportedBy: "Eng. Yoseph Hailu",
+      reportedBy: "Site Quality Inspector",
       assignedTo: "T-01" // Assembly Team Alpha
     };
 

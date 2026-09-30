@@ -139,7 +139,7 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
       date: "2026-07-01",
       time: "10:30 AM",
       gpsLocation: { lat: 9.0049, lng: 38.7783, alt: 2320 },
-      photographer: "Yohannes Bekele",
+      photographer: "Assigned Team Leader",
       photographerRole: "Team Leader",
       workActivity: "Formwork Assembly",
       imageUrl: "https://images.unsplash.com/photo-1590069261209-f8e9b8642343?w=800&auto=format&fit=crop",
@@ -192,7 +192,7 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
       date: "2026-07-02",
       time: "08:15 AM",
       gpsLocation: { lat: 9.0051, lng: 38.7781, alt: 2321 },
-      photographer: "Fikru Tolossa",
+      photographer: "Assigned Gang Chief",
       photographerRole: "Gang Chief",
       workActivity: "Alignment Calibration",
       imageUrl: "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop",
@@ -252,10 +252,10 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
     const activities = ["Formwork Assembly", "Alignment Calibration", "Support Bracing", "Steel Fixing"];
     const zonesList = ["Zone A", "Zone B", "Zone C", "Zone D"];
     const photographers = [
-      { name: "Yohannes Bekele", role: "Team Leader" },
-      { name: "Fikru Tolossa", role: "Gang Chief" },
-      { name: "Kassa Hunegn", role: "Supervisor" },
-      { name: "Dereje Ayalew", role: "Site Engineer" }
+      { name: "Assigned Team Leader", role: "Team Leader" },
+      { name: "Assigned Gang Chief", role: "Gang Chief" },
+      { name: "Site Supervisor", role: "Supervisor" },
+      { name: "Site Engineer", role: "Site Engineer" }
     ];
 
     const randomBuilding = buildings[Math.floor(Math.random() * buildings.length)];
@@ -416,16 +416,13 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
     e.preventDefault();
     
     // Who is the current photographer?
-    let photographerName = "Kassa Hunegn";
-    let photographerRoleStr = "Supervisor";
+    const photographerName = currentUserRole;
+    let photographerRoleStr = String(currentUserRole);
     if (currentUserRole === UserRole.TEAM_LEADER) {
-      photographerName = "Yohannes Bekele";
       photographerRoleStr = "Team Leader";
     } else if (currentUserRole === UserRole.GANG_CHIEF) {
-      photographerName = "Fikru Tolossa";
       photographerRoleStr = "Gang Chief";
     } else if (currentUserRole === UserRole.HEAD_OFFICE) {
-      photographerName = "Eng. Yoseph";
       photographerRoleStr = "Project Engineer";
     }
 
@@ -1403,7 +1400,7 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
                         className="rounded border-slate-700 bg-slate-950 text-red-600 focus:ring-0 cursor-pointer h-4 w-4"
                       />
                       <span className={activePhoto.readinessChecklist.supervisorApproval ? "text-slate-200 font-bold" : "text-slate-500 font-medium"}>
-                        {isAmharic ? "የሳይት ሱፐርቫይዘር ይሁንታ (Eng. Kassa)" : "Supervisor Official Approval (Eng. Kassa)"}
+                        {isAmharic ? "የሳይት ሱፐርቫይዘር ይሁንታ" : "Supervisor Official Approval"}
                       </span>
                     </label>
 
@@ -1416,7 +1413,7 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
                         className="rounded border-slate-700 bg-slate-950 text-red-600 focus:ring-0 cursor-pointer h-4 w-4"
                       />
                       <span className={activePhoto.readinessChecklist.engineerApproval ? "text-slate-200 font-bold" : "text-slate-500 font-medium"}>
-                        {isAmharic ? "የሳይት መሃንዲስ ይሁንታ (Eng. Yoseph)" : "Project Engineer Official Sign-off (Eng. Yoseph)"}
+                        {isAmharic ? "የሳይት መሃንዲስ ይሁንታ" : "Project Engineer Official Sign-off"}
                       </span>
                     </label>
 

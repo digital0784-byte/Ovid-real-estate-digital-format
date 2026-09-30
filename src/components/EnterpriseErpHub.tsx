@@ -497,8 +497,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   const [chatInput, setChatInput] = useState("");
   const [voiceMessages, setVoiceMessages] = useState([
-    { id: "V-01", sender: "Fikru Tolossa", duration: "12 Secs", time: "08:30 AM", url: "Voice_AlphaFinished_Slab.mp3" },
-    { id: "V-02", sender: "Abebe Girma", duration: "18 Secs", time: "08:55 AM", url: "Voice_BiometricError_Solved.mp3" }
+    { id: "V-01", sender: "Assigned Gang Chief", duration: "12 Secs", time: "08:30 AM", url: "Voice_AlphaFinished_Slab.mp3" },
+    { id: "V-02", sender: "Assigned Time Keeper", duration: "18 Secs", time: "08:55 AM", url: "Voice_BiometricError_Solved.mp3" }
   ]);
 
   // --- 9. CLIENT/CONSULTANT VIEW ---
@@ -899,9 +899,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     lastScanTime: "Today, 11:30 AM",
     cadMatchConfidence: "98.2%",
     discrepancies: [
-      { id: "DISC-01", type: "Geometrical Deviation", details: "LIDAR Drone Scan detects Column C-12 plumb offset of +8.5mm against Structural CAD blueprint on Floor 4 Zone A.", severity: "Medium Risk", status: "Flagged for Review", assignedEngineer: "Eng. Yoseph" },
-      { id: "DISC-02", type: "Material Inconsistency", details: "Concrete compression strength registered 28 MPa at 7-days vs 30 MPa specified in engineering specifications on Slab S-04B.", severity: "High Risk", status: "Engineering Hold", assignedEngineer: "Alemayehu K." },
-      { id: "DISC-03", type: "Sequencing Deficit", details: "Photo inspection confirms formwork removal completed on Column C-11 4 hours ahead of standard cure permit timeline.", severity: "Low Risk", status: "Approved with warning", assignedEngineer: "Consultant Eng. Tariku" }
+      { id: "DISC-01", type: "Geometrical Deviation", details: "LIDAR Drone Scan detects Column C-12 plumb offset of +8.5mm against Structural CAD blueprint on Floor 4 Zone A.", severity: "Medium Risk", status: "Flagged for Review", assignedEngineer: "Assigned Site Engineer" },
+      { id: "DISC-02", type: "Material Inconsistency", details: "Concrete compression strength registered 28 MPa at 7-days vs 30 MPa specified in engineering specifications on Slab S-04B.", severity: "High Risk", status: "Engineering Hold", assignedEngineer: "Assigned Structural Engineer" },
+      { id: "DISC-03", type: "Sequencing Deficit", details: "Photo inspection confirms formwork removal completed on Column C-11 4 hours ahead of standard cure permit timeline.", severity: "Low Risk", status: "Approved with warning", assignedEngineer: "Consultant Engineer" }
     ]
   });
 
@@ -4089,7 +4089,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Employee Name</label>
-                  <input type="text" placeholder="e.g. Fikru Tolossa" value={newTraining.employee} onChange={e => setNewTraining({...newTraining, employee: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <input type="text" placeholder="Enter employee full name" value={newTraining.employee} onChange={e => setNewTraining({...newTraining, employee: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Safety Course Category</label>
@@ -5874,7 +5874,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         disabled={feedbackAnonymous}
                         value={feedbackAnonymous ? (isAmharic ? "ስም-አልባ (ማንነቱ ያልታወቀ)" : "Anonymous Employee") : feedbackName}
                         onChange={(e) => setFeedbackName(e.target.value)}
-                        placeholder={isAmharic ? "ሙሉ ስምዎን ያስገቡ" : "eg. Eng. Yoseph"}
+                        placeholder={isAmharic ? "ሙሉ ስምዎን ያስገቡ" : "Enter your full name"}
                         className="w-full bg-slate-50 text-slate-900 text-xs p-2.5 rounded-xl border border-slate-200 outline-none focus:border-red-500 disabled:opacity-60"
                       />
                     </div>

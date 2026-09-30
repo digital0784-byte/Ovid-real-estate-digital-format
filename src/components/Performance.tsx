@@ -83,7 +83,7 @@ export const Performance: React.FC<PerformanceProps> = ({
       totalScore: total,
       level,
       comment,
-      evaluatedBy: "Eng. Yoseph Hailu"
+      evaluatedBy: "Site Supervisor"
     };
 
     onAddEvaluation(newEvaluation);

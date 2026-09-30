@@ -46,8 +46,8 @@ export const SyncMonitor: React.FC<SyncMonitorProps> = ({
     {
       id: "Q-ATT-101",
       category: "attendance",
-      titleEn: "Biometric Clock-In: Dawit Yoseph",
-      titleAm: "ባዮሜትሪክ መግቢያ፡ ዳዊት ዮሴፍ",
+      titleEn: "Biometric Clock-In: Terminal FT-04",
+      titleAm: "ባዮሜትሪክ መግቢያ፡ ተርሚናል FT-04",
       timestamp: "10:14:22 AM",
       synced: false,
       detailsEn: "Scanned via Fingerprint Terminal FT-04",
@@ -56,8 +56,8 @@ export const SyncMonitor: React.FC<SyncMonitorProps> = ({
     {
       id: "Q-ATT-102",
       category: "attendance",
-      titleEn: "Biometric Clock-Out: Almaz Gudeta",
-      titleAm: "ባዮሜትሪክ መውጫ፡ አልማዝ ጉደታ",
+      titleEn: "Biometric Clock-Out: Face Kiosk FK-02",
+      titleAm: "ባዮሜትሪክ መውጫ፡ ኪዮስክ FK-02",
       timestamp: "10:18:05 AM",
       synced: false,
       detailsEn: "Scanned via Face Kiosk FK-02",
@@ -66,8 +66,8 @@ export const SyncMonitor: React.FC<SyncMonitorProps> = ({
     {
       id: "Q-ATT-103",
       category: "attendance",
-      titleEn: "Biometric Clock-In: Yohannes Bekele",
-      titleAm: "ባዮሜትሪክ መግቢያ፡ ዮሐንስ በቀለ",
+      titleEn: "Biometric Clock-In: Team Leader (Zone Alpha)",
+      titleAm: "ባዮሜትሪክ መግቢያ፡ የቡድን መሪ (ዞን አልፋ)",
       timestamp: "10:22:41 AM",
       synced: false,
       detailsEn: "GPS Geo-validated check-in, Assembly Zone Alpha",

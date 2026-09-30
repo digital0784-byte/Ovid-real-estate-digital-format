@@ -57,7 +57,7 @@ export const DailyProgress: React.FC<DailyProgressProps> = ({
       id: `LOG-${Date.now()}`,
       date: new Date().toISOString().split("T")[0],
       engineerId: "ENG-001",
-      engineerName: "Eng. Yoseph Hailu",
+      engineerName: "Site Engineer",
       building,
       floor,
       zone,
@@ -296,7 +296,7 @@ export const DailyProgress: React.FC<DailyProgressProps> = ({
             </div>
             <div className="flex justify-between">
               <span>Duty Engineer:</span>
-              <span className="font-bold text-white">Yoseph Hailu</span>
+              <span className="font-bold text-white">{logs[0]?.engineerName || "Unassigned"}</span>
             </div>
           </div>
         </div>

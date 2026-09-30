@@ -1258,18 +1258,18 @@ export function LaunchReadinessHub({ isAmharic, currentUserRole, onLogAction }: 
                     {/* Signatures Footer */}
                     <div className="border-t border-slate-100 pt-6 flex justify-between items-end text-[10px] font-sans mt-4">
                       <div>
-                        <p className="font-extrabold text-slate-800 uppercase">Alemayehu K.</p>
-                        <p className="text-slate-400">Chief Enterprise Architect</p>
-                        <p className="text-[8px] font-mono text-indigo-600 font-bold">Signed: ALEMAYEHU_K_SHA256_HASH_VALID</p>
+                        <p className="font-extrabold text-slate-800 uppercase">Chief Enterprise Architect</p>
+                        <p className="text-slate-400">Architecture & Infrastructure</p>
+                        <p className="text-[8px] font-mono text-indigo-600 font-bold">Signed: ARCHITECT_SHA256_HASH_VALID</p>
                       </div>
                       <div className="text-center px-4 py-2 border border-dashed border-indigo-200 rounded bg-indigo-50/50">
                         <span className="block text-[8px] text-slate-400 uppercase tracking-wider font-extrabold">Digital Construction ERP Seal</span>
                         <span className="text-[9px] font-mono font-black text-indigo-900">VERIFIED SYSTEM</span>
                       </div>
                       <div className="text-right">
-                        <p className="font-extrabold text-slate-800 uppercase">Eng. Yoseph</p>
-                        <p className="text-slate-400">Executive Director, Digital Construction ERP System</p>
-                        <p className="text-[8px] font-mono text-indigo-600 font-bold">Signed: YOSEPH_CEO_SECURE_KEY</p>
+                        <p className="font-extrabold text-slate-800 uppercase">Executive Director</p>
+                        <p className="text-slate-400">Digital Construction ERP System</p>
+                        <p className="text-[8px] font-mono text-indigo-600 font-bold">Signed: EXEC_DIRECTOR_SECURE_KEY</p>
                       </div>
                     </div>
 

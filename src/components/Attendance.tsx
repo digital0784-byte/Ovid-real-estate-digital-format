@@ -470,7 +470,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
       totalScore: total,
       level,
       comment: evalComment,
-      evaluatedBy: currentUserRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph" : "TK Abebe Girma / Team Lead"
+      evaluatedBy: currentUserRole
     };
 
     onAddEvaluation(newEval);
@@ -1922,8 +1922,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
                             {w?.trade || a.trade}
                           </span>
                         </td>
-                        <td className="p-3 text-slate-500 font-semibold">{w?.teamId || "Team Alpha"}</td>
-                        <td className="p-3 text-slate-500 font-medium">{w?.gangChief || "Fikru Tolossa"}</td>
+                        <td className="p-3 text-slate-500 font-semibold">{w?.teamId || "Unassigned"}</td>
+                        <td className="p-3 text-slate-500 font-medium">{w?.gangChief || "Unassigned"}</td>
                         <td className="p-3 text-slate-700 font-semibold">FL {a.floor} - {a.zone}</td>
                         <td className="p-3 font-mono text-slate-700">{a.checkIn || "–"}</td>
                         <td className="p-3 font-mono text-slate-700">{a.checkOut || "–"}</td>

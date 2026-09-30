@@ -92,7 +92,7 @@ export const initialIssueRecords: MaterialIssueRecord[] = [
   },
   {
     id: "ISS-2026-302",
-    receiverName: "Fikru Tolossa",
+    receiverName: "Assigned Gang Chief",
     receiverRole: "Gang Chief",
     department: "Formwork Gang B",
     siteName: "Bole Heights Phase I",
@@ -114,7 +114,7 @@ export const initialReturnRecords: MaterialReturnRecord[] = [
     id: "RET-2026-05",
     materialName: "Standard Wall Panel 1200x600",
     quantity: 24,
-    returnedBy: "Kassa Hunegn (Supervisor)",
+    returnedBy: "Site Supervisor",
     condition: "Needs Cleaning",
     returnDate: "2026-07-20 16:45",
     notes: "Concrete slurry residue on face. Sent to cleaning station."
@@ -123,7 +123,7 @@ export const initialReturnRecords: MaterialReturnRecord[] = [
     id: "RET-2026-06",
     materialName: "Heavy Duty Adjustable Steel Prop 3.5m",
     quantity: 4,
-    returnedBy: "Yohannes Bekele (Team Leader)",
+    returnedBy: "Team Leader",
     condition: "Needs Repair",
     returnDate: "2026-07-21 09:10",
     notes: "Pin thread bent during stripping. Maintenance scheduled."
@@ -133,7 +133,7 @@ export const initialReturnRecords: MaterialReturnRecord[] = [
 export const initialMaterialRequests: MaterialRequestItem[] = [
   {
     id: "REQ-2026-88",
-    requesterName: "Sintayehu Alula",
+    requesterName: "Site Engineer",
     requesterRole: "Site Engineer",
     siteName: "Bole Heights Phase I",
     building: "Building B",
@@ -148,7 +148,7 @@ export const initialMaterialRequests: MaterialRequestItem[] = [
   },
   {
     id: "REQ-2026-89",
-    requesterName: "Fikru Tolossa",
+    requesterName: "Gang Chief",
     requesterRole: "Gang Chief",
     siteName: "Bole Heights Phase I",
     building: "Building A",
@@ -366,7 +366,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 8,
     conditionScore: 95.5,
     lastReportDate: "2026-07-22 08:30",
-    lastReporter: "Alemayehu Kebede (Section Head)"
+    lastReporter: "Section Head"
   },
   {
     id: "SPB-002",
@@ -381,7 +381,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 3,
     conditionScore: 96.8,
     lastReportDate: "2026-07-22 08:30",
-    lastReporter: "Fikru Tolossa (Gang Chief)"
+    lastReporter: "Gang Chief"
   },
   {
     id: "SPB-003",
@@ -396,7 +396,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 10,
     conditionScore: 94.2,
     lastReportDate: "2026-07-22 09:15",
-    lastReporter: "Kassa Hunegn (Supervisor)"
+    lastReporter: "Site Supervisor"
   },
   {
     id: "SPB-004",
@@ -411,7 +411,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 8,
     conditionScore: 95.0,
     lastReportDate: "2026-07-22 09:15",
-    lastReporter: "Yohannes Bekele (Team Leader)"
+    lastReporter: "Team Leader"
   },
   {
     id: "SPB-005",
@@ -426,7 +426,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 2,
     conditionScore: 92.8,
     lastReportDate: "2026-07-21 17:00",
-    lastReporter: "Birhanu Tesfa (Gang Chief)"
+    lastReporter: "Gang Chief"
   },
   {
     id: "SPB-006",
@@ -441,7 +441,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 2,
     conditionScore: 96.0,
     lastReportDate: "2026-07-21 16:45",
-    lastReporter: "Chala Bekele (Gang Chief)"
+    lastReporter: "Gang Chief"
   },
   {
     id: "SPB-007",
@@ -456,7 +456,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 35,
     conditionScore: 91.5,
     lastReportDate: "2026-07-21 18:00",
-    lastReporter: "Abebe Kebede (Site Store Owner)"
+    lastReporter: "Site Store Owner"
   }
 ];
 
@@ -471,7 +471,7 @@ export const initialDailyRequisitions: DailyMaterialRequisition[] = [
     blockNumber: "Block A",
     floorNumber: "Floor 4",
     zoneNumber: "Zone 2",
-    requestedBy: "Fikru Tolossa",
+    requestedBy: "Gang Chief",
     employeeId: "EMP-4091",
     jobPosition: "Gang Chief",
     submissionMode: "Mobile App",
@@ -486,11 +486,11 @@ export const initialDailyRequisitions: DailyMaterialRequisition[] = [
     priority: "Normal",
     expectedReturnDate: "2026-07-23",
     status: "Approved",
-    approvedBy: "Eng. Kassa Hunegn (Supervisor)",
-    issuedBy: "Abebe Storekeeper",
+    approvedBy: "Site Supervisor",
+    issuedBy: "Site Storekeeper",
     stockAvailability: "In Stock",
     qrScanVerified: true,
-    receiverSignature: "Signed (Fikru Tolossa - Fingerprint Auth)",
+    receiverSignature: "Signed (Gang Chief - Fingerprint Auth)",
     gpsLocation: "8.9806° N, 38.7578° E",
     pinsQty: 150,
     wedgesQty: 250,
@@ -510,7 +510,7 @@ export const initialDailyRequisitions: DailyMaterialRequisition[] = [
     blockNumber: "Block 1",
     floorNumber: "Floor 8",
     zoneNumber: "Zone 1",
-    requestedBy: "Tiruneh Girma",
+    requestedBy: "Team Leader",
     employeeId: "EMP-5102",
     jobPosition: "Team Leader",
     submissionMode: "Tablet",
@@ -551,7 +551,7 @@ export const initialDailyConsumptionVariances: DailyConsumptionVariance[] = [
     floorNumber: "Floor 4",
     materialName: "Aluminum Formwork Pin & Wedge Set",
     jobPosition: "Gang Chief",
-    requestedBy: "Fikru Tolossa",
+    requestedBy: "Gang Chief",
     quantityRequested: 400,
     quantityIssued: 400,
     quantityUsed: 385,
@@ -562,7 +562,7 @@ export const initialDailyConsumptionVariances: DailyConsumptionVariance[] = [
     varianceQty: 0,
     variancePercent: 1.25,
     varianceStatus: "Acceptable Tolerance",
-    reportedBy: "Fikru Tolossa (Gang Chief)",
+    reportedBy: "Gang Chief",
     verifiedByStorekeeper: true
   }
 ];
@@ -572,7 +572,7 @@ export const initialRequisitionAuditLogs: RequisitionAuditLog[] = [
     id: "AUD-REQ-901",
     requisitionId: "REQ-20260722-001",
     action: "REQUEST_CREATED",
-    performedBy: "Fikru Tolossa (EMP-4091)",
+    performedBy: "Gang Chief (EMP-4091)",
     jobPosition: "Gang Chief",
     timestamp: "2026-07-22 06:15:22",
     gpsLocation: "8.9806° N, 38.7578° E",
@@ -584,7 +584,7 @@ export const initialRequisitionAuditLogs: RequisitionAuditLog[] = [
     id: "AUD-REQ-902",
     requisitionId: "REQ-20260722-001",
     action: "APPROVAL_GRANTED",
-    performedBy: "Eng. Kassa Hunegn (EMP-2010)",
+    performedBy: "Site Supervisor (EMP-2010)",
     jobPosition: "Supervisor",
     timestamp: "2026-07-22 06:22:10",
     gpsLocation: "8.9806° N, 38.7578° E",
@@ -596,7 +596,7 @@ export const initialRequisitionAuditLogs: RequisitionAuditLog[] = [
     id: "AUD-REQ-903",
     requisitionId: "REQ-20260722-001",
     action: "MATERIAL_ISSUED_QR",
-    performedBy: "Abebe Storekeeper (EMP-1002)",
+    performedBy: "Site Storekeeper (EMP-1002)",
     jobPosition: "Store Owner",
     timestamp: "2026-07-22 06:30:45",
     gpsLocation: "8.9806° N, 38.7578° E",
@@ -614,8 +614,8 @@ export const initialDailyReturnReports: DailyReturnReport[] = [
     siteName: "Bole Heights Phase I",
     blockNumber: "Block A",
     floorNumber: "Floor 3",
-    gangChiefName: "Fikru Tolossa",
-    siteStoreOwnerName: "Abebe Storekeeper",
+    gangChiefName: "Gang Chief",
+    siteStoreOwnerName: "Site Storekeeper",
     status: "With Damage",
     pinsReturned: 142,
     pinsLost: 5,

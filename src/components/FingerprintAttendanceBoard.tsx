@@ -847,18 +847,39 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   // Helper to fetch details of a worker to display team, leaders, chiefs, etc.
   const getWorkerMetaData = (workerId: string) => {
     const worker = workers.find(w => w.id === workerId);
-    if (!worker) return { team: "Unassigned", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" };
+    if (!worker) return { team: "Unassigned", gangChief: "Unassigned", teamLeader: "Unassigned", supervisor: "Unassigned" };
 
-    // Explicit lookups representing structural site hierarchy
-    const meta: Record<string, { team: string; gangChief: string; teamLeader: string; supervisor: string }> = {
-      "T-01": { team: "Assembly Team Alpha", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" },
-      "T-02": { team: "Stripping Team Beta", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" },
-      "T-03": { team: "Steel Fixing Team Gamma", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" },
-      "T-04": { team: "Concreting Team Delta", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" },
-      "T-05": { team: "Support Team Epsilon", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" }
+    const teamNames: Record<string, string> = {
+      "T-01": "Assembly Team Alpha",
+      "T-02": "Stripping Team Beta",
+      "T-03": "Steel Fixing Team Gamma",
+      "T-04": "Concreting Team Delta",
+      "T-05": "Support Team Epsilon"
     };
 
-    return meta[worker.teamId] || { team: "Custom Gang", gangChief: "Fikru Tolossa", teamLeader: "Yohannes Bekele", supervisor: "Eng. Yoseph" };
+    const teamWorkers = workers.filter(w => w.teamId === worker.teamId);
+    const derivedGangChief =
+      worker.gangChief ||
+      teamWorkers.find(w => w.role === UserRole.GANG_CHIEF)?.name ||
+      teamWorkers.find(w => w.gangChief)?.gangChief ||
+      "Unassigned";
+    const derivedTeamLeader =
+      worker.teamLeader ||
+      teamWorkers.find(w => w.role === UserRole.TEAM_LEADER)?.name ||
+      teamWorkers.find(w => w.teamLeader)?.teamLeader ||
+      "Unassigned";
+    const derivedSupervisor =
+      worker.supervisor ||
+      teamWorkers.find(w => w.role === UserRole.SUPERVISOR)?.name ||
+      teamWorkers.find(w => w.supervisor)?.supervisor ||
+      "Unassigned";
+
+    return {
+      team: teamNames[worker.teamId] || worker.teamId || "Unassigned",
+      gangChief: derivedGangChief,
+      teamLeader: derivedTeamLeader,
+      supervisor: derivedSupervisor
+    };
   };
 
   return (

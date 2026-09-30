@@ -148,11 +148,11 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       name: "Digital Bole Heights",
       client: "Federal Housing Corporation",
       contractor: "Digital Construction ERP",
-      projectManager: "Eng. Yoseph Hailu",
-      supervisor: "Kassa Hunegn",
-      teamLeaders: ["Yohannes Bekele", "Hiwot Girma"],
-      gangChiefs: ["Fikru Tolossa", "Chala Kebede"],
-      timeKeepers: ["Abebe Girma"],
+      projectManager: "Unassigned",
+      supervisor: "Unassigned",
+      teamLeaders: [],
+      gangChiefs: [],
+      timeKeepers: [],
       address: "Bole District, Axis-4",
       city: "Addis Ababa",
       region: "Addis Ababa City Administration",
@@ -171,11 +171,11 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       name: "Digital Construction ERP Ayat East Block",
       client: "Digital Construction ERP System",
       contractor: "Digital Construction ERP",
-      projectManager: "Eng. Samuel Alene",
-      supervisor: "Martha Hagos",
-      teamLeaders: ["Team Leader"],
-      gangChiefs: ["Gang Chief"],
-      timeKeepers: ["Tsion Demeke"],
+      projectManager: "Unassigned",
+      supervisor: "Unassigned",
+      teamLeaders: [],
+      gangChiefs: [],
+      timeKeepers: [],
       address: "Ayat Zone 3",
       city: "Addis Ababa",
       region: "Addis Ababa City Administration",
@@ -228,11 +228,11 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
               name: s.projectName,
               client: s.clientName,
               contractor: s.contractorName,
-              projectManager: s.siteManager || "Eng. Samuel Alene",
-              supervisor: s.supervisor || "Kassa Hunegn",
-              teamLeaders: s.teamLeaders || ["Yohannes Bekele"],
-              gangChiefs: s.gangChiefs || ["Fikru Tolossa"],
-              timeKeepers: s.timeKeepers || ["Tsion Demeke"],
+              projectManager: s.siteManager || "Unassigned",
+              supervisor: s.supervisor || "Unassigned",
+              teamLeaders: s.teamLeaders || [],
+              gangChiefs: s.gangChiefs || [],
+              timeKeepers: s.timeKeepers || [],
               address: s.cityWoreda,
               city: s.cityWoreda.split(",")[0] || "Addis Ababa",
               region: s.region,
@@ -289,24 +289,24 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
   ]);
 
   const [zones, setZones] = useState<Zone[]>([
-    { id: "ZN-101-A-4-A", floorId: "FLR-101-A-4", name: "Zone A - West Wing", area: 400, workSequence: 1, assignedTeamLeader: "Yohannes Bekele", assignedGangChief: "Fikru Tolossa", assignedSupervisor: "Kassa Hunegn" },
-    { id: "ZN-101-A-4-B", floorId: "FLR-101-A-4", name: "Zone B - Core Shaft", area: 350, workSequence: 2, assignedTeamLeader: "Hiwot Girma", assignedGangChief: "Chala Kebede", assignedSupervisor: "Kassa Hunegn" },
-    { id: "ZN-101-A-4-C", floorId: "FLR-101-A-4", name: "Zone C - Outer Deck", area: 450, workSequence: 3, assignedTeamLeader: "Yohannes Bekele", assignedGangChief: "Fikru Tolossa", assignedSupervisor: "Kassa Hunegn" }
+    { id: "ZN-101-A-4-A", floorId: "FLR-101-A-4", name: "Zone A - West Wing", area: 400, workSequence: 1, assignedTeamLeader: "Unassigned", assignedGangChief: "Unassigned", assignedSupervisor: "Unassigned" },
+    { id: "ZN-101-A-4-B", floorId: "FLR-101-A-4", name: "Zone B - Core Shaft", area: 350, workSequence: 2, assignedTeamLeader: "Unassigned", assignedGangChief: "Unassigned", assignedSupervisor: "Unassigned" },
+    { id: "ZN-101-A-4-C", floorId: "FLR-101-A-4", name: "Zone C - Outer Deck", area: 450, workSequence: 3, assignedTeamLeader: "Unassigned", assignedGangChief: "Unassigned", assignedSupervisor: "Unassigned" }
   ]);
 
   const [drawings, setDrawings] = useState<CadDrawing[]>([
-    { id: "CAD-201", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "Digital Construction ERP_BH_FL04_ZONE_A_REV3.dwg", type: "DWG", revisionNumber: 3, uploadDate: "2026-06-28", uploadedBy: "Senior Eng. Daniel Girma", status: "Approved", fileSize: "18.4 MB" },
-    { id: "CAD-202", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-B", name: "Digital Construction ERP_BH_FL04_ZONE_B_REV2.pdf", type: "PDF", revisionNumber: 2, uploadDate: "2026-06-25", uploadedBy: "Eng. Hana Tekle", status: "Approved", fileSize: "4.2 MB" },
-    { id: "CAD-203", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "Digital Construction ERP_BH_FL04_ZONE_A_AL_FORMWORK.dwg", type: "Aluminum Formwork Layout", revisionNumber: 1, uploadDate: "2026-06-12", uploadedBy: "Eng. Daniel Girma", status: "Archived", fileSize: "12.1 MB" },
-    { id: "CAD-204", projectId: "Digital Construction ERP-PRJ-102", buildingId: "BLD-102-A", floorId: "FLR-101-B-2", zoneId: "", name: "Digital Construction ERP_AY_FL02_BLOCK_1_REV1.ifc", type: "IFC", revisionNumber: 1, uploadDate: "2026-07-02", uploadedBy: "Samuel Alene", status: "Pending Approval", fileSize: "42.8 MB" }
+    { id: "CAD-201", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "Digital Construction ERP_BH_FL04_ZONE_A_REV3.dwg", type: "DWG", revisionNumber: 3, uploadDate: "2026-06-28", uploadedBy: "Site Engineer", status: "Approved", fileSize: "18.4 MB" },
+    { id: "CAD-202", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-B", name: "Digital Construction ERP_BH_FL04_ZONE_B_REV2.pdf", type: "PDF", revisionNumber: 2, uploadDate: "2026-06-25", uploadedBy: "Site Engineer", status: "Approved", fileSize: "4.2 MB" },
+    { id: "CAD-203", projectId: "Digital Construction ERP-PRJ-101", buildingId: "BLD-101-A", floorId: "FLR-101-A-4", zoneId: "ZN-101-A-4-A", name: "Digital Construction ERP_BH_FL04_ZONE_A_AL_FORMWORK.dwg", type: "Aluminum Formwork Layout", revisionNumber: 1, uploadDate: "2026-06-12", uploadedBy: "Site Engineer", status: "Archived", fileSize: "12.1 MB" },
+    { id: "CAD-204", projectId: "Digital Construction ERP-PRJ-102", buildingId: "BLD-102-A", floorId: "FLR-101-B-2", zoneId: "", name: "Digital Construction ERP_AY_FL02_BLOCK_1_REV1.ifc", type: "IFC", revisionNumber: 1, uploadDate: "2026-07-02", uploadedBy: "Project Manager", status: "Pending Approval", fileSize: "42.8 MB" }
   ]);
 
   const [projectDocs, setProjectDocs] = useState<ProjectDocument[]>([
-    { id: "DOC-501", projectId: "Digital Construction ERP-PRJ-101", name: "MethodStatement_AluminumFormwork_PourSOP.pdf", type: "Method Statement", fileExtension: "PDF", uploadDate: "2026-06-15", uploadedBy: "Eng. Yoseph Hailu", fileSize: "2.1 MB" },
-    { id: "DOC-502", projectId: "Digital Construction ERP-PRJ-101", name: "QualityChecklist_PreConcretePour_Audit.xlsx", type: "Inspection Checklist", fileExtension: "XLSX", uploadDate: "2026-07-01", uploadedBy: "Supervisor Kassa Hunegn", fileSize: "340 KB" },
-    { id: "DOC-503", projectId: "Digital Construction ERP-PRJ-101", name: "HSE_SafetyRisk_ScaffoldingFall_Plan.pdf", type: "Safety Document", fileExtension: "PDF", uploadDate: "2026-06-20", uploadedBy: "Fikru Tolossa", fileSize: "1.2 MB" },
-    { id: "DOC-504", projectId: "Digital Construction ERP-PRJ-101", name: "BillOfMaterials_CornerBrackets_Pins.xlsx", type: "Material List", fileExtension: "XLSX", uploadDate: "2026-07-04", uploadedBy: "Eng. Yoseph Hailu", fileSize: "890 KB" },
-    { id: "DOC-505", projectId: "Digital Construction ERP-PRJ-102", name: "AyatBlockT1_DailyReport_July07.pdf", type: "Daily Report", fileExtension: "PDF", uploadDate: "2026-07-07", uploadedBy: "Martha Hagos", fileSize: "1.4 MB" }
+    { id: "DOC-501", projectId: "Digital Construction ERP-PRJ-101", name: "MethodStatement_AluminumFormwork_PourSOP.pdf", type: "Method Statement", fileExtension: "PDF", uploadDate: "2026-06-15", uploadedBy: "Head Office", fileSize: "2.1 MB" },
+    { id: "DOC-502", projectId: "Digital Construction ERP-PRJ-101", name: "QualityChecklist_PreConcretePour_Audit.xlsx", type: "Inspection Checklist", fileExtension: "XLSX", uploadDate: "2026-07-01", uploadedBy: "Supervisor", fileSize: "340 KB" },
+    { id: "DOC-503", projectId: "Digital Construction ERP-PRJ-101", name: "HSE_SafetyRisk_ScaffoldingFall_Plan.pdf", type: "Safety Document", fileExtension: "PDF", uploadDate: "2026-06-20", uploadedBy: "Gang Chief", fileSize: "1.2 MB" },
+    { id: "DOC-504", projectId: "Digital Construction ERP-PRJ-101", name: "BillOfMaterials_CornerBrackets_Pins.xlsx", type: "Material List", fileExtension: "XLSX", uploadDate: "2026-07-04", uploadedBy: "Head Office", fileSize: "890 KB" },
+    { id: "DOC-505", projectId: "Digital Construction ERP-PRJ-102", name: "AyatBlockT1_DailyReport_July07.pdf", type: "Daily Report", fileExtension: "PDF", uploadDate: "2026-07-07", uploadedBy: "Supervisor", fileSize: "1.4 MB" }
   ]);
 
   // --- RECONCILING SYNC STATE ---
@@ -446,9 +446,9 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
 
     // Role level filtering - Gang Chiefs and Team Leaders only see what they are assigned to
     if (currentUserRole === UserRole.GANG_CHIEF) {
-      list = list.filter(p => p.gangChiefs.includes("Fikru Tolossa") || p.name === "Digital Bole Heights");
+      list = list.filter(p => p.gangChiefs.length > 0 || p.name === "Digital Bole Heights");
     } else if (currentUserRole === UserRole.TEAM_LEADER) {
-      list = list.filter(p => p.teamLeaders.includes("Yohannes Bekele") || p.name === "Digital Bole Heights");
+      list = list.filter(p => p.teamLeaders.length > 0 || p.name === "Digital Bole Heights");
     } else if (currentUserRole === UserRole.TIME_KEEPER) {
       // Time keepers see all active sites for auditing
       list = list.filter(p => p.status === "In Progress");
@@ -471,9 +471,9 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       contractor: projContractor,
       projectManager: projPM || "Unassigned",
       supervisor: projSupervisor || "Unassigned",
-      teamLeaders: projPM ? ["Yohannes Bekele"] : [],
-      gangChiefs: projSupervisor ? ["Fikru Tolossa"] : [],
-      timeKeepers: ["Abebe Girma"],
+      teamLeaders: [],
+      gangChiefs: [],
+      timeKeepers: [],
       address: projAddress || "Addis Ababa Main Axis",
       city: projCity,
       region: projRegion,
@@ -587,9 +587,9 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
         name: `Zone ${zoneLetter} - ${isAmharic ? "በራስ-ሰር የተፈጠረ" : "Auto-generated"}`,
         area: Math.round(newFlr.totalArea / defaultZonesCount),
         workSequence: i + 1,
-        assignedTeamLeader: "Yohannes Bekele",
-        assignedGangChief: "Fikru Tolossa",
-        assignedSupervisor: proj?.supervisor || "Kassa Hunegn"
+        assignedTeamLeader: proj?.teamLeaders?.[0] || "Unassigned",
+        assignedGangChief: proj?.gangChiefs?.[0] || "Unassigned",
+        assignedSupervisor: proj?.supervisor || "Unassigned"
       });
     }
 
@@ -615,9 +615,9 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       name: znName || "Zone " + String.fromCharCode(65 + zones.length),
       area: Number(znArea),
       workSequence: Number(znSeq),
-      assignedTeamLeader: znTL || "Yohannes Bekele",
-      assignedGangChief: znGC || "Fikru Tolossa",
-      assignedSupervisor: znSupervisor || "Kassa Hunegn"
+      assignedTeamLeader: znTL || "Unassigned",
+      assignedGangChief: znGC || "Unassigned",
+      assignedSupervisor: znSupervisor || "Unassigned"
     };
 
     setZones(prev => [...prev, newZone]);
@@ -669,7 +669,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
       type: docType,
       fileExtension: docExt,
       uploadDate: new Date().toISOString().split("T")[0],
-      uploadedBy: currentUserRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph Hailu" : "Supervisor Kassa Hunegn",
+      uploadedBy: currentUserRole,
       fileSize: "1.8 MB"
     };
 
@@ -1162,7 +1162,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         type="text" 
                         value={projPM}
                         onChange={(e) => setProjPM(e.target.value)}
-                        placeholder="e.g. Eng. Yoseph Hailu"
+                        placeholder="Enter Project Manager Name"
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
                     </div>
@@ -1173,7 +1173,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         type="text" 
                         value={projSupervisor}
                         onChange={(e) => setProjSupervisor(e.target.value)}
-                        placeholder="e.g. Kassa Hunegn"
+                        placeholder="Enter Supervisor Name"
                         className="w-full text-xs font-bold text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:border-red-500 focus:outline-none"
                       />
                     </div>
@@ -1564,7 +1564,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         type="text" 
                         value={znSupervisor}
                         onChange={(e) => setZnSupervisor(e.target.value)}
-                        placeholder="Kassa Hunegn"
+                        placeholder="Enter Supervisor Name"
                         className="w-full text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-md p-1.5"
                       />
                     </div>
@@ -1575,7 +1575,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         type="text" 
                         value={znTL}
                         onChange={(e) => setZnTL(e.target.value)}
-                        placeholder="Yohannes Bekele"
+                        placeholder="Enter Team Leader Name"
                         className="w-full text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-md p-1.5"
                       />
                     </div>
@@ -1586,7 +1586,7 @@ export const ProjectDocumentManager: React.FC<ProjectDocumentManagerProps> = ({
                         type="text" 
                         value={znGC}
                         onChange={(e) => setZnGC(e.target.value)}
-                        placeholder="Fikru Tolossa"
+                        placeholder="Enter Gang Chief Name"
                         className="w-full text-[11px] font-bold text-slate-700 bg-white border border-slate-200 rounded-md p-1.5"
                       />
                     </div>

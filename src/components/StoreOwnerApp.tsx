@@ -894,8 +894,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     blockNumber: "Block A",
     floorNumber: "Floor 4",
     zoneNumber: "Zone 2",
-    requestedBy: "Fikru Tolossa",
-    employeeId: "EMP-4091",
+    requestedBy: "",
+    employeeId: "",
     jobPosition: "Gang Chief" as "Assembler" | "Gang Chief" | "Team Leader" | "Supervisor" | "Section Head",
     submissionMode: "Mobile App" as "Mobile App" | "Tablet" | "Desktop" | "Paper Form (Manual Entry)",
     materialName: "Aluminum Formwork Pin & Wedge Set (16mm)",
@@ -923,8 +923,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     siteName: "Bole Heights Phase I",
     blockNumber: "Block A",
     floorNumber: "Floor 4",
-    gangChiefName: "Fikru Tolossa",
-    siteStoreOwnerName: "Abebe Storekeeper",
+    gangChiefName: "",
+    siteStoreOwnerName: "Site Storekeeper",
     pinsReturned: 145, pinsLost: 3, pinsDamaged: 2,
     wedgesReturned: 242, wedgesLost: 5, wedgesDamaged: 3,
     tieRodsReturned: 76, tieRodsLost: 2, tieRodsDamaged: 2,
@@ -3225,7 +3225,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                                   setDailyRequisitions(prev => prev.map(r => r.id === req.id ? { 
                                     ...r, 
                                     status: "Approved", 
-                                    approvedBy: "Eng. Kassa Hunegn (Supervisor)",
+                                    approvedBy: "Site Supervisor",
                                     quantityIssued: r.quantityRequested
                                   } : r));
                                   onLogAction?.("Requisition Approved", `Approved material request ${req.id} for ${req.quantityRequested} ${req.unit}`);

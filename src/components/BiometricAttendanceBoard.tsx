@@ -122,32 +122,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   // --- SMART NOTIFICATIONS ---
-  const [notifications, setNotifications] = useState<SmartNotification[]>([
-    {
-      id: "notif-1",
-      type: "late",
-      workerName: "Aster Abebe",
-      message: isAmharic ? "ሰራተኛዋ አስቴር አበበ በ08:23 ረፍዶባታል (ዘግይቷል)" : "Aster Abebe checked in late today at 08:23 AM.",
-      timestamp: "08:23 AM",
-      isRead: false
-    },
-    {
-      id: "notif-2",
-      type: "geofence",
-      workerName: "Mulugeta Tesfaye",
-      message: isAmharic ? "ከፕሮጀክት ጂኦፌንስ ክልል ውጭ የመግባት ሙከራ ታግዷል" : "Geofence Breach: Mulugeta Tesfaye attempted clocking in 4.1km outside boundary.",
-      timestamp: "08:05 AM",
-      isRead: false
-    },
-    {
-      id: "notif-3",
-      type: "checkin",
-      workerName: "Kebede Alene",
-      message: isAmharic ? "በጣት አሻራ በተሳካ ሁኔታ ገብቷል" : "Kebede Alene successfully checked in via Fingerprint.",
-      timestamp: "07:55 AM",
-      isRead: true
-    }
-  ]);
+  const [notifications, setNotifications] = useState<SmartNotification[]>([]);
 
   // --- REPORTS ENGINE ---
   const [reportType, setReportType] = useState<"daily" | "weekly" | "monthly" | "overtime">("daily");

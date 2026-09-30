@@ -60,8 +60,8 @@ export const initialZones: ProjectZone[] = [
     completionPercentage: 95, 
     status: "In Progress",
     dailyPanelLogs: [
-      { id: "LOG-P-001", loggedBy: "Fikru Tolossa", role: "Gang Chief", date: "2026-07-12", panelType: "Wall Panel W1", length: 2.7, width: 0.6, quantity: 45, calculatedArea: 72.9, notes: "West wall alignment complete" },
-      { id: "LOG-P-002", loggedBy: "Tariku Mengistu", role: "Supervisor", date: "2026-07-12", panelType: "Slab Deck S2", length: 1.2, width: 0.9, quantity: 30, calculatedArea: 32.4, notes: "Section 1 slab deck panels placed" }
+      { id: "LOG-P-001", loggedBy: "Gang Chief", role: "Gang Chief", date: "2026-07-12", panelType: "Wall Panel W1", length: 2.7, width: 0.6, quantity: 45, calculatedArea: 72.9, notes: "West wall alignment complete" },
+      { id: "LOG-P-002", loggedBy: "Supervisor", role: "Supervisor", date: "2026-07-12", panelType: "Slab Deck S2", length: 1.2, width: 0.9, quantity: 30, calculatedArea: 32.4, notes: "Section 1 slab deck panels placed" }
     ]
   },
   { 
@@ -82,7 +82,7 @@ export const initialZones: ProjectZone[] = [
     completionPercentage: 55, 
     status: "In Progress",
     dailyPanelLogs: [
-      { id: "LOG-P-003", loggedBy: "Fikru Tolossa", role: "Gang Chief", date: "2026-07-13", panelType: "Wall Panel W2", length: 2.7, width: 0.45, quantity: 20, calculatedArea: 24.3, notes: "Inner partition columns aligned" }
+      { id: "LOG-P-003", loggedBy: "Gang Chief", role: "Gang Chief", date: "2026-07-13", panelType: "Wall Panel W2", length: 2.7, width: 0.45, quantity: 20, calculatedArea: 24.3, notes: "Inner partition columns aligned" }
     ]
   },
   { id: "B1-F04-ZC", building: "Digital Bole Heights", block: "Block A", tower: "Tower 1", floor: 4, zone: "Zone C", wallStatus: 0, columnStatus: 0, beamStatus: 0, slabStatus: 0, stairStatus: 0, liftCoreStatus: 0, startDate: "2026-07-05", targetDays: 5, completionPercentage: 0, status: "Not Started" },
@@ -94,8 +94,8 @@ export const initialZones: ProjectZone[] = [
 
 // Seed Daily Progress Logs
 export const initialProgressLogs: DailyProgressLog[] = [
-  { id: "LOG-001", date: "2026-07-01", engineerId: "PM-001", engineerName: "Yoseph Hailu", building: "Digital Bole Heights", floor: 4, zone: "Zone A", installedPanels: 42, removedPanels: 10, remainingPanels: 8, concreteReady: true, inspectionStatus: "Approved", comments: "Walls and columns fully installed. Reinforcement approved. Ready for concrete pour tomorrow.", photoUrl: "" },
-  { id: "LOG-002", date: "2026-07-01", engineerId: "PM-001", engineerName: "Yoseph Hailu", building: "Digital Bole Heights", floor: 4, zone: "Zone B", installedPanels: 18, removedPanels: 35, remainingPanels: 24, concreteReady: false, inspectionStatus: "Pending", comments: "Formwork stripping on Floor 3 completed. Stripped panels moved to Floor 4. Beam assembly started.", photoUrl: "" }
+  { id: "LOG-001", date: "2026-07-01", engineerId: "PM-001", engineerName: "Site Engineer", building: "Digital Bole Heights", floor: 4, zone: "Zone A", installedPanels: 42, removedPanels: 10, remainingPanels: 8, concreteReady: true, inspectionStatus: "Approved", comments: "Walls and columns fully installed. Reinforcement approved. Ready for concrete pour tomorrow.", photoUrl: "" },
+  { id: "LOG-002", date: "2026-07-01", engineerId: "PM-001", engineerName: "Site Engineer", building: "Digital Bole Heights", floor: 4, zone: "Zone B", installedPanels: 18, removedPanels: 35, remainingPanels: 24, concreteReady: false, inspectionStatus: "Pending", comments: "Formwork stripping on Floor 3 completed. Stripped panels moved to Floor 4. Beam assembly started.", photoUrl: "" }
 ];
 
 // Seed Safety Logs
@@ -134,9 +134,9 @@ export const initialSafetyLogs: SafetyLog[] = [
 
 // Seed Quality Snags
 export const initialQualitySnags: QualitySnag[] = [
-  { id: "SNAG-001", zoneId: "B1-F04-ZA", description: "Formwork wall panel alignment has 3mm variance (limit 2mm)", defectType: "Formwork Alignment", status: "Resolved", reportedDate: "2026-06-29", resolvedDate: "2026-06-30", reportedBy: "Yoseph Hailu", assignedTo: "T-01" },
-  { id: "SNAG-002", zoneId: "B1-F04-ZB", description: "Slab formwork gap visible near the lift core connection, requires tape sealing", defectType: "Panel Gap", status: "Open", reportedDate: "2026-07-01", reportedBy: "Yoseph Hailu", assignedTo: "T-01" },
-  { id: "SNAG-003", zoneId: "B1-F04-ZB", description: "Minor slurry leak gap on column C4 base plate connection", defectType: "Slurry Leak", status: "In Progress", reportedDate: "2026-07-01", reportedBy: "Yoseph Hailu", assignedTo: "T-02" }
+  { id: "SNAG-001", zoneId: "B1-F04-ZA", description: "Formwork wall panel alignment has 3mm variance (limit 2mm)", defectType: "Formwork Alignment", status: "Resolved", reportedDate: "2026-06-29", resolvedDate: "2026-06-30", reportedBy: "Site Engineer", assignedTo: "T-01" },
+  { id: "SNAG-002", zoneId: "B1-F04-ZB", description: "Slab formwork gap visible near the lift core connection, requires tape sealing", defectType: "Panel Gap", status: "Open", reportedDate: "2026-07-01", reportedBy: "Site Engineer", assignedTo: "T-01" },
+  { id: "SNAG-003", zoneId: "B1-F04-ZB", description: "Minor slurry leak gap on column C4 base plate connection", defectType: "Slurry Leak", status: "In Progress", reportedDate: "2026-07-01", reportedBy: "Site Engineer", assignedTo: "T-02" }
 ];
 
 // Seed Quality Logs
@@ -156,8 +156,8 @@ export const initialNotifications: SystemNotification[] = [
 
 // Seed Audit Logs for RBAC Actions
 export const initialAuditLogs: AuditLog[] = [
-  { id: "AUD-001", timestamp: "2026-07-01 08:05:00", userId: "HO-01", userName: "Eng. Yoseph", role: UserRole.HEAD_OFFICE, action: "Approved Payroll", details: "Approved payroll distribution for active formwork site crews" },
-  { id: "AUD-002", timestamp: "2026-07-01 08:30:00", userId: "TK-01", userName: "Abebe Girma", role: UserRole.TIME_KEEPER, action: "Approved Attendance Correction", details: "Approved clock-in correction with GPS geofence stamp." },
+  { id: "AUD-001", timestamp: "2026-07-01 08:05:00", userId: "HO-01", userName: "Head Office", role: UserRole.HEAD_OFFICE, action: "Approved Payroll", details: "Approved payroll distribution for active formwork site crews" },
+  { id: "AUD-002", timestamp: "2026-07-01 08:30:00", userId: "TK-01", userName: "Time Keeper", role: UserRole.TIME_KEEPER, action: "Approved Attendance Correction", details: "Approved clock-in correction with GPS geofence stamp." },
   { id: "AUD-003", timestamp: "2026-07-01 09:15:00", userId: "TL-01", userName: "Team Leader", role: UserRole.TEAM_LEADER, action: "Assigned Structural Zone", details: "Assigned Assembly Team to Digital Bole Heights B1-F04-ZB" },
   { id: "AUD-004", timestamp: "2026-07-01 11:00:00", userId: "GC-01", userName: "Gang Chief", role: UserRole.GANG_CHIEF, action: "Logged Material Usage", details: "Recorded 14kg of locking pins and 3 replacement corner prop brackets used in Zone B." },
   { id: "AUD-005", timestamp: "2026-07-01 17:15:00", userId: "SYS-01", userName: "System Biometric Node", role: UserRole.WORKER, action: "Clocked Out", details: "Successfully verified attendance check-out via Biometric Fingerprint Scan." }
@@ -383,7 +383,7 @@ export const initialMovementLogs: PanelMovementLog[] = [
     toLocation: "Digital Bole Heights",
     toZone: "Floor 4 Zone A",
     timestamp: "2025-06-10T08:30:00Z",
-    movedBy: "Fikru Tolossa (Gang Chief)",
+    movedBy: "Gang Chief",
     notes: "Assigned for high-accuracy shear wall layout"
   },
   {
@@ -394,7 +394,7 @@ export const initialMovementLogs: PanelMovementLog[] = [
     toLocation: "Digital Bole Heights",
     toZone: "Floor 4 Zone A",
     timestamp: "2025-06-10T08:32:00Z",
-    movedBy: "Fikru Tolossa (Gang Chief)"
+    movedBy: "Gang Chief"
   },
   {
     id: "PMV-103",
@@ -404,7 +404,7 @@ export const initialMovementLogs: PanelMovementLog[] = [
     toLocation: "Site Scrap Yard",
     toZone: "Audit Area",
     timestamp: "2025-06-14T11:45:00Z",
-    movedBy: "Eng. Yoseph Hailu",
+    movedBy: "Site Engineer",
     notes: "Damaged during heavy slab concrete pouring"
   }
 ];
@@ -590,17 +590,17 @@ export const initialRegisteredSites: RegisteredSite[] = [
     buildingsCount: 3,
     floorsCount: 15,
     zonesPerFloor: 3,
-    siteManager: "Eng. Yoseph Hailu",
-    supervisor: "Martha Hagos",
-    teamLeaders: ["Yohannes Bekele", "Hiwot Girma"],
-    gangChiefs: ["Fikru Tolossa", "Chala Kebede"],
-    timeKeepers: ["Abebe Girma"],
+    siteManager: "Unassigned",
+    supervisor: "Unassigned",
+    teamLeaders: [],
+    gangChiefs: [],
+    timeKeepers: [],
     status: "Active",
     documents: [
-      { id: "S-DOC-001", name: "Approved_BoleHeights_FormworkLayout_Fl04_Z-A.dwg", type: "CAD Drawing", uploadDate: "2026-06-28", uploadedBy: "Eng. Yoseph Hailu", fileSize: "14.5 MB" },
-      { id: "S-DOC-002", name: "Structural_CoreShaft_Axis-C.pdf", type: "Structural Drawing", uploadDate: "2026-07-02", uploadedBy: "Martha Hagos", fileSize: "8.2 MB" },
-      { id: "S-DOC-003", name: "SOP_Aluminum_Assembly_Guide.pdf", type: "Method Statement", uploadDate: "2026-05-10", uploadedBy: "Martha Hagos", fileSize: "2.1 MB" },
-      { id: "S-DOC-004", name: "SafetyCompliance_HighAltitudeFormwork.pdf", type: "Safety Document", uploadDate: "2026-05-15", uploadedBy: "Kassa Hunegn", fileSize: "1.7 MB" }
+      { id: "S-DOC-001", name: "Approved_BoleHeights_FormworkLayout_Fl04_Z-A.dwg", type: "CAD Drawing", uploadDate: "2026-06-28", uploadedBy: "Site Engineer", fileSize: "14.5 MB" },
+      { id: "S-DOC-002", name: "Structural_CoreShaft_Axis-C.pdf", type: "Structural Drawing", uploadDate: "2026-07-02", uploadedBy: "Site Supervisor", fileSize: "8.2 MB" },
+      { id: "S-DOC-003", name: "SOP_Aluminum_Assembly_Guide.pdf", type: "Method Statement", uploadDate: "2026-05-10", uploadedBy: "Site Supervisor", fileSize: "2.1 MB" },
+      { id: "S-DOC-004", name: "SafetyCompliance_HighAltitudeFormwork.pdf", type: "Safety Document", uploadDate: "2026-05-15", uploadedBy: "Site Supervisor", fileSize: "1.7 MB" }
     ]
   },
   {
@@ -617,14 +617,14 @@ export const initialRegisteredSites: RegisteredSite[] = [
     buildingsCount: 2,
     floorsCount: 22,
     zonesPerFloor: 4,
-    siteManager: "Eng. Samuel Alene",
-    supervisor: "Kassa Hunegn",
-    teamLeaders: ["Team Leader"],
-    gangChiefs: ["Gang Chief"],
-    timeKeepers: ["Tsion Demeke"],
+    siteManager: "Unassigned",
+    supervisor: "Unassigned",
+    teamLeaders: [],
+    gangChiefs: [],
+    timeKeepers: [],
     status: "Active",
     documents: [
-      { id: "S-DOC-005", name: "Composite_Formwork_Tower_Rev2.pdf", type: "Formwork Drawing", uploadDate: "2026-07-04", uploadedBy: "Kassa Hunegn", fileSize: "11.4 MB" }
+      { id: "S-DOC-005", name: "Composite_Formwork_Tower_Rev2.pdf", type: "Formwork Drawing", uploadDate: "2026-07-04", uploadedBy: "Site Supervisor", fileSize: "11.4 MB" }
     ]
   },
   {

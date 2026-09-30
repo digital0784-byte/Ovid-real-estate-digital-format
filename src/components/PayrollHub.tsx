@@ -255,13 +255,30 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   const [isSavedToCloud, setIsSavedToCloud] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
+
+  // Derive real role assignees from workers list
+  const assignedTeamLeaderName = useMemo(() => {
+    const tl = workers.find(w => w.role === UserRole.TEAM_LEADER || w.position?.toLowerCase().includes("team leader"))?.name
+      || workers.find(w => w.teamLeader && w.teamLeader.trim())?.teamLeader;
+    return tl || "Unassigned";
+  }, [workers]);
+
+  const assignedTimeKeeperName = useMemo(() => {
+    const tk = workers.find(w => w.role === UserRole.TIME_KEEPER || w.position?.toLowerCase().includes("time keeper"))?.name;
+    return tk || "Unassigned";
+  }, [workers]);
+
+  const assignedHeadOfficeName = useMemo(() => {
+    const ho = workers.find(w => w.role === UserRole.HEAD_OFFICE || w.role === UserRole.SUPER_ADMIN)?.name;
+    return ho || "Unassigned";
+  }, [workers]);
   
   // Audit Logs State
-  const [auditTrail, setAuditTrail] = useState<PayrollAuditLog[]>([
+  const [auditTrail, setAuditTrail] = useState<PayrollAuditLog[]>(() => [
     {
       id: "P-AUD-1001",
       timestamp: new Date(Date.now() - 50000).toISOString().slice(0, 19).replace("T", " "),
-      actorName: currentUserRole === UserRole.HEAD_OFFICE ? "Eng. Yoseph (Head Office)" : `${currentUserRole} Console`,
+      actorName: `${currentUserRole} Console`,
       actorRole: currentUserRole,
       action: "Payroll Calculation Initiated",
       details: "Calculated baseline monthly payroll for July 2026 from site biometric terminal.",
@@ -270,7 +287,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
     {
       id: "P-AUD-1002",
       timestamp: new Date(Date.now() - 360000).toISOString().slice(0, 19).replace("T", " "),
-      actorName: "Abebe Girma (Time Keeper)",
+      actorName: "Time Keeper Console",
       actorRole: UserRole.TIME_KEEPER,
       action: "Overtime Desk Sync",
       details: "Synchronized approved supervisor logs into master payroll ledger.",
@@ -419,7 +436,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       type: "undertime_alert",
       recipient: "Supervisor",
       title: "Undertime Violation Recorded",
-      message: "Abebe Girma logged only 6.2 net working hours yesterday. Reason: Late arrival.",
+      message: `${workers[0]?.name || "Assigned Worker"} logged 6.2 net working hours yesterday. Reason: Late arrival.`,
       timestamp: "2026-07-09 10:05 AM",
       read: true
     },
@@ -1809,7 +1826,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                       </div>
                       <div>
                         <span className="font-bold block text-slate-800">{isAmharic ? "የቡድን መሪ" : "Team Leader"}</span>
-                        <span className="text-[10px] text-slate-400 block font-mono">Yohannes Bekele</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">{assignedTeamLeaderName}</span>
                       </div>
                     </label>
 
@@ -1826,7 +1843,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                       </div>
                       <div>
                         <span className="font-bold block text-slate-800">{isAmharic ? "ሰዓት ቆጣሪ" : "Time Keeper"}</span>
-                        <span className="text-[10px] text-slate-400 block font-mono">Abebe Girma</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">{assignedTimeKeeperName}</span>
                       </div>
                     </label>
 
@@ -1843,7 +1860,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                       </div>
                       <div>
                         <span className="font-bold block text-slate-800">{isAmharic ? "ዋና መስሪያ ቤት" : "Head Office"}</span>
-                        <span className="text-[10px] text-slate-400 block font-mono">Eng. Yoseph</span>
+                        <span className="text-[10px] text-slate-400 block font-mono">{assignedHeadOfficeName}</span>
                       </div>
                     </label>
                   </div>
@@ -1878,9 +1895,9 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                         
                         // Formulate recipients string
                         const recipientsList: string[] = [];
-                        if (sendToTeamLeader) recipientsList.push("Team Leader (Yohannes Bekele)");
-                        if (sendToTimeKeeper) recipientsList.push("Time Keeper (Abebe Girma)");
-                        if (sendToHeadOffice) recipientsList.push("Head Office (Eng. Yoseph)");
+                        if (sendToTeamLeader) recipientsList.push(`Team Leader (${assignedTeamLeaderName})`);
+                        if (sendToTimeKeeper) recipientsList.push(`Time Keeper (${assignedTimeKeeperName})`);
+                        if (sendToHeadOffice) recipientsList.push(`Head Office (${assignedHeadOfficeName})`);
                         const recStr = recipientsList.join(", ");
 
                         // Add dynamic notification

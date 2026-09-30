@@ -401,19 +401,19 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
     siteEngineer: { status: "Approved" | "Pending" | "Rejected"; comment: string; user: string; time: string };
   }>>({
     "Digital Bole Heights_Tower Block A_4_Zone A - West Wing": {
-      teamLeader: { status: "Approved", comment: "Scaffold and tools ready, crew briefed on panels.", user: "TL. Chala Kebede", time: "2026-07-08 09:30" },
-      supervisor: { status: "Approved", comment: "Field conditions verified, vertical bracing solid.", user: "Sup. Almaz Tekle", time: "2026-07-08 11:15" },
-      siteEngineer: { status: "Approved", comment: "Final CAD alignment check matches ±3mm. Approved for assembly.", user: "Eng. Melaku Zewdu", time: "2026-07-08 14:00" }
+      teamLeader: { status: "Approved", comment: "Scaffold and tools ready, crew briefed on panels.", user: "Team Leader", time: "2026-07-08 09:30" },
+      supervisor: { status: "Approved", comment: "Field conditions verified, vertical bracing solid.", user: "Site Supervisor", time: "2026-07-08 11:15" },
+      siteEngineer: { status: "Approved", comment: "Final CAD alignment check matches ±3mm. Approved for assembly.", user: "Site Engineer", time: "2026-07-08 14:00" }
     },
     "Digital Bole Heights_Tower Block A_5_Zone B - Elevator Shaft": {
-      teamLeader: { status: "Pending", comment: "", user: "TL. Chala Kebede", time: "" },
-      supervisor: { status: "Pending", comment: "", user: "Sup. Almaz Tekle", time: "" },
-      siteEngineer: { status: "Pending", comment: "", user: "Eng. Melaku Zewdu", time: "" }
+      teamLeader: { status: "Pending", comment: "", user: "Team Leader", time: "" },
+      supervisor: { status: "Pending", comment: "", user: "Site Supervisor", time: "" },
+      siteEngineer: { status: "Pending", comment: "", user: "Site Engineer", time: "" }
     },
     "Digital Construction ERP Ayat East Block T2_Block T2_2_Zone C - Staircase Core": {
-      teamLeader: { status: "Approved", comment: "Slab ready, tools prepped.", user: "TL. Chala Kebede", time: "2026-07-09 08:00" },
-      supervisor: { status: "Pending", comment: "Checking alignment controls today.", user: "Sup. Almaz Tekle", time: "" },
-      siteEngineer: { status: "Pending", comment: "", user: "Eng. Melaku Zewdu", time: "" }
+      teamLeader: { status: "Approved", comment: "Slab ready, tools prepped.", user: "Team Leader", time: "2026-07-09 08:00" },
+      supervisor: { status: "Pending", comment: "Checking alignment controls today.", user: "Site Supervisor", time: "" },
+      siteEngineer: { status: "Pending", comment: "", user: "Site Engineer", time: "" }
     }
   });
 
@@ -2288,9 +2288,9 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                           <label className="text-[9px] text-slate-400 font-extrabold uppercase block">Select Simulated User</label>
                           <div className="grid grid-cols-1 gap-2">
                             {[
-                              { role: "Team Leader", name: "Chala Kebede (Team Leader)" },
-                              { role: "Supervisor", name: "Almaz Tekle (Supervisor)" },
-                              { role: "Site Engineer", name: "Eng. Melaku Zewdu (Site Eng.)" }
+                              { role: "Team Leader", name: "Assigned Team Leader" },
+                              { role: "Supervisor", name: "Assigned Supervisor" },
+                              { role: "Site Engineer", name: "Assigned Site Engineer" }
                             ].map((user) => (
                               <button
                                 key={user.role}
@@ -2327,7 +2327,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                               onClick={() => {
                                 const commentText = panelApprovalComment || `Approved by ${activeReviewerRole}. All alignments checked.`;
                                 const key = activeReviewerRole === "Team Leader" ? "teamLeader" : activeReviewerRole === "Supervisor" ? "supervisor" : "siteEngineer";
-                                const userLabel = activeReviewerRole === "Team Leader" ? "TL. Chala Kebede" : activeReviewerRole === "Supervisor" ? "Sup. Almaz Tekle" : "Eng. Melaku Zewdu";
+                                const userLabel = activeReviewerRole;
                                 const timestampStr = "2026-07-09 " + new Date().toTimeString().split(" ")[0].substring(0, 5);
 
                                 setZoneApprovals(prev => ({
@@ -2373,7 +2373,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                               onClick={() => {
                                 const commentText = panelApprovalComment || `Correction requested by ${activeReviewerRole}. Alignments exceed allowable limits.`;
                                 const key = activeReviewerRole === "Team Leader" ? "teamLeader" : activeReviewerRole === "Supervisor" ? "supervisor" : "siteEngineer";
-                                const userLabel = activeReviewerRole === "Team Leader" ? "TL. Chala Kebede" : activeReviewerRole === "Supervisor" ? "Sup. Almaz Tekle" : "Eng. Melaku Zewdu";
+                                const userLabel = activeReviewerRole;
                                 const timestampStr = "2026-07-09 " + new Date().toTimeString().split(" ")[0].substring(0, 5);
 
                                 setZoneApprovals(prev => ({

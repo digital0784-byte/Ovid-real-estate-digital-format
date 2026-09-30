@@ -215,7 +215,7 @@ export interface ProjectZone {
 
 export interface DailyPanelLog {
   id: string;
-  loggedBy: string; // e.g. "Fikru Tolossa (Gang Chief)"
+  loggedBy: string; // e.g. "<Full Name> (<Role>)"
   role: string; // Gang Chief, Team Leader, Supervisor
   date: string;
   panelType: string;

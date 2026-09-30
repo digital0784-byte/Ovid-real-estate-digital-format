@@ -101,9 +101,9 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   const [enrollBuilding, setEnrollBuilding] = useState("Digital Tower 1");
   const [enrollFloor, setEnrollFloor] = useState(4);
   const [enrollZone, setEnrollZone] = useState("Zone B");
-  const [enrollLeader, setEnrollLeader] = useState("Yohannes Bekele");
-  const [enrollChief, setEnrollChief] = useState("Fikru Tolossa");
-  const [enrollSupervisor, setEnrollSupervisor] = useState("Eng. Yoseph");
+  const [enrollLeader, setEnrollLeader] = useState("");
+  const [enrollChief, setEnrollChief] = useState("");
+  const [enrollSupervisor, setEnrollSupervisor] = useState("");
   const [enrollPhoto, setEnrollPhoto] = useState("https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150&h=150&fit=crop");
   
   // Bank Account & Payment details
@@ -230,9 +230,9 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
   const handleEnrollSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!enrollName.trim()) {
+    if (!enrollName.trim() || !enrollLeader.trim() || !enrollChief.trim()) {
       playBeep("error");
-      alert(isAmharic ? "እባክዎን የሰራተኛውን ሙሉ ስም ያስገቡ!" : "Please enter the employee's full name!");
+      alert(isAmharic ? "እባክዎን የሰራተኛውን ሙሉ ስም፣ የቡድን መሪ እና ጋንግ ቺፍ ይምረጡ!" : "Please enter the employee's full name and select a real Team Leader and Gang Chief!");
       return;
     }
 
@@ -257,9 +257,9 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
       building: enrollBuilding,
       floor: enrollFloor,
       zone: enrollZone,
-      teamLeader: enrollLeader,
-      gangChief: enrollChief,
-      supervisor: enrollSupervisor,
+      teamLeader: enrollLeader.trim(),
+      gangChief: enrollChief.trim(),
+      supervisor: enrollSupervisor.trim() || "Unassigned",
       attendancePin: assignedPin,
       status: "Active",
       teamId: "T-01",
@@ -292,6 +292,9 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
 
     // Reset Form
     setEnrollName("");
+    setEnrollLeader("");
+    setEnrollChief("");
+    setEnrollSupervisor("");
     setEnrollPin("");
     setEnrollBankAccountNumber("");
     setEnrollMobileMoneyNumber("");
@@ -1472,23 +1475,63 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
 
               {/* Management details */}
               <div className="space-y-1">
-                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የቡድን መሪ (Team Leader)" : "Team Leader"}</label>
-                <input 
-                  type="text" 
-                  value={enrollLeader}
-                  onChange={e => setEnrollLeader(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none"
-                />
+                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "የቡድን መሪ (Team Leader) *" : "Team Leader *"}</label>
+                {workers.length > 0 ? (
+                  <select
+                    required
+                    value={enrollLeader}
+                    onChange={e => setEnrollLeader(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none"
+                  >
+                    <option value="">{isAmharic ? "-- የቡድን መሪ ይምረጡ --" : "-- Select Team Leader --"}</option>
+                    {Array.from(new Set([
+                      ...workers.filter(w => w.role === UserRole.TEAM_LEADER || w.trade?.toLowerCase().includes("leader")).map(w => w.name),
+                      ...workers.map(w => w.teamLeader).filter((n): n is string => Boolean(n && n !== "Unassigned")),
+                      ...workers.map(w => w.name)
+                    ])).map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    required
+                    value={enrollLeader}
+                    onChange={e => setEnrollLeader(e.target.value)}
+                    placeholder={isAmharic ? "የቡድን መሪ ስም ያስገቡ" : "Enter Team Leader name"}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                )}
               </div>
 
               <div className="space-y-1">
-                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "ጋንግ ቺፍ" : "Gang Chief"}</label>
-                <input 
-                  type="text" 
-                  value={enrollChief}
-                  onChange={e => setEnrollChief(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none"
-                />
+                <label className="font-extrabold text-xs text-slate-700 block">{isAmharic ? "ጋንግ ቺፍ (Gang Chief) *" : "Gang Chief *"}</label>
+                {workers.length > 0 ? (
+                  <select
+                    required
+                    value={enrollChief}
+                    onChange={e => setEnrollChief(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none"
+                  >
+                    <option value="">{isAmharic ? "-- ጋንግ ቺፍ ይምረጡ --" : "-- Select Gang Chief --"}</option>
+                    {Array.from(new Set([
+                      ...workers.filter(w => w.role === UserRole.GANG_CHIEF || w.trade?.toLowerCase().includes("chief")).map(w => w.name),
+                      ...workers.map(w => w.gangChief).filter((n): n is string => Boolean(n && n !== "Unassigned")),
+                      ...workers.map(w => w.name)
+                    ])).map(name => (
+                      <option key={name} value={name}>{name}</option>
+                    ))}
+                  </select>
+                ) : (
+                  <input 
+                    type="text" 
+                    required
+                    value={enrollChief}
+                    onChange={e => setEnrollChief(e.target.value)}
+                    placeholder={isAmharic ? "የጋንግ ቺፍ ስም ያስገቡ" : "Enter Gang Chief name"}
+                    className="w-full bg-slate-50 border border-slate-200 rounded-xl p-3 text-xs font-bold text-slate-800 focus:bg-white focus:outline-none"
+                  />
+                )}
               </div>
 
             </div>

@@ -87,11 +87,25 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
   // Sub-tabs
   const [activeSubTab, setActiveSubTab] = useState<"dashboard" | "teamLeader" | "gangChief">("dashboard");
 
+  // Derive real Gang Chiefs from workers list
+  const availableGangChiefs = useMemo(() => {
+    const map = new Map<string, string>();
+    workers.forEach(w => {
+      if (w.role === UserRole.GANG_CHIEF || w.position?.toLowerCase().includes("gang chief")) {
+        map.set(w.id, w.name);
+      }
+      if (w.gangChief && w.gangChief.trim()) {
+        map.set(w.gangChief, w.gangChief);
+      }
+    });
+    return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
+  }, [workers]);
+
   // Local state for Drawing Management
   const [drawings, setDrawings] = useState<DrawingItem[]>([
-    { id: "DWG-001", name: "Digital_Heights_B1_FL04_Formwork.dwg", type: "DWG", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 4, zone: "Zone A", uploadedAt: "2026-06-24 10:15", uploadedBy: "Eng. Yoseph", fileSize: "14.2 MB" },
-    { id: "DWG-002", name: "Digital_Heights_B1_FL04_ZoneB_Slab.pdf", type: "PDF", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 4, zone: "Zone B", uploadedAt: "2026-06-25 14:30", uploadedBy: "Eng. Yoseph", fileSize: "4.8 MB" },
-    { id: "DWG-003", name: "Digital_Heights_Structural_BIM.ifc", type: "IFC", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 3, zone: "Zone A", uploadedAt: "2026-06-15 09:00", uploadedBy: "Eng. Yoseph", fileSize: "112.5 MB" }
+    { id: "DWG-001", name: "Digital_Heights_B1_FL04_Formwork.dwg", type: "DWG", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 4, zone: "Zone A", uploadedAt: "2026-06-24 10:15", uploadedBy: "Site Engineer", fileSize: "14.2 MB" },
+    { id: "DWG-002", name: "Digital_Heights_B1_FL04_ZoneB_Slab.pdf", type: "PDF", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 4, zone: "Zone B", uploadedAt: "2026-06-25 14:30", uploadedBy: "Site Engineer", fileSize: "4.8 MB" },
+    { id: "DWG-003", name: "Digital_Heights_Structural_BIM.ifc", type: "IFC", project: "Digital Bole Heights", building: "Digital Bole Heights", block: "Block A", floor: 3, zone: "Zone A", uploadedAt: "2026-06-15 09:00", uploadedBy: "Site Engineer", fileSize: "112.5 MB" }
   ]);
 
   // Drawing Form Inputs
@@ -110,7 +124,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
   const [zoneNameInput, setZoneNameInput] = useState("Zone B");
   const [zoneAreaInput, setZoneAreaInput] = useState(150);
   const [targetDaysInput, setTargetDaysInput] = useState(6);
-  const [assignedChiefInput, setAssignedChiefInput] = useState("GC-01");
+  const [assignedChiefInput, setAssignedChiefInput] = useState("");
 
   // Panel bills of materials inputs
   const [wallQty, setWallQty] = useState(120);
@@ -183,8 +197,8 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
         : (z.status === "Completed" ? totalRequired : 0);
 
       const manpowerUsed = z.manpowerUsed || (z.status === "In Progress" ? 8 : z.status === "Completed" ? 10 : 0);
-      const assignedGangChiefId = z.assignedGangChiefId || "GC-01";
-      const assignedGangChiefName = z.assignedGangChiefName || "Fikru Tolossa";
+      const assignedGangChiefId = z.assignedGangChiefId || availableGangChiefs[0]?.id || "UNASSIGNED";
+      const assignedGangChiefName = z.assignedGangChiefName || availableGangChiefs[0]?.name || "Unassigned";
       const progressPhotos = z.progressPhotos || (z.status === "Completed" ? ["slab_ready_concrete.jpg", "joint_secure.jpg"] : z.status === "In Progress" ? ["scaffold_alignment_check.jpg"] : []);
       
       const dailyReportSubmitted = z.dailyReportSubmitted || (z.status === "Completed");
@@ -248,7 +262,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
               floor: newDrawFloor,
               zone: newDrawZone,
               uploadedAt: new Date().toISOString().replace("T", " ").slice(0, 16),
-              uploadedBy: "Eng. Yoseph",
+              uploadedBy: currentUserRole,
               fileSize: `${(Math.random() * 15 + 2).toFixed(1)} MB`
             };
             setDrawings(prev => [newDrawing, ...prev]);
@@ -298,8 +312,8 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
       externalPanels: Number(extQty),
       internalPanels: Number(intQty),
       accessories: Number(accQty),
-      assignedGangChiefId: assignedChiefInput,
-      assignedGangChiefName: assignedChiefInput === "GC-01" ? "Fikru Tolossa" : "Mulugeta Tesfaye",
+      assignedGangChiefId: assignedChiefInput || "UNASSIGNED",
+      assignedGangChiefName: availableGangChiefs.find(gc => gc.id === assignedChiefInput || gc.name === assignedChiefInput)?.name || assignedChiefInput || "Unassigned",
       installedPanels: 0,
       removedPanels: 0,
       progressPhotos: [],
@@ -325,7 +339,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
     // Convert temp panel logs into formal logs
     const newLogsFromTemp = tempPanelLogs.map((log, idx) => ({
       id: `LOG-P-${Date.now()}-${idx}`,
-      loggedBy: selectedZone.assignedGangChiefName || "Fikru Tolossa",
+      loggedBy: selectedZone.assignedGangChiefName && selectedZone.assignedGangChiefName !== "Unassigned" ? selectedZone.assignedGangChiefName : currentUserRole,
       role: "Gang Chief",
       date: new Date().toISOString().split("T")[0],
       panelType: log.panelType,
@@ -1102,7 +1116,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                         : "bg-amber-50 text-amber-700 border border-amber-200"
                     }`}>
                       {selectedZone.approvedByTeamLeader 
-                        ? (isAmharic ? "ጸድቋል" : "Approved by Eng. Yoseph") 
+                        ? (isAmharic ? "ጸድቋል" : "Approved by Supervisor / Team Leader") 
                         : (isAmharic ? "ማረጋገጫ ይጠብቃል" : "Pending Supervisor Sign-Off")
                       }
                     </span>
@@ -1398,8 +1412,10 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                         onChange={(e) => setAssignedChiefInput(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded p-1.5 text-slate-800 outline-none"
                       >
-                        <option value="GC-01">Fikru Tolossa</option>
-                        <option value="GC-02">Mulugeta Tesfaye</option>
+                        <option value="">{isAmharic ? "-- ጋንግ ቺፍ ይምረጡ (Unassigned) --" : "-- Select Gang Chief (Unassigned) --"}</option>
+                        {availableGangChiefs.map(gc => (
+                          <option key={gc.id} value={gc.name}>{gc.name}</option>
+                        ))}
                       </select>
                     </div>
 
@@ -1650,7 +1666,9 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
                 {isAmharic ? "ሳይት ግንባታ ተረኛ ፎርማን" : "On-Site Crew Foreman Portal"}
               </span>
               <h3 className="text-lg font-black text-slate-800">
-                {isAmharic ? "የጋንግ ቺፍ ግንባታ መቆጣጠሪያ (Fikru Tolossa)" : "Gang Chief Workspace: Fikru Tolossa"}
+                {isAmharic
+                  ? `የጋንግ ቺፍ ግንባታ መቆጣጠሪያ (${selectedZone?.assignedGangChiefName || "Unassigned"})`
+                  : `Gang Chief Workspace: ${selectedZone?.assignedGangChiefName || "Unassigned"}`}
               </h3>
               <p className="text-xs text-slate-600">
                 {isAmharic 

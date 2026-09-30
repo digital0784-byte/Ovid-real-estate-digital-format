@@ -304,7 +304,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       propSupports: 45,
       accessories: 320,
       committedAt: "2026-07-16 14:32:10",
-      committedBy: "Eng. Yoseph Hailu",
+      committedBy: "Site Engineer",
       status: "Verified & Committed"
     }
   ]);
@@ -411,7 +411,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
         totalPanels: totalP,
         ...finalBom,
         committedAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        committedBy: "Eng. Yoseph Hailu",
+        committedBy: currentUserRole,
         status: "Verified & Committed"
       };
       

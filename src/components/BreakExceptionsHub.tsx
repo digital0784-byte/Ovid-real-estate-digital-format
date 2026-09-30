@@ -447,7 +447,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
         expectedTime: currentExceptionInfo?.expected || "08:00",
         reason: exReason,
         comment: exComment,
-        submittedBy: `${currentUserRole === UserRole.TIME_KEEPER ? "Abebe Girma" : "Yohannes Bekele"} (${currentUserRole})`,
+        submittedBy: `${workers.find(w => w.role === currentUserRole)?.name || currentUserRole} (${currentUserRole})`,
         submittedAt: todayStr + " " + new Date().toTimeString().slice(0, 5),
         approvalStatus: "Pending"
       };
@@ -480,7 +480,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
       verificationMethod: `OS Biometric API (${method === "Fingerprint" ? "Secure Hello" : "AI Node Face Recognition"})`,
       matchedScore: `${(95 + Math.random() * 5).toFixed(1)}%`,
       hash: mockHash,
-      operator: `${currentUserRole === UserRole.TIME_KEEPER ? "Abebe Girma" : "Yohannes Bekele"} (${currentUserRole})`
+      operator: `${workers.find(w => w.role === currentUserRole)?.name || currentUserRole} (${currentUserRole})`
     };
     setAuditTrail(prev => [newAudit, ...prev]);
 
@@ -1244,9 +1244,9 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
                 onChange={(e) => setSelectedReviewerRole(e.target.value as any)}
                 className="bg-white border border-slate-200 rounded-lg py-1 px-2 outline-none font-bold text-slate-800"
               >
-                <option value="Supervisor">Supervisor (Kassa Hunegn)</option>
-                <option value="Project Manager">Project Manager (Eng. Brook)</option>
-                <option value="Head Office">Head Office (HO Admin)</option>
+                <option value="Supervisor">Supervisor ({workers.find(w => w.role === UserRole.SUPERVISOR)?.name || workers.find(w => w.supervisor)?.supervisor || "Unassigned"})</option>
+                <option value="Project Manager">Project Manager ({workers.find(w => w.role === UserRole.PROJECT_MANAGER)?.name || "Unassigned"})</option>
+                <option value="Head Office">Head Office ({workers.find(w => w.role === UserRole.HEAD_OFFICE)?.name || "HO Admin"})</option>
               </select>
             </div>
           </div>
@@ -1880,19 +1880,19 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
               <div className="text-center space-y-1">
                 <p className="font-bold text-slate-800">Prepared By:</p>
                 <div className="h-10 border-b border-slate-300 w-32 mx-auto mt-2"></div>
-                <p>Abebe Girma (Time Keeper)</p>
+                <p>{workers.find(w => w.role === UserRole.TIME_KEEPER)?.name || "Unassigned"} (Time Keeper)</p>
                 <p className="text-[9px] text-slate-400 font-mono">ID: TK-01 • Secure Signed</p>
               </div>
               <div className="text-center space-y-1">
                 <p className="font-bold text-slate-800">Verified By On-Site:</p>
                 <div className="h-10 border-b border-slate-300 w-32 mx-auto mt-2"></div>
-                <p>Kassa Hunegn (Supervisor)</p>
+                <p>{workers.find(w => w.role === UserRole.SUPERVISOR)?.name || workers.find(w => w.supervisor)?.supervisor || "Unassigned"} (Supervisor)</p>
                 <p className="text-[9px] text-slate-400 font-mono">ID: SV-04 • Biometric Certified</p>
               </div>
               <div className="text-center space-y-1">
                 <p className="font-bold text-slate-800">Concurred By Head Office:</p>
                 <div className="h-10 border-b border-slate-300 w-32 mx-auto mt-2"></div>
-                <p>Eng. Yoseph (ERP Admin)</p>
+                <p>{workers.find(w => w.role === UserRole.HEAD_OFFICE)?.name || "Unassigned"} (ERP Admin)</p>
                 <p className="text-[9px] text-slate-400 font-mono">ID: HO-01 • Cloud Sync Complete</p>
               </div>
             </div>
