@@ -233,8 +233,51 @@ export default function App() {
           const unsubProfile = onSnapshot(
             userDocRef,
             (docSnap) => {
+              let pendingReg: any = null;
+              if (typeof window !== "undefined") {
+                try {
+                  const raw = sessionStorage.getItem("erp_pending_registration_profile") || localStorage.getItem("erp_pending_registration_profile");
+                  if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (!parsed.email || !firebaseUser.email || parsed.email.toLowerCase() === firebaseUser.email.toLowerCase()) {
+                      pendingReg = parsed;
+                    }
+                  }
+                } catch {}
+              }
+
               if (docSnap.exists()) {
-                const data = docSnap.data();
+                const rawData = docSnap.data();
+                const emailPrefix = firebaseUser.email?.split("@")[0]?.toLowerCase() || "";
+                const needsPendingEnrich =
+                  pendingReg &&
+                  (!rawData.displayName ||
+                    rawData.displayName.toLowerCase() === emailPrefix ||
+                    rawData.displayName === "Registered User" ||
+                    !rawData.phoneNumber ||
+                    (rawData.requestedRole === "Worker" && pendingReg.requestedRole && pendingReg.requestedRole !== "Worker"));
+
+                const data = needsPendingEnrich
+                  ? {
+                      ...rawData,
+                      employeeId: rawData.employeeId || pendingReg.employeeId,
+                      displayName: pendingReg.displayName || rawData.displayName,
+                      name: pendingReg.name || pendingReg.displayName || rawData.name,
+                      phoneNumber: pendingReg.phoneNumber || rawData.phoneNumber,
+                      requestedRole: pendingReg.requestedRole || rawData.requestedRole,
+                      department: pendingReg.department || rawData.department,
+                      trade: pendingReg.trade || rawData.trade,
+                      position: pendingReg.position || rawData.position
+                    }
+                  : rawData;
+
+                if (needsPendingEnrich) {
+                  setDoc(userDocRef, data, { merge: true }).catch(() => {});
+                  if ( typeof window !== "undefined") {
+                    sessionStorage.removeItem("erp_pending_registration_profile");
+                    localStorage.removeItem("erp_pending_registration_profile");
+                  }
+                }
 
                 let effectiveRole = (data.role as UserRole) || UserRole.WORKER;
                 let effectiveStatus = data.status || "Pending";

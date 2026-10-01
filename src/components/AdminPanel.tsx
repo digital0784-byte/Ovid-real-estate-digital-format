@@ -72,37 +72,85 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const [isSyncingFirestore, setIsSyncingFirestore] = useState(false);
 
   useEffect(() => {
+    const mergeUsersList = (incomingList: any[]) => {
+      setFirestoreUsers((prev) => {
+        const map = new Map<string, any>();
+        for (const item of [...prev, ...incomingList]) {
+          if (!item) continue;
+          const uid = item.uid || item.id;
+          if (!uid) continue;
+          // Deduplicate by employeeId or email if present, preferring rich displayName over email prefix
+          const existingKey = Array.from(map.keys()).find((k) => {
+            const ex = map.get(k);
+            if (k === uid) return true;
+            if (item.employeeId && ex.employeeId && item.employeeId === ex.employeeId) return true;
+            if (item.email && ex.email && item.email.toLowerCase() === ex.email.toLowerCase() && item.email !== "mejennur669@gmail.com") return true;
+            return false;
+          });
+          if (existingKey) {
+            const ex = map.get(existingKey);
+            map.set(existingKey, {
+              ...ex,
+              ...item,
+              id: ex.id || uid,
+              uid: ex.uid || uid,
+              displayName:
+                item.displayName && item.displayName !== item.email?.split("@")[0]
+                  ? item.displayName
+                  : ex.displayName || item.displayName || item.name,
+              phoneNumber: item.phoneNumber || ex.phoneNumber || "",
+              requestedRole:
+                item.requestedRole && item.requestedRole !== "Worker"
+                  ? item.requestedRole
+                  : ex.requestedRole || item.requestedRole || "Worker"
+            });
+          } else {
+            map.set(uid, { ...item, id: uid, uid });
+          }
+        }
+        return Array.from(map.values());
+      });
+    };
+
     const unsubUsers = DbService.subscribeUsers((liveUsers) => {
-      setFirestoreUsers(liveUsers || []);
+      mergeUsersList(liveUsers || []);
     });
 
+    let unsubRegistrants = () => {};
     let unsubReqs = () => {};
     if (isFirebaseReady && db) {
+      unsubRegistrants = onSnapshot(
+        collection(db, "registrants"),
+        (snap) => {
+          const regs = snap.docs.map((d) => ({ id: d.id, uid: d.id, ...d.data() }));
+          mergeUsersList(regs);
+        },
+        () => {}
+      );
+
       unsubReqs = onSnapshot(
         collection(db, "role_change_requests"),
         (snap) => {
+          const fromReqs: any[] = [];
           snap.docs.forEach((d) => {
             const reqData = d.data();
             if (reqData && reqData.userId && reqData.userName) {
-              setFirestoreUsers((prev) => {
-                if (prev.some((u) => (u.uid || u.id) === reqData.userId)) return prev;
-                return [
-                  {
-                    id: reqData.userId,
-                    uid: reqData.userId,
-                    displayName: reqData.userName,
-                    email: reqData.userEmail || "",
-                    phoneNumber: reqData.phoneNumber || "",
-                    role: reqData.status === "Approved" ? (reqData.assignedRole || reqData.requestedRole) : "Pending",
-                    requestedRole: reqData.requestedRole || UserRole.WORKER,
-                    status: reqData.status === "Approved" ? "Active" : "Pending",
-                    createdAt: reqData.requestedDate || new Date().toISOString()
-                  },
-                  ...prev
-                ];
+              fromReqs.push({
+                id: reqData.userId,
+                uid: reqData.userId,
+                employeeId: reqData.employeeId || reqData.userId,
+                displayName: reqData.userName,
+                name: reqData.userName,
+                email: reqData.userEmail || "",
+                phoneNumber: reqData.phoneNumber || "",
+                role: reqData.status === "Approved" ? (reqData.assignedRole || reqData.requestedRole) : "Pending",
+                requestedRole: reqData.requestedRole || UserRole.WORKER,
+                status: reqData.status === "Approved" ? "Active" : "Pending",
+                createdAt: reqData.requestedDate || new Date().toISOString()
               });
             }
           });
+          mergeUsersList(fromReqs);
         },
         () => {}
       );
@@ -110,6 +158,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
     return () => {
       unsubUsers();
+      unsubRegistrants();
       unsubReqs();
     };
   }, []);

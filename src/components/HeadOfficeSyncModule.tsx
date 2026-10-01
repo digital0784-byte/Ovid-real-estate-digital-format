@@ -1895,10 +1895,49 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
                 <span className="text-emerald-500 font-bold">CONNECTED - SSL ACTIVE</span>
               </div>
               <p className="text-slate-300">// Verified active synchronization across all mobile endpoints (Digital Construction ERP_B1_PAD_03, HEAD_OFFICE, TIME_KEEPER_TAB)</p>
-              <div className="grid grid-cols-3 gap-4 text-[11px]">
-                <div>&gt; COLLECTION: <span className="text-white">"digital_construction_erp_biometric_attendance"</span></div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-[11px]">
+                <div>&gt; COLLECTIONS: <span className="text-white">"users", "registrants", "workers", "attendance"</span></div>
                 <div>&gt; SCHEMAS: <span className="text-white">Strict Blueprint Match</span></div>
-                <div>&gt; RECORD COUNT: <span className="text-white">{attendance.length} Synchronized rows</span></div>
+                <div>&gt; REGISTERED STAFF: <span className="text-white">{workers.length} Synchronized profiles</span></div>
+                <div>&gt; ATTENDANCE ROWS: <span className="text-white">{attendance.length} Synchronized rows</span></div>
+              </div>
+            </div>
+
+            {/* LIVE FIRESTORE REGISTERED STAFF & NEW REGISTRANTS */}
+            <div className="border border-slate-200 rounded-xl overflow-hidden">
+              <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex items-center justify-between">
+                <span className="text-xs font-black uppercase text-slate-800">
+                  {isAmharic ? "አዲስ ተመዝጋቢዎች እና የሰራተኞች ዝርዝር (Firestore Live)" : "Firestore Registered Users & Workers Directory"}
+                </span>
+                <span className="text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full">
+                  {workers.length} {isAmharic ? "ተመዝጋቢዎች" : "Registered"}
+                </span>
+              </div>
+              <div className="overflow-x-auto max-h-64">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-slate-100 bg-white text-slate-400 font-bold uppercase text-[10px] tracking-wider sticky top-0">
+                      <th className="p-3">{isAmharic ? "መለያ (ID)" : "Employee ID"}</th>
+                      <th className="p-3">{isAmharic ? "ሙሉ ስም" : "Full Name"}</th>
+                      <th className="p-3">{isAmharic ? "የስራ ድርሻ / ሙያ" : "Role / Trade"}</th>
+                      <th className="p-3">{isAmharic ? "ክፍል" : "Department"}</th>
+                      <th className="p-3">{isAmharic ? "ስልክ" : "Phone"}</th>
+                      <th className="p-3">{isAmharic ? "የተመዘገበበት ቀን" : "Joined Date"}</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-sans">
+                    {workers.map((w) => (
+                      <tr key={w.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-3 font-mono text-slate-600 font-bold">{w.id}</td>
+                        <td className="p-3 font-bold text-slate-900">{w.name}</td>
+                        <td className="p-3 text-slate-700">{w.position || w.trade}</td>
+                        <td className="p-3 text-slate-500">{w.department}</td>
+                        <td className="p-3 font-mono text-slate-600">{w.phoneNumber || "—"}</td>
+                        <td className="p-3 font-mono text-slate-500">{w.joinedDate || "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 

@@ -9,7 +9,18 @@ const getSavedCustomConfig = () => {
     try {
       const saved = localStorage.getItem("custom_firebase_config");
       if (saved) {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        // If custom config matches the default project or is missing apiKey/projectId, prefer the official firebase-applet-config.json
+        if (
+          !parsed.apiKey ||
+          !parsed.projectId ||
+          parsed.projectId === firebaseConfigJson.projectId
+        ) {
+          if (!parsed.firestoreDatabaseId && firebaseConfigJson.firestoreDatabaseId) {
+            parsed.firestoreDatabaseId = firebaseConfigJson.firestoreDatabaseId;
+          }
+        }
+        return parsed;
       }
     } catch (e) {
       console.warn("Failed to parse custom_firebase_config from localStorage", e);
@@ -22,13 +33,13 @@ const customConfig = getSavedCustomConfig();
 const env = (import.meta as any).env || {};
 
 const firebaseConfig = {
-  apiKey: customConfig.apiKey || firebaseConfigJson.apiKey || env.VITE_FIREBASE_API_KEY || "",
-  authDomain: customConfig.authDomain || firebaseConfigJson.authDomain || env.VITE_FIREBASE_AUTH_DOMAIN || "",
-  projectId: customConfig.projectId || firebaseConfigJson.projectId || env.VITE_FIREBASE_PROJECT_ID || "",
-  storageBucket: customConfig.storageBucket || firebaseConfigJson.storageBucket || env.VITE_FIREBASE_STORAGE_BUCKET || "",
-  messagingSenderId: customConfig.messagingSenderId || firebaseConfigJson.messagingSenderId || env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
-  appId: customConfig.appId || firebaseConfigJson.appId || env.VITE_FIREBASE_APP_ID || "",
-  firestoreDatabaseId: customConfig.firestoreDatabaseId || firebaseConfigJson.firestoreDatabaseId || ""
+  apiKey: firebaseConfigJson.apiKey || customConfig.apiKey || env.VITE_FIREBASE_API_KEY || "",
+  authDomain: firebaseConfigJson.authDomain || customConfig.authDomain || env.VITE_FIREBASE_AUTH_DOMAIN || "",
+  projectId: firebaseConfigJson.projectId || customConfig.projectId || env.VITE_FIREBASE_PROJECT_ID || "",
+  storageBucket: firebaseConfigJson.storageBucket || customConfig.storageBucket || env.VITE_FIREBASE_STORAGE_BUCKET || "",
+  messagingSenderId: firebaseConfigJson.messagingSenderId || customConfig.messagingSenderId || env.VITE_FIREBASE_MESSAGING_SENDER_ID || "",
+  appId: firebaseConfigJson.appId || customConfig.appId || env.VITE_FIREBASE_APP_ID || "",
+  firestoreDatabaseId: firebaseConfigJson.firestoreDatabaseId || customConfig.firestoreDatabaseId || ""
 };
 
 let app;

@@ -326,6 +326,10 @@ export const DbService = {
       updatedAt: new Date().toISOString()
     });
     await writeDocument<any>("users", normalized, []);
+    await writeDocument<any>("registrants", normalized, []);
+    if (userRecord.employeeId && userRecord.employeeId !== id) {
+      await writeDocument<any>("registrants", { ...normalized, id: userRecord.employeeId }, []);
+    }
   },
 
   subscribeUsers(

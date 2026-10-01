@@ -127,9 +127,18 @@ export function UserRoleApprovalHub({
       () => {}
     );
 
+    const unsubRegistrants = onSnapshot(
+      collection(db, "registrants"),
+      () => {
+        refreshData();
+      },
+      () => {}
+    );
+
     return () => {
       unsubReqs();
       unsubUsers();
+      unsubRegistrants();
     };
   }, []);
 

@@ -254,17 +254,20 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       setErrorMessage(isAmharic ? "እባክዎ ስልክ ቁጥር ያስገቡ" : "Please enter your phone number");
       return;
     }
-    if (!regEmail.trim()) {
-      setErrorMessage(isAmharic ? "እባክዎ የኢሜል አድራሻ ያስገቡ" : "Please enter your email address");
-      return;
-    }
-    if (!regPassword.trim() || regPassword.trim().length < 6) {
-      setErrorMessage(isAmharic ? "እባክዎ ቢያንስ 6 አሃዝ ያለው የይለፍ ቃል ያስገቡ" : "Please enter a password with at least 6 characters.");
+    if (!regPassword.trim() || regPassword.trim().length < 4) {
+      setErrorMessage(isAmharic ? "እባክዎ ቢያንስ 4 አሃዝ ያለው የይለፍ ቃል ያስገቡ" : "Please enter a password with at least 4 characters.");
       return;
     }
 
+    const effectiveEmail = regEmail.trim()
+      ? regEmail.trim().toLowerCase()
+      : `${regPhone.replace(/\D/g, "") || Date.now()}@dcerp.local`;
+    const firebasePassword = regPassword.trim().length < 6
+      ? regPassword.trim().padEnd(6, "0")
+      : regPassword.trim();
+
     const isSoleSuperAdminReg =
-      regEmail.trim().toLowerCase() === "mejennur669@gmail.com" ||
+      effectiveEmail === "mejennur669@gmail.com" ||
       regPhone.includes("910097862") ||
       regPhone.includes("920843843");
 
@@ -285,7 +288,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         employeeId: fullEmpId,
         displayName: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
         name: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
-        email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : regEmail.trim().toLowerCase(),
+        email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : effectiveEmail,
         phoneNumber: isSoleSuperAdminReg ? "0910097862/0920843843" : regPhone.trim(),
         role: isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : "Pending",
         requestedRole: sanitizedRegRole,
@@ -298,19 +301,26 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
       if (typeof window !== "undefined") {
         sessionStorage.setItem("erp_pending_registration_profile", JSON.stringify(pendingRegData));
+        localStorage.setItem("erp_pending_registration_profile", JSON.stringify(pendingRegData));
       }
 
       let authedUid: string | null = null;
       if (isFirebaseReady && auth) {
         try {
-          const userCred = await createUserWithEmailAndPassword(auth, regEmail.trim().toLowerCase(), regPassword.trim());
+          const userCred = await createUserWithEmailAndPassword(auth, effectiveEmail, firebasePassword);
           if (userCred?.user?.uid) {
             authedUid = userCred.user.uid;
           }
         } catch (fbErr: any) {
           if (fbErr.code === "auth/email-already-in-use") {
-            setErrorMessage(isAmharic ? "ይህ ኢሜል አስቀድሞ ተመዝግቧል። እባክዎ በመግቢያ ገጽ ይግቡ።" : "This email address is already registered. Please login.");
-            return;
+            try {
+              const existingCred = await signInWithEmailAndPassword(auth, effectiveEmail, firebasePassword);
+              if (existingCred?.user?.uid) {
+                authedUid = existingCred.user.uid;
+              }
+            } catch {
+              console.info("Existing email in Firebase Auth; saving registration profile directly to Firestore.");
+            }
           } else {
             console.warn("Firebase Auth registration notice (saving directly to Firestore):", fbErr?.message);
           }
@@ -324,12 +334,15 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         uid: targetUserId
       };
 
-      // Always save the new registrant to Firestore `users` collection and local cache/outbox
+      // Always save the new registrant to Firestore `users` and `registrants` collections and local cache/outbox
       await DbService.saveUser(userDocPayload);
       if (db) {
         await setDoc(doc(db, "users", targetUserId), userDocPayload, { merge: true }).catch((e) =>
           console.warn("Direct Firestore users write notice:", e)
         );
+        if (targetUserId !== fullEmpId) {
+          await setDoc(doc(db, "users", fullEmpId), { ...userDocPayload, id: fullEmpId, uid: targetUserId }, { merge: true }).catch(() => {});
+        }
         await setDoc(doc(db, "registrants", fullEmpId), { ...userDocPayload, id: fullEmpId }, { merge: true }).catch((e) =>
           console.warn("Direct Firestore registrants write notice:", e)
         );

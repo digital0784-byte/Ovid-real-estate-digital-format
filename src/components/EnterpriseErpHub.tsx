@@ -1,5 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
+import { db, isFirebaseReady } from "../firebase";
+import { collection, onSnapshot } from "firebase/firestore";
 import {
   Boxes,
   Truck,
@@ -91,7 +93,28 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
   // --- FLUTTER & AI ENGINE SIMULATION STATE ---
   const [selectedMobileApp, setSelectedMobileApp] = useState<string>("Head Office App");
-  const [selectedDbCollection, setSelectedDbCollection] = useState<string>("companies");
+  const [selectedDbCollection, setSelectedDbCollection] = useState<string>("users");
+  const [liveCollectionDocs, setLiveCollectionDocs] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!isFirebaseReady || !db || !selectedDbCollection) return;
+    const unsub = onSnapshot(
+      collection(db, selectedDbCollection),
+      (snap) => {
+        const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        docs.sort((a: any, b: any) => {
+          const tA = String(a.updatedAt || a.createdAt || a.joinedDate || "");
+          const tB = String(b.updatedAt || b.createdAt || b.joinedDate || "");
+          return tB.localeCompare(tA);
+        });
+        setLiveCollectionDocs(docs);
+      },
+      () => {
+        setLiveCollectionDocs([]);
+      }
+    );
+    return () => unsub();
+  }, [selectedDbCollection]);
   const [voiceQuery, setVoiceQuery] = useState<string>("");
   const [voiceResponse, setVoiceResponse] = useState<string>("");
   const [isVoiceActive, setIsVoiceActive] = useState<boolean>(false);
@@ -5188,13 +5211,45 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         </div>
 
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             if (!registeredNewEmployeeName || biometricEnrollmentStatus === "Not Started") {
                               alert("Please fill name and capture both face and fingerprint.");
                               return;
                             }
-                            onLogAction("New Employee Enrolled", `Enrolled ${registeredNewEmployeeName} as ${registeredNewEmployeeRole} with Biometrics.`);
-                            alert(`Successfully synchronized new employee profile to cloud database! Role: ${registeredNewEmployeeRole}, Status: Sync Active.`);
+                            const empId = `Digital Construction ERP-TK-${Math.floor(100 + Math.random() * 900)}`;
+                            const nowDate = new Date().toISOString().split("T")[0];
+                            try {
+                              await DbService.addWorker({
+                                id: empId,
+                                name: registeredNewEmployeeName.trim(),
+                                phoneNumber: "",
+                                company: "Digital Construction ERP",
+                                department: registeredNewEmployeeRole,
+                                trade: registeredNewEmployeeRole,
+                                position: registeredNewEmployeeRole,
+                                joinedDate: nowDate,
+                                status: "Active",
+                                teamId: "T-01"
+                              });
+                              await DbService.saveUser({
+                                id: empId,
+                                uid: empId,
+                                employeeId: empId,
+                                displayName: registeredNewEmployeeName.trim(),
+                                name: registeredNewEmployeeName.trim(),
+                                role: registeredNewEmployeeRole,
+                                requestedRole: registeredNewEmployeeRole,
+                                department: registeredNewEmployeeRole,
+                                trade: registeredNewEmployeeRole,
+                                position: registeredNewEmployeeRole,
+                                status: "Active",
+                                createdAt: new Date().toISOString()
+                              });
+                            } catch (err) {
+                              console.error("Failed syncing new employee to Firestore:", err);
+                            }
+                            onLogAction("New Employee Enrolled", `Enrolled ${registeredNewEmployeeName} as ${registeredNewEmployeeRole} with Biometrics (${empId}).`);
+                            alert(`Successfully synchronized new employee profile (${empId}) to cloud database! Role: ${registeredNewEmployeeRole}, Status: Sync Active.`);
                             setRegisteredNewEmployeeName("");
                             setBiometricEnrollmentStatus("Not Started");
                           }}
@@ -5565,7 +5620,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <option value="soffitPanels">soffitPanels</option>
                         <option value="bundles">bundles</option>
                       </optgroup>
-                      <optgroup label="Workforce & Biometrics">
+                      <optgroup label="Workforce, Users & New Registrants">
+                        <option value="users">users (New Registrants & Accounts)</option>
+                        <option value="registrants">registrants (Self-Registered Staff)</option>
+                        <option value="workers">workers (Site & Office Roster)</option>
+                        <option value="role_change_requests">role_change_requests (Role Approval Queue)</option>
                         <option value="employees">employees</option>
                         <option value="attendance">attendance</option>
                         <option value="attendanceLogs">attendanceLogs</option>
@@ -5686,6 +5745,65 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       </ul>
                     </div>
                   )}
+                </div>
+
+                {/* Live Firestore Documents Table */}
+                <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-200 space-y-2">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span className="text-emerald-400 font-bold uppercase">
+                      LIVE FIRESTORE DOCUMENTS: /{selectedDbCollection}
+                    </span>
+                    <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                      {liveCollectionDocs.length} {isAmharic ? "መዝገቦች" : "Documents Live"}
+                    </span>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto divide-y divide-slate-800/80">
+                    {liveCollectionDocs.length === 0 ? (
+                      <div className="py-4 text-center text-slate-500 text-[11px]">
+                        {isAmharic ? "በዚህ ስብስብ ውስጥ ምንም መዝገብ አልተገኘም" : `No live documents currently in /${selectedDbCollection}`}
+                      </div>
+                    ) : (
+                      liveCollectionDocs.slice(0, 50).map((docItem: any, idx: number) => {
+                        const title =
+                          docItem.displayName ||
+                          docItem.fullName ||
+                          docItem.name ||
+                          docItem.userName ||
+                          docItem.projectName ||
+                          docItem.companyName ||
+                          docItem.title ||
+                          docItem.action ||
+                          docItem.id;
+                        const sub =
+                          docItem.role ||
+                          docItem.requestedRole ||
+                          docItem.status ||
+                          docItem.category ||
+                          "Active";
+                        const meta =
+                          docItem.employeeId ||
+                          docItem.phone ||
+                          docItem.email ||
+                          docItem.site ||
+                          docItem.id;
+                        return (
+                          <div key={docItem.id || idx} className="py-2 flex items-center justify-between gap-2 hover:bg-slate-800/60 px-2 rounded">
+                            <div className="min-w-0">
+                              <div className="font-bold text-white truncate">{String(title)}</div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                ID: {docItem.id} {meta && meta !== docItem.id ? `• ${meta}` : ""}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 text-[10px] font-bold">
+                                {String(sub)}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
                 </div>
               </div>
 
