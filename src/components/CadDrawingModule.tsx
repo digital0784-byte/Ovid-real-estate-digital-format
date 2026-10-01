@@ -40,6 +40,7 @@ interface CadDrawingModuleProps {
   attendance: AttendanceRecord[];
   isAmharic: boolean;
   currentUserRole: UserRole;
+  currentUserProfile?: { displayName?: string; role?: UserRole } | null;
   onLogAction?: (action: string, details: string) => void;
 }
 
@@ -97,8 +98,18 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   attendance,
   isAmharic,
   currentUserRole,
+  currentUserProfile,
   onLogAction
 }) => {
+  const assignedSiteEngineer = useMemo(() => {
+    const found = workers.find(w =>
+      (w.position && w.position.toLowerCase().includes("site engineer")) ||
+      (w.trade && w.trade.toLowerCase().includes("site engineer")) ||
+      (w.position && w.position.toLowerCase().includes("engineer"))
+    );
+    return found?.name || "";
+  }, [workers]);
+
   // --- SELECTION STATES ---
   const [selectedProject, setSelectedProject] = useState<string>("Digital Bole Heights");
   const [selectedBuilding, setSelectedBuilding] = useState<string>("Block A");
@@ -118,7 +129,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       revision: 3,
       version: "v3.0",
       uploadDate: "2026-07-14",
-      uploadedBy: "Site Eng. Sintayehu Alula",
+      uploadedBy: assignedSiteEngineer || "Site Engineer (Unassigned)",
       status: "Draft", // New revision uploaded by Site Engineer (Pending Supervisor review)
       fileSize: "8.4 MB",
       remarks: "Slab expansion profiles and corner tolerances updated as per Head Office instruction."
@@ -134,7 +145,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       revision: 2,
       version: "v2.0",
       uploadDate: "2026-06-28",
-      uploadedBy: "Site Eng. Sintayehu Alula",
+      uploadedBy: assignedSiteEngineer || "Site Engineer (Unassigned)",
       status: "Approved", // Currently active approved template
       fileSize: "8.2 MB",
       remarks: "Approved model for aluminum slab shoring grids."
@@ -150,7 +161,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       revision: 1,
       version: "v1.0",
       uploadDate: "2026-06-12",
-      uploadedBy: "Site Eng. Sintayehu Alula",
+      uploadedBy: assignedSiteEngineer || "Site Engineer (Unassigned)",
       status: "Archived",
       fileSize: "7.9 MB",
       remarks: "Initial core plan drawing."
@@ -166,7 +177,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       revision: 2,
       version: "v2.0",
       uploadDate: "2026-07-13",
-      uploadedBy: "Site Eng. Sintayehu Alula",
+      uploadedBy: assignedSiteEngineer || "Site Engineer (Unassigned)",
       status: "Reviewed", // Reviewed by Supervisor, ready for Head Office approval
       fileSize: "4.5 MB",
       remarks: "Beam panel arrangement reviewed and recommended by Supervisor Martha Hagos."
@@ -182,7 +193,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
       revision: 1,
       version: "v1.0",
       uploadDate: "2026-07-02",
-      uploadedBy: "Site Eng. Sintayehu Alula",
+      uploadedBy: assignedSiteEngineer || "Site Engineer (Unassigned)",
       status: "Approved",
       fileSize: "12.4 MB",
       remarks: "Initial slab formwork plan approved."
@@ -661,7 +672,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
         revision: nextRev,
         version: `v${nextRev}.0`,
         uploadDate: new Date().toISOString().split("T")[0],
-        uploadedBy: currentUserRole === UserRole.SITE_ENGINEER ? "Site Eng. Sintayehu Alula" : "Lead PM Eng. Dawit",
+        uploadedBy: currentUserProfile?.displayName || assignedSiteEngineer || `${currentUserRole} (Unassigned)`,
         status: "Draft", // Default initial status is Draft as requested
         fileSize: "6.2 MB",
         remarks: cadRemarksInput.trim() || "Uploaded floor plan revision for structural review."
@@ -1056,8 +1067,8 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
                 revBFilename="Digital Construction ERP_BH_FL04_ZONE_A_STRUCTURAL_REV2.dwg"
                 revADate="2026-06-12"
                 revBDate="2026-06-28"
-                revAUploader="Site Eng. Sintayehu Alula"
-                revBUploader="Site Eng. Sintayehu Alula"
+                revAUploader={drawings.find(d => d.id === comparisonRevA)?.uploadedBy || assignedSiteEngineer || "Unassigned"}
+                revBUploader={drawings.find(d => d.id === comparisonRevB)?.uploadedBy || assignedSiteEngineer || "Unassigned"}
                 mode={comparisonMode}
                 photoUrl={selectedDailyImage?.photoUrl}
               />

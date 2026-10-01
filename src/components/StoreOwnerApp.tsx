@@ -497,6 +497,7 @@ export const WorkerAutocomplete: React.FC<WorkerAutocompleteProps> = ({
 interface StoreOwnerAppProps {
   isAmharic: boolean;
   currentUserRole?: UserRole;
+  currentUserProfile?: { displayName?: string; role?: UserRole } | null;
   workers?: Worker[];
   onLogAction?: (action: string, details: string) => void;
   onCreateNotification?: (notification: any) => void;
@@ -506,11 +507,20 @@ interface StoreOwnerAppProps {
 export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   isAmharic,
   currentUserRole = UserRole.STORE_MANAGER,
+  currentUserProfile,
   workers = [],
   onLogAction,
   onCreateNotification,
   initialMode = "warehouse_manager"
 }) => {
+  const assignedWarehouseManager = useMemo(() => {
+    const found = workers.find(w =>
+      (w.position && w.position.toLowerCase().includes("warehouse manager")) ||
+      (w.trade && w.trade.toLowerCase().includes("warehouse manager")) ||
+      (w.department && w.department.toLowerCase().includes("warehouse"))
+    );
+    return found?.name || "";
+  }, [workers]);
   // App Mode State: "warehouse_manager" vs "store_owner"
   const [appMode, setAppMode] = useState<"warehouse_manager" | "store_owner">(initialMode);
 
@@ -1108,7 +1118,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     locationRegion: "Addis Ababa",
     citySite: "Akaki Kality / Bole Lemi Hub",
     gpsCoordinates: "8.9500° N, 38.7500° E",
-    warehouseManager: "Eng. Dawit Tesfaye",
+    warehouseManager: currentUserProfile?.displayName || assignedWarehouseManager || "",
     managerPhone: "+251 911 234 567",
     totalCapacitySqM: 10000,
     currentCapacityUtilized: 35,
@@ -1160,7 +1170,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       locationRegion: "Addis Ababa",
       citySite: "Akaki Kality / Bole Lemi Hub",
       gpsCoordinates: "8.9500° N, 38.7500° E",
-      warehouseManager: "Eng. Dawit Tesfaye",
+      warehouseManager: currentUserProfile?.displayName || assignedWarehouseManager || "",
       managerPhone: "+251 911 234 567",
       totalCapacitySqM: 10000,
       currentCapacityUtilized: 35,
@@ -1436,8 +1446,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   };
 
   const handleApproveTransferVoucher = (voucherId: string) => {
+    const approverName = currentUserProfile?.displayName || assignedWarehouseManager || `${currentUserRole} (Unassigned)`;
     setInterSiteTransfers(prev => {
-      const updated = prev.map(trf => trf.id === voucherId ? { ...trf, status: "In Transit" as const, approvedBy: "Eng. Dawit (Warehouse Mgr)" } : trf);
+      const updated = prev.map(trf => trf.id === voucherId ? { ...trf, status: "In Transit" as const, approvedBy: approverName } : trf);
       const target = updated.find(t => t.id === voucherId);
       if (target) DbService.saveInterSiteTransfer(target);
       return updated;
@@ -1536,7 +1547,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       truckPlate: newTransferForm.truckPlate,
       transferDate: new Date().toISOString().replace("T", " ").substring(0, 16),
       status: "In Transit",
-      approvedBy: "Eng. Dawit Tesfaye (Warehouse Mgr)",
+      approvedBy: currentUserProfile?.displayName || assignedWarehouseManager || `${currentUserRole} (Unassigned)`,
       notes: newTransferForm.notes
     };
     setInterSiteTransfers(prev => [newTrf, ...prev]);
@@ -1587,7 +1598,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const [showIssueModal, setShowIssueModal] = useState(false);
   const [issueForm, setIssueForm] = useState({
-    receiverName: "Sintayehu Alula",
+    receiverName: "",
     receiverRole: "Site Engineer",
     department: "Structural Engineering",
     siteName: "Bole Heights Phase I",

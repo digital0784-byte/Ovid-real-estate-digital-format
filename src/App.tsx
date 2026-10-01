@@ -2604,6 +2604,7 @@ export default function App() {
             attendance={attendance}
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
             onLogAction={(action, details) => logAction(action, details)}
           />
         )}
@@ -2860,6 +2861,7 @@ export default function App() {
           <StoreOwnerApp
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
             workers={workers}
             initialMode="warehouse_manager"
             onLogAction={(action, details) => logAction(action, details)}
@@ -2871,6 +2873,7 @@ export default function App() {
           <StoreOwnerApp
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
             workers={workers}
             initialMode="store_owner"
             onLogAction={(action, details) => logAction(action, details)}
