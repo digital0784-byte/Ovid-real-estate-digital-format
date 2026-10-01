@@ -5,13 +5,20 @@
       "description": "Represents a system user with authentication and role-based access controls.",
       "type": "object",
       "properties": {
+        "id": { "type": "string" },
         "uid": { "type": "string" },
+        "employeeId": { "type": "string" },
         "email": { "type": "string" },
         "displayName": { "type": "string" },
-        "role": { "type": "string", "enum": ["Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager"] },
-        "status": { "type": "string", "enum": ["Active", "Suspended"] },
-        "createdAt": { "type": "string" },
-        "phoneNumber": { "type": "string" }
+        "name": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "department": { "type": "string" },
+        "trade": { "type": "string" },
+        "position": { "type": "string" },
+        "requestedRole": { "type": "string" },
+        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager"] },
+        "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
+        "createdAt": { "type": "string" }
       },
       "required": ["uid", "email", "role", "status"]
     },

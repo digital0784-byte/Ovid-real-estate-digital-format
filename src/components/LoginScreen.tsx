@@ -340,9 +340,6 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         await setDoc(doc(db, "users", targetUserId), userDocPayload, { merge: true }).catch((e) =>
           console.warn("Direct Firestore users write notice:", e)
         );
-        if (targetUserId !== fullEmpId) {
-          await setDoc(doc(db, "users", fullEmpId), { ...userDocPayload, id: fullEmpId, uid: targetUserId }, { merge: true }).catch(() => {});
-        }
         await setDoc(doc(db, "registrants", fullEmpId), { ...userDocPayload, id: fullEmpId }, { merge: true }).catch((e) =>
           console.warn("Direct Firestore registrants write notice:", e)
         );

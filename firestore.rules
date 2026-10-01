@@ -114,7 +114,28 @@ service cloud.firestore {
 
     // 1. Users collection, Registrants & Role Change Requests
     match /users/{userId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+        isOwner(userId) &&
+        incoming().keys().hasOnly([
+          'displayName', 'email', 'phoneNumber', 'role', 'status', 'createdAt',
+          'employeeId', 'name', 'department', 'trade', 'position', 'requestedRole',
+          'id', 'uid'
+        ]) &&
+        incoming().role == 'Pending' &&
+        incoming().status == 'Pending'
+      );
+      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+        isOwner(userId) &&
+        incoming().role == existing().role &&
+        incoming().status == existing().status &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'email', 'phoneNumber', 'createdAt',
+          'employeeId', 'name', 'department', 'trade', 'position', 'requestedRole',
+          'id', 'uid'
+        ])
+      );
+      allow delete: if isSuperAdmin();
     }
     match /registrants/{regId} {
       allow read, write: if true;
