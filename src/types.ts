@@ -1082,6 +1082,89 @@ export const DEPARTMENTS_CATALOG = [
   { id: "hr_admin", nameEn: "HR, Timekeeping & Administration", nameAm: "ሰው ኃይልና አስተዳደር" }
 ];
 
+// === CENTRALIZED MASTER DATA SYSTEM TYPES ===
 
+export type PanelCategoryType =
+  | "Wall Panel"
+  | "Slab Panel"
+  | "Column Panel"
+  | "Beam Panel"
+  | "Corner Panel"
+  | "Internal Corner"
+  | "External Corner"
+  | "Soffit Panel"
+  | "Deck Panel"
+  | "Filler Panel"
+  | "Kicker Panel"
+  | "Platform/Accessory Panel"
+  | "Special Panel";
 
+export interface PanelMasterCatalogItem {
+  id: string;
+  manufacturer: string;
+  panelType: string;
+  panelCategory: PanelCategoryType | string;
+  panelCode: string;
+  standardDimension: string; // e.g. "600 × 2400 mm"
+  length: number;
+  width: number;
+  thickness: number;
+  unit: "mm" | "m";
+  weightKg?: number;
+  description: string;
+  manufacturerRef?: string;
+  isVerifiedStandard: boolean; // Must not claim unverified dimensions are official international standards
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
 
+export interface MasterProjectRecord {
+  id: string;
+  code: string;
+  name: string;
+  nameAmharic?: string;
+  clientName: string;
+  contractorName: string;
+  location: string;
+  status: "Active" | "Planning" | "Completed";
+  description?: string;
+}
+
+export interface MasterSiteStoreRecord {
+  id: string;
+  code: string;
+  name: string;
+  nameAmharic?: string;
+  projectId: string;
+  projectName: string;
+  siteId: string;
+  siteName: string;
+  storeKeeperName: string;
+  storeKeeperPhone: string;
+  securityGuardName?: string;
+  securityGuardPhone?: string;
+  capacitySqM: number;
+  status: "Active" | "Under Maintenance" | "Temporary" | "Closed";
+  registrationDate: string;
+  notes?: string;
+}
+
+export interface MasterStorageLocationRecord {
+  id: string;
+  warehouseId?: string;
+  warehouseName?: string;
+  siteStoreId?: string;
+  siteStoreName?: string;
+  section: string;
+  row?: string;
+  rack?: string;
+  bay?: string;
+  stack?: string;
+  bin?: string;
+  formattedLocation: string;
+  notes?: string;
+  isActive: boolean;
+  createdAt?: string;
+}

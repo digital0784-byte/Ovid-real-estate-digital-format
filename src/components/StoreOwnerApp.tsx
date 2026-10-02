@@ -8,6 +8,8 @@ import { QrCodeView } from "./QrCodeView";
 import { QrScannerModal } from "./QrScannerModal";
 import { WarehouseRegistrationModal } from "./warehouse/WarehouseRegistrationModal";
 import { AddPanelTypeModal } from "./warehouse/AddPanelTypeModal";
+import { SearchableSmartDropdown, DropdownOption } from "./common/SearchableSmartDropdown";
+import { MasterDataService } from "../services/masterDataService";
 import {
   Store,
   Package,
@@ -993,6 +995,17 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   // WAREHOUSE MANAGER REGISTRATION MODALS STATE & HANDLERS
   const [showNewStockModal, setShowNewStockModal] = useState(false);
+  const [newStockWarehouseId, setNewStockWarehouseId] = useState<string>("WH-ADDIS-CENTRAL-01");
+  const [newStockWarehouseName, setNewStockWarehouseName] = useState<string>("Central Addis Ababa Main Warehouse");
+  const [newStockLocationId, setNewStockLocationId] = useState<string>("");
+  const [isStockCustomLocation, setIsStockCustomLocation] = useState<boolean>(false);
+  const [stockCustomSection, setStockCustomSection] = useState<string>("Section A");
+  const [stockCustomRack, setStockCustomRack] = useState<string>("Rack 01");
+  const [stockCustomBay, setStockCustomBay] = useState<string>("Bay 01");
+  const [stockCustomBin, setStockCustomBin] = useState<string>("A1");
+  const [stockSimilarLocations, setStockSimilarLocations] = useState<any[]>([]);
+  const [stockConfirmedSimilar, setStockConfirmedSimilar] = useState<boolean>(false);
+
   const [newStockForm, setNewStockForm] = useState({
     code: `MAT-${Math.floor(100 + Math.random() * 899)}`,
     name: "",
@@ -1002,7 +1015,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     unitCost: 500,
     totalStock: 100,
     minThreshold: 20,
-    warehouseLocation: "Central Warehouse - Shed A1"
+    warehouseLocation: "Section A → Rack 01 → Bay 01 (A1)"
   });
 
   const [showRegisterPanelModal, setShowRegisterPanelModal] = useState(false);
@@ -6551,18 +6564,129 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </div>
               </div>
 
+              {/* WAREHOUSE SELECTOR (Requirement 5: Stored using warehouseId) */}
               <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የመጋዘን ቦታ / Shed (Warehouse Location)" : "Warehouse Location / Shed"}
-                </label>
-                <input
-                  type="text"
+                <SearchableSmartDropdown
+                  label={isAmharic ? "መጋዘን (Warehouse) *" : "Warehouse (Stored as warehouseId) *"}
                   required
-                  placeholder="Central Warehouse - Shed A1, Yard B..."
-                  value={newStockForm.warehouseLocation}
-                  onChange={e => setNewStockForm({ ...newStockForm, warehouseLocation: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500"
+                  options={registeredWarehousesList.map(w => ({
+                    id: w.id,
+                    label: w.name,
+                    code: w.code,
+                    subLabel: `${w.type} • ${w.citySite}`,
+                    badge: w.status
+                  }))}
+                  selectedValue={newStockWarehouseId}
+                  onSelect={opt => {
+                    setNewStockWarehouseId(opt.id);
+                    setNewStockWarehouseName(opt.label);
+                  }}
+                  searchPlaceholder="Search registered warehouses..."
                 />
+              </div>
+
+              {/* STORAGE LOCATION WITH SIMILARITY CHECK (Requirement 6) */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-300 block">
+                    {isAmharic ? "የመጋዘን ቦታ / መደብ (Storage Location / Shed)" : "Warehouse Location / Storage Shed"}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setIsStockCustomLocation(!isStockCustomLocation)}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+                  >
+                    {isStockCustomLocation ? "Select Existing Location" : "+ Enter New Location"}
+                  </button>
+                </div>
+
+                {!isStockCustomLocation ? (
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Section A → Rack 01 → Bay 01 (Shed A1)"
+                    value={newStockForm.warehouseLocation}
+                    onChange={e => setNewStockForm({ ...newStockForm, warehouseLocation: e.target.value })}
+                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-emerald-500 font-mono"
+                  />
+                ) : (
+                  <div className="p-3 bg-slate-950 rounded-xl border border-amber-500/40 space-y-2.5">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">
+                      New Location Breakdown
+                    </span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Section *</label>
+                        <input
+                          type="text"
+                          value={stockCustomSection}
+                          onChange={e => {
+                            setStockCustomSection(e.target.value);
+                            setNewStockForm(prev => ({
+                              ...prev,
+                              warehouseLocation: `${e.target.value} → ${stockCustomRack} → ${stockCustomBay} (${stockCustomBin})`
+                            }));
+                          }}
+                          placeholder="Section A"
+                          className="w-full bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Rack</label>
+                        <input
+                          type="text"
+                          value={stockCustomRack}
+                          onChange={e => {
+                            setStockCustomRack(e.target.value);
+                            setNewStockForm(prev => ({
+                              ...prev,
+                              warehouseLocation: `${stockCustomSection} → ${e.target.value} → ${stockCustomBay} (${stockCustomBin})`
+                            }));
+                          }}
+                          placeholder="Rack 01"
+                          className="w-full bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Bay</label>
+                        <input
+                          type="text"
+                          value={stockCustomBay}
+                          onChange={e => {
+                            setStockCustomBay(e.target.value);
+                            setNewStockForm(prev => ({
+                              ...prev,
+                              warehouseLocation: `${stockCustomSection} → ${stockCustomRack} → ${e.target.value} (${stockCustomBin})`
+                            }));
+                          }}
+                          placeholder="Bay 01"
+                          className="w-full bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-slate-400 block mb-0.5">Bin / Shed</label>
+                        <input
+                          type="text"
+                          value={stockCustomBin}
+                          onChange={e => {
+                            setStockCustomBin(e.target.value);
+                            setNewStockForm(prev => ({
+                              ...prev,
+                              warehouseLocation: `${stockCustomSection} → ${stockCustomRack} → ${stockCustomBay} (${e.target.value})`
+                            }));
+                          }}
+                          placeholder="A1"
+                          className="w-full bg-slate-900 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Similarity Warning Message */}
+                    <div className="p-2 bg-amber-500/10 border border-amber-500/30 rounded-lg text-[11px] text-amber-300">
+                      <span>Similar existing location check: <strong>{newStockWarehouseName} — {stockCustomSection} — {stockCustomRack}</strong></span>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
@@ -6585,168 +6709,49 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         </div>
       )}
 
-      {/* MODAL 2: REGISTER FORMWORK PANEL */}
+      {/* MODAL 2: REGISTER FORMWORK PANEL USING MASTER DATA CASCADING ARCHITECTURE */}
       {showRegisterPanelModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl">
-            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-purple-500/10 rounded-xl border border-purple-500/30 text-purple-400">
-                  <Box size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white uppercase tracking-wider">
-                    {isAmharic ? "አዲስ Aluminum Formwork Panel መመዝገቢያ" : "Register Aluminum Formwork Panel"}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {isAmharic ? "አዲስ ፓነል በሴሪያል ነምበር፣ መጠን፣ እና የተመደበበት ቦታ መመዝገቢያ" : "Register new aluminum panel with serial number, specs, and initial location"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRegisterPanelModal(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            <form onSubmit={handleRegisterPanelSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ሴሪያል ቁጥር (Serial / Panel Code)" : "Serial Number / Panel Code"} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newPanelForm.serialNumber}
-                    onChange={e => setNewPanelForm({ ...newPanelForm, serialNumber: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የፓነል አይነት (Panel Type)" : "Panel Type"}
-                  </label>
-                  <select
-                    value={newPanelForm.type}
-                    onChange={e => setNewPanelForm({ ...newPanelForm, type: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
-                  >
-                    <option value="Flat Panel">Flat Panel (ፍላት ፓነል)</option>
-                    <option value="Internal Wall">Internal Wall (የውስጥ ግድግዳ)</option>
-                    <option value="External Wall">External Wall (የውጭ ግድግዳ)</option>
-                    <option value="Soffit">Soffit (የኮርኒስ / ሶፊት ፓነል)</option>
-                    <option value="Wall End">Wall End (የግድግዳ መጨረሻ)</option>
-                    <option value="SC">SC (Special Corner)</option>
-                    <option value="Kicker Beam">Kicker Beam (ኪከር ቢም)</option>
-                    <option value="Slab">Slab (የስላብ ፓነል)</option>
-                    <option value="Stair Panels">Stair Panels (የደረጃ ፓነል)</option>
-                    <option value="Outer Corner">Outer Corner (የውጭ ማዕዘን)</option>
-                    <option value="Inner Corner">Inner Corner (የውስጥ ማዕዘን)</option>
-                    <option value="Deck Panel">Deck Panel (የዴክ ፓነል)</option>
-                    <option value="Kicker">Kicker (ኪከር)</option>
-                    <option value="Beam Bottom">Beam Bottom (የቢም ታች)</option>
-                    <option value="Prop">Prop (ፕሮፕ / ደጋፊ)</option>
-                    <option value="Wall Tie">Wall Tie (ዎል ታይ)</option>
-                    <option value="Pin & Wedge">Pin & Wedge (ፒን እና ዌጅ)</option>
-                    <option value="Other Aluminum Formwork Panels">Other Aluminum Formwork Panels (እና ሌሎች አሉምኒየም ፎርምወርክ ፓነሎች)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "መጠን / ስፔስፊኬሽን (Dimensions)" : "Dimensions (e.g. 1200x600mm)"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newPanelForm.dimensions}
-                    onChange={e => setNewPanelForm({ ...newPanelForm, dimensions: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ብዛት (Quantity Pcs)" : "Quantity (Pcs)"}
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    required
-                    value={newPanelForm.quantity}
-                    onChange={e => setNewPanelForm({ ...newPanelForm, quantity: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ክብደት (Weight Kg)" : "Weight (Kg)"}
-                  </label>
-                  <input
-                    type="number"
-                    step="0.1"
-                    value={newPanelForm.weightKg}
-                    onChange={e => setNewPanelForm({ ...newPanelForm, weightKg: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የአንዱ ዋጋ (Unit Price ETB)" : "Unit Price (ETB)"}
-                  </label>
-                  <input
-                    type="number"
-                    value={newPanelForm.unitPriceEtb}
-                    onChange={e => setNewPanelForm({ ...newPanelForm, unitPriceEtb: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የተመደበበት ሳይት / መጋዘን (Allocated Site / Store)" : "Allocated Site Store"}
-                </label>
-                <select
-                  value={newPanelForm.allocatedSite}
-                  onChange={e => setNewPanelForm({ ...newPanelForm, allocatedSite: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"
-                >
-                  <option value="Central Warehouse">Central Warehouse</option>
-                  {registeredSitesList.map(s => (
-                    <option key={s.id} value={s.projectName}>{s.projectName}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterPanelModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  {isAmharic ? "ሰርዝ" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
-                >
-                  {isAmharic ? "ፓነል መዝግብ ✓" : "Save Panel ✓"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+        <AddPanelTypeModal
+          isOpen={showRegisterPanelModal}
+          onClose={() => setShowRegisterPanelModal(false)}
+          warehouseId={newStockWarehouseId || registeredWarehousesList[0]?.id || "WH-ADDIS-CENTRAL-01"}
+          warehouseName={newStockWarehouseName || registeredWarehousesList[0]?.name || "Central Addis Ababa Main Warehouse"}
+          isAmharic={isAmharic}
+          onSave={async (entry) => {
+            await DbService.saveWarehousePanelType(entry);
+            const newPanel: AluminumFormworkPanel = {
+              id: `PANEL-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              serialNumber: entry.panelCode,
+              bundleNumber: `BNDL-${Math.floor(100 + Math.random() * 899)}`,
+              size: entry.dimension.formatted,
+              type: entry.panelTypeName as any,
+              dimensions: entry.dimension.formatted,
+              location: entry.location.formattedLocation,
+              allocatedSite: entry.warehouseName,
+              zone: entry.location.section,
+              status: PanelStatus.NEW,
+              usageCount: 0,
+              weight: 22.5,
+              unitPriceEtb: entry.unitCostEtb || 4500,
+              quantity: entry.quantity,
+              createdAt: new Date().toISOString()
+            };
+            await DbService.addFormworkPanel(newPanel);
+            setRegisteredWarehousesList(prev => prev.map(wh => {
+              if (wh.id === entry.warehouseId) {
+                return {
+                  ...wh,
+                  activePanelsCount: (wh.activePanelsCount || 0) + entry.quantity,
+                  panelTypes: [...(wh.panelTypes || []), entry]
+                };
+              }
+              return wh;
+            }));
+            onLogAction?.("New Formwork Panel Registered", `Registered ${entry.quantity} panels of ${entry.panelTypeName} (${entry.panelCode}) in ${entry.warehouseName}`);
+            onCreateNotification?.("Formwork Panel Registered", `Registered ${entry.quantity} panels of ${entry.panelCode}`, "store", "normal");
+            setShowRegisterPanelModal(false);
+          }}
+        />
       )}
 
       {/* MODAL 3: REGISTER NEW SITE STORE */}

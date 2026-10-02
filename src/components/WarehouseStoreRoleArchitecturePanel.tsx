@@ -21,6 +21,7 @@ import {
 import { UserRole, RegisteredWarehouse, WarehousePanelTypeEntry } from "../types";
 import { DbService } from "../services/db";
 import { WarehouseRegistrationModal } from "./warehouse/WarehouseRegistrationModal";
+import { MasterDataCatalogGovernanceView } from "./warehouse/MasterDataCatalogGovernanceView";
 import {
   resolveCanonicalRole,
   canPerformAction,
@@ -1006,6 +1007,16 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
               1 & 2. Warehouse Registration & Formwork Panel Inventory
             </button>
             <button
+              onClick={() => setActiveSubModule("wh-master-data")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                activeSubModule === "wh-master-data"
+                  ? "bg-amber-500 text-slate-950 font-bold"
+                  : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              Master Data & Global Catalog Governance
+            </button>
+            <button
               onClick={() => setActiveSubModule("wh-request-workflow")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
                 activeSubModule === "wh-request-workflow"
@@ -1314,6 +1325,14 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
             })}
           </div>
         </div>
+      )}
+
+      {isWarehouseView && activeSubModule === "wh-master-data" && (
+        <MasterDataCatalogGovernanceView
+          isAmharic={isAmharic}
+          currentUserRole={String(currentUserRole)}
+          currentUserName={currentUserProfile?.displayName || "System Administrator"}
+        />
       )}
 
       {isWarehouseView && activeSubModule === "wh-request-workflow" && (
