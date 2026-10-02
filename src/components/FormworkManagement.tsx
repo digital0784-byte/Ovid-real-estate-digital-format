@@ -95,12 +95,11 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
   currentUserRole,
   currentUserName
 }) => {
-  // Check permission: strictly Super Admin, Head Office, Warehouse Manager, Finance Manager
+  // Check permission: strictly Warehouse Manager App, Head Office Manager App, and Admin App (Super Admin)
   const isAllowedRole = 
     currentUserRole === UserRole.SUPER_ADMIN ||
     currentUserRole === UserRole.HEAD_OFFICE ||
-    currentUserRole === UserRole.WAREHOUSE_MANAGER ||
-    currentUserRole === UserRole.FINANCE_MANAGER;
+    currentUserRole === UserRole.WAREHOUSE_MANAGER;
 
   if (!isAllowedRole) {
     return (
@@ -111,12 +110,12 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
         <h2 className="text-xl font-bold text-white">
           {isAmharic 
             ? "የአክሰስ እገዳ፡ ፍቃድ የለዎትም (Access Denied)" 
-            : "Access Restricted: Authorized Roles Only"}
+            : "Access Restricted: Authorized Control Apps Only"}
         </h2>
         <p className="text-slate-300 text-sm max-w-lg mx-auto">
           {isAmharic 
-            ? "ይህ የፎርምወርክ መቆጣጠሪያ ማዕከል ለሱፐር አድሚን (Super Admin)፣ ለዋና መሥሪያ ቤት (Head Office)፣ ለመጋዘን ኃላፊ (Warehouse Manager) እና ለፋይናንስ ኃላፊ (Finance Manager) ብቻ የተፈቀደ ክፍል ነው።"
-            : "This Formwork Management Hub is strictly restricted to Super Admin, Head Office, Warehouse Manager, and Finance Manager roles only."}
+            ? "የአሉሚኒየም ፎርምወርክ አስተዳደር ስርዓት (Aluminum Formwork Management System) በመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager App)፣ በዋና መሥሪያ ቤት መተግበሪያ (Head Office Manager App) እና በአድሚን መተግበሪያ (Admin App) ቁጥጥር ስር ብቻ የሚሰራ ክፍል ነው።"
+            : "The Aluminum Formwork Management System is strictly controlled only by the Warehouse Manager App, Head Office Manager App, and Admin App."}
         </p>
         <div className="pt-2">
           <span className="px-3 py-1 bg-red-950/60 border border-red-800/50 rounded-full text-xs font-mono text-red-300">
@@ -1354,19 +1353,30 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           <Layers size={180} className="rotate-12" />
         </div>
         <div className="relative z-10 space-y-2">
-          <div className="flex items-center space-x-2">
-            <div className="p-2 bg-red-600 rounded-lg text-white">
-              <Layers size={22} />
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 bg-red-600 rounded-lg text-white">
+                <Layers size={22} />
+              </div>
+              <span className="text-xs font-mono tracking-widest text-red-500 uppercase font-bold">DIGITAL CONSTRUCTION ERP SYSTEM</span>
             </div>
-            <span className="text-xs font-mono tracking-widest text-red-500 uppercase font-bold">Digital Construction ERP ENTERPRISE SYSTEM</span>
+            <span className="px-3 py-1 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-xs font-semibold flex items-center gap-1.5">
+              <ShieldCheck size={14} />
+              <span>
+                {t(
+                  "Controlled Exclusively by: Warehouse Manager App • Head Office Manager App • Admin App",
+                  "ቁጥጥር የሚደረግበት በ፡ መጋዘን አስተዳዳሪ መተግበሪያ • ዋና መ/ቤት መተግበሪያ • አድሚን መተግበሪያ ብቻ"
+                )}
+              </span>
+            </span>
           </div>
           <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-            {t("Aluminum Formwork Management System", "የአሉሚኒየም ፎርምወርቅ አስተዳደር ስርዓት")}
+            {t("Aluminum Formwork Management System", "የአሉሚኒየም ፎርምወርክ አስተዳደር ስርዓት")}
           </h1>
           <p className="text-slate-400 text-xs md:text-sm max-w-2xl">
             {t(
-              "Centralized logistics hub to manage durable high-strength aluminum panel registers, asset assignments, cycle usage counters, repair logs, missing safety alerts, and real-time QR scanner tracking.",
-              "የፓነል መዝገቦችን፣ ምደባዎችን፣ የእንቅስቃሴ መቆጣጠሪያዎችን፣ የጉዳትና የጥገና ሪፖርቶችን፣ የኪውአር ስካነር ፍተሻዎችን እና የደህንነት ማሳሰቢያዎችን ማዕከላዊ ማስተዳደሪያ።"
+              "Centralized Aluminum Formwork control system managed exclusively by the Warehouse Manager App, Head Office Manager App, and Admin App.",
+              "በመጋዘን አስተዳዳሪ (Warehouse Manager)፣ በዋና መስሪያ ቤት (Head Office Manager) እና በአድሚን (Admin) መተግበሪያዎች ቁጥጥር ስር ብቻ የሚሰራ የአሉሚኒየም ፎርምወርክ አስተዳደር ስርዓት።"
             )}
           </p>
         </div>

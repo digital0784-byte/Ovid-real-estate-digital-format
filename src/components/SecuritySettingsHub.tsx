@@ -1888,7 +1888,7 @@ export function SecuritySettingsHub({
                   <button
                     onClick={() => {
                       const encoded = Array.from(plainText)
-                        .map((c) => c.charCodeAt(0).toString(16).padStart(2, "0"))
+                        .map((c: string) => c.charCodeAt(0).toString(16).padStart(2, "0"))
                         .join("");
                       setEncryptedHex(`AES256-GCM:${encoded.slice(0, 44)}...`);
                       onLogAction("Payload Encrypted", "Tested AES-256-GCM field encryption in SOC.");

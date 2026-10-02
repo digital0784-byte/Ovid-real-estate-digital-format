@@ -18,8 +18,9 @@ import {
   Send,
   Search
 } from "lucide-react";
-import { UserRole } from "../types";
+import { UserRole, RegisteredWarehouse, WarehousePanelTypeEntry } from "../types";
 import { DbService } from "../services/db";
+import { WarehouseRegistrationModal } from "./warehouse/WarehouseRegistrationModal";
 import {
   resolveCanonicalRole,
   canPerformAction,
@@ -64,15 +65,15 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
   currentUserProfile,
   isAmharic,
   storeItems = [],
-  setStoreItems = () => {},
+  setStoreItems = (_val?: any) => {},
   materialRequests = [],
-  setMaterialRequests = () => {},
+  setMaterialRequests = (_val?: any) => {},
   interSiteTransfers = [],
-  setInterSiteTransfers = () => {},
+  setInterSiteTransfers = (_val?: any) => {},
   issueRecords = [],
-  setIssueRecords = () => {},
+  setIssueRecords = (_val?: any) => {},
   returnRecords = [],
-  setReturnRecords = () => {},
+  setReturnRecords = (_val?: any) => {},
   registeredSitesList = [],
   registeredWarehousesList = [],
   onLogAction,
@@ -95,8 +96,10 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
 
   // Active sub-module inside role architecture hub
   const [activeSubModule, setActiveSubModule] = useState<string>(
-    isWarehouseView ? "wh-request-workflow" : "ss-request-workflow"
+    isWarehouseView ? "wh-warehouse-registration" : "ss-request-workflow"
   );
+  const [showWhRegModal, setShowWhRegModal] = useState<boolean>(false);
+  const [expandedArchWhId, setExpandedArchWhId] = useState<string | null>(null);
 
   useEffect(() => {
     setActiveSubModule(isWarehouseView ? "wh-request-workflow" : "ss-request-workflow");
@@ -277,7 +280,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       purpose: siteReqForm.purpose
     };
 
-    setMaterialRequests(prev => [newReq, ...prev]);
+    setMaterialRequests?.(prev => [newReq, ...prev]);
     await DbService.saveMaterialRequest(newReq as any);
 
     onLogAction?.(
@@ -338,7 +341,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       approvedAt: new Date().toISOString()
     };
 
-    setMaterialRequests(prev => prev.map(r => (r.id === req.id ? updatedReq : r)));
+    setMaterialRequests?.(prev => prev.map(r => (r.id === req.id ? updatedReq : r)));
     await DbService.saveMaterialRequest(updatedReq);
 
     const auditCode =
@@ -373,7 +376,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         linkedRequestId: req.id
       };
 
-      setInterSiteTransfers(prev => [newTransfer, ...prev]);
+      setInterSiteTransfers?.(prev => [newTransfer, ...prev]);
       await DbService.saveStockTransfer(newTransfer as any);
 
       // Deduct Warehouse Stock via Transaction Engine
@@ -389,7 +392,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
           totalStock: Math.max(0, matchingItem.totalStock - approvedAmount),
           availableStock: newStock
         };
-        setStoreItems(prev => prev.map(i => (i.id === matchingItem.id ? updatedItem : i)));
+        setStoreItems?.(prev => prev.map(i => (i.id === matchingItem.id ? updatedItem : i)));
         await DbService.saveStoreItem(updatedItem);
       }
 
@@ -471,7 +474,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         availableStock: newStock,
         status: "In Stock"
       };
-      setStoreItems(prev => prev.map(i => (i.id === matchingItem.id ? updatedItem : i)));
+      setStoreItems?.(prev => prev.map(i => (i.id === matchingItem.id ? updatedItem : i)));
       await DbService.saveStoreItem(updatedItem);
     }
 
@@ -591,7 +594,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         totalStock: Math.max(0, matchingItem.totalStock + delta),
         availableStock: newQty
       };
-      setStoreItems(prev => prev.map(i => (i.id === matchingItem.id ? updated : i)));
+      setStoreItems?.(prev => prev.map(i => (i.id === matchingItem.id ? updated : i)));
       await DbService.saveStoreItem(updated);
     }
 
@@ -641,7 +644,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       authorizedBy: currentUserProfile?.displayName || "Warehouse Manager",
       transferScope: "Warehouse-to-Warehouse"
     };
-    setInterSiteTransfers(prev => [newTrf, ...prev]);
+    setInterSiteTransfers?.(prev => [newTrf, ...prev]);
     await DbService.saveStockTransfer(newTrf as any);
 
     await recordImmutableStockTransaction(
@@ -993,6 +996,16 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         {isWarehouseView && (
           <>
             <button
+              onClick={() => setActiveSubModule("wh-warehouse-registration")}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
+                activeSubModule === "wh-warehouse-registration"
+                  ? "bg-amber-500 text-slate-950 font-bold"
+                  : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              1 & 2. Warehouse Registration & Formwork Panel Inventory
+            </button>
+            <button
               onClick={() => setActiveSubModule("wh-request-workflow")}
               className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap ${
                 activeSubModule === "wh-request-workflow"
@@ -1081,6 +1094,228 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       </div>
 
       {/* ==================== WAREHOUSE MANAGER SUB-MODULES ==================== */}
+      {isWarehouseView && activeSubModule === "wh-warehouse-registration" && (
+        <div className="space-y-4 animate-fadeIn">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
+            <div>
+              <h3 className="text-sm font-black text-amber-400 uppercase tracking-wider flex items-center gap-2">
+                <Building2 size={18} />
+                <span>1. Warehouse Registration & 2. Aluminum Formwork Panel Inventory</span>
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Register facilities, warehouse managers, security guards, GPS location, and structured aluminum panel types.
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowWhRegModal(true)}
+              className="px-4 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20 transition transform active:scale-95 shrink-0"
+            >
+              <Plus size={16} />
+              <span>{isAmharic ? "+ አዲስ መጋዘን መዝግብ" : "+ Add New Warehouse"}</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4">
+            {(registeredWarehousesList && registeredWarehousesList.length > 0 ? registeredWarehousesList : [
+              {
+                id: "WH-AL-101",
+                code: "WH-CEN-01",
+                name: "Kality Central Formwork Hub",
+                nameAmharic: "የቃሊቲ ማዕከላዊ የአሉሚኒየም ፎርምወርክ መጋዘን",
+                type: "Main Warehouse",
+                isMainWarehouse: true,
+                locationRegion: "Addis Ababa / Akaki Kality",
+                citySite: "Akaki Kality Central Logistics Hub",
+                gpsCoordinates: "8.9500° N, 38.7500° E",
+                warehouseManager: "Ato Dawit Tadesse",
+                managerPhone: "+251 911 234 567",
+                securityGuardOnDuty: "Alemayehu Bekele (+251 912 345 678)",
+                totalCapacitySqM: 10000,
+                currentCapacityUtilized: 35,
+                activePanelsCount: 95,
+                materialItemsCount: 3,
+                status: "Active",
+                linkedSitesCount: 4,
+                registrationDate: "2026-07-01",
+                notes: "Central hub for aluminum formwork dispatch, cleaning and refurbishing."
+              }
+            ]).map((wh: any, idx: number) => {
+              const isExp = expandedArchWhId === wh.id;
+              const whPanels: WarehousePanelTypeEntry[] = wh.panelTypes && wh.panelTypes.length > 0 ? wh.panelTypes : [
+                {
+                  id: `PT-${wh.code}-01`,
+                  warehouseId: wh.id,
+                  warehouseName: wh.name,
+                  panelTypeName: "Wall Panel",
+                  panelCode: "WP-600-2400",
+                  panelCategory: "Wall",
+                  dimension: { length: 2400, width: 600, heightThickness: 65, unit: "mm", formatted: "600 × 2400 mm" },
+                  condition: "Good",
+                  serialMode: "Range",
+                  serialPrefix: "WP",
+                  serialRangeFormatted: "WP-001–WP-050",
+                  individualSerialNumbers: [],
+                  quantity: 50,
+                  location: { section: "Section A", formattedLocation: "Section A → Rack 01 → Bay 01" },
+                  status: "Available"
+                },
+                {
+                  id: `PT-${wh.code}-02`,
+                  warehouseId: wh.id,
+                  warehouseName: wh.name,
+                  panelTypeName: "Slab Panel",
+                  panelCode: "SP-900-1800",
+                  panelCategory: "Slab",
+                  dimension: { length: 1800, width: 900, heightThickness: 65, unit: "mm", formatted: "900 × 1800 mm" },
+                  condition: "Good",
+                  serialMode: "Range",
+                  serialPrefix: "SP",
+                  serialRangeFormatted: "SP-001–SP-030",
+                  individualSerialNumbers: [],
+                  quantity: 30,
+                  location: { section: "Section A", formattedLocation: "Section A → Rack 02 → Bay 01" },
+                  status: "Available"
+                },
+                {
+                  id: `PT-${wh.code}-03`,
+                  warehouseId: wh.id,
+                  warehouseName: wh.name,
+                  panelTypeName: "Corner Panel",
+                  panelCode: "CP-300-2400",
+                  panelCategory: "Corner",
+                  dimension: { length: 2400, width: 300, heightThickness: 65, unit: "mm", formatted: "300 × 2400 mm" },
+                  condition: "Used",
+                  serialMode: "Range",
+                  serialPrefix: "CP",
+                  serialRangeFormatted: "CP-001–CP-015",
+                  individualSerialNumbers: [],
+                  quantity: 15,
+                  location: { section: "Section B", formattedLocation: "Section B → Rack 01 → Bin B1" },
+                  status: "Available"
+                }
+              ];
+              const totalPanels = whPanels.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+
+              return (
+                <div key={wh.id || idx} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800/80 pb-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[10px] font-mono font-bold">
+                          {wh.code}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">{wh.type}</span>
+                        <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded text-[10px] font-mono font-bold">
+                          {totalPanels} Aluminum Panels
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-black text-white mt-1">
+                        {isAmharic && wh.nameAmharic ? wh.nameAmharic : wh.name}
+                      </h4>
+                      <p className="text-[11px] text-slate-400 font-mono">{wh.locationRegion} • {wh.gpsCoordinates}</p>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setExpandedArchWhId(isExp ? null : wh.id)}
+                        className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Layers size={14} />
+                        <span>{isExp ? "Hide Panel Inventory ▲" : `View Aluminum Formwork Inventory (${whPanels.length} Types) ▼`}</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono bg-slate-950 p-3 rounded-xl border border-slate-800/80">
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Manager:</span>
+                      <span className="font-bold text-amber-300">{wh.warehouseManager}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Security Guard:</span>
+                      <span className="font-bold text-slate-300">{wh.securityGuardOnDuty || "Guard on Duty"}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Capacity:</span>
+                      <span className="font-bold text-emerald-400">{(wh.totalCapacitySqM || 10000).toLocaleString()} m²</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Status:</span>
+                      <span className="font-bold text-white">{wh.status || "Active"}</span>
+                    </div>
+                  </div>
+
+                  {/* EXPANDED PANEL INVENTORY TABLE (Section 3) */}
+                  {isExp && (
+                    <div className="space-y-2 animate-fadeIn pt-1">
+                      <div className="overflow-x-auto border border-slate-800 rounded-xl">
+                        <table className="w-full text-left text-xs">
+                          <thead className="bg-slate-950 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                            <tr>
+                              <th className="py-2.5 px-3">No.</th>
+                              <th className="py-2.5 px-3">Panel Type</th>
+                              <th className="py-2.5 px-3">Dimension</th>
+                              <th className="py-2.5 px-3">Condition</th>
+                              <th className="py-2.5 px-3">Serial Number</th>
+                              <th className="py-2.5 px-3">Quantity</th>
+                              <th className="py-2.5 px-3">Storage Location</th>
+                              <th className="py-2.5 px-3">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-800/80 font-mono">
+                            {whPanels.map((p, pIdx) => (
+                              <tr key={p.id || pIdx} className="hover:bg-slate-800/50">
+                                <td className="py-2 px-3 font-bold text-slate-400">{pIdx + 1}</td>
+                                <td className="py-2 px-3 font-sans font-bold text-white">
+                                  {p.panelTypeName} <span className="text-[10px] text-slate-400 font-mono">({p.panelCode})</span>
+                                </td>
+                                <td className="py-2 px-3 text-cyan-300 font-bold">{p.dimension.formatted}</td>
+                                <td className="py-2 px-3 font-sans">
+                                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    p.condition === "New" ? "bg-emerald-950 text-emerald-300 border border-emerald-800" :
+                                    p.condition === "Good" ? "bg-blue-950 text-blue-300 border border-blue-800" :
+                                    p.condition === "Used" ? "bg-amber-950 text-amber-300 border border-amber-800" :
+                                    "bg-rose-950 text-rose-300 border border-rose-800"
+                                  }`}>
+                                    {p.condition}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-amber-300 font-bold">{p.serialRangeFormatted || "SN-AUTO"}</td>
+                                <td className="py-2 px-3 font-bold text-white">{p.quantity} Pcs</td>
+                                <td className="py-2 px-3 text-slate-300 text-[11px] font-sans">{p.location.formattedLocation}</td>
+                                <td className="py-2 px-3 font-sans">
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300">
+                                    {p.status}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot className="bg-slate-950 font-bold text-slate-300 border-t border-slate-800">
+                            <tr>
+                              <td colSpan={5} className="py-2.5 px-3 text-right uppercase font-mono text-[10px] text-slate-400">
+                                Total Panels for {wh.name}:
+                              </td>
+                              <td className="py-2.5 px-3 text-amber-400 font-mono font-bold text-sm">
+                                {totalPanels} Pcs
+                              </td>
+                              <td colSpan={2} className="py-2.5 px-3 text-right text-[10px] text-slate-400">
+                                Synced with Central Formwork Registry
+                              </td>
+                            </tr>
+                          </tfoot>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {isWarehouseView && activeSubModule === "wh-request-workflow" && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -1624,6 +1859,14 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
           </div>
         </div>
       )}
+      {/* WAREHOUSE REGISTRATION MODAL */}
+      <WarehouseRegistrationModal
+        isOpen={showWhRegModal}
+        onClose={() => setShowWhRegModal(false)}
+        currentUserProfile={currentUserProfile}
+        currentUserRole={currentUserRole}
+        isAmharic={isAmharic}
+      />
     </div>
   );
 };

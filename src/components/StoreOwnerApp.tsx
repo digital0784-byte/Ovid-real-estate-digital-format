@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
-import { ProjectZone, AluminumFormworkPanel, PanelStatus, PanelType, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense } from "../types";
+import { ProjectZone, AluminumFormworkPanel, PanelStatus, PanelType, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense, WarehousePanelTypeEntry } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import { MaterialSearchAutocomplete, MaterialOption } from "./MaterialSearchAutocomplete";
 import { QrCodeView } from "./QrCodeView";
 import { QrScannerModal } from "./QrScannerModal";
+import { WarehouseRegistrationModal } from "./warehouse/WarehouseRegistrationModal";
+import { AddPanelTypeModal } from "./warehouse/AddPanelTypeModal";
 import {
   Store,
   Package,
@@ -57,7 +59,9 @@ import {
   Navigation,
   Phone,
   Activity,
-  Compass
+  Compass,
+  ChevronDown,
+  ChevronUp
 } from "lucide-react";
 import { WarehouseStoreRoleArchitecturePanel } from "./WarehouseStoreRoleArchitecturePanel";
 import {
@@ -535,7 +539,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       ? "warehouse_manager"
       : canonicalRole === "site_store_owner"
       ? "store_owner"
-      : initialMode;
+      : (initialMode === "store_owner" ? "store_owner" : "warehouse_manager");
 
   const [appMode, setAppMode] = useState<"warehouse_manager" | "store_owner">(authorizedDefaultMode);
   const [unauthorizedRouteAttempt, setUnauthorizedRouteAttempt] = useState<string | null>(null);
@@ -583,7 +587,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   // Keep activeTab strictly valid when appMode changes (Super Admin can access ALL tabs without restriction)
   useEffect(() => {
     if (isSuperAdminOrHQ) return;
-    const warehouseOnlyTabs = ["warehouse-dashboard", "site-panel-breakdown"];
+    // Aluminum Formwork Management ("formwork-tracking" & "site-panel-breakdown") is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
+    const warehouseOnlyTabs = ["warehouse-dashboard", "site-panel-breakdown", "formwork-tracking"];
     const siteStoreOnlyTabs = ["dashboard", "morning-requisitions", "evening-returns", "daily-auto-reports"];
     if (appMode === "warehouse_manager" && siteStoreOnlyTabs.includes(activeTab)) {
       setActiveTab("architecture-command");
@@ -887,6 +892,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   const [sitePanelFilterSite, setSitePanelFilterSite] = useState<string>("ALL");
   const [sitePanelFilterType, setSitePanelFilterType] = useState<string>("ALL");
+
+  // EXPANDABLE WAREHOUSE PANEL INVENTORY STATE
+  const [expandedWarehouseId, setExpandedWarehouseId] = useState<string | null>(null);
+  const [warehouseAddingPanelFor, setWarehouseAddingPanelFor] = useState<RegisteredWarehouse | null>(null);
 
   // CONFIGURABLE APPROVAL RULE LIMITS (By Role / Position)
   const [approvalRuleLimits] = useState<ApprovalRuleLimit[]>([
@@ -2365,7 +2374,6 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               { id: "issue", label: isAmharic ? "ወጪ መዝገብ (Issue Log)" : "Site Issue Vouchers", icon: ArrowRightLeft },
               { id: "evening-returns", label: isAmharic ? "የማታ መመለሻ (Good/Damaged/Missing)" : "Evening Dismantling Returns", icon: RotateCcw },
               { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Site Returns", icon: RotateCcw },
-              { id: "formwork-tracking", label: isAmharic ? "ፎቅ/ዞን ድልድል (Floor/Zone)" : "Floor/Zone & Formwork", icon: Package },
               { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Consumption & Site Reports", icon: BarChart3 },
               { id: "audit", label: isAmharic ? "የሳይት ቆጠራ (Stock Count)" : "Site Stock Count", icon: ClipboardList },
               { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
@@ -2890,85 +2898,249 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                       wh.citySite.toLowerCase().includes(warehouseSearch.toLowerCase()) ||
                       wh.warehouseManager.toLowerCase().includes(warehouseSearch.toLowerCase())
                     )
-                    .map(wh => (
-                      <div key={wh.id} className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 flex flex-col justify-between hover:border-amber-500/50 transition">
-                        <div>
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className="px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[9px] font-mono font-bold">
-                                  {wh.code}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">{wh.type}</span>
+                    .map(wh => {
+                      const isExpanded = expandedWarehouseId === wh.id;
+                      const whPanels: WarehousePanelTypeEntry[] = wh.panelTypes && wh.panelTypes.length > 0 ? wh.panelTypes : [
+                        {
+                          id: `PT-${wh.code}-01`,
+                          warehouseId: wh.id,
+                          warehouseName: wh.name,
+                          panelTypeName: "Wall Panel",
+                          panelCode: "WP-600-2400",
+                          panelCategory: "Wall",
+                          dimension: { length: 2400, width: 600, heightThickness: 65, unit: "mm", formatted: "600 × 2400 mm" },
+                          condition: "Good",
+                          serialMode: "Range",
+                          serialPrefix: "WP",
+                          serialRangeFormatted: "WP-001–WP-050",
+                          individualSerialNumbers: [],
+                          quantity: 50,
+                          location: { section: "Section A", formattedLocation: "Section A → Rack 01 → Bay 01" },
+                          status: "Available"
+                        },
+                        {
+                          id: `PT-${wh.code}-02`,
+                          warehouseId: wh.id,
+                          warehouseName: wh.name,
+                          panelTypeName: "Slab Panel",
+                          panelCode: "SP-900-1800",
+                          panelCategory: "Slab",
+                          dimension: { length: 1800, width: 900, heightThickness: 65, unit: "mm", formatted: "900 × 1800 mm" },
+                          condition: "Good",
+                          serialMode: "Range",
+                          serialPrefix: "SP",
+                          serialRangeFormatted: "SP-001–SP-030",
+                          individualSerialNumbers: [],
+                          quantity: 30,
+                          location: { section: "Section A", formattedLocation: "Section A → Rack 02 → Bay 01" },
+                          status: "Available"
+                        },
+                        {
+                          id: `PT-${wh.code}-03`,
+                          warehouseId: wh.id,
+                          warehouseName: wh.name,
+                          panelTypeName: "Corner Panel",
+                          panelCode: "CP-300-2400",
+                          panelCategory: "Corner",
+                          dimension: { length: 2400, width: 300, heightThickness: 65, unit: "mm", formatted: "300 × 2400 mm" },
+                          condition: "Used",
+                          serialMode: "Range",
+                          serialPrefix: "CP",
+                          serialRangeFormatted: "CP-001–CP-015",
+                          individualSerialNumbers: [],
+                          quantity: 15,
+                          location: { section: "Section B", formattedLocation: "Section B → Rack 01 → Bin B1" },
+                          status: "Available"
+                        }
+                      ];
+                      const totalWhPanels = whPanels.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0);
+
+                      return (
+                        <div key={wh.id} className={`bg-slate-950 p-4 rounded-2xl border space-y-3 flex flex-col justify-between transition ${
+                          isExpanded ? "col-span-1 md:col-span-2 lg:col-span-3 border-amber-500 shadow-xl" : "border-slate-800 hover:border-amber-500/50"
+                        }`}>
+                          <div>
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="px-2 py-0.5 bg-amber-950 text-amber-400 border border-amber-800 rounded text-[9px] font-mono font-bold">
+                                    {wh.code}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400 font-mono uppercase font-bold">{wh.type}</span>
+                                  <span className="px-2 py-0.5 bg-emerald-950 text-emerald-300 border border-emerald-800 rounded text-[9px] font-mono font-bold">
+                                    {totalWhPanels} Panels
+                                  </span>
+                                </div>
+                                <h3 className="text-sm font-black text-white mt-1">
+                                  {isAmharic && wh.nameAmharic ? wh.nameAmharic : wh.name}
+                                </h3>
+                                {isAmharic && wh.nameAmharic && (
+                                  <p className="text-[10px] text-slate-400">{wh.name}</p>
+                                )}
                               </div>
-                              <h3 className="text-sm font-black text-white mt-1">
-                                {isAmharic && wh.nameAmharic ? wh.nameAmharic : wh.name}
-                              </h3>
-                              {isAmharic && wh.nameAmharic && (
-                                <p className="text-[10px] text-slate-400">{wh.name}</p>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-black font-mono border ${
+                                wh.status === "Active" ? "bg-emerald-950 text-emerald-300 border-emerald-800" :
+                                wh.status === "Full" ? "bg-amber-950 text-amber-300 border-amber-800" :
+                                wh.status === "Under Expansion" ? "bg-blue-950 text-blue-300 border-blue-800" :
+                                "bg-slate-800 text-slate-300 border-slate-700"
+                              }`}>
+                                {wh.status}
+                              </span>
+                            </div>
+
+                            <div className="mt-3 bg-slate-900 p-3 rounded-xl border border-slate-800/80 space-y-2 text-[11px]">
+                              <div className="flex justify-between font-mono">
+                                <span className="text-slate-500">Location:</span>
+                                <span className="font-bold text-slate-200">{wh.locationRegion} - {wh.citySite}</span>
+                              </div>
+                              <div className="flex justify-between font-mono">
+                                <span className="text-slate-500">Manager:</span>
+                                <span className="font-bold text-amber-400">{wh.warehouseManager} ({wh.managerPhone})</span>
+                              </div>
+                              <div className="flex justify-between font-mono">
+                                <span className="text-slate-500">Security Guard:</span>
+                                <span className="font-bold text-slate-300">{wh.securityGuardOnDuty || "Guard Officer"}</span>
+                              </div>
+                              <div className="flex justify-between font-mono">
+                                <span className="text-slate-500">Capacity Area:</span>
+                                <span className="font-bold text-emerald-400">{wh.totalCapacitySqM.toLocaleString()} m²</span>
+                              </div>
+
+                              {/* Capacity Utilization Progress Bar */}
+                              <div className="pt-1">
+                                <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
+                                  <span>Utilization:</span>
+                                  <span className={wh.currentCapacityUtilized > 85 ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>
+                                    {wh.currentCapacityUtilized}% Utilized
+                                  </span>
+                                </div>
+                                <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
+                                  <div 
+                                    className={`h-full rounded-full ${
+                                      wh.currentCapacityUtilized > 85 ? "bg-red-500" : 
+                                      wh.currentCapacityUtilized > 60 ? "bg-amber-500" : "bg-emerald-500"
+                                    }`} 
+                                    style={{ width: `${wh.currentCapacityUtilized}%` }} 
+                                  />
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* EXPANDABLE ALUMINUM FORMWORK PANEL INVENTORY SECTION */}
+                            <div className="mt-3 pt-2 border-t border-slate-800/80">
+                              <div className="flex items-center justify-between">
+                                <button
+                                  type="button"
+                                  onClick={() => setExpandedWarehouseId(isExpanded ? null : wh.id)}
+                                  className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1.5 cursor-pointer py-1"
+                                >
+                                  <Layers size={14} />
+                                  <span>
+                                    {isExpanded 
+                                      ? (isAmharic ? "የፓነል ዝርዝር ሰንጠረዥ ደብቅ ▲" : "Hide Panel Inventory Table ▲")
+                                      : (isAmharic ? `የአሉሚኒየም ፎርምወርክ ፓነል ሰንጠረዥ አሳይ (${whPanels.length} ዓይነቶች • ${totalWhPanels} Pcs) ▼` : `View Aluminum Formwork Panel Inventory (${whPanels.length} Types • ${totalWhPanels} Pcs) ▼`)}
+                                  </span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setWarehouseAddingPanelFor(wh)}
+                                  className="px-2.5 py-1 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-lg text-[10px] font-bold uppercase flex items-center gap-1 cursor-pointer transition"
+                                >
+                                  <Plus size={12} />
+                                  <span>{isAmharic ? "+ ፓነል ጨምር" : "+ Add Panel"}</span>
+                                </button>
+                              </div>
+
+                              {isExpanded && (
+                                <div className="mt-3 space-y-3 animate-fadeIn">
+                                  <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden">
+                                    <div className="p-2.5 bg-slate-950 border-b border-slate-800 flex justify-between items-center text-[11px]">
+                                      <span className="font-bold text-slate-300 font-mono flex items-center gap-1.5">
+                                        <Box size={14} className="text-amber-400" />
+                                        <span>ALUMINUM FORMWORK PANEL INVENTORY TABLE — {wh.name}</span>
+                                      </span>
+                                      <span className="font-mono text-emerald-400 font-bold">
+                                        Total: {totalWhPanels} Pcs
+                                      </span>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-left text-xs">
+                                        <thead className="bg-slate-950/80 text-slate-400 uppercase font-mono text-[10px] border-b border-slate-800">
+                                          <tr>
+                                            <th className="py-2 px-2.5">No.</th>
+                                            <th className="py-2 px-2.5">Panel Type</th>
+                                            <th className="py-2 px-2.5">Dimension</th>
+                                            <th className="py-2 px-2.5">Condition</th>
+                                            <th className="py-2 px-2.5">Serial Number</th>
+                                            <th className="py-2 px-2.5">Quantity</th>
+                                            <th className="py-2 px-2.5">Location</th>
+                                            <th className="py-2 px-2.5">Status</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-slate-800/80 font-mono">
+                                          {whPanels.map((p, pIdx) => (
+                                            <tr key={p.id || pIdx} className="hover:bg-slate-800/50">
+                                              <td className="py-2 px-2.5 font-bold text-slate-400">{pIdx + 1}</td>
+                                              <td className="py-2 px-2.5 font-sans font-bold text-white">
+                                                {p.panelTypeName} <span className="text-[10px] text-slate-400 font-mono">({p.panelCode})</span>
+                                              </td>
+                                              <td className="py-2 px-2.5 text-cyan-300 font-bold">{p.dimension.formatted}</td>
+                                              <td className="py-2 px-2.5 font-sans">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                  p.condition === "New" ? "bg-emerald-950 text-emerald-300 border border-emerald-800" :
+                                                  p.condition === "Good" ? "bg-blue-950 text-blue-300 border border-blue-800" :
+                                                  p.condition === "Used" ? "bg-amber-950 text-amber-300 border border-amber-800" :
+                                                  "bg-rose-950 text-rose-300 border border-rose-800"
+                                                }`}>
+                                                  {p.condition}
+                                                </span>
+                                              </td>
+                                              <td className="py-2 px-2.5 text-amber-300 font-bold">{p.serialRangeFormatted || "SN-AUTO"}</td>
+                                              <td className="py-2 px-2.5 font-bold text-white">{p.quantity} Pcs</td>
+                                              <td className="py-2 px-2.5 text-slate-300 text-[11px] font-sans">{p.location.formattedLocation}</td>
+                                              <td className="py-2 px-2.5 font-sans">
+                                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-slate-300">
+                                                  {p.status}
+                                                </span>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                        <tfoot className="bg-slate-950 font-bold text-slate-300 border-t border-slate-800">
+                                          <tr>
+                                            <td colSpan={5} className="py-2 px-2.5 text-right uppercase font-mono text-[10px] text-slate-400">
+                                              Total Warehouse Panels:
+                                            </td>
+                                            <td className="py-2 px-2.5 text-amber-400 font-mono font-bold text-sm">
+                                              {totalWhPanels} Pcs
+                                            </td>
+                                            <td colSpan={2} className="py-2 px-2.5 text-right text-[10px] text-slate-400">
+                                              Controlled by Warehouse & HQ
+                                            </td>
+                                          </tr>
+                                        </tfoot>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </div>
                               )}
                             </div>
-                            <span className={`px-2 py-0.5 rounded text-[9px] font-black font-mono border ${
-                              wh.status === "Active" ? "bg-emerald-950 text-emerald-300 border-emerald-800" :
-                              wh.status === "Full" ? "bg-amber-950 text-amber-300 border-amber-800" :
-                              wh.status === "Under Expansion" ? "bg-blue-950 text-blue-300 border-blue-800" :
-                              "bg-slate-800 text-slate-300 border-slate-700"
-                            }`}>
-                              {wh.status}
-                            </span>
+
+                            {wh.notes && (
+                              <p className="mt-2 text-[10px] text-slate-400 italic bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
+                                "{wh.notes}"
+                              </p>
+                            )}
                           </div>
 
-                          <div className="mt-3 bg-slate-900 p-3 rounded-xl border border-slate-800/80 space-y-2 text-[11px]">
-                            <div className="flex justify-between font-mono">
-                              <span className="text-slate-500">Location:</span>
-                              <span className="font-bold text-slate-200">{wh.locationRegion} - {wh.citySite}</span>
-                            </div>
-                            <div className="flex justify-between font-mono">
-                              <span className="text-slate-500">Manager:</span>
-                              <span className="font-bold text-amber-400">{wh.warehouseManager} ({wh.managerPhone})</span>
-                            </div>
-                            <div className="flex justify-between font-mono">
-                              <span className="text-slate-500">Security Guard:</span>
-                              <span className="font-bold text-slate-300">{wh.securityGuardOnDuty || "Guard Officer"}</span>
-                            </div>
-                            <div className="flex justify-between font-mono">
-                              <span className="text-slate-500">Capacity Area:</span>
-                              <span className="font-bold text-emerald-400">{wh.totalCapacitySqM.toLocaleString()} m²</span>
-                            </div>
-
-                            {/* Capacity Utilization Progress Bar */}
-                            <div className="pt-1">
-                              <div className="flex justify-between text-[10px] font-mono text-slate-400 mb-1">
-                                <span>Utilization:</span>
-                                <span className={wh.currentCapacityUtilized > 85 ? "text-red-400 font-bold" : "text-amber-400 font-bold"}>
-                                  {wh.currentCapacityUtilized}% Utilized
-                                </span>
-                              </div>
-                              <div className="w-full h-1.5 bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                                <div 
-                                  className={`h-full rounded-full ${
-                                    wh.currentCapacityUtilized > 85 ? "bg-red-500" : 
-                                    wh.currentCapacityUtilized > 60 ? "bg-amber-500" : "bg-emerald-500"
-                                  }`} 
-                                  style={{ width: `${wh.currentCapacityUtilized}%` }} 
-                                />
-                              </div>
-                            </div>
+                          <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[10px] font-mono text-slate-500">
+                            <span className="flex items-center gap-1"><MapPin size={12} className="text-slate-400" /> {wh.gpsCoordinates}</span>
+                            <span>Registered: {wh.registrationDate}</span>
                           </div>
-
-                          {wh.notes && (
-                            <p className="mt-2 text-[10px] text-slate-400 italic bg-slate-900/50 p-2 rounded-lg border border-slate-800/50">
-                              "{wh.notes}"
-                            </p>
-                          )}
                         </div>
-
-                        <div className="pt-2 border-t border-slate-800 flex justify-between items-center text-[10px] font-mono text-slate-500">
-                          <span className="flex items-center gap-1"><MapPin size={12} className="text-slate-400" /> {wh.gpsCoordinates}</span>
-                          <span>Registered: {wh.registrationDate}</span>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               </div>
             )}
@@ -2987,11 +3159,23 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <span className="text-[9px] text-slate-500 mt-1">Across 10 site store categories</span>
               </div>
 
-              <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
-                <span className="text-[10px] font-black uppercase text-slate-400">{t("formworkPanels")}</span>
-                <span className="text-xl font-mono font-black text-amber-400 mt-2">{totalFormworkPanelsCount} Pcs</span>
-                <span className="text-[9px] text-slate-500 mt-1">Active aluminum formwork panels</span>
-              </div>
+              {isSuperAdminOrHQ || appMode === "warehouse_manager" ? (
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-400">{t("formworkPanels")}</span>
+                  <span className="text-xl font-mono font-black text-amber-400 mt-2">{totalFormworkPanelsCount} Pcs</span>
+                  <span className="text-[9px] text-slate-500 mt-1">Controlled by Warehouse, HQ & Admin</span>
+                </div>
+              ) : (
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
+                  <span className="text-[10px] font-black uppercase text-slate-400">
+                    {isAmharic ? "የዛሬ ዕቃ መቀበያ እና ወጪ" : "Today's Site Receipts & Issues"}
+                  </span>
+                  <span className="text-xl font-mono font-black text-amber-400 mt-2">
+                    {receivingReports.length + issueRecords.length} Logs
+                  </span>
+                  <span className="text-[9px] text-slate-500 mt-1">Assigned site store transactions</span>
+                </div>
+              )}
 
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
                 <span className="text-[10px] font-black uppercase text-slate-400">{t("availableStock")}</span>
@@ -3966,11 +4150,18 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           </div>
         )}
 
-        {/* 5. FORMWORK TRACKING MODULE */}
-        {activeTab === "formwork-tracking" && (
+        {/* 5. FORMWORK TRACKING MODULE (STRICTLY WAREHOUSE MANAGER APP, HEAD OFFICE MANAGER APP & ADMIN APP ONLY) */}
+        {activeTab === "formwork-tracking" && (isSuperAdminOrHQ || appMode === "warehouse_manager") && (
           <div className="space-y-6 animate-fadeIn">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
               <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="px-2.5 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/40 text-amber-300 text-[10px] font-bold">
+                    {isAmharic
+                      ? "በመጋዘን አስተዳዳሪ፣ ዋና መ/ቤት እና አድሚን መተግበሪያ ብቻ የሚቆጣጠር"
+                      : "Controlled Only by Warehouse Manager App • Head Office App • Admin App"}
+                  </span>
+                </div>
                 <h2 className="text-lg font-black uppercase text-white">Aluminum Formwork Panel Tracking</h2>
                 <p className="text-xs text-slate-400">{isAmharic ? "እያንዳንዱን የአሉሚኒየም ፓነል በቦታው፣ በፎቅ፣ በዞን እና በኃላፊ ሰው መከታተያ" : "Real-time panel status, serial numbers & current zone locations"}</p>
               </div>
@@ -4041,7 +4232,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   <option value="All">All Categories</option>
                   <option value="Cement">Cement</option>
                   <option value="Rebar">Rebar</option>
-                  <option value="Aluminum Panels">Aluminum Panels</option>
+                  {(isSuperAdminOrHQ || appMode === "warehouse_manager") && (
+                    <option value="Aluminum Panels">Aluminum Panels</option>
+                  )}
                   <option value="Beams">Beams</option>
                   <option value="Props">Props</option>
                   <option value="Brackets">Brackets</option>
@@ -6711,345 +6904,49 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         </div>
       )}
 
-      {/* MODAL 4: REGISTER NEW WAREHOUSE */}
-      {showRegisterWarehouseModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md flex items-center justify-center p-4 animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-xl w-full overflow-hidden shadow-2xl">
-            <div className="p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center">
-              <div className="flex items-center space-x-3">
-                <div className="p-2.5 bg-amber-500/10 rounded-xl border border-amber-500/30 text-amber-400">
-                  <Building2 size={20} />
-                </div>
-                <div>
-                  <h3 className="text-base font-black text-white uppercase tracking-wider">
-                    {isAmharic ? "አዲስ መጋዘን (Warehouse) መመዝገቢያ" : "Register New Warehouse & Depot"}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    {isAmharic ? "የማዕከላዊ መጋዘን፣ ዴፖ፣ ስቶር ወይም ከባድ መሳርያዎች ቦታ መመዝገቢያ" : "Add a new central warehouse, storage yard or depot for material logistics"}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowRegisterWarehouseModal(false)}
-                className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
+      {/* COMPLETE NEW WAREHOUSE REGISTRATION & ALUMINUM FORMWORK PANEL INVENTORY MODAL */}
+      <WarehouseRegistrationModal
+        isOpen={showRegisterWarehouseModal}
+        onClose={() => setShowRegisterWarehouseModal(false)}
+        onWarehouseRegistered={(newWh) => {
+          setRegisteredWarehousesList(prev => [newWh, ...prev]);
+          onLogAction?.("New Warehouse Registered", `Registered warehouse ${newWh.name} (${newWh.code}) with ${newWh.activePanelsCount} aluminum formwork panels.`);
+          onCreateNotification?.({
+            title: `New Warehouse Registered: ${newWh.name}`,
+            titleAm: `አዲስ መጋዘን ተመዝግቧል፡ ${newWh.name}`,
+            description: `Facility ${newWh.code} registered with ${newWh.activePanelsCount} panels in ${newWh.locationRegion}.`,
+            category: "Warehouse Logistics",
+            priority: "High"
+          });
+        }}
+        currentUserProfile={currentUserProfile}
+        currentUserRole={currentUserRole}
+        isAmharic={isAmharic}
+      />
 
-            <form onSubmit={handleRegisterWarehouseSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የመጋዘን ኮድ (Warehouse Code)" : "Warehouse Code"} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newWarehouseForm.code}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, code: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ዓይነት (Warehouse Type)" : "Warehouse Type"} *
-                  </label>
-                  <select
-                    value={newWarehouseForm.type}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, type: e.target.value as RegisteredWarehouse["type"] })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="Main Warehouse">Main Warehouse (ዋና መጋዘን)</option>
-                    <option value="Sub-Warehouse">Sub-Warehouse (ንዑስ መጋዘን)</option>
-                    <option value="Site Store">Site Store (የሳይት ስቶር)</option>
-                    <option value="Equipment Yard">Equipment Yard (የመሳሪያዎች ግቢ)</option>
-                    <option value="Central Depot">Central Depot (ማዕከላዊ ዴፖ)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የመጋዘን ስም (English Name)" : "Warehouse Name (English)"} *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder={isAmharic ? "ምሳሌ፡ Kality Central Formwork & Rebar Warehouse" : "e.g. Kality Central Formwork Warehouse..."}
-                  value={newWarehouseForm.name}
-                  onChange={e => setNewWarehouseForm({ ...newWarehouseForm, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የመጋዘን ስም በአማርኛ (Amharic Name)" : "Warehouse Name (Amharic)"}
-                </label>
-                <input
-                  type="text"
-                  placeholder={isAmharic ? "ምሳሌ፡ የቃሊቲ ማዕከላዊ ፎርምወርክና ብረት መጋዘን" : "e.g. የቃሊቲ ማዕከላዊ መጋዘን..."}
-                  value={newWarehouseForm.nameAmharic}
-                  onChange={e => setNewWarehouseForm({ ...newWarehouseForm, nameAmharic: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ክልል / ቦታ (Region / Location)" : "Region / Location"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newWarehouseForm.locationRegion}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, locationRegion: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ክፍለ ከተማ / ዞን (City / Site Zone)" : "City / Subcity / Site Zone"}
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newWarehouseForm.citySite}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, citySite: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የመጋዘኑ ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager"} *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={newWarehouseForm.warehouseManager}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, warehouseManager: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የሥራ አስኪያጅ ስልክ (Manager Phone)" : "Manager Phone Number"}
-                  </label>
-                  <input
-                    type="text"
-                    value={newWarehouseForm.managerPhone}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, managerPhone: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ጠቅላላ ስፋት በካሬ ሜትር (Total Capacity SqM)" : "Total Capacity (SqM)"}
-                  </label>
-                  <input
-                    type="number"
-                    min="100"
-                    value={newWarehouseForm.totalCapacitySqM}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, totalCapacitySqM: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የተያዘ ቦታ በመቶኛ (% Capacity Utilized)" : "Capacity Utilized (%)"}
-                  </label>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={newWarehouseForm.currentCapacityUtilized}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, currentCapacityUtilized: Number(e.target.value) })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "የጥበቃ ኃላፊ / ዘበኛ (Security Guard on Duty)" : "Security Guard on Duty"}
-                  </label>
-                  <input
-                    type="text"
-                    value={newWarehouseForm.securityGuardOnDuty}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, securityGuardOnDuty: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-slate-300 block mb-1">
-                    {isAmharic ? "ሁኔታ (Status)" : "Warehouse Status"}
-                  </label>
-                  <select
-                    value={newWarehouseForm.status}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, status: e.target.value as RegisteredWarehouse["status"] })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                  >
-                    <option value="Active">Active (በሥራ ላይ)</option>
-                    <option value="Full">Full (የሞላ)</option>
-                    <option value="Maintenance">Maintenance (በጥገና ላይ)</option>
-                    <option value="Under Expansion">Under Expansion (በማስፋፋት ላይ)</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "የጂፒኤስ መጋጠሚያዎች (GPS Location Coords)" : "GPS Coordinates"}
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={newWarehouseForm.gpsCoordinates}
-                    onChange={e => setNewWarehouseForm({ ...newWarehouseForm, gpsCoordinates: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs font-mono focus:outline-none focus:border-amber-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => acquireLiveGps(coords => setNewWarehouseForm(prev => ({ ...prev, gpsCoordinates: coords })))}
-                    className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-amber-400 rounded-xl text-xs font-bold cursor-pointer transition flex items-center gap-1 shrink-0"
-                  >
-                    <MapPin size={14} />
-                    <span>{isAmharic ? "ቀጥታ GPS" : "Live GPS"}</span>
-                  </button>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-950/30 border border-amber-500/20 rounded-2xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black text-amber-400 uppercase tracking-wider">
-                    {isAmharic ? "የመጋዘኑ የመጀመሪያ የፓነል / ስቶክ መመዝገቢያ (Initial Stock Batch)" : "Initial Warehouse Stock Batch"}
-                  </span>
-                  <span className="text-[10px] text-amber-300/70 font-mono">Formwork Spec</span>
-                </div>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                      {isAmharic ? "ሴሪያል ቁጥር (Serial Number)" : "Serial Number"}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="e.g. SN-KLT-9001"
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                      {isAmharic ? "የፓነል አይነት (Panel Type)" : "Panel Type"}
-                    </label>
-                    <select
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
-                    >
-                      <option value="Flat Panel">Flat Panel (ፍላት ፓነል)</option>
-                      <option value="Internal Wall">Internal Wall (የውስጥ ግድግዳ)</option>
-                      <option value="External Wall">External Wall (የውጭ ግድግዳ)</option>
-                      <option value="Soffit">Soffit (የኮርኒስ / ሶፊት)</option>
-                      <option value="Wall End">Wall End (የግድግዳ መጨረሻ)</option>
-                      <option value="SC">SC (Special Corner)</option>
-                      <option value="Kicker Beam">Kicker Beam (ኪከር ቢም)</option>
-                      <option value="Slab">Slab (የስላብ ፓነል)</option>
-                      <option value="Stair Panels">Stair Panels (የደረጃ ፓነል)</option>
-                      <option value="Outer Corner">Outer Corner (የውጭ ማዕዘን)</option>
-                      <option value="Inner Corner">Inner Corner (የውስጥ ማዕዘን)</option>
-                      <option value="Deck Panel">Deck Panel (የዴክ ፓነል)</option>
-                      <option value="Kicker">Kicker (ኪከር)</option>
-                      <option value="Beam Bottom">Beam Bottom (የቢም ታች)</option>
-                      <option value="Prop">Prop (ፕሮፕ / ደጋፊ)</option>
-                      <option value="Wall Tie">Wall Tie (ዎል ታይ)</option>
-                      <option value="Pin & Wedge">Pin & Wedge (ፒን እና ዌጅ)</option>
-                      <option value="Other Aluminum Formwork Panels">Other Aluminum Formwork Panels (እና ሌሎች አሉምኒየም ፎርምወርክ ፓነሎች)</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                      {isAmharic ? "መጠን (Dimensions)" : "Dimensions"}
-                    </label>
-                    <input
-                      type="text"
-                      placeholder="1200x600mm"
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                      {isAmharic ? "ክብደት (Kg)" : "Weight (Kg)"}
-                    </label>
-                    <input
-                      type="number"
-                      step="0.1"
-                      placeholder="18.5"
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
-                      {isAmharic ? "ብዛት (Quantity Pcs)" : "Quantity (Pcs)"}
-                    </label>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="50"
-                      className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-2.5 py-1.5 text-xs font-mono focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-slate-300 block mb-1">
-                  {isAmharic ? "ተጨማሪ ማስታወሻዎች (Notes & Operational Details)" : "Notes & Details"}
-                </label>
-                <textarea
-                  rows={2}
-                  value={newWarehouseForm.notes}
-                  onChange={e => setNewWarehouseForm({ ...newWarehouseForm, notes: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-amber-500"
-                />
-              </div>
-
-              <div className="pt-4 border-t border-slate-800 flex justify-end space-x-3">
-                <button
-                  type="button"
-                  onClick={() => setShowRegisterWarehouseModal(false)}
-                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold cursor-pointer"
-                >
-                  {isAmharic ? "ሰርዝ" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer shadow-lg transition"
-                >
-                  {isAmharic ? "መጋዘን መዝግብ ✓" : "Save Warehouse ✓"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* DYNAMIC ADD PANEL TYPE MODAL FOR EXISTING WAREHOUSE */}
+      {warehouseAddingPanelFor && (
+        <AddPanelTypeModal
+          isOpen={!!warehouseAddingPanelFor}
+          onClose={() => setWarehouseAddingPanelFor(null)}
+          onSave={async (entry) => {
+            const targetWh = warehouseAddingPanelFor;
+            const updatedPanels = targetWh.panelTypes ? [...targetWh.panelTypes, entry] : [entry];
+            const updatedWh: RegisteredWarehouse = {
+              ...targetWh,
+              panelTypes: updatedPanels,
+              activePanelsCount: updatedPanels.reduce((sum, p) => sum + (Number(p.quantity) || 0), 0)
+            };
+            setRegisteredWarehousesList(prev => prev.map(w => w.id === updatedWh.id ? updatedWh : w));
+            await DbService.updateWarehouse(updatedWh);
+            await DbService.saveWarehousePanelType(entry);
+            onLogAction?.("Panel Type Added to Warehouse", `Added ${entry.quantity} ${entry.panelTypeName} (${entry.dimension.formatted}) to ${updatedWh.name}`);
+            setWarehouseAddingPanelFor(null);
+          }}
+          warehouseName={warehouseAddingPanelFor.name}
+          warehouseId={warehouseAddingPanelFor.id}
+          isAmharic={isAmharic}
+        />
       )}
 
       {/* REUSABLE LIVE QR SCANNER MODAL */}

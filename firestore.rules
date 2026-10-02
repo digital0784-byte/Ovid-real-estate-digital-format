@@ -281,21 +281,25 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // 8. Formwork Panels & Panel Logs
+    // 8. Formwork Panels & Panel Logs (Strictly Controlled Only by Warehouse Manager App, Head Office Manager App, and Admin App)
     match /formworkPanels/{panelId} {
-      allow read: if true;
-      allow create, update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow delete: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update, delete: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
     }
     match /panelMovementLogs/{logId} {
-      allow read, create, update: if true;
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /panelDamageReports/{reportId} {
-      allow read, write: if true;
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /panelRepairRecords/{recordId} {
-      allow read, write: if true;
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 9. Warehouse & Site Store Canonical Workflows (Requests, Transfers, Receipts, Issues, Returns, Counts, Adjustments, Discrepancies, Transactions)
@@ -391,8 +395,8 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice();
     }
     match /sitePanelBreakdowns/{breakdownId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSiteEngineer();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /dailyRequisitions/{reqId} {

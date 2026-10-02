@@ -32,6 +32,7 @@ import {
   InventoryAuditRecord,
   RegisteredSite,
   RegisteredWarehouse,
+  WarehousePanelTypeEntry,
   PayrollRecord,
   Expense
 } from "../types";
@@ -835,12 +836,43 @@ export const DbService = {
   },
   async addWarehouse(warehouse: RegisteredWarehouse): Promise<void> {
     await writeDocument<RegisteredWarehouse>("registeredWarehouses", warehouse, initialWarehouses);
+    await writeDocument<any>("warehouses", warehouse, []);
   },
   async updateWarehouse(warehouse: RegisteredWarehouse): Promise<void> {
     await writeDocument<RegisteredWarehouse>("registeredWarehouses", warehouse, initialWarehouses);
+    await writeDocument<any>("warehouses", warehouse, []);
   },
   async deleteWarehouse(id: string): Promise<void> {
     await removeDocument<RegisteredWarehouse>("registeredWarehouses", id, initialWarehouses);
+    await removeDocument<any>("warehouses", id, []);
+  },
+
+  // === WAREHOUSE PANEL TYPES (Section 2 & 3) ===
+  async getWarehousePanelTypes(warehouseId?: string): Promise<WarehousePanelTypeEntry[]> {
+    const all = await fetchCollection<WarehousePanelTypeEntry>("panelTypes", []);
+    if (warehouseId) {
+      return all.filter(p => p.warehouseId === warehouseId);
+    }
+    return all;
+  },
+  async saveWarehousePanelType(panelType: WarehousePanelTypeEntry): Promise<void> {
+    await writeDocument<WarehousePanelTypeEntry>("panelTypes", panelType, []);
+  },
+  async saveWarehousePanelTypes(panelTypes: WarehousePanelTypeEntry[]): Promise<void> {
+    for (const pt of panelTypes) {
+      await writeDocument<WarehousePanelTypeEntry>("panelTypes", pt, []);
+    }
+  },
+  async deleteWarehousePanelType(id: string): Promise<void> {
+    await removeDocument<WarehousePanelTypeEntry>("panelTypes", id, []);
+  },
+
+  // === WAREHOUSE LOCATIONS (Section 10) ===
+  async getWarehouseLocations(): Promise<any[]> {
+    return fetchCollection<any>("warehouseLocations", []);
+  },
+  async saveWarehouseLocation(location: any): Promise<void> {
+    await writeDocument<any>("warehouseLocations", location, []);
   },
 
   // === EXPENSES ===

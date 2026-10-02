@@ -669,27 +669,98 @@ export interface RegisteredSite {
   }[];
 }
 
+export type PanelConditionType = "New" | "Good" | "Used" | "Damaged" | "Under Repair" | "Unusable";
+
+export type PanelInventoryStatus =
+  | "Available"
+  | "Reserved"
+  | "Issued"
+  | "Installed"
+  | "In Transit"
+  | "Returned"
+  | "Damaged"
+  | "Under Repair"
+  | "Missing"
+  | "Unusable";
+
+export interface PanelStorageLocation {
+  warehouse?: string;
+  section: string; // e.g. "Section B"
+  row?: string;    // e.g. "Row 01"
+  rack?: string;   // e.g. "Rack 03"
+  bay?: string;    // e.g. "Bay 02"
+  stack?: string;  // e.g. "Stack 01"
+  bin?: string;    // e.g. "Bin B1"
+  formattedLocation: string; // e.g. "Section B → Rack 03 → Bay 02 → Stack 01"
+}
+
+export interface WarehousePanelTypeEntry {
+  id: string;
+  warehouseId: string;
+  warehouseName: string;
+  panelTypeName: string; // e.g. "Wall Panel", "Slab Panel", "Corner Panel", "Column Panel"
+  panelCode: string;     // e.g. "WP-600-2400"
+  panelCategory: "Wall" | "Slab" | "Corner" | "Column" | "Beam" | "Deck" | "Accessory" | "Special";
+  description?: string;
+  dimension: {
+    length: number;
+    width: number;
+    heightThickness?: number;
+    unit: "mm" | "m";
+    formatted: string; // e.g. "600 × 2400 mm" or "0.60 × 2.40 m"
+  };
+  condition: PanelConditionType;
+  serialMode: "Range" | "Individual";
+  serialPrefix?: string;
+  serialRangeStart?: string;
+  serialRangeEnd?: string;
+  serialRangeFormatted?: string; // e.g. "WP-001–WP-050"
+  individualSerialNumbers: string[]; // e.g. ["WP-0001", "WP-0002", ...]
+  quantity: number;
+  location: PanelStorageLocation;
+  status: PanelInventoryStatus;
+  unitCostEtb?: number;
+  qrCodePayload?: string;
+  barcode?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
 export interface RegisteredWarehouse {
   id: string;
   code: string;
   name: string;
   nameAmharic?: string;
-  type: "Main Warehouse" | "Sub-Warehouse" | "Site Store" | "Equipment Yard" | "Central Depot";
+  type: "Main Warehouse" | "Central Warehouse" | "Site Warehouse" | "Temporary Warehouse" | "Sub-Warehouse" | "Site Store" | "Equipment Yard" | "Central Depot";
   isMainWarehouse: boolean;
   locationRegion: string;
   citySite: string;
+  address?: string;
   gpsCoordinates: string;
   warehouseManager: string;
   managerPhone: string;
+  securityGuardName?: string;
+  securityGuardPhone?: string;
+  securityGuardOnDuty?: string; // e.g. "Alemayehu Bekele (+251 911 234567)"
   totalCapacitySqM: number;
   currentCapacityUtilized: number; // percentage 0-100
   activePanelsCount: number;
   materialItemsCount: number;
-  status: "Active" | "Full" | "Maintenance" | "Under Expansion";
-  securityGuardOnDuty: string;
+  status: "Active" | "Full" | "Maintenance" | "Under Expansion" | "Temporary";
   linkedSitesCount: number;
   registrationDate: string;
   notes?: string;
+  photoUrl?: string;
+  documents?: {
+    id: string;
+    name: string;
+    type: string;
+    uploadDate: string;
+    fileSize?: string;
+    url?: string;
+  }[];
+  panelTypes?: WarehousePanelTypeEntry[];
 }
 
 export type CustomInputCategory = 

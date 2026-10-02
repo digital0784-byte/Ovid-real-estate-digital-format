@@ -211,6 +211,23 @@ export function canAccessAppMode(
 }
 
 /**
+ * Aluminum Formwork Management System is strictly controlled ONLY by:
+ * 1. Warehouse Manager App (warehouse_manager)
+ * 2. Head Office Manager App (head_office)
+ * 3. Admin App (admin)
+ */
+export function canControlAluminumFormwork(
+  role: UserRole | string | undefined | null
+): boolean {
+  const canonical = resolveCanonicalRole(role);
+  return (
+    canonical === "warehouse_manager" ||
+    canonical === "head_office" ||
+    canonical === "admin"
+  );
+}
+
+/**
  * Calculates transaction-based inventory strictly following:
  * Opening Stock + Received + Returned + Transfer In - Issued - Transfer Out - Damaged - Adjustments = Current Stock
  */
@@ -499,13 +516,13 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     id: "ss-site-stock",
     shortLabelEn: "Site Stock",
     shortLabelAm: "የሳይት ክምችት",
-    fullTitleEn: "Assigned Site Stock & Aluminum Formwork",
-    fullTitleAm: "የተመደበው የሳይት ስቶር ክምችት እና የፎርምወርክ ፓነሎች",
+    fullTitleEn: "Assigned Site Stock & General Materials",
+    fullTitleAm: "የተመደበው የሳይት ስቶር ክምችት እና የግንባታ ዕቃዎች",
     routePath: "/site-store/site-stock",
     allowedRoles: ["site_store_owner", "head_office", "admin"],
     subModulesEn: [
       "2. Site Stock (Transaction-calculated)",
-      "Site Aluminum Formwork Panels (Available, Issued, Installed, Returned, Damaged, Missing)"
+      "Assigned Site Consumables, Tools & General Construction Materials"
     ]
   },
   {
@@ -568,8 +585,8 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     id: "ss-floor-zone",
     shortLabelEn: "Floor/Zone",
     shortLabelAm: "ፎቅ እና ዞን ምደባ",
-    fullTitleEn: "Floor / Zone Material & Formwork Allocation",
-    fullTitleAm: "ፕሮጀክት → ሳይት → ህንፃ → ፎቅ → ዞን የዕቃ እና ፓነል ምደባ",
+    fullTitleEn: "Floor / Zone Construction Material Allocation",
+    fullTitleAm: "ፕሮጀክት → ሳይት → ህንፃ → ፎቅ → ዞን የዕቃ ምደባ",
     routePath: "/site-store/floor-zone",
     allowedRoles: ["site_store_owner", "head_office", "admin"],
     subModulesEn: [
