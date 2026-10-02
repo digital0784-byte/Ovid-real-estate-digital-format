@@ -78,7 +78,21 @@ export function MobileAppsHub({
 }: MobileAppsHubProps) {
   
   // --- STATE ---
-  const [activeApp, setActiveApp] = useState<MobileAppType>("worker");
+  const initialMobileApp: MobileAppType =
+    currentUserRole === "Warehouse Manager"
+      ? "warehouse_manager"
+      : currentUserRole === "Store Owner" || currentUserRole === "Store Manager"
+      ? "store_owner"
+      : "worker";
+  const [activeApp, setActiveApp] = useState<MobileAppType>(initialMobileApp);
+
+  useEffect(() => {
+    if (currentUserRole === "Warehouse Manager") {
+      setActiveApp("warehouse_manager");
+    } else if (currentUserRole === "Store Owner" || currentUserRole === "Store Manager") {
+      setActiveApp("store_owner");
+    }
+  }, [currentUserRole]);
   const [devicePlatform, setDevicePlatform] = useState<"android" | "ios">("android");
   const [isPhoneOnline, setIsPhoneOnline] = useState(true);
   const [offlineQueue, setOfflineQueue] = useState<{ id: string; action: string; payload: any; timestamp: string }[]>([]);
@@ -560,7 +574,17 @@ self.addEventListener('fetch', (event) => {
                 { id: "admin", titleEn: "9. Admin App", titleAm: "9. የአድሚን መተግበሪያ", descEn: "SOC telemetry logs, App Check certs, remote wiping", descAm: "የሳይበር ደህንነት መከታተያ፣ የደህንነት ቶከኖችና የሞባይል መቆጣጠሪያ" },
                 { id: "warehouse_manager", titleEn: "10. Warehouse Manager App", titleAm: "10. የመጋዘን አስተዳዳሪ መተግበሪያ", descEn: "Central store dispatch, truck fleet plate logs & QR gate pass", descAm: "የማዕከላዊ መጋዘን ስርጭት፣ የጭነት መኪና ሰሌዳ ቁጥር እና የQR በር ፍቃድ" },
                 { id: "store_owner", titleEn: "11. Site Store Owner App", titleAm: "11. የሳይት ስቶር አቃቤ መተግበሪያ", descEn: "Site material receipts, issue vouchers, bin card balance & requisitions", descAm: "የሳይት እቃዎች መረከቢያ፣ ወጪ ማድረጊያ ቫውቸር እና የክምችት መጠን" }
-              ].map((app) => (
+              ]
+                .filter((app) => {
+                  if (currentUserRole === "Warehouse Manager") {
+                    return app.id === "warehouse_manager";
+                  }
+                  if (currentUserRole === "Store Owner" || currentUserRole === "Store Manager") {
+                    return app.id === "store_owner";
+                  }
+                  return true;
+                })
+                .map((app) => (
                 <button
                   key={app.id}
                   onClick={() => {

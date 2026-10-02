@@ -76,11 +76,46 @@ service cloud.firestore {
     }
 
     function isWarehouseManager() {
-      return hasRole('Warehouse Manager');
+      return hasRole('Warehouse Manager') || hasRole('warehouse_manager');
     }
 
     function isStoreOwner() {
-      return hasRole('Store Owner');
+      return hasRole('Store Owner') || hasRole('Site Store Owner') || hasRole('site_store_owner');
+    }
+
+    function isAdminOrHeadOffice() {
+      return isSuperAdmin() || isHeadOffice() || hasRole('admin') || hasRole('head_office');
+    }
+
+    function isWarehouseRole() {
+      return isAdminOrHeadOffice() || isWarehouseManager();
+    }
+
+    function isSiteStoreRole() {
+      return isAdminOrHeadOffice() || isStoreOwner() || isStoreManager();
+    }
+
+    function isAuthorizedForSite(siteName) {
+      return isAdminOrHeadOffice() || (
+        isSiteStoreRole() && (
+          !userDocExists() ||
+          !('assignedSite' in getUserData()) ||
+          getUserData().assignedSite == '' ||
+          getUserData().assignedSite == siteName ||
+          getUserData().assignedProject == siteName
+        )
+      );
+    }
+
+    function isAuthorizedForWarehouse(warehouseName) {
+      return isAdminOrHeadOffice() || (
+        isWarehouseRole() && (
+          !userDocExists() ||
+          !('assignedWarehouse' in getUserData()) ||
+          getUserData().assignedWarehouse == '' ||
+          getUserData().assignedWarehouse == warehouseName
+        )
+      );
     }
 
     function isHRManager() {
@@ -143,8 +178,12 @@ service cloud.firestore {
     match /role_change_requests/{reqId} {
       allow read, write: if true;
     }
+    match /roles/{roleId} {
+      allow read: if isSignedIn();
+      allow write: if isAdminOrHeadOffice();
+    }
 
-    // 2. Projects, Sites & Registered Sites / Warehouses
+    // 2. Projects, Sites & Registered Sites / Warehouses (Role-Scoped)
     match /projects/{projectId} {
       allow read: if true;
       allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
@@ -154,16 +193,33 @@ service cloud.firestore {
       allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
     }
     match /registeredSites/{siteId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(siteId)) || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /siteStores/{storeId} {
+      allow read: if !isSignedIn() || (isSiteStoreRole() && isAuthorizedForSite(storeId)) || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(storeId));
+      allow delete: if isAdminOrHeadOffice();
     }
     match /registeredWarehouses/{warehouseId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if !isSignedIn() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /warehouses/{warehouseId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
+      allow delete: if isAdminOrHeadOffice();
     }
     match /zones/{zoneId} {
       allow read: if true;
       allow write: if true;
+    }
+    match /floorZones/{fzId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSiteEngineer();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 3. Employees, Workers & Teams
@@ -194,15 +250,27 @@ service cloud.firestore {
       allow write: if true;
     }
 
-    // 6. Materials, Inventory & Audits
+    // 6. Materials, Material Categories, Inventory & Audits
     match /materials/{materialId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create: if !isSignedIn() || isWarehouseRole();
+      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /materialCategories/{categoryId} {
+      allow read: if true;
+      allow create, update: if !isSignedIn() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /inventory/{inventoryId} {
-      allow read, write: if true;
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create, update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /inventoryAudits/{auditId} {
-      allow read, write: if true;
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isFinanceManager();
+      allow create, update: if !isSignedIn() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 7. Equipment & Vehicles
@@ -215,10 +283,13 @@ service cloud.firestore {
 
     // 8. Formwork Panels & Panel Logs
     match /formworkPanels/{panelId} {
-      allow read, write: if true;
+      allow read: if true;
+      allow create, update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice() || isWarehouseRole();
     }
     match /panelMovementLogs/{logId} {
-      allow read, write: if true;
+      allow read, create, update: if true;
+      allow delete: if isAdminOrHeadOffice();
     }
     match /panelDamageReports/{reportId} {
       allow read, write: if true;
@@ -227,51 +298,122 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
-    // 9. Overseas Shipments, Customs, Transfers & Receiving Reports
+    // 9. Warehouse & Site Store Canonical Workflows (Requests, Transfers, Receipts, Issues, Returns, Counts, Adjustments, Discrepancies, Transactions)
     match /overseasShipments/{shipmentId} {
-      allow read, write: if true;
+      allow read, write: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
     }
     match /customsRecords/{recordId} {
-      allow read, write: if true;
+      allow read, write: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
     }
-    match /dispatchTransfers/{transferId} {
-      allow read, write: if true;
-    }
-    match /siteReceivingReports/{reportId} {
-      allow read, write: if true;
-    }
-    match /materialIssueRecords/{recordId} {
-      allow read, write: if true;
-    }
-    match /materialReturnRecords/{recordId} {
-      allow read, write: if true;
-    }
-    match /materialRequests/{requestId} {
-      allow read, write: if true;
-    }
-    match /truckFleets/{fleetId} {
-      allow read, write: if true;
+    match /suppliers/{supplierId} {
+      allow read, create, update: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /supplierSchedules/{scheduleId} {
-      allow read, write: if true;
+      allow read, create, update: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /goodsReceipts/{grnId} {
+      allow read, create, update: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /stockAdjustments/{adjustmentId} {
+      allow read, create, update: if !isSignedIn() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /stockTransactions/{txId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isFinanceManager();
+      allow create: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow update, delete: if false;
+    }
+    match /stockTransfers/{transferId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create: if !isSignedIn() || isWarehouseRole();
+      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /dispatchTransfers/{transferId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create: if !isSignedIn() || isWarehouseRole();
+      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /stockDiscrepancies/{discrepancyId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /siteReceivingReports/{reportId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create, update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /materialIssues/{recordId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /materialIssueRecords/{recordId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /materialReturns/{recordId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /materialReturnRecords/{recordId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /materialRequests/{requestId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isProjectManager();
+      allow create: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /stockCounts/{countId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow create, update: if !isSignedIn() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /damagedMissingReports/{reportId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /truckFleets/{fleetId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create, update: if !isSignedIn() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /sitePanelBreakdowns/{breakdownId} {
-      allow read, write: if true;
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSiteEngineer();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /dailyRequisitions/{reqId} {
-      allow read, write: if true;
+      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /dailyConsumptionVariances/{varId} {
-      allow read, write: if true;
+      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /requisitionAuditLogs/{logId} {
-      allow read, write: if true;
+      allow read, create: if true;
+      allow update, delete: if false;
     }
     match /dailyReturnReports/{repId} {
-      allow read, write: if true;
+      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
     match /dailyConsolidatedReports/{repId} {
-      allow read, write: if true;
+      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 10. CAD Files & Site Operational Logs

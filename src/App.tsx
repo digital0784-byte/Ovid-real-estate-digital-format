@@ -667,9 +667,9 @@ export default function App() {
     [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "storeOwnerApp", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseManagerApp", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "formworkManagement", "securitySettings", "mobileApps"],
@@ -691,11 +691,62 @@ export default function App() {
     return true;
   };
 
-  // Auto-redirect user if activeTab is not permitted for currentUserRole
+  const [deniedRouteBanner, setDeniedRouteBanner] = useState<{
+    attemptedRoute: string;
+    redirectedTo: string;
+    reason: string;
+  } | null>(null);
+
+  // Auto-redirect user if activeTab or URL path (/warehouse/* vs /site-store/*) is not permitted for currentUserRole
   React.useEffect(() => {
-    if (currentUserRole && !hasAccess(activeTab)) {
+    if (!currentUserRole) return;
+
+    const currentPathAndHash =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.hash}`.toLowerCase()
+        : "";
+
+    if (
+      currentUserRole === UserRole.WAREHOUSE_MANAGER &&
+      (activeTab === "storeOwnerApp" || currentPathAndHash.includes("/site-store"))
+    ) {
+      setDeniedRouteBanner({
+        attemptedRoute: "/site-store/*",
+        redirectedTo: "/warehouse/dashboard",
+        reason: "Access Denied — Warehouse Manager cannot access Site Store Owner routes or private site store modules."
+      });
+      setActiveTab("warehouseManagerApp");
+      return;
+    }
+
+    if (
+      (currentUserRole === UserRole.STORE_OWNER || currentUserRole === UserRole.STORE_MANAGER) &&
+      (activeTab === "warehouseManagerApp" || currentPathAndHash.includes("/warehouse"))
+    ) {
+      setDeniedRouteBanner({
+        attemptedRoute: "/warehouse/*",
+        redirectedTo: "/site-store/dashboard",
+        reason: "Access Denied — Site Store Owner cannot access Central Warehouse Manager routes or central inventory controls."
+      });
+      setActiveTab("storeOwnerApp");
+      return;
+    }
+
+    if (!hasAccess(activeTab)) {
       const allowed = tabPermissions[currentUserRole] || ["dashboard"];
-      const fallback = allowed.includes("dashboard") ? "dashboard" : (allowed[0] || "dashboard");
+      const fallback =
+        currentUserRole === UserRole.WAREHOUSE_MANAGER
+          ? "warehouseManagerApp"
+          : currentUserRole === UserRole.STORE_OWNER || currentUserRole === UserRole.STORE_MANAGER
+          ? "storeOwnerApp"
+          : allowed.includes("dashboard")
+          ? "dashboard"
+          : allowed[0] || "dashboard";
+      setDeniedRouteBanner({
+        attemptedRoute: `/${activeTab}`,
+        redirectedTo: `/${fallback}`,
+        reason: `Access Denied — Your role (${currentUserRole}) is not authorized for this module.`
+      });
       setActiveTab(fallback);
     }
   }, [currentUserRole, activeTab]);
@@ -1532,6 +1583,13 @@ export default function App() {
           setLoginMetadata(loginLog);
           setLocationGranted(null);
           setIsCheckingLocation(false);
+
+          // Route Warehouse Manager and Site Store Owner directly to their dedicated role apps
+          if (activeRole === UserRole.WAREHOUSE_MANAGER) {
+            setActiveTab("warehouseManagerApp");
+          } else if (activeRole === UserRole.STORE_OWNER || activeRole === UserRole.STORE_MANAGER) {
+            setActiveTab("storeOwnerApp");
+          }
 
           if (activeRole === UserRole.SUPER_ADMIN) {
             setCurrentUserProfile({
@@ -2520,6 +2578,25 @@ export default function App() {
 
         {/* MAIN VIEW CONTENT CONTAINER */}
         <main className="px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full overflow-x-hidden">
+        {deniedRouteBanner && (
+          <div className="mb-6 bg-rose-950 border-2 border-rose-500 text-white rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="text-xs font-black uppercase tracking-widest text-rose-300 flex items-center gap-2">
+                <ShieldAlert size={16} className="text-rose-400" />
+                <span>ACCESS DENIED — ROUTE PROTECTION ENFORCED</span>
+              </div>
+              <p className="text-xs text-rose-100 font-mono">
+                {deniedRouteBanner.reason} (Blocked: <span className="font-bold">{deniedRouteBanner.attemptedRoute}</span> → Redirected to: <span className="font-bold text-emerald-300">{deniedRouteBanner.redirectedTo}</span>)
+              </p>
+            </div>
+            <button
+              onClick={() => setDeniedRouteBanner(null)}
+              className="px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer shrink-0"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
         {activeTab === "dashboard" && (
           <Dashboard 
             workers={workers} 

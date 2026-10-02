@@ -987,6 +987,98 @@ export const DbService = {
     await writeDocument<DailyConsolidatedReport>("dailyConsolidatedReports", report, initialDailyConsolidatedReports);
   },
 
+  // === CANONICAL WAREHOUSE & SITE STORE COLLECTIONS (Section 22) ===
+  async getStockTransactions(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("stockTransactions", defaultItems);
+  },
+  async saveStockTransaction(tx: any): Promise<void> {
+    await writeDocument<any>("stockTransactions", tx, []);
+  },
+
+  async getStockDiscrepancies(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("stockDiscrepancies", defaultItems);
+  },
+  async saveStockDiscrepancy(item: any): Promise<void> {
+    await writeDocument<any>("stockDiscrepancies", item, []);
+  },
+
+  async getStockAdjustments(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("stockAdjustments", defaultItems);
+  },
+  async saveStockAdjustment(item: any): Promise<void> {
+    await writeDocument<any>("stockAdjustments", item, []);
+  },
+
+  async getStockCounts(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("stockCounts", defaultItems);
+  },
+  async saveStockCount(item: any): Promise<void> {
+    await writeDocument<any>("stockCounts", item, []);
+  },
+
+  async getDamagedMissingReports(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("damagedMissingReports", defaultItems);
+  },
+  async saveDamagedMissingReport(item: any): Promise<void> {
+    await writeDocument<any>("damagedMissingReports", item, []);
+  },
+
+  async getGoodsReceipts(): Promise<MaterialReceivingReport[]> {
+    return fetchCollection<MaterialReceivingReport>("goodsReceipts", initialReceivingReports);
+  },
+  async saveGoodsReceipt(report: MaterialReceivingReport): Promise<void> {
+    await writeDocument<MaterialReceivingReport>("goodsReceipts", report, initialReceivingReports);
+    await writeDocument<MaterialReceivingReport>("siteReceivingReports", report, initialReceivingReports);
+  },
+
+  async getStockTransfers(): Promise<InterSiteTransferVoucher[]> {
+    return fetchCollection<InterSiteTransferVoucher>("stockTransfers", initialInterSiteTransfers);
+  },
+  async saveStockTransfer(transfer: InterSiteTransferVoucher): Promise<void> {
+    await writeDocument<InterSiteTransferVoucher>("stockTransfers", transfer, initialInterSiteTransfers);
+    await writeDocument<InterSiteTransferVoucher>("dispatchTransfers", transfer, initialInterSiteTransfers);
+  },
+
+  async getMaterialIssues(): Promise<MaterialIssueRecord[]> {
+    return fetchCollection<MaterialIssueRecord>("materialIssues", initialIssueRecords);
+  },
+  async saveMaterialIssue(issue: MaterialIssueRecord): Promise<void> {
+    await writeDocument<MaterialIssueRecord>("materialIssues", issue, initialIssueRecords);
+    await writeDocument<MaterialIssueRecord>("materialIssueRecords", issue, initialIssueRecords);
+  },
+
+  async getMaterialReturns(): Promise<MaterialReturnRecord[]> {
+    return fetchCollection<MaterialReturnRecord>("materialReturns", initialReturnRecords);
+  },
+  async saveMaterialReturn(ret: MaterialReturnRecord): Promise<void> {
+    await writeDocument<MaterialReturnRecord>("materialReturns", ret, initialReturnRecords);
+    await writeDocument<MaterialReturnRecord>("materialReturnRecords", ret, initialReturnRecords);
+  },
+
+  async getFloorZones(): Promise<SitePanelBreakdown[]> {
+    return fetchCollection<SitePanelBreakdown>("floorZones", initialSitePanelBreakdowns);
+  },
+  async saveFloorZone(fz: SitePanelBreakdown): Promise<void> {
+    await writeDocument<SitePanelBreakdown>("floorZones", fz, initialSitePanelBreakdowns);
+    await writeDocument<SitePanelBreakdown>("sitePanelBreakdowns", fz, initialSitePanelBreakdowns);
+  },
+
+  async getSuppliers(): Promise<SupplierDeliverySchedule[]> {
+    return fetchCollection<SupplierDeliverySchedule>("suppliers", initialSupplierSchedules);
+  },
+  async saveSupplier(supplier: SupplierDeliverySchedule): Promise<void> {
+    await writeDocument<SupplierDeliverySchedule>("suppliers", supplier, initialSupplierSchedules);
+    await writeDocument<SupplierDeliverySchedule>("supplierSchedules", supplier, initialSupplierSchedules);
+  },
+
+  async getSiteStores(): Promise<RegisteredSite[]> {
+    return fetchCollection<RegisteredSite>("siteStores", initialRegisteredSites);
+  },
+  async saveSiteStore(siteStore: RegisteredSite): Promise<void> {
+    await writeDocument<RegisteredSite>("siteStores", siteStore, initialRegisteredSites);
+    await writeDocument<RegisteredSite>("registeredSites", siteStore, initialRegisteredSites);
+  },
+
   // 16. payroll (payroll)
   async getPayrollRecords(): Promise<PayrollRecord[]> {
     return fetchCollection<PayrollRecord>("payroll", []);

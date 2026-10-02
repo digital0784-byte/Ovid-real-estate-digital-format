@@ -59,6 +59,12 @@ import {
   Activity,
   Compass
 } from "lucide-react";
+import { WarehouseStoreRoleArchitecturePanel } from "./WarehouseStoreRoleArchitecturePanel";
+import {
+  resolveCanonicalWarehouseRole,
+  canAccessAppMode,
+  canPerformAction
+} from "../services/warehouseStoreRbac";
 
 // --- INTERFACES ---
 export interface TruckFleetItem {
@@ -521,17 +527,38 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     );
     return found?.name || "";
   }, [workers]);
-  // App Mode State: "warehouse_manager" vs "store_owner"
-  const [appMode, setAppMode] = useState<"warehouse_manager" | "store_owner">(initialMode);
+  // Enforce strict role-based App Mode locking (Warehouse Manager vs Site Store Owner)
+  const canonicalRole = resolveCanonicalWarehouseRole(currentUserRole);
+  const isSuperAdminOrHQ = canonicalRole === "admin" || canonicalRole === "head_office";
+  const authorizedDefaultMode: "warehouse_manager" | "store_owner" =
+    canonicalRole === "warehouse_manager"
+      ? "warehouse_manager"
+      : canonicalRole === "site_store_owner"
+      ? "store_owner"
+      : initialMode;
+
+  const [appMode, setAppMode] = useState<"warehouse_manager" | "store_owner">(authorizedDefaultMode);
+  const [unauthorizedRouteAttempt, setUnauthorizedRouteAttempt] = useState<string | null>(null);
 
   useEffect(() => {
-    if (initialMode) {
+    if (canonicalRole === "warehouse_manager") {
+      if (initialMode === "store_owner") {
+        setUnauthorizedRouteAttempt("/site-store/dashboard");
+      }
+      setAppMode("warehouse_manager");
+    } else if (canonicalRole === "site_store_owner") {
+      if (initialMode === "warehouse_manager") {
+        setUnauthorizedRouteAttempt("/warehouse/dashboard");
+      }
+      setAppMode("store_owner");
+    } else if (initialMode) {
       setAppMode(initialMode);
     }
-  }, [initialMode]);
+  }, [initialMode, canonicalRole]);
 
   // Navigation State across Master Modules
   const [activeTab, setActiveTab] = useState<
+    | "architecture-command"
     | "warehouse-dashboard"
     | "dashboard"
     | "receiving"
@@ -551,7 +578,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     | "ai-analytics"
     | "role-access"
     | "integrations"
-  >("warehouse-dashboard");
+  >("architecture-command");
+
+  // Keep activeTab strictly valid when appMode changes (Super Admin can access ALL tabs without restriction)
+  useEffect(() => {
+    if (isSuperAdminOrHQ) return;
+    const warehouseOnlyTabs = ["warehouse-dashboard", "site-panel-breakdown"];
+    const siteStoreOnlyTabs = ["dashboard", "morning-requisitions", "evening-returns", "daily-auto-reports"];
+    if (appMode === "warehouse_manager" && siteStoreOnlyTabs.includes(activeTab)) {
+      setActiveTab("architecture-command");
+    } else if (appMode === "store_owner" && warehouseOnlyTabs.includes(activeTab)) {
+      setActiveTab("architecture-command");
+    }
+  }, [appMode, activeTab, isSuperAdminOrHQ]);
 
   const lang = isAmharic ? "am" : "en";
 
@@ -559,11 +598,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const dict: Record<string, Record<string, string>> = {
     en: {
       title: appMode === "warehouse_manager" 
-        ? "BuildSync ERP – Warehouse Manager App" 
-        : "BuildSync ERP – Site Store Owner App",
+        ? "DIGITAL CONSTRUCTION ERP SYSTEM — Warehouse Manager App" 
+        : "DIGITAL CONSTRUCTION ERP SYSTEM — Site Store Owner App",
       subtitle: appMode === "warehouse_manager" 
-        ? "Central Warehouse Hub, Truck Dispatching, Supplier Intake & Multi-Site Fleet Logistics" 
-        : "Dedicated Construction Materials & Formwork Site Store Management System",
+        ? "Central Warehouse Hub, Supplier GRN, Stock Valuation, Inter-Warehouse & Site Transfers (17 Dedicated Modules)" 
+        : "Assigned Construction Site Store, Material Requests, Gang Issues, Returns & Floor/Zone Allocation (13 Dedicated Modules)",
       totalMaterials: "Total Material Stock",
       formworkPanels: "Aluminum Formwork Panels",
       availableStock: "Available Stock",
@@ -582,8 +621,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     },
     am: {
       title: appMode === "warehouse_manager"
-        ? "BuildSync ERP – የመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager App)"
-        : "BuildSync ERP – የሳይት ስቶር አቃቤ መተግበሪያ (Site Store Owner App)",
+        ? "DIGITAL CONSTRUCTION ERP SYSTEM — የመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager App)"
+        : "DIGITAL CONSTRUCTION ERP SYSTEM — የሳይት ስቶር አቃቤ መተግበሪያ (Site Store Owner App)",
       subtitle: appMode === "warehouse_manager"
         ? "የማዕከላዊ መጋዘን፣ የጭነት መኪኖች መላኪያ፣ የአቅራቢዎች ደረሰኝ እና የእቃዎች ስርጭት መቆጣጠሪያ ማዕከል"
         : "የግንባታ እቃዎች እና የአሉሚኒየም ፎርምወርክ ስቶር አስተዳደር እና ቁጥጥር ስርዓት",
@@ -2096,54 +2135,88 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   return (
     <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-slate-100 shadow-2xl max-w-7xl mx-auto space-y-8" id="store-owner-app-root">
       
-      {/* MODE SWITCHER HEADER BAR */}
-      <div className="bg-slate-950 p-2 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
+      {/* ROLE-BASED WORKSPACE HEADER & STRICT ROUTE PROTECTION BAR */}
+      <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-2">
-          <button
-            onClick={() => {
-              setAppMode("warehouse_manager");
-              onLogAction?.("App Mode Switched", "Switched workspace mode to Central Warehouse Manager App");
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer ${
-              appMode === "warehouse_manager"
-                ? "bg-amber-500 text-slate-950 shadow-lg font-bold"
-                : "bg-slate-900 text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            <Building2 size={16} />
-            <span>{isAmharic ? "1. የመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager)" : "1. Warehouse Manager App"}</span>
-          </button>
+          {canAccessAppMode(currentUserRole, "warehouse_manager") && (
+            <button
+              onClick={() => {
+                setUnauthorizedRouteAttempt(null);
+                setAppMode("warehouse_manager");
+                onLogAction?.("App Mode Switched", "Switched workspace mode to Central Warehouse Manager App");
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer ${
+                appMode === "warehouse_manager"
+                  ? "bg-amber-500 text-slate-950 shadow-lg font-bold"
+                  : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              <Building2 size={16} />
+              <span>{isAmharic ? "የመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager App)" : "Warehouse Manager App (/warehouse/*)"}</span>
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              setAppMode("store_owner");
-              onLogAction?.("App Mode Switched", "Switched workspace mode to Site Store Owner App");
-            }}
-            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer ${
-              appMode === "store_owner"
-                ? "bg-amber-500 text-slate-950 shadow-lg font-bold"
-                : "bg-slate-900 text-slate-300 hover:bg-slate-800"
-            }`}
-          >
-            <Store size={16} />
-            <span>{isAmharic ? "2. የሳይት ስቶር አቃቤ መተግበሪያ (Site Store Owner)" : "2. Site Store Owner App"}</span>
-          </button>
+          {canAccessAppMode(currentUserRole, "store_owner") && (
+            <button
+              onClick={() => {
+                setUnauthorizedRouteAttempt(null);
+                setAppMode("store_owner");
+                onLogAction?.("App Mode Switched", "Switched workspace mode to Site Store Owner App");
+              }}
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer ${
+                appMode === "store_owner"
+                  ? "bg-emerald-500 text-slate-950 shadow-lg font-bold"
+                  : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+              }`}
+            >
+              <Store size={16} />
+              <span>{isAmharic ? "የሳይት ስቶር አቃቤ መተግበሪያ (Site Store Owner App)" : "Site Store Owner App (/site-store/*)"}</span>
+            </button>
+          )}
         </div>
 
         <div className="text-right px-2">
           <span className="text-[10px] font-mono text-amber-400 font-bold uppercase block">
-            {appMode === "warehouse_manager" ? "CENTRAL WAREHOUSE & FLEET ACTIVE" : "LOCAL SITE STORE ACTIVE"}
+            {isSuperAdminOrHQ
+              ? "SUPER ADMIN MASTER ACCESS: ALL SYSTEM MODULES UNLOCKED (17 WAREHOUSE + 13 SITE STORE)"
+              : appMode === "warehouse_manager"
+              ? "ROLE SCOPE: CENTRAL WAREHOUSE MANAGER (17 MODULES)"
+              : "ROLE SCOPE: ASSIGNED SITE STORE OWNER (13 MODULES)"}
           </span>
           <span className="text-[9px] text-slate-400">
-            {isAmharic ? "ሁለቱም ሞዶች በቅጽበት የተገናኙ ናቸው" : "Real-time Multi-Tier Syncing"}
+            {isSuperAdminOrHQ
+              ? (isAmharic ? "ሱፐር አድሚን፡ ሁሉንም የሲስተሙን ክፍሎች ያለ ገደብ ማየት ይችላሉ" : "Super Admin Unrestricted Full System Visibility")
+              : (isAmharic
+                  ? "በሚና የተለየ የUI፣ የራውት እና የFirestore ደህንነት"
+                  : "Strict UI + Route + Firestore RBAC Enforcement Active")}
           </span>
         </div>
       </div>
 
+      {/* ROUTE PROTECTION ALERT IF UNAUTHORIZED ROUTE ATTEMPTED */}
+      {unauthorizedRouteAttempt && (
+        <div className="bg-rose-950/90 border-2 border-rose-500 rounded-2xl p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="text-xs font-black uppercase tracking-widest text-rose-300">
+              ACCESS DENIED — PROTECTED ERP ROUTE GUARD
+            </div>
+            <p className="text-xs text-rose-200 font-mono">
+              Unauthorized route attempt blocked: <span className="font-bold text-white">{unauthorizedRouteAttempt}</span>. Your role ({currentUserRole}) is strictly isolated and has been redirected to your authorized dashboard.
+            </p>
+          </div>
+          <button
+            onClick={() => setUnauthorizedRouteAttempt(null)}
+            className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer shrink-0"
+          >
+            Acknowledge & Continue
+          </button>
+        </div>
+      )}
+
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
         <div className="flex items-center space-x-3">
-          <div className="p-3 bg-amber-600 rounded-2xl shadow-lg shadow-amber-500/20 text-white">
+          <div className={`p-3 rounded-2xl shadow-lg text-white ${appMode === "warehouse_manager" ? "bg-amber-600 shadow-amber-500/20" : "bg-emerald-600 shadow-emerald-500/20"}`}>
             {appMode === "warehouse_manager" ? <Building2 size={26} className="animate-pulse" /> : <Store size={26} className="animate-pulse" />}
           </div>
           <div>
@@ -2152,7 +2225,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           </div>
         </div>
 
-        {/* Sync Indicator & Quick Actions */}
+        {/* Role-Specific Quick Actions */}
         <div className="flex flex-wrap items-center gap-3">
           <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center space-x-2">
             <span className="relative flex h-2 w-2">
@@ -2160,25 +2233,47 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
             <span className="text-[10px] font-mono font-bold text-slate-300 uppercase">
-              {isAmharic ? "ከስቶርና ከአሉሚኒየም ፎርምወርክ ጋር ተገናኝቷል" : "Site Store & Firebase Live Connected"}
+              {appMode === "warehouse_manager"
+                ? (isAmharic ? "ማዕከላዊ መጋዘን እና ፋየርቤዝ ተገናኝቷል" : "Central Warehouse & Firestore Synced")
+                : (isAmharic ? "የሳይት ስቶር እና ፋየርቤዝ ተገናኝቷል" : "Assigned Site Store & Firestore Synced")}
             </span>
           </div>
 
-          <button
-            onClick={() => setShowReceiveModal(true)}
-            className="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
-          >
-            <Plus size={14} />
-            <span>{isAmharic ? "እቃዎች ተቀበል" : "Receive Material"}</span>
-          </button>
-
-          <button
-            onClick={() => setShowIssueModal(true)}
-            className="px-3.5 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
-          >
-            <ArrowRightLeft size={14} />
-            <span>{isAmharic ? "እቃዎች አስረክብ (Issue)" : "Issue Material"}</span>
-          </button>
+          {appMode === "warehouse_manager" ? (
+            <>
+              <button
+                onClick={() => setShowReceiveModal(true)}
+                className="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>{isAmharic ? "እቃ መቀበያ (GRN)" : "Goods Receiving (GRN)"}</span>
+              </button>
+              <button
+                onClick={() => setShowRegisterWarehouseModal(true)}
+                className="px-3.5 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
+              >
+                <Building2 size={14} />
+                <span>{isAmharic ? "+ አዲስ መጋዘን" : "+ Register Warehouse"}</span>
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setShowReceiveModal(true)}
+                className="px-3.5 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
+              >
+                <Plus size={14} />
+                <span>{isAmharic ? "ከመጋዘን እቃ ተቀበል" : "Receive from Warehouse"}</span>
+              </button>
+              <button
+                onClick={() => setShowIssueModal(true)}
+                className="px-3.5 py-2 bg-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
+              >
+                <ArrowRightLeft size={14} />
+                <span>{isAmharic ? "ለቡድን እቃ አስረክብ (Issue)" : "Issue to Team/Gang"}</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -2218,29 +2313,66 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         </div>
       )}
 
-      {/* TABS TOP NAVIGATION */}
+      {/* STRICTLY ROLE-FILTERED TOP NAVIGATION (SUPER ADMIN SEES ALL TABS) */}
       <div className="flex flex-wrap border-b border-slate-800 gap-1 overflow-x-auto pb-1">
-        {[
-          { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ" : "Warehouse Dashboard", icon: Building2 },
-          { id: "dashboard", label: isAmharic ? "ዳሽቦርድ" : "Store Dashboard", icon: Layers },
-          { id: "site-panel-breakdown", label: isAmharic ? "በየሳይቱ ያሉ የፓነል ዝርዝሮች" : "Cross-Site Panel Breakdown", icon: Box },
-          { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃዎች ጥያቄ" : "Morning Requisitions", icon: FileText },
-          { id: "evening-returns", label: isAmharic ? "የማታ ዘገባ & መመለሻ" : "Evening Dismantling Returns", icon: RotateCcw },
-          { id: "daily-auto-reports", label: isAmharic ? "የሳይት እለታዊ ሪፖርት (HQ Sync)" : "Daily Site Reports (HQ Sync)", icon: BarChart3 },
-          { id: "receiving", label: isAmharic ? "እቃዎች መቀበያ" : "Receiving", icon: Truck },
-          { id: "issue", label: isAmharic ? "እቃዎች ማስረከቢያ" : "Issue", icon: ArrowRightLeft },
-          { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Returns", icon: RotateCcw },
-          { id: "formwork-tracking", label: isAmharic ? "ፎርምወርክ መከታተያ" : "Formwork GPS", icon: Package },
-          { id: "inventory", label: isAmharic ? "የስቶር ዝርዝር" : "Inventory", icon: Box },
-          { id: "audit", label: isAmharic ? "የስቶር ኦዲት" : "Audit", icon: ClipboardList },
-          { id: "requests", label: isAmharic ? "የእቃዎች ጥያቄ" : "Requests", icon: FileText },
-          { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
-          { id: "notifications", label: isAmharic ? "ማስጠንቀቂያዎች" : "Notifications", icon: Bell },
-          { id: "reports", label: isAmharic ? "ሪፖርቶች" : "Reports", icon: BarChart3 },
-          { id: "ai-analytics", label: isAmharic ? "AI ትንበያ" : "AI Analytics", icon: Cpu },
-          { id: "role-access", label: isAmharic ? "የፈቃድ ደረጃዎች" : "Role Access", icon: ShieldCheck },
-          { id: "integrations", label: isAmharic ? "የስርዓት ትስስር" : "ERP Sync", icon: RefreshCw }
-        ].map(tab => {
+        {(isSuperAdminOrHQ
+          ? [
+              { id: "architecture-command", label: isAmharic ? "ሁሉም ሞጁሎች (17 መጋዘን + 13 ሳይት ስቶር)" : "All Modules (17 Warehouse + 13 Site Store)", icon: ShieldCheck },
+              { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ እና ትራንስፖርት" : "Warehouse Fleet & Depots", icon: Building2 },
+              { id: "dashboard", label: isAmharic ? "የሳይት ስቶር ዳሽቦርድ" : "Site Store Dashboard", icon: Layers },
+              { id: "site-panel-breakdown", label: isAmharic ? "የሳይቶች ድልድል (Site Allocation)" : "Site Allocation & Formwork", icon: Box },
+              { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃ ወጪ (Team Issue)" : "Morning Requisitions", icon: FileText },
+              { id: "evening-returns", label: isAmharic ? "የማታ መመለሻ (Evening Returns)" : "Evening Dismantling Returns", icon: RotateCcw },
+              { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Site Reports (HQ Sync)", icon: BarChart3 },
+              { id: "receiving", label: isAmharic ? "እቃ መቀበያ (GRN / Receiving)" : "Receiving & GRN", icon: Truck },
+              { id: "issue", label: isAmharic ? "እቃ ወጪ (Issue)" : "Material Issue", icon: ArrowRightLeft },
+              { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች (Returns)" : "Material Returns", icon: RotateCcw },
+              { id: "formwork-tracking", label: isAmharic ? "ፎርምወርክ መከታተያ" : "Formwork GPS & Zones", icon: Package },
+              { id: "inventory", label: isAmharic ? "ክምችት ዝርዝር (Inventory)" : "Master & Site Inventory", icon: Box },
+              { id: "audit", label: isAmharic ? "የስቶር ኦዲትና ቆጠራ" : "Audit & Stock Count", icon: ClipboardList },
+              { id: "requests", label: isAmharic ? "የእቃ ጥያቄና ማፅደቂያ" : "Material Requests", icon: FileText },
+              { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+              { id: "notifications", label: isAmharic ? "ማስጠንቀቂያዎች" : "Notifications", icon: Bell },
+              { id: "reports", label: isAmharic ? "ሪፖርቶች" : "Reports", icon: BarChart3 },
+              { id: "ai-analytics", label: isAmharic ? "AI ትንበያ" : "AI Analytics", icon: Cpu },
+              { id: "role-access", label: isAmharic ? "የፈቃድ ደረጃዎች" : "Security & RBAC", icon: ShieldCheck },
+              { id: "integrations", label: isAmharic ? "የስርዓት ትስስር" : "ERP Sync", icon: RefreshCw }
+            ]
+          : appMode === "warehouse_manager"
+          ? [
+              { id: "architecture-command", label: isAmharic ? "17 የመጋዘን ሞጁሎች (Command Hub)" : "17 Warehouse Modules & Navigation", icon: ShieldCheck },
+              { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ እና ትራንስፖርት" : "Warehouse Fleet & Depots", icon: Building2 },
+              { id: "site-panel-breakdown", label: isAmharic ? "የሳይቶች ድልድል (Site Allocation)" : "Site Allocation & Formwork", icon: Box },
+              { id: "receiving", label: isAmharic ? "እቃ መቀበያ (GRN)" : "Goods Receiving (GRN)", icon: Truck },
+              { id: "inventory", label: isAmharic ? "ማዕከላዊ ክምችት (Central Inventory)" : "Central Inventory & Master", icon: Box },
+              { id: "requests", label: isAmharic ? "የእቃ ጥያቄ ግምገማ (Approve/Issue)" : "Material Request Review", icon: FileText },
+              { id: "issue", label: isAmharic ? "ከዋና መጋዘን ወጪ (Main Issue)" : "Main Warehouse Issue", icon: ArrowRightLeft },
+              { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች ማረጋገጫ" : "Return Verification", icon: RotateCcw },
+              { id: "formwork-tracking", label: isAmharic ? "የአሉሚኒየም ፎርምወርክ መዝገብ" : "Formwork Master Registry", icon: Package },
+              { id: "audit", label: isAmharic ? "የክምችት ኦዲት (Inventory Audit)" : "Inventory Audit & Valuation", icon: ClipboardList },
+              { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+              { id: "reports", label: isAmharic ? "የመጋዘን ሪፖርቶች" : "Warehouse Reports", icon: BarChart3 },
+              { id: "notifications", label: isAmharic ? "ማስጠንቀቂያዎች" : "Notifications", icon: Bell },
+              { id: "role-access", label: isAmharic ? "የፈቃድ ደረጃዎች" : "Security & RBAC", icon: ShieldCheck }
+            ]
+          : [
+              { id: "architecture-command", label: isAmharic ? "13 የሳይት ስቶር ሞጁሎች (Site Hub)" : "13 Site Store Modules & Navigation", icon: ShieldCheck },
+              { id: "dashboard", label: isAmharic ? "የሳይት ስቶር ዳሽቦርድ" : "Site Store Dashboard", icon: Layers },
+              { id: "inventory", label: isAmharic ? "የሳይት ክምችት (Site Stock)" : "Site Stock", icon: Box },
+              { id: "requests", label: isAmharic ? "የእቃ ጥያቄ (Material Request)" : "Material Requests", icon: FileText },
+              { id: "receiving", label: isAmharic ? "ከመጋዘን እቃ መቀበያ" : "Receive Materials", icon: Truck },
+              { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃ ወጪ (Team Issue)" : "Issue to Team/Gang", icon: FileText },
+              { id: "issue", label: isAmharic ? "ወጪ መዝገብ (Issue Log)" : "Site Issue Vouchers", icon: ArrowRightLeft },
+              { id: "evening-returns", label: isAmharic ? "የማታ መመለሻ (Good/Damaged/Missing)" : "Evening Dismantling Returns", icon: RotateCcw },
+              { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Site Returns", icon: RotateCcw },
+              { id: "formwork-tracking", label: isAmharic ? "ፎቅ/ዞን ድልድል (Floor/Zone)" : "Floor/Zone & Formwork", icon: Package },
+              { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Consumption & Site Reports", icon: BarChart3 },
+              { id: "audit", label: isAmharic ? "የሳይት ቆጠራ (Stock Count)" : "Site Stock Count", icon: ClipboardList },
+              { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+              { id: "notifications", label: isAmharic ? "ማስጠንቀቂያዎች" : "Notifications", icon: Bell },
+              { id: "role-access", label: isAmharic ? "የፈቃድ ደረጃዎች" : "Security & RBAC", icon: ShieldCheck }
+            ]
+        ).map(tab => {
           const Icon = tab.icon;
           const active = activeTab === tab.id;
           return (
@@ -2249,7 +2381,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               onClick={() => setActiveTab(tab.id as any)}
               className={`px-3 py-2 flex items-center space-x-1.5 text-[11px] font-extrabold uppercase tracking-wider rounded-t-xl transition cursor-pointer whitespace-nowrap ${
                 active
-                  ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
+                  ? appMode === "warehouse_manager"
+                    ? "bg-amber-600 text-white shadow-lg shadow-amber-600/20"
+                    : "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
                   : "text-slate-400 hover:text-white hover:bg-slate-800/50"
               }`}
             >
@@ -2262,6 +2396,37 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
       {/* VIEWPORT ROUTER */}
       <div className="transition-all duration-300">
+
+        {/* ROLE-SEPARATED ARCHITECTURE COMMAND WORKSPACE (17 WAREHOUSE MODULES vs 13 SITE STORE MODULES) */}
+        {activeTab === "architecture-command" && (
+          <WarehouseStoreRoleArchitecturePanel
+            isAmharic={isAmharic}
+            appMode={appMode}
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            storeItems={storeItems}
+            setStoreItems={setStoreItems}
+            materialRequests={materialRequests}
+            setMaterialRequests={setMaterialRequests}
+            interSiteTransfers={interSiteTransfers}
+            setInterSiteTransfers={setInterSiteTransfers}
+            issueRecords={issueRecords}
+            setIssueRecords={setIssueRecords}
+            returnRecords={returnRecords}
+            setReturnRecords={setReturnRecords}
+            registeredSitesList={registeredSitesList}
+            registeredWarehousesList={registeredWarehousesList}
+            currentUserName={
+              currentUserProfile?.displayName ||
+              (appMode === "warehouse_manager"
+                ? assignedWarehouseManager || "Central Warehouse Manager"
+                : "Site Store Owner (Bole Tower A)")
+            }
+            assignedSiteName="Bole Tower A — Site Store 01"
+            onLogAction={onLogAction}
+            onCreateNotification={onCreateNotification}
+          />
+        )}
 
         {/* 0. WAREHOUSE MANAGER DASHBOARD */}
         {activeTab === "warehouse-dashboard" && (
@@ -3978,9 +4143,27 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {/* 8. MATERIAL REQUEST WORKFLOW MODULE */}
         {activeTab === "requests" && (
           <div className="space-y-6 animate-fadeIn">
-            <div>
-              <h2 className="text-lg font-black uppercase text-white">Material Request Approval Workflow</h2>
-              <p className="text-xs text-slate-400">{isAmharic ? "ከሳይት መሃንዲሶችና ሱፐርቫይዘሮች የተላኩ የእቃዎች ጥያቄ ማፅደቂያ" : "Approve or Reject requests based on real-time stock availability"}</p>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+              <div>
+                <h2 className="text-lg font-black uppercase text-white">
+                  {appMode === "warehouse_manager"
+                    ? "Warehouse Manager — Material Request Review & Approval"
+                    : "Site Store Owner — Material Requests to Main Warehouse"}
+                </h2>
+                <p className="text-xs text-slate-400">
+                  {appMode === "warehouse_manager"
+                    ? (isAmharic ? "ከሳይት ስቶር የመጡ የእቃ ጥያቄዎችን መገምገሚያ፣ ማፅደቂያ እና መላኪያ" : "Warehouse Manager authority: Review, Approve, Partially Approve, or Reject site material requests")
+                    : (isAmharic ? "ከዋናው መጋዘን እቃ መጠየቂያ እና የተላኩትን መረከቢያ" : "Site Store Owner authority: Submit material requests to Warehouse Manager and confirm receipt")}
+                </p>
+              </div>
+              {(appMode === "store_owner" || isSuperAdminOrHQ) && (
+                <button
+                  onClick={() => setActiveTab("architecture-command")}
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer"
+                >
+                  + Create New Request to Warehouse
+                </button>
+              )}
             </div>
 
             <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
@@ -3994,7 +4177,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     <th className="p-4">Qty Needed</th>
                     <th className="p-4">Purpose</th>
                     <th className="p-4">Status</th>
-                    <th className="p-4">Actions</th>
+                    <th className="p-4">Role-Authorized Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
@@ -4015,23 +4198,31 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                         </span>
                       </td>
                       <td className="p-4">
-                        {req.status === "Pending" ? (
-                          <div className="flex space-x-2">
-                            <button
-                              onClick={() => handleApproveRequest(req.id)}
-                              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
-                            >
-                              Approve
-                            </button>
-                            <button
-                              onClick={() => handleRejectRequest(req.id)}
-                              className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer"
-                            >
-                              Reject
-                            </button>
-                          </div>
+                        {appMode === "warehouse_manager" || isSuperAdminOrHQ ? (
+                          req.status === "Pending" ? (
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => handleApproveRequest(req.id)}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                Approve & Issue
+                              </button>
+                              <button
+                                onClick={() => handleRejectRequest(req.id)}
+                                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-slate-500 text-[10px]">Processed by Warehouse</span>
+                          )
                         ) : (
-                          <span className="text-slate-500 text-[10px]">Processed</span>
+                          req.status === "Pending" ? (
+                            <span className="text-amber-400 text-[10px] font-bold">Awaiting Warehouse Manager Approval</span>
+                          ) : (
+                            <span className="text-emerald-400 text-[10px] font-bold">{req.status}</span>
+                          )
                         )}
                       </td>
                     </tr>
