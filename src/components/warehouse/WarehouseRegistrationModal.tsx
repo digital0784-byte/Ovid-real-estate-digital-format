@@ -1044,7 +1044,14 @@ export const WarehouseRegistrationModal: React.FC<WarehouseRegistrationModalProp
                                 {panel.panelCategory}
                               </span>
                             </div>
-                            <span className="text-[10px] font-mono text-slate-400 block">{panel.panelCode}</span>
+                            <div className="flex items-center gap-1.5 mt-0.5">
+                              <span className="text-[10px] font-mono text-slate-400">{panel.panelCode}</span>
+                              {panel.accessories && panel.accessories.length > 0 && (
+                                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                  +{panel.accessories.length} Acc ({panel.accessories.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0)} pcs)
+                                </span>
+                              )}
+                            </div>
                           </td>
 
                           {/* 3. Dimension */}
@@ -1262,6 +1269,21 @@ export const WarehouseRegistrationModal: React.FC<WarehouseRegistrationModalProp
                 <span className="text-slate-400">Location:</span>
                 <span className="text-cyan-300 font-mono text-[11px]">{inspectingPanel.location.formattedLocation}</span>
               </div>
+              {inspectingPanel.accessories && inspectingPanel.accessories.length > 0 && (
+                <div className="pt-2 border-t border-slate-800">
+                  <span className="text-slate-400 block mb-1 font-bold text-[10px] uppercase text-amber-400">
+                    Attached Master Accessories ({inspectingPanel.accessories.length}):
+                  </span>
+                  <div className="space-y-1 max-h-28 overflow-y-auto">
+                    {inspectingPanel.accessories.map((a, i) => (
+                      <div key={i} className="flex justify-between text-[10px] bg-slate-900/80 px-2 py-1 rounded border border-slate-800">
+                        <span className="text-white font-medium">{a.accessoryName} ({a.accessoryCode})</span>
+                        <span className="font-mono text-amber-300 font-bold">{a.quantity} {a.unit}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <button

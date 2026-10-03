@@ -1,5 +1,7 @@
 import {
   PanelMasterCatalogItem,
+  AccessoryMasterCatalogItem,
+  AccessoryCategoryType,
   MasterProjectRecord,
   MasterSiteStoreRecord,
   MasterStorageLocationRecord,
@@ -687,6 +689,893 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[bn][an];
 }
 
+// ============================================================================
+// VERIFIED CENTRALIZED ALUMINUM FORMWORK ACCESSORIES MASTER CATALOG SEEDS
+// ============================================================================
+export const INITIAL_ACCESSORY_CATALOG: AccessoryMasterCatalogItem[] = [
+  // --- 1. TIE ROD (TIE SYSTEM) ---
+  {
+    id: "CAT-ACC-TR-15",
+    accessoryName: "Tie Rod",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "TR-15",
+    standardDimension: "15 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "High-tensile cold-drawn 15mm continuous tie bar with 180kN tensile yield strength for wall shuttering.",
+    weightKg: 1.25,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-TR-16",
+    accessoryName: "Tie Rod",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "TR-16",
+    standardDimension: "16 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "16mm heavy duty formwork tie rod engineered for shear walls and core wall casting with 210kN rating.",
+    weightKg: 1.40,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-TR-20",
+    accessoryName: "Tie Rod",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "TR-20",
+    standardDimension: "20 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "20mm structural tie rod for heavy infrastructure basement retaining walls and double-height podium walls.",
+    weightKg: 2.10,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-TR-1517",
+    accessoryName: "Tie Rod",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "TR-1517",
+    standardDimension: "15/17 mm x 1000 mm",
+    unit: "mm",
+    manufacturer: "AlumaSystems Global",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "15/17mm x 1.0m threaded tie bar cold-rolled for heavy beam and thick wall formwork holding capacity.",
+    weightKg: 1.55,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 2. WING NUT (FASTENER) ---
+  {
+    id: "CAT-ACC-WN-15",
+    accessoryName: "Wing Nut",
+    accessoryType: "Fastener",
+    accessoryCategory: "Tie System",
+    accessoryCode: "WN-15",
+    standardDimension: "15 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "Galvanized ductile cast iron 15mm wing nut with 90mm base diameter plate for high clamping torque.",
+    weightKg: 0.45,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WN-16",
+    accessoryName: "Wing Nut",
+    accessoryType: "Fastener",
+    accessoryCategory: "Tie System",
+    accessoryCode: "WN-16",
+    standardDimension: "16 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "16mm heavy wing nut with dual torque ears for rapid pneumatic or manual wrench tightening.",
+    weightKg: 0.50,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WN-20",
+    accessoryName: "Wing Nut",
+    accessoryType: "Fastener",
+    accessoryCategory: "Tie System",
+    accessoryCode: "WN-20",
+    standardDimension: "20 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "20mm heavy duty wing nut for deep civil wall shuttering and transfer beams.",
+    weightKg: 0.65,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WN-SW15",
+    accessoryName: "Wing Nut",
+    accessoryType: "Fastener",
+    accessoryCategory: "Tie System",
+    accessoryCode: "WN-SW15",
+    standardDimension: "15 mm Swivel Flange",
+    unit: "mm",
+    manufacturer: "Doka Allied Hardware Ltd.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "15mm swivel flange wing nut with self-aligning 12-degree tilt plate for angled formwork.",
+    weightKg: 0.72,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 3. PVC CONE (SPACER) ---
+  {
+    id: "CAT-ACC-PC-22",
+    accessoryName: "PVC Cone",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "PC-22",
+    standardDimension: "22 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "High-density polymer reusable PVC chamfered sealing cone for 22mm tie rod sleeve pipes.",
+    weightKg: 0.04,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-PC-25",
+    accessoryName: "PVC Cone",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "PC-25",
+    standardDimension: "25 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "25mm heavy polymer tie cone prevents slurry leakage through formwork tie-rod holes.",
+    weightKg: 0.05,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-PC-30",
+    accessoryName: "PVC Cone",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "PC-30",
+    standardDimension: "30 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "30mm heavy waterproof tie sleeve cone for sub-grade basement foundation retaining walls.",
+    weightKg: 0.07,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 4. SPACER ---
+  {
+    id: "CAT-ACC-SP-150",
+    accessoryName: "Spacer",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "SP-150",
+    standardDimension: "150 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Filler Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "Precision steel internal wall thickness spacer for 150mm standard partition shear walls.",
+    weightKg: 0.22,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-SP-200",
+    accessoryName: "Spacer",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "SP-200",
+    standardDimension: "200 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Filler Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "200mm nominal internal wall spacer with notched ends for rigid panel spacing.",
+    weightKg: 0.28,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-SP-250",
+    accessoryName: "Spacer",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "SP-250",
+    standardDimension: "250 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Filler Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "250mm heavy wall spacer bar for exterior facade shear walls.",
+    weightKg: 0.35,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-SP-300",
+    accessoryName: "Spacer",
+    accessoryType: "Spacer",
+    accessoryCategory: "Spacers & Cones",
+    accessoryCode: "SP-300",
+    standardDimension: "300 mm",
+    unit: "mm",
+    manufacturer: "AlumaSystems Global",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "300mm structural wall spacer for elevator core shear walls.",
+    weightKg: 0.42,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 5. PIN ---
+  {
+    id: "CAT-ACC-PIN-1650",
+    accessoryName: "Pin",
+    accessoryType: "Fastener",
+    accessoryCategory: "Fasteners & Pins",
+    accessoryCode: "PIN-1650",
+    standardDimension: "16 × 50 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Slab Panel", "Column Panel", "Beam Panel", "Corner Panel", "Internal Corner", "External Corner", "Soffit Panel", "Deck Panel", "Filler Panel", "Kicker Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 8,
+    description: "Forged carbon steel 45# standard 16x50mm round connector pin with slotted eyelet for wedge keys.",
+    weightKg: 0.18,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-PIN-1665",
+    accessoryName: "Pin",
+    accessoryType: "Fastener",
+    accessoryCategory: "Fasteners & Pins",
+    accessoryCode: "PIN-1665",
+    standardDimension: "16 × 65 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Slab Panel", "Column Panel", "Beam Panel", "Corner Panel", "Internal Corner", "External Corner", "Soffit Panel", "Deck Panel", "Filler Panel", "Kicker Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 6,
+    description: "Extended 16x65mm connector pin for joining dual-flange panel perimeters and kicker joints.",
+    weightKg: 0.22,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-DP-1280",
+    accessoryName: "Pin",
+    accessoryType: "Fastener",
+    accessoryCategory: "Fasteners & Pins",
+    accessoryCode: "DP-1280",
+    standardDimension: "12 × 80 mm",
+    unit: "mm",
+    manufacturer: "Doka Allied Hardware Ltd.",
+    compatiblePanelTypes: ["Slab Panel", "Deck Panel", "Soffit Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "12x80mm precision deck joint pin for overhead slab deck and soffit panel locking.",
+    weightKg: 0.14,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 6. WEDGE PIN ---
+  {
+    id: "CAT-ACC-WP-1650",
+    accessoryName: "Wedge Pin",
+    accessoryType: "Fastener",
+    accessoryCategory: "Fasteners & Pins",
+    accessoryCode: "WP-1650",
+    standardDimension: "16 × 50 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Slab Panel", "Column Panel", "Beam Panel", "Corner Panel", "Internal Corner", "External Corner", "Soffit Panel", "Deck Panel", "Filler Panel", "Kicker Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 8,
+    description: "Heat-treated hardened 16x50mm wedge pin featuring flat profile head for flush aluminum panel alignment.",
+    weightKg: 0.20,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WP-1665",
+    accessoryName: "Wedge Pin",
+    accessoryType: "Fastener",
+    accessoryCategory: "Fasteners & Pins",
+    accessoryCode: "WP-1665",
+    standardDimension: "16 × 65 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Slab Panel", "Column Panel", "Beam Panel", "Corner Panel", "Internal Corner", "External Corner", "Soffit Panel", "Deck Panel", "Filler Panel", "Kicker Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 6,
+    description: "16x65mm long wedge pin engineered for heavy corner keys and column clamp junctions.",
+    weightKg: 0.24,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WP-1675",
+    accessoryName: "Wedge Pin",
+    accessoryType: "Fastener",
+    accessoryCategory: "Fasteners & Pins",
+    accessoryCode: "WP-1675",
+    standardDimension: "16 × 75 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel", "Corner Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "Extra long 16x75mm wedge pin for multiple stacked ribs and architectural recesses.",
+    weightKg: 0.28,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 7. ALIGNMENT PIN ---
+  {
+    id: "CAT-ACC-AP-16",
+    accessoryName: "Alignment Pin",
+    accessoryType: "Alignment Tool",
+    accessoryCategory: "Alignment & Wedges",
+    accessoryCode: "AP-16",
+    standardDimension: "16 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Corner Panel", "Internal Corner", "External Corner"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "Tapered 16mm alignment drift pin designed for rapid hand-alignment of adjacent panel pin holes.",
+    weightKg: 0.19,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-AP-18",
+    accessoryName: "Alignment Pin",
+    accessoryType: "Alignment Tool",
+    accessoryCategory: "Alignment & Wedges",
+    accessoryCode: "AP-18",
+    standardDimension: "18 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 4,
+    description: "Heavy 18mm tapered alignment pin for heavy column shuttering and beam bottom alignments.",
+    weightKg: 0.25,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 8. ALIGNMENT WEDGE ---
+  {
+    id: "CAT-ACC-AW-120",
+    accessoryName: "Alignment Wedge",
+    accessoryType: "Alignment Tool",
+    accessoryCategory: "Alignment & Wedges",
+    accessoryCode: "AW-120",
+    standardDimension: "120 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Slab Panel", "Column Panel", "Beam Panel", "Corner Panel", "Internal Corner", "External Corner", "Soffit Panel", "Deck Panel", "Filler Panel", "Kicker Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 8,
+    description: "Curved drop-forged high-tensile 120mm steel alignment wedge with locking taper groove.",
+    weightKg: 0.16,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-AW-140",
+    accessoryName: "Alignment Wedge",
+    accessoryType: "Alignment Tool",
+    accessoryCategory: "Alignment & Wedges",
+    accessoryCode: "AW-140",
+    standardDimension: "140 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Slab Panel", "Column Panel", "Beam Panel", "Corner Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 8,
+    description: "Straight 140mm wedge key engineered for quick mallet locking and rapid stripping.",
+    weightKg: 0.19,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-AW-150",
+    accessoryName: "Alignment Wedge",
+    accessoryType: "Alignment Tool",
+    accessoryCategory: "Alignment & Wedges",
+    accessoryCode: "AW-150",
+    standardDimension: "150 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 8,
+    description: "Heavy structural steel wedge with knurled non-slip surface for vibration-resistant locking.",
+    weightKg: 0.23,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 9. PUSH PULL PROP (SUPPORT PROP) ---
+  {
+    id: "CAT-ACC-PPP-1525",
+    accessoryName: "Push Pull Prop",
+    accessoryType: "Support Prop",
+    accessoryCategory: "Support & Props",
+    accessoryCode: "PPP-1525",
+    standardDimension: "1500 - 2500 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Kicker Panel", "Platform/Accessory Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "Dual-threaded telescopic push-pull prop for fine plumb vertical alignment of wall and column formwork.",
+    weightKg: 12.5,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-PPP-2240",
+    accessoryName: "Push Pull Prop",
+    accessoryType: "Support Prop",
+    accessoryCategory: "Support & Props",
+    accessoryCode: "PPP-2240",
+    standardDimension: "2200 - 4000 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "Heavy-duty 4.0m telescopic brace prop with swivel baseplates and micro-adjustment turnbuckle.",
+    weightKg: 18.2,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-PPP-2538",
+    accessoryName: "Push Pull Prop",
+    accessoryType: "Support Prop",
+    accessoryCategory: "Support & Props",
+    accessoryCode: "PPP-2538",
+    standardDimension: "2500 - 3800 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Slab Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "Standard industrial shoring prop with quick-release pin and galvanized tubular steel construction.",
+    weightKg: 15.6,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 10. TIE / FORMWORK TIE / FLAT TIE ---
+  {
+    id: "CAT-ACC-FT-150",
+    accessoryName: "Tie",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "FT-150",
+    standardDimension: "150 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Filler Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "Nominal 150mm aluminum formwork flat tie engineered for partition walls with pre-drilled pin slots.",
+    weightKg: 0.22,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-FT-200",
+    accessoryName: "Tie",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "FT-200",
+    standardDimension: "200 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Filler Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "200kN tensile capacity break-back flat tie for 200mm standard exterior and interior shear walls.",
+    weightKg: 0.28,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-FT-250",
+    accessoryName: "Tie",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "FT-250",
+    standardDimension: "250 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "Heavy 250mm flat tie designed for thick residential perimeter shear walls.",
+    weightKg: 0.34,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-FT-300",
+    accessoryName: "Tie",
+    accessoryType: "Formwork Tie",
+    accessoryCategory: "Tie System",
+    accessoryCode: "FT-300",
+    standardDimension: "300 mm",
+    unit: "mm",
+    manufacturer: "AlumaSystems Global",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "Heavy 300mm structural tie for high-pressure shear wall concrete pours.",
+    weightKg: 0.42,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 11. WALLER / WALER BRACKET ---
+  {
+    id: "CAT-ACC-WB-100",
+    accessoryName: "Waller",
+    accessoryType: "Waler Bracket",
+    accessoryCategory: "Wallers & Stiffeners",
+    accessoryCode: "WB-100",
+    standardDimension: "100 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "100mm waler clamp bracket for securing horizontal stiffener channels across panel joints.",
+    weightKg: 1.85,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WB-150",
+    accessoryName: "Waller",
+    accessoryType: "Waler Bracket",
+    accessoryCategory: "Wallers & Stiffeners",
+    accessoryCode: "WB-150",
+    standardDimension: "150 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "150mm heavy waler bracket for double-C channel reinforcement on high-clearance walls.",
+    weightKg: 2.30,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WAL-2000",
+    accessoryName: "Waller",
+    accessoryType: "Waler Stiffener",
+    accessoryCategory: "Wallers & Stiffeners",
+    accessoryCode: "WAL-2000",
+    standardDimension: "2000 mm",
+    unit: "mm",
+    manufacturer: "AlumaSystems Global",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "2.0-meter 6061-T6 extruded aluminum square box waler beam for horizontal alignment.",
+    weightKg: 8.40,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 12. CLAMP ---
+  {
+    id: "CAT-ACC-CL-65",
+    accessoryName: "Clamp",
+    accessoryType: "Formwork Clamp",
+    accessoryCategory: "Brackets & Clamps",
+    accessoryCode: "CL-65",
+    standardDimension: "65 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Column Panel", "Beam Panel", "Corner Panel", "Kicker Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "Heavy forged B-clamp for clamping 65mm aluminum profile flanges together securely.",
+    weightKg: 1.10,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-CL-80",
+    accessoryName: "Clamp",
+    accessoryType: "Formwork Clamp",
+    accessoryCategory: "Brackets & Clamps",
+    accessoryCode: "CL-80",
+    standardDimension: "80 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Column Panel", "Wall Panel", "Standard Wall Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "80mm quick-wedge clamp for column shuttering and cantilever edge formwork.",
+    weightKg: 1.45,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-CL-100",
+    accessoryName: "Clamp",
+    accessoryType: "Formwork Clamp",
+    accessoryCategory: "Brackets & Clamps",
+    accessoryCode: "CL-100",
+    standardDimension: "100 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Column Panel", "Beam Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "100mm heavy adjustable external column clamp for high-lateral-pressure concrete pours.",
+    weightKg: 1.85,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 13. BRACKET ---
+  {
+    id: "CAT-ACC-BK-300",
+    accessoryName: "Bracket",
+    accessoryType: "Alignment Bracket",
+    accessoryCategory: "Brackets & Clamps",
+    accessoryCode: "BK-300",
+    standardDimension: "300 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Beam Panel", "Column Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "300mm structural wall alignment bracket with micro-leveling jacking screw.",
+    weightKg: 2.40,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-BK-800",
+    accessoryName: "Bracket",
+    accessoryType: "Platform Bracket",
+    accessoryCategory: "Platform Accessories",
+    accessoryCode: "BK-800",
+    standardDimension: "800 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Wall Panel", "Standard Wall Panel", "Platform/Accessory Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "800mm cantilever scaffold working platform bracket with integrated safety guardrail socket.",
+    weightKg: 5.20,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-KB-500",
+    accessoryName: "Bracket",
+    accessoryType: "Kicker Bracket",
+    accessoryCategory: "Brackets & Clamps",
+    accessoryCode: "KB-500",
+    standardDimension: "500 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Kicker Panel", "Wall Panel", "Standard Wall Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "500mm bottom kicker alignment bracket for starting lower-floor wall panels rigidly.",
+    weightKg: 3.10,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 14. CORNER ACCESSORIES ---
+  {
+    id: "CAT-ACC-CK-2525",
+    accessoryName: "Corner Accessories",
+    accessoryType: "Corner Key",
+    accessoryCategory: "Corner Accessories",
+    accessoryCode: "CK-2525",
+    standardDimension: "25 × 25 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Corner Panel", "Internal Corner", "External Corner", "Wall Panel", "Standard Wall Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "25x25mm internal corner key angle with pre-punched pin slots for right-angle wall intersections.",
+    weightKg: 0.65,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-CK-5050",
+    accessoryName: "Corner Accessories",
+    accessoryType: "Corner Key",
+    accessoryCategory: "Corner Accessories",
+    accessoryCode: "CK-5050",
+    standardDimension: "50 × 50 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Corner Panel", "External Corner", "Wall Panel", "Standard Wall Panel", "Column Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "50x50mm heavy external corner key for outer building perimeter and shear wall transitions.",
+    weightKg: 0.95,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-ECK-100",
+    accessoryName: "Corner Accessories",
+    accessoryType: "Corner Fillet",
+    accessoryCategory: "Corner Accessories",
+    accessoryCode: "ECK-100",
+    standardDimension: "100 × 100 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Corner Panel", "Internal Corner", "External Corner", "Column Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 2,
+    description: "100x100mm architectural chamfer fillet strip for crisp concrete beveled corners.",
+    weightKg: 1.30,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 15. PLATFORM ACCESSORIES ---
+  {
+    id: "CAT-ACC-HP-1000",
+    accessoryName: "Platform Accessories",
+    accessoryType: "Safety Post",
+    accessoryCategory: "Platform Accessories",
+    accessoryCode: "HP-1000",
+    standardDimension: "1000 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Platform/Accessory Panel", "Wall Panel", "Standard Wall Panel", "Slab Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "1.0-meter OSHA/HSE compliant perimeter safety handrail post with dual barrier cable hooks.",
+    weightKg: 4.20,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-WB-8012",
+    accessoryName: "Platform Accessories",
+    accessoryType: "Platform Plank",
+    accessoryCategory: "Platform Accessories",
+    accessoryCode: "WB-8012",
+    standardDimension: "800 × 1200 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Platform/Accessory Panel", "Wall Panel", "Standard Wall Panel", "Special Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "Perforated non-slip aluminum working platform plank with integrated bracket clips.",
+    weightKg: 6.50,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // --- 16. SUPPORT ACCESSORIES ---
+  {
+    id: "CAT-ACC-DH-150",
+    accessoryName: "Support Accessories",
+    accessoryType: "Drop Head",
+    accessoryCategory: "Support & Props",
+    accessoryCode: "DH-150",
+    standardDimension: "150 mm",
+    unit: "mm",
+    manufacturer: "Mivan Technology Corp",
+    compatiblePanelTypes: ["Soffit Panel", "Slab Panel", "Deck Panel", "Beam Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "Early-stripping drop head mechanism allowing deck panel stripping within 36 hours while keeping props intact.",
+    weightKg: 3.80,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-PH-200",
+    accessoryName: "Support Accessories",
+    accessoryType: "Prop Head",
+    accessoryCategory: "Support & Props",
+    accessoryCode: "PH-200",
+    standardDimension: "200 mm",
+    unit: "mm",
+    manufacturer: "Kumkang Kind Formwork",
+    compatiblePanelTypes: ["Beam Panel", "Soffit Panel", "Slab Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "Cantilever beam prop head with locking pin for perimeter spandrel beam soffits.",
+    weightKg: 4.10,
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-ACC-UJ-600",
+    accessoryName: "Support Accessories",
+    accessoryType: "Jack Base",
+    accessoryCategory: "Support & Props",
+    accessoryCode: "UJ-600",
+    standardDimension: "600 mm",
+    unit: "mm",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    compatiblePanelTypes: ["Slab Panel", "Soffit Panel", "Deck Panel", "Beam Panel", "Wall Panel", "Standard Wall Panel"],
+    compatiblePanelCodes: ["ALL"],
+    defaultQtyRatioPerPanel: 1,
+    description: "600mm heavy threaded hollow screw jack base with forged cast handle for floor height leveling.",
+    weightKg: 5.50,
+    isVerifiedStandard: true,
+    isActive: true
+  }
+];
+
 // Master Data Service Implementation
 export class MasterDataService {
   // --- 1. GLOBAL ALUMINUM FORMWORK PANEL MASTER CATALOG ---
@@ -815,6 +1704,185 @@ export class MasterDataService {
       description: m.description,
       category: m.panelCategory
     }));
+  }
+
+  // --- 1.2 CENTRALIZED ACCESSORIES MASTER CATALOG ---
+
+  static async getAccessoryCatalog(filters?: {
+    category?: string;
+    manufacturer?: string;
+    searchTerm?: string;
+    activeOnly?: boolean;
+  }): Promise<AccessoryMasterCatalogItem[]> {
+    try {
+      const items = await DbService.fetchCollection<AccessoryMasterCatalogItem>(
+        "accessoryMasterCatalog",
+        INITIAL_ACCESSORY_CATALOG
+      );
+
+      return items.filter(item => {
+        if (filters?.activeOnly && item.isActive === false) return false;
+        if (filters?.category && filters.category !== "ALL" && item.accessoryCategory !== filters.category) return false;
+        if (filters?.manufacturer && filters.manufacturer !== "ALL" && item.manufacturer !== filters.manufacturer) return false;
+        if (filters?.searchTerm && filters.searchTerm.trim()) {
+          const q = filters.searchTerm.toLowerCase().trim();
+          const matchName = (item.accessoryName || "").toLowerCase().includes(q);
+          const matchCode = (item.accessoryCode || "").toLowerCase().includes(q);
+          const matchType = (item.accessoryType || "").toLowerCase().includes(q);
+          const matchCat = (item.accessoryCategory || "").toLowerCase().includes(q);
+          const matchDim = (item.standardDimension || "").toLowerCase().includes(q);
+          const matchMfr = (item.manufacturer || "").toLowerCase().includes(q);
+          if (!matchName && !matchCode && !matchType && !matchCat && !matchDim && !matchMfr) return false;
+        }
+        return true;
+      });
+    } catch (e) {
+      console.warn("[MasterDataService.getAccessoryCatalog] Falling back to initial catalog", e);
+      return INITIAL_ACCESSORY_CATALOG;
+    }
+  }
+
+  static async saveAccessoryItem(item: AccessoryMasterCatalogItem): Promise<void> {
+    const enriched: AccessoryMasterCatalogItem = {
+      ...item,
+      updatedAt: new Date().toISOString()
+    };
+    await DbService.writeDocument<AccessoryMasterCatalogItem>(
+      "accessoryMasterCatalog",
+      enriched,
+      INITIAL_ACCESSORY_CATALOG
+    );
+  }
+
+  static async deleteAccessoryItem(id: string): Promise<void> {
+    try {
+      await DbService.removeDocument<AccessoryMasterCatalogItem>(
+        "accessoryMasterCatalog",
+        id,
+        INITIAL_ACCESSORY_CATALOG
+      );
+    } catch (e) {
+      console.warn("[MasterDataService.deleteAccessoryItem] Error deleting:", e);
+    }
+  }
+
+  /**
+   * Panel -> Accessory Compatibility Filter:
+   * When user selects Panel Type (e.g. Wall Panel, WP-600-2400),
+   * automatically display compatible accessories.
+   * If showAll is true, returns all active accessories.
+   */
+  static async getCompatibleAccessories(
+    panelTypeName: string,
+    panelCode?: string,
+    showAll = false
+  ): Promise<AccessoryMasterCatalogItem[]> {
+    const catalog = await this.getAccessoryCatalog({ activeOnly: true });
+    if (showAll || !panelTypeName) {
+      return catalog;
+    }
+
+    const normPanel = panelTypeName.toLowerCase().trim();
+
+    return catalog.filter(acc => {
+      // 1. Check panel types
+      const types = (acc.compatiblePanelTypes || []).map(t => t.toLowerCase().trim());
+      if (types.includes("all")) return true;
+
+      const directTypeMatch = types.some(t => {
+        return normPanel.includes(t) || t.includes(normPanel) || (normPanel.includes("wall") && t.includes("wall"));
+      });
+
+      if (!directTypeMatch) return false;
+
+      // 2. Check panel code if specified
+      if (panelCode && acc.compatiblePanelCodes && acc.compatiblePanelCodes.length > 0) {
+        const codes = acc.compatiblePanelCodes.map(c => c.toUpperCase().trim());
+        if (codes.includes("ALL")) return true;
+        const normCode = panelCode.toUpperCase().trim();
+        return codes.includes(normCode);
+      }
+
+      return true;
+    });
+  }
+
+  /**
+   * Cascading Selection:
+   * Level 1 -> Distinct Accessory Names for the selected compatible set
+   */
+  static getDistinctAccessoryNames(compatibleItems: AccessoryMasterCatalogItem[]): string[] {
+    const set = new Set<string>();
+    for (const item of compatibleItems) {
+      if (item.accessoryName) set.add(item.accessoryName);
+    }
+    return Array.from(set).sort();
+  }
+
+  /**
+   * Level 2 -> Accessory Types for selected Accessory Name
+   */
+  static getAccessoryTypesForName(
+    accessoryName: string,
+    compatibleItems: AccessoryMasterCatalogItem[]
+  ): string[] {
+    const set = new Set<string>();
+    for (const item of compatibleItems) {
+      if (item.accessoryName.toLowerCase() === accessoryName.toLowerCase() && item.accessoryType) {
+        set.add(item.accessoryType);
+      }
+    }
+    return Array.from(set).sort();
+  }
+
+  /**
+   * Level 3 -> Standard Dimensions for selected Accessory Name & Type
+   */
+  static getAccessoryDimensionsForNameAndType(
+    accessoryName: string,
+    accessoryType?: string,
+    compatibleItems: AccessoryMasterCatalogItem[] = []
+  ): string[] {
+    const set = new Set<string>();
+    for (const item of compatibleItems) {
+      const matchName = item.accessoryName.toLowerCase() === accessoryName.toLowerCase();
+      const matchType = !accessoryType || item.accessoryType.toLowerCase() === accessoryType.toLowerCase();
+      if (matchName && matchType && item.standardDimension) {
+        set.add(item.standardDimension);
+      }
+    }
+    return Array.from(set);
+  }
+
+  /**
+   * Level 4 -> Accessory Code & Complete Item for selected Name, Dimension, and Type
+   */
+  static getAccessoryCodesForSelection(
+    accessoryName: string,
+    dimension: string,
+    accessoryType?: string,
+    compatibleItems: AccessoryMasterCatalogItem[] = []
+  ): AccessoryMasterCatalogItem[] {
+    return compatibleItems.filter(item => {
+      const matchName = item.accessoryName.toLowerCase() === accessoryName.toLowerCase();
+      const matchDim = (item.standardDimension || "").toLowerCase() === (dimension || "").toLowerCase();
+      const matchType = !accessoryType || item.accessoryType.toLowerCase() === accessoryType.toLowerCase();
+      return matchName && matchDim && matchType;
+    });
+  }
+
+  static getAccessoryBySelection(
+    accessoryName: string,
+    dimension: string,
+    code?: string,
+    compatibleItems: AccessoryMasterCatalogItem[] = []
+  ): AccessoryMasterCatalogItem | undefined {
+    return compatibleItems.find(item => {
+      const matchName = item.accessoryName.toLowerCase() === accessoryName.toLowerCase();
+      const matchDim = (item.standardDimension || "").toLowerCase() === (dimension || "").toLowerCase();
+      const matchCode = !code || item.accessoryCode.toLowerCase() === code.toLowerCase();
+      return matchName && matchDim && matchCode;
+    });
   }
 
   // --- 2. MASTER PROJECTS & SITES ---

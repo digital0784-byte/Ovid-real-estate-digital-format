@@ -3095,8 +3095,29 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                                           {whPanels.map((p, pIdx) => (
                                             <tr key={p.id || pIdx} className="hover:bg-slate-800/50">
                                               <td className="py-2 px-2.5 font-bold text-slate-400">{pIdx + 1}</td>
-                                              <td className="py-2 px-2.5 font-sans font-bold text-white">
-                                                {p.panelTypeName} <span className="text-[10px] text-slate-400 font-mono">({p.panelCode})</span>
+                                              <td className="py-2 px-2.5 font-sans">
+                                                <div className="font-bold text-white flex items-center gap-1.5">
+                                                  <span>{p.panelTypeName}</span>
+                                                  <span className="text-[10px] text-slate-400 font-mono">({p.panelCode})</span>
+                                                </div>
+                                                {p.accessories && p.accessories.length > 0 && (
+                                                  <div className="mt-1 flex flex-wrap gap-1">
+                                                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                                      <span>⚙️ {p.accessories.length} Accessories</span>
+                                                      <span>({p.accessories.reduce((accSum, a) => accSum + (Number(a.quantity) || 0), 0)} pcs)</span>
+                                                    </span>
+                                                    {p.accessories.slice(0, 3).map((acc, aIdx) => (
+                                                      <span key={aIdx} className="text-[8px] font-mono px-1 py-0.2 rounded bg-slate-800 text-slate-300">
+                                                        {acc.accessoryName} ({acc.quantity})
+                                                      </span>
+                                                    ))}
+                                                    {p.accessories.length > 3 && (
+                                                      <span className="text-[8px] font-mono text-slate-500">
+                                                        +{p.accessories.length - 3} more
+                                                      </span>
+                                                    )}
+                                                  </div>
+                                                )}
                                               </td>
                                               <td className="py-2 px-2.5 text-cyan-300 font-bold">{p.dimension.formatted}</td>
                                               <td className="py-2 px-2.5 font-sans">

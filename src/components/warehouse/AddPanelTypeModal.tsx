@@ -18,7 +18,17 @@ import {
   Check,
   Compass,
   ArrowRight,
-  FolderKanban
+  FolderKanban,
+  Wrench,
+  SlidersHorizontal,
+  CheckSquare,
+  Square,
+  PackagePlus,
+  ListPlus,
+  ExternalLink,
+  RefreshCw,
+  Box,
+  Tag
 } from "lucide-react";
 import { 
   WarehousePanelTypeEntry, 
@@ -29,9 +39,11 @@ import {
   RegisteredSite,
   MasterProjectRecord,
   MasterSiteStoreRecord,
-  MasterStorageLocationRecord
+  MasterStorageLocationRecord,
+  PanelAccessoryEntry,
+  AccessoryMasterCatalogItem
 } from "../../types";
-import { MasterDataService } from "../../services/masterDataService";
+import { MasterDataService, INITIAL_ACCESSORY_CATALOG } from "../../services/masterDataService";
 import { SearchableSmartDropdown, DropdownOption } from "../common/SearchableSmartDropdown";
 
 interface AddPanelTypeModalProps {
@@ -86,6 +98,24 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
   const [description, setDescription] = useState<string>(initialData?.description || "");
   const [manufacturer, setManufacturer] = useState<string>("Mivan Technology Corp");
   const [weightKg, setWeightKg] = useState<number>(28.5);
+
+  // --- 2.2 ACCESSORIES MASTER DATA & CASCADING STATES ---
+  const [accessoriesList, setAccessoriesList] = useState<PanelAccessoryEntry[]>(
+    initialData?.accessories || []
+  );
+  const [compatibleAccessories, setCompatibleAccessories] = useState<AccessoryMasterCatalogItem[]>([]);
+  const [showAllAccessories, setShowAllAccessories] = useState<boolean>(false);
+
+  // Active cascading selection for adding/configuring accessory:
+  const [selectedAccName, setSelectedAccName] = useState<string>("Tie Rod");
+  const [selectedAccType, setSelectedAccType] = useState<string>("Formwork Tie");
+  const [selectedAccDimension, setSelectedAccDimension] = useState<string>("15 mm");
+  const [selectedAccCode, setSelectedAccCode] = useState<string>("TR-15");
+  const [accQty, setAccQty] = useState<number>(100);
+  const [accCondition, setAccCondition] = useState<PanelConditionType>("Good");
+  const [accStatus, setAccStatus] = useState<PanelInventoryStatus>("Available");
+  const [accLocation, setAccLocation] = useState<string>("");
+  const [accSerial, setAccSerial] = useState<string>("");
 
   // --- 3. CASCADING PANEL SITE ASSIGNMENT: Project -> Site -> Warehouse / Site Store -> Location ---
   const [assignedProjectId, setAssignedProjectId] = useState<string>("PRJ-001");
@@ -272,6 +302,70 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
     };
     updateCodes();
   }, [selectedPanelType, width, length]);
+
+  // 2.3 When selectedPanelType, panelCode or showAllAccessories changes -> update compatible accessories
+  useEffect(() => {
+    const updateAccessories = async () => {
+      const list = await MasterDataService.getCompatibleAccessories(
+        selectedPanelType,
+        panelCode,
+        showAllAccessories
+      );
+      setCompatibleAccessories(list);
+
+      const names = MasterDataService.getDistinctAccessoryNames(list);
+      if (names.length > 0 && (!selectedAccName || !names.includes(selectedAccName))) {
+        setSelectedAccName(names[0]);
+      }
+    };
+    updateAccessories();
+  }, [selectedPanelType, panelCode, showAllAccessories]);
+
+  // 2.4 When selectedAccName changes -> update accessory types
+  useEffect(() => {
+    if (!selectedAccName || compatibleAccessories.length === 0) return;
+    const types = MasterDataService.getAccessoryTypesForName(selectedAccName, compatibleAccessories);
+    if (types.length > 0) {
+      setSelectedAccType(types[0]);
+    } else {
+      setSelectedAccType("");
+    }
+  }, [selectedAccName, compatibleAccessories]);
+
+  // 2.5 When selectedAccName or selectedAccType changes -> update standard dimensions
+  useEffect(() => {
+    if (!selectedAccName || compatibleAccessories.length === 0) return;
+    const dims = MasterDataService.getAccessoryDimensionsForNameAndType(
+      selectedAccName,
+      selectedAccType,
+      compatibleAccessories
+    );
+    if (dims.length > 0) {
+      setSelectedAccDimension(dims[0]);
+    } else {
+      setSelectedAccDimension("");
+    }
+  }, [selectedAccName, selectedAccType, compatibleAccessories]);
+
+  // 2.6 When selectedAccDimension changes -> update accessory code & ratio
+  useEffect(() => {
+    if (!selectedAccName || !selectedAccDimension || compatibleAccessories.length === 0) return;
+    const codes = MasterDataService.getAccessoryCodesForSelection(
+      selectedAccName,
+      selectedAccDimension,
+      selectedAccType,
+      compatibleAccessories
+    );
+    if (codes.length > 0) {
+      const first = codes[0];
+      setSelectedAccCode(first.accessoryCode);
+      if (first.defaultQtyRatioPerPanel) {
+        setAccQty(Math.max(1, first.defaultQtyRatioPerPanel * (quantity || 1)));
+      }
+    } else {
+      setSelectedAccCode("");
+    }
+  }, [selectedAccName, selectedAccType, selectedAccDimension, compatibleAccessories, quantity]);
 
   // 3. When Project changes -> filter Sites
   useEffect(() => {
@@ -461,6 +555,187 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
     }));
   }, [existingLocations]);
 
+  // --- ACCESSORIES DROPDOWN OPTIONS & ACTION HANDLERS ---
+  const accNameOptions: DropdownOption[] = useMemo(() => {
+    const names = MasterDataService.getDistinctAccessoryNames(compatibleAccessories);
+    return names.map(n => {
+      const isAttached = accessoriesList.some(a => a.accessoryName === n);
+      return {
+        id: n,
+        label: n,
+        code: n,
+        subLabel: isAttached ? "✓ Currently Attached" : "Compatible Component",
+        badge: isAttached ? "Attached" : undefined
+      };
+    });
+  }, [compatibleAccessories, accessoriesList]);
+
+  const accTypeOptions: DropdownOption[] = useMemo(() => {
+    const types = MasterDataService.getAccessoryTypesForName(selectedAccName, compatibleAccessories);
+    return types.map(t => ({
+      id: t,
+      label: t,
+      code: t
+    }));
+  }, [selectedAccName, compatibleAccessories]);
+
+  const accDimensionOptions: DropdownOption[] = useMemo(() => {
+    const dims = MasterDataService.getAccessoryDimensionsForNameAndType(
+      selectedAccName,
+      selectedAccType,
+      compatibleAccessories
+    );
+    return dims.map(d => ({
+      id: d,
+      label: d,
+      code: d,
+      subLabel: "Standard Catalog Dimension",
+      isVerified: true
+    }));
+  }, [selectedAccName, selectedAccType, compatibleAccessories]);
+
+  const accCodeOptions: DropdownOption[] = useMemo(() => {
+    const codes = MasterDataService.getAccessoryCodesForSelection(
+      selectedAccName,
+      selectedAccDimension,
+      selectedAccType,
+      compatibleAccessories
+    );
+    return codes.map(c => ({
+      id: c.accessoryCode,
+      label: c.accessoryCode,
+      code: c.accessoryCode,
+      subLabel: `Mfr: ${c.manufacturer} • ${c.unit}${c.weightKg ? ` • ${c.weightKg}kg` : ""}`
+    }));
+  }, [selectedAccName, selectedAccDimension, selectedAccType, compatibleAccessories]);
+
+  // Active selected accessory catalog item details
+  const activeAccessoryCatalogItem = useMemo(() => {
+    return MasterDataService.getAccessoryBySelection(
+      selectedAccName,
+      selectedAccDimension,
+      selectedAccCode,
+      compatibleAccessories
+    );
+  }, [selectedAccName, selectedAccDimension, selectedAccCode, compatibleAccessories]);
+
+  // Add / Update Accessory
+  const handleAddAccessory = () => {
+    if (!selectedAccName || !selectedAccCode) {
+      alert(isAmharic ? "እባክዎን ከአክሰሰሪ ማስተር ካታሎግ ትክክለኛ ዕቃ ይምረጡ።" : "Please select an accessory from the master catalog.");
+      return;
+    }
+
+    const item = activeAccessoryCatalogItem;
+    const loc = accLocation || computedLocation.formattedLocation || "Warehouse Storage";
+
+    const newAcc: PanelAccessoryEntry = {
+      id: `ACC-INST-${Date.now().toString().slice(-6)}-${selectedAccCode}`,
+      accessoryCatalogId: item?.id,
+      accessoryName: selectedAccName,
+      accessoryType: selectedAccType || item?.accessoryType || "Formwork Component",
+      accessoryCode: selectedAccCode,
+      dimension: selectedAccDimension || item?.standardDimension || "Standard",
+      unit: item?.unit || "Pcs",
+      manufacturer: item?.manufacturer || manufacturer,
+      compatiblePanelType: selectedPanelType,
+      compatiblePanelCode: panelCode,
+      quantity: Number(accQty) > 0 ? Number(accQty) : 1,
+      condition: accCondition,
+      serialNumber: accSerial.trim() || undefined,
+      storageLocation: loc,
+      status: accStatus,
+      unitCostEtb: (item?.weightKg || 1) * 350
+    };
+
+    setAccessoriesList(prev => {
+      const filtered = prev.filter(a => a.accessoryCode !== selectedAccCode);
+      return [...filtered, newAcc];
+    });
+  };
+
+  const handleRemoveAccessory = (code: string) => {
+    setAccessoriesList(prev => prev.filter(a => a.accessoryCode !== code));
+  };
+
+  const handleToggleCompatibleAccessory = (accName: string) => {
+    setSelectedAccName(accName);
+    const existing = accessoriesList.find(a => a.accessoryName === accName);
+    if (existing) {
+      handleRemoveAccessory(existing.accessoryCode);
+    } else {
+      // Find standard variant and add
+      const variants = compatibleAccessories.filter(a => a.accessoryName === accName);
+      if (variants.length > 0) {
+        const v = variants[0];
+        const loc = accLocation || computedLocation.formattedLocation || "Warehouse Storage";
+        const newAcc: PanelAccessoryEntry = {
+          id: `ACC-INST-${Date.now().toString().slice(-6)}-${v.accessoryCode}`,
+          accessoryCatalogId: v.id,
+          accessoryName: v.accessoryName,
+          accessoryType: v.accessoryType,
+          accessoryCode: v.accessoryCode,
+          dimension: v.standardDimension,
+          unit: v.unit,
+          manufacturer: v.manufacturer,
+          compatiblePanelType: selectedPanelType,
+          compatiblePanelCode: panelCode,
+          quantity: Math.max(1, (v.defaultQtyRatioPerPanel || 2) * (quantity || 1)),
+          condition: "Good",
+          storageLocation: loc,
+          status: "Available"
+        };
+        setAccessoriesList(prev => [...prev.filter(a => a.accessoryCode !== v.accessoryCode), newAcc]);
+      }
+    }
+  };
+
+  const handleAttachRecommendedSet = () => {
+    const panelQty = quantity || 1;
+    const recommendedConfigs = [
+      { name: "Wedge Pin", dim: "16 × 50 mm", code: "WP-1650", ratio: 8 },
+      { name: "Pin", dim: "16 × 50 mm", code: "PIN-1650", ratio: 8 },
+      { name: "Tie Rod", dim: "15 mm", code: "TR-15", ratio: 2 },
+      { name: "Wing Nut", dim: "15 mm", code: "WN-15", ratio: 4 },
+      { name: "PVC Cone", dim: "22 mm", code: "PC-22", ratio: 4 },
+      { name: "Spacer", dim: "200 mm", code: "SP-200", ratio: 2 },
+      { name: "Alignment Wedge", dim: "120 mm", code: "AW-120", ratio: 8 },
+      { name: "Push Pull Prop", dim: "1500 - 2500 mm", code: "PPP-1525", ratio: 1 }
+    ];
+
+    const loc = computedLocation.formattedLocation || "Warehouse Storage";
+    const newItems: PanelAccessoryEntry[] = [];
+
+    for (const rec of recommendedConfigs) {
+      const cat = INITIAL_ACCESSORY_CATALOG.find(
+        c => c.accessoryCode === rec.code || (c.accessoryName === rec.name && c.standardDimension === rec.dim)
+      );
+      if (cat) {
+        newItems.push({
+          id: `ACC-REC-${Date.now().toString().slice(-6)}-${cat.accessoryCode}`,
+          accessoryCatalogId: cat.id,
+          accessoryName: cat.accessoryName,
+          accessoryType: cat.accessoryType,
+          accessoryCode: cat.accessoryCode,
+          dimension: cat.standardDimension,
+          unit: cat.unit,
+          manufacturer: cat.manufacturer,
+          compatiblePanelType: selectedPanelType,
+          compatiblePanelCode: panelCode,
+          quantity: Math.max(1, rec.ratio * panelQty),
+          condition: "Good",
+          storageLocation: loc,
+          status: "Available"
+        });
+      }
+    }
+
+    setAccessoriesList(prev => {
+      const newCodes = new Set(newItems.map(n => n.accessoryCode));
+      return [...prev.filter(p => !newCodes.has(p.accessoryCode)), ...newItems];
+    });
+  };
+
   // Final Form Submit
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -530,6 +805,7 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
       location: computedLocation,
       status,
       unitCostEtb: Number(unitCostEtb),
+      accessories: accessoriesList,
       qrCodePayload: `ERP-PANEL:${panelCode}:${rangeFormatted}:${warehouseName}:${computedLocation.formattedLocation}`,
       barcode: `BC-${panelCode.replace(/[^A-Z0-9]/gi, "")}-${quantity}`,
       updatedAt: new Date().toISOString().split("T")[0]
@@ -678,12 +954,345 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 2: PANEL SITE & FACILITY ASSIGNMENT (Project -> Site -> Warehouse/Site Store) */}
+          {/* SECTION 2: ASSOCIATED FORMWORK ACCESSORIES SMART MASTER SELECTOR */}
+          <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/80 pb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Wrench size={14} />
+                  <span>2. Associated Formwork Accessories Master Selector (የተዛማጅ አክሰሰሪዎች ማስተር ዳታ)</span>
+                </span>
+                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                  {accessoriesList.length} Attached
+                </span>
+              </div>
+
+              {/* Action Buttons: Show All Accessories & Attach Recommended Set */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAllAccessories(!showAllAccessories)}
+                  className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold flex items-center gap-1.5 transition cursor-pointer ${
+                    showAllAccessories
+                      ? "bg-amber-500/20 text-amber-300 border-amber-500/40"
+                      : "bg-slate-900 text-slate-400 border-slate-800 hover:text-white"
+                  }`}
+                  title="Toggle between showing only compatible accessories or full catalog"
+                >
+                  <SlidersHorizontal size={11} />
+                  <span>{showAllAccessories ? "Showing All Accessories" : "Show All Accessories"}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAttachRecommendedSet}
+                  className="text-[10px] px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold flex items-center gap-1.5 transition cursor-pointer shadow-sm"
+                  title="Automatically adds standard pins, wedges, tie rods, wing nuts, PVC cones & props proportional to panel quantity"
+                >
+                  <Sparkles size={11} />
+                  <span>Attach Recommended Set</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick-Select Compatible Accessories Pills */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-slate-400 flex items-center gap-1.5">
+                  <span>Compatible Accessories for:</span>
+                  <span className="text-amber-400 font-bold">{selectedPanelType}</span>
+                  <span className="text-slate-500 font-mono">({panelCode})</span>
+                </span>
+                <span className="text-[10px] text-slate-500 italic">Click pill to toggle or customize</span>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 p-2 bg-slate-900/60 rounded-xl border border-slate-800/80 max-h-32 overflow-y-auto">
+                {MasterDataService.getDistinctAccessoryNames(compatibleAccessories).map(name => {
+                  const isAttached = accessoriesList.some(a => a.accessoryName === name);
+                  const isSelected = selectedAccName === name;
+                  return (
+                    <button
+                      key={`pill-${name}`}
+                      type="button"
+                      onClick={() => handleToggleCompatibleAccessory(name)}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg border flex items-center gap-1.5 font-medium transition cursor-pointer ${
+                        isAttached
+                          ? "bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-sm"
+                          : isSelected
+                          ? "bg-slate-800 text-white border-slate-700"
+                          : "bg-slate-950/80 text-slate-400 border-slate-800/80 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                    >
+                      {isAttached ? (
+                        <CheckSquare size={12} className="text-amber-400" />
+                      ) : (
+                        <Square size={12} className="text-slate-500" />
+                      )}
+                      <span>{name}</span>
+                      {isAttached && (
+                        <span className="text-[9px] bg-amber-500 text-slate-950 px-1 rounded-full font-bold">
+                          {accessoriesList.find(a => a.accessoryName === name)?.quantity}
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Cascading Accessory Configuration Form */}
+            <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-3">
+              <div className="flex items-center justify-between text-[11px] border-b border-slate-800 pb-1.5">
+                <span className="text-slate-300 font-bold flex items-center gap-1">
+                  <PackagePlus size={13} className="text-amber-400" />
+                  <span>Configure / Add Accessory to Panel</span>
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  Cascading Selection: Name → Type → Dimension → Code
+                </span>
+              </div>
+
+              {/* Cascading Dropdowns: Level 1 (Name), Level 2 (Type), Level 3 (Dimension), Level 4 (Code) */}
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
+                <div>
+                  <SearchableSmartDropdown
+                    label="Accessory Name"
+                    required
+                    options={accNameOptions}
+                    selectedValue={selectedAccName}
+                    onSelect={opt => setSelectedAccName(opt.id)}
+                    searchPlaceholder="Search accessory..."
+                  />
+                </div>
+
+                <div>
+                  <SearchableSmartDropdown
+                    label="Accessory Type"
+                    required
+                    options={accTypeOptions}
+                    selectedValue={selectedAccType}
+                    onSelect={opt => setSelectedAccType(opt.id)}
+                    searchPlaceholder="Filter type..."
+                  />
+                </div>
+
+                <div>
+                  <SearchableSmartDropdown
+                    label="Standard Dimension"
+                    required
+                    options={accDimensionOptions}
+                    selectedValue={selectedAccDimension}
+                    onSelect={opt => setSelectedAccDimension(opt.id)}
+                    searchPlaceholder="Standard dimension..."
+                  />
+                </div>
+
+                <div>
+                  <SearchableSmartDropdown
+                    label="Accessory Code"
+                    required
+                    options={accCodeOptions}
+                    selectedValue={selectedAccCode}
+                    onSelect={opt => setSelectedAccCode(opt.id)}
+                    searchPlaceholder="Accessory code..."
+                  />
+                </div>
+              </div>
+
+              {/* Master Catalog Specifications Preview */}
+              {activeAccessoryCatalogItem && (
+                <div className="p-2.5 bg-slate-950/90 rounded-lg border border-slate-800/80 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                  <div className="flex items-center gap-3 text-slate-400">
+                    <div>
+                      <span className="text-slate-500">Mfr: </span>
+                      <span className="text-slate-200 font-medium">{activeAccessoryCatalogItem.manufacturer}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500">Unit: </span>
+                      <span className="text-amber-400 font-mono font-bold">{activeAccessoryCatalogItem.unit}</span>
+                    </div>
+                    {activeAccessoryCatalogItem.weightKg && (
+                      <div>
+                        <span className="text-slate-500">Weight: </span>
+                        <span className="text-slate-200 font-mono">{activeAccessoryCatalogItem.weightKg} kg</span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="text-slate-400 truncate max-w-xs italic">
+                    {activeAccessoryCatalogItem.description}
+                  </div>
+                </div>
+              )}
+
+              {/* Accessory Instance Parameters: Quantity, Condition, Location, Serial & Status */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 pt-1">
+                <div>
+                  <label className="text-slate-400 block mb-0.5 text-[10px] font-bold">Quantity *</label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={accQty}
+                    onChange={e => setAccQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-0.5 text-[10px] font-bold">Condition</label>
+                  <select
+                    value={accCondition}
+                    onChange={e => setAccCondition(e.target.value as PanelConditionType)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="Good">Good (ጥሩ)</option>
+                    <option value="Fair">Fair (መካከለኛ)</option>
+                    <option value="Maintenance Needed">Maintenance Needed (ጥገና የሚሻ)</option>
+                    <option value="Damaged">Damaged (የተጎዳ)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-0.5 text-[10px] font-bold">Status</label>
+                  <select
+                    value={accStatus}
+                    onChange={e => setAccStatus(e.target.value as PanelInventoryStatus)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  >
+                    <option value="Available">Available (ዝግጁ)</option>
+                    <option value="Reserved">Reserved (የተያዘ)</option>
+                    <option value="In-Use">In-Use (በሥራ ላይ)</option>
+                    <option value="Maintenance">Maintenance (ጥገና)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-slate-400 block mb-0.5 text-[10px] font-bold">Storage Location</label>
+                  <input
+                    type="text"
+                    value={accLocation}
+                    onChange={e => setAccLocation(e.target.value)}
+                    placeholder={computedLocation.formattedLocation || "Rack / Bin"}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-amber-500"
+                  />
+                </div>
+
+                <div className="flex items-end">
+                  <button
+                    type="button"
+                    onClick={handleAddAccessory}
+                    className="w-full py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-xs flex items-center justify-center gap-1.5 transition cursor-pointer shadow-md"
+                  >
+                    <Plus size={14} />
+                    <span>Attach Component</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Attached Accessories Table (Prompt 5 & 8) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                  <ListPlus size={13} className="text-amber-400" />
+                  <span>Configured Panel Accessories ({accessoriesList.length})</span>
+                </span>
+                {accessoriesList.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setAccessoriesList([])}
+                    className="text-[10px] text-red-400 hover:text-red-300 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Trash2 size={11} />
+                    <span>Clear All</span>
+                  </button>
+                )}
+              </div>
+
+              {accessoriesList.length === 0 ? (
+                <div className="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-900/40 text-center space-y-1">
+                  <p className="text-xs text-slate-400 font-medium">
+                    No accessories currently attached to this panel.
+                  </p>
+                  <p className="text-[11px] text-slate-500">
+                    Select accessories from the chips above, configure custom dimensions, or click <span className="text-emerald-400 font-semibold cursor-pointer" onClick={handleAttachRecommendedSet}>"Attach Recommended Set"</span>.
+                  </p>
+                </div>
+              ) : (
+                <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950">
+                  <div className="overflow-x-auto max-h-56">
+                    <table className="w-full text-left text-[11px]">
+                      <thead className="bg-slate-900 text-slate-400 uppercase tracking-wider text-[10px] sticky top-0 border-b border-slate-800">
+                        <tr>
+                          <th className="px-3 py-2">Accessory</th>
+                          <th className="px-3 py-2">Type</th>
+                          <th className="px-3 py-2">Dimension</th>
+                          <th className="px-3 py-2">Code</th>
+                          <th className="px-3 py-2 text-right">Qty</th>
+                          <th className="px-3 py-2">Condition</th>
+                          <th className="px-3 py-2">Location</th>
+                          <th className="px-3 py-2">Status</th>
+                          <th className="px-2 py-2 text-center">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-medium">
+                        {accessoriesList.map(acc => (
+                          <tr key={acc.id} className="hover:bg-slate-900/60 transition">
+                            <td className="px-3 py-2 text-white font-bold">{acc.accessoryName}</td>
+                            <td className="px-3 py-2 text-slate-400">{acc.accessoryType}</td>
+                            <td className="px-3 py-2 font-mono text-amber-400">{acc.dimension}</td>
+                            <td className="px-3 py-2 font-mono text-slate-300 font-semibold">{acc.accessoryCode}</td>
+                            <td className="px-3 py-2 text-right font-mono font-bold text-white">
+                              {acc.quantity} <span className="text-[9px] text-slate-400 font-normal">{acc.unit}</span>
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold ${
+                                acc.condition === "Good"
+                                  ? "bg-emerald-500/20 text-emerald-400"
+                                  : acc.condition === "Fair"
+                                  ? "bg-amber-500/20 text-amber-300"
+                                  : "bg-red-500/20 text-red-400"
+                              }`}>
+                                {acc.condition}
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-slate-400 truncate max-w-[120px]">{acc.storageLocation}</td>
+                            <td className="px-3 py-2">
+                              <span className="text-[10px] text-slate-400">{acc.status}</span>
+                            </td>
+                            <td className="px-2 py-2 text-center">
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveAccessory(acc.accessoryCode)}
+                                className="p-1 text-slate-500 hover:text-red-400 hover:bg-red-500/10 rounded transition cursor-pointer"
+                                title="Remove accessory"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="p-2 bg-slate-900/80 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
+                    <span>
+                      Total Component Types: <strong className="text-white">{accessoriesList.length}</strong>
+                    </span>
+                    <span>
+                      Total Pieces / Items: <strong className="text-amber-400">{accessoriesList.reduce((sum, a) => sum + (Number(a.quantity) || 0), 0)} units</strong>
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* SECTION 3: PANEL SITE & FACILITY ASSIGNMENT (Project -> Site -> Warehouse/Site Store) */}
           <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                 <FolderKanban size={14} />
-                <span>2. Panel Facility Assignment (Project → Site → Warehouse / Site Store)</span>
+                <span>3. Panel Facility Assignment (Project → Site → Warehouse / Site Store)</span>
               </span>
               <span className="text-[10px] font-mono text-slate-500">Hierarchical Binding</span>
             </div>
@@ -932,12 +1541,12 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
             )}
           </div>
 
-          {/* SECTION 3: CONDITION, STATUS, & FINANCIALS */}
+          {/* SECTION 4: CONDITION, STATUS, & FINANCIALS */}
           <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                 <CheckCircle size={14} />
-                <span>3. Condition, Status & Valuation (ሁኔታ እና የዕቃ ዋጋ)</span>
+                <span>4. Condition, Status & Valuation (ሁኔታ እና የዕቃ ዋጋ)</span>
               </span>
               <span className="text-[10px] font-mono text-slate-500">Audited State</span>
             </div>
@@ -1001,12 +1610,12 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
             </div>
           </div>
 
-          {/* SECTION 4: QUANTITY & SERIAL NUMBERS */}
+          {/* SECTION 5: QUANTITY & SERIAL NUMBERS */}
           <div className="p-4 bg-slate-950/80 rounded-2xl border border-slate-800 space-y-3">
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
               <span className="font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Hash size={14} />
-                <span>4. Quantity & Serial Number Management (ብዛት እና ተከታታይ ቁጥር)</span>
+                <span>5. Quantity & Serial Number Management (ብዛት እና ተከታታይ ቁጥር)</span>
               </span>
               <span className="text-[10px] font-mono text-slate-500">Dual Mode Generator</span>
             </div>

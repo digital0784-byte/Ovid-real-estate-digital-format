@@ -722,6 +722,7 @@ export interface WarehousePanelTypeEntry {
   unitCostEtb?: number;
   qrCodePayload?: string;
   barcode?: string;
+  accessories?: PanelAccessoryEntry[];
   createdAt?: string;
   updatedAt?: string;
   updatedBy?: string;
@@ -1167,4 +1168,60 @@ export interface MasterStorageLocationRecord {
   notes?: string;
   isActive: boolean;
   createdAt?: string;
+}
+
+// === CENTRALIZED ACCESSORIES MASTER CATALOG SYSTEM TYPES ===
+
+export type AccessoryCategoryType =
+  | "Tie System"
+  | "Fasteners & Pins"
+  | "Alignment & Wedges"
+  | "Spacers & Cones"
+  | "Support & Props"
+  | "Brackets & Clamps"
+  | "Wallers & Stiffeners"
+  | "Corner Accessories"
+  | "Platform Accessories"
+  | "Safety Accessories"
+  | "Special Accessories";
+
+export interface AccessoryMasterCatalogItem {
+  id: string;
+  accessoryName: string; // e.g. "Tie Rod", "Wing Nut", "PVC Cone", "Spacer", "Waller", "Pin", "Wedge Pin", "Alignment Pin", "Alignment Wedge", "Push Pull Prop", "Tie", "Clamp", "Bracket"
+  accessoryType: string; // e.g. "Formwork Tie", "Fastener", "Spacer", "Alignment Tool", "Support Prop"
+  accessoryCategory: AccessoryCategoryType | string;
+  accessoryCode: string; // e.g. "TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "PPP-2500"
+  standardDimension: string; // e.g. "15 mm", "16 mm", "22 mm", "120 mm", "2500 - 3800 mm"
+  unit: "mm" | "cm" | "m" | "inch" | "kg" | "pcs" | "set" | string;
+  manufacturer: string;
+  compatiblePanelTypes: string[]; // e.g. ["Wall Panel", "Standard Wall Panel", "Column Panel"], or ["ALL"]
+  compatiblePanelCodes?: string[]; // e.g. ["WP-600-2400", "WP-600-2700"], or ["ALL"]
+  defaultQtyRatioPerPanel?: number; // e.g. 4 pins per panel, 2 tie rods per m2
+  description?: string;
+  weightKg?: number;
+  isVerifiedStandard: boolean;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  updatedBy?: string;
+}
+
+export interface PanelAccessoryEntry {
+  id: string;
+  accessoryCatalogId?: string;
+  accessoryName: string;
+  accessoryType: string;
+  accessoryCode: string;
+  dimension: string;
+  unit: string;
+  manufacturer: string;
+  compatiblePanelType: string;
+  compatiblePanelCode: string;
+  quantity: number;
+  condition: PanelConditionType;
+  serialNumber?: string;
+  storageLocation: string;
+  status: PanelInventoryStatus;
+  unitCostEtb?: number;
+  notes?: string;
 }
