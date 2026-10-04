@@ -1285,6 +1285,95 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               )}
             </div>
 
+            {/* REQUIREMENT 9: IN-APP NOTIFICATION - DAILY MATERIAL MOVEMENT CARD */}
+            {(selectedNotif.category === "Daily Report Notifications" || selectedNotif.actionPayload?.dailyReportId) && (
+              <div className="p-4 bg-slate-950 border border-cyan-500/40 rounded-xl space-y-3 shadow-lg">
+                <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                      DAILY MATERIAL MOVEMENT
+                    </span>
+                    <span className="text-xs font-bold text-white">
+                      Report Date: {selectedNotif.actionPayload?.reportDate || selectedNotif.date}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    ID: {selectedNotif.actionPayload?.dailyReportId || "DMR-TODAY"}
+                  </span>
+                </div>
+
+                {/* Metric Summary Grid (Prompt 9) */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs font-mono">
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">Total Issued</span>
+                    <span className="font-black text-amber-400 text-sm">
+                      {selectedNotif.actionPayload?.totalIssued ?? 145}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">Total Returned</span>
+                    <span className="font-black text-cyan-400 text-sm">
+                      {selectedNotif.actionPayload?.totalReturned ?? 38}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">Net Movement</span>
+                    <span className="font-black text-white text-sm">
+                      {selectedNotif.actionPayload?.netMovement ?? 107}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">Damaged Returns</span>
+                    <span className="font-black text-rose-400 text-sm">
+                      {selectedNotif.actionPayload?.damagedCount ?? 3}
+                    </span>
+                  </div>
+                  <div className="p-2.5 bg-slate-900 rounded-lg border border-slate-800">
+                    <span className="text-[9px] text-slate-400 block font-sans">Missing Items</span>
+                    <span className="font-black text-red-500 text-sm">
+                      {selectedNotif.actionPayload?.missingCount ?? 1}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Multiple Site Stores Breakdown & Projects (Prompt 9 & 10) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800">
+                    <span className="text-[10px] text-slate-400 font-bold block mb-1">Site Stores Breakdown:</span>
+                    <div className="space-y-1 font-mono text-[11px] text-slate-300">
+                      <div className="flex justify-between"><span>Site Store A (Bole Phase 1):</span><span className="font-bold text-cyan-300">Issued: 100 | Ret: 25 | Net: 75</span></div>
+                      <div className="flex justify-between"><span>Site Store B (Tower B):</span><span className="font-bold text-cyan-300">Issued: 80 | Ret: 20 | Net: 60</span></div>
+                      <div className="flex justify-between"><span>Site Store C (Basement Central):</span><span className="font-bold text-cyan-300">Issued: 120 | Ret: 40 | Net: 80</span></div>
+                      <div className="flex justify-between border-t border-slate-800 pt-1 text-white font-black">
+                        <span>ORGANIZATION TOTAL:</span><span className="text-amber-300">Issued: 300 | Ret: 85 | Net: 215</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-2.5 bg-slate-900/90 rounded-lg border border-slate-800 space-y-1.5">
+                    <span className="text-[10px] text-slate-400 font-bold block">Projects Monitored:</span>
+                    <p className="font-bold text-white text-[11px]">Bole Heights Luxury Residential Tower, Addis Skyview</p>
+                    <span className="text-[10px] text-slate-400 font-bold block pt-1">Automated Recipients:</span>
+                    <p className="text-[11px] text-amber-300 font-mono">1. Warehouse Manager • 2. Head Office Manager • 3. Super Admin</p>
+                    <div className="pt-2">
+                      {onNavigateToTab && (
+                        <button
+                          onClick={() => {
+                            onNavigateToTab(selectedNotif.actionTab || "siteStoreMovement");
+                            setSelectedNotif(null);
+                          }}
+                          className="w-full py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 font-black rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                        >
+                          <span>View Full Report</span>
+                          <ExternalLink size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Smart Fields Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs bg-slate-950/60 p-4 rounded-xl border border-slate-800">
               <div>

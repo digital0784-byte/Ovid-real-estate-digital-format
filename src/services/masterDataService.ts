@@ -7,7 +7,12 @@ import {
   MasterStorageLocationRecord,
   RegisteredWarehouse,
   RegisteredSite,
-  PanelCategoryType
+  PanelCategoryType,
+  MasterManufacturerRecord,
+  MasterPanelTypeRecord,
+  MasterPanelDimensionRecord,
+  StockTransactionRecord,
+  StairPanelConfig
 } from "../types";
 import { DbService } from "./db";
 
@@ -18,295 +23,449 @@ const STORAGE_SITE_STORES = "digital_construction_master_site_stores";
 const STORAGE_LOCATIONS = "digital_construction_master_locations";
 const STORAGE_RECENT_SELECTIONS = "digital_construction_recent_master_selections";
 
-// Verified Global / International Aluminum Formwork Panel Master Catalog Seeds
-// Sourced from verified industrial manufacturer standards (6061-T6 alloy extrusion, 65mm profile depth)
-export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
-  // Wall Panels
+// ============================================================================
+// CENTRALIZED MANUFACTURERS & FORMWORK SYSTEMS CATALOG
+// ============================================================================
+export const INITIAL_MANUFACTURERS: MasterManufacturerRecord[] = [
   {
-    id: "CAT-WP-600-2400",
-    manufacturer: "Mivan Technology Corp",
-    panelType: "Standard Wall Panel",
-    panelCategory: "Wall Panel",
-    panelCode: "WP-600-2400",
-    standardDimension: "600 × 2400 mm",
-    length: 2400,
-    width: 600,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 28.5,
-    description: "Standard vertical wall shuttering panel with reinforced side ribs and tie-rod holes at standard 300mm centers.",
-    manufacturerRef: "MIV-WP-2460",
-    isVerifiedStandard: true,
+    id: "MFR-MIVAN",
+    name: "Mivan Technology Corp",
+    formworkSystems: ["Mivan 65mm Standard System", "Mivan Monolithic High-Rise"],
+    country: "Malaysia / UK",
+    description: "Pioneer of monolithic aluminum formwork casting systems worldwide.",
+    contactInfo: "info@mivan.com",
     isActive: true
   },
   {
-    id: "CAT-WP-600-2700",
-    manufacturer: "Kumkang Kind Formwork",
-    panelType: "Standard Wall Panel",
-    panelCategory: "Wall Panel",
-    panelCode: "WP-600-2700",
-    standardDimension: "600 × 2700 mm",
-    length: 2700,
-    width: 600,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 32.1,
-    description: "Extended floor-height wall formwork panel for commercial high-clearance residential shear walls.",
-    manufacturerRef: "KK-W270-60",
-    isVerifiedStandard: true,
+    id: "MFR-KUMKANG",
+    name: "Kumkang Kind Formwork",
+    formworkSystems: ["Kumkang 65mm Standard System", "Kumkang Mega-Slab"],
+    country: "South Korea",
+    description: "Global manufacturer of high-precision aluminum formwork and climbing systems.",
+    contactInfo: "export@kumkangkind.com",
     isActive: true
   },
   {
-    id: "CAT-WP-600-3000",
-    manufacturer: "Geto Aluminum Formwork Co.",
-    panelType: "Standard Wall Panel",
-    panelCategory: "Wall Panel",
-    panelCode: "WP-600-3000",
-    standardDimension: "600 × 3000 mm",
-    length: 3000,
-    width: 600,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 35.8,
-    description: "3.0-meter high-clearance wall panel for podium floors and lobby architectural perimeter walls.",
-    manufacturerRef: "GETO-AL-3060",
-    isVerifiedStandard: true,
+    id: "MFR-ALUMA",
+    name: "Aluma Systems International",
+    formworkSystems: ["Aluma EasySet 65mm", "Aluma Heavy Shoring"],
+    country: "Canada / USA",
+    description: "Industry-standard aluminum wall, beam, and table-form system solutions.",
+    contactInfo: "sales@aluma.com",
     isActive: true
   },
   {
-    id: "CAT-WP-450-2400",
-    manufacturer: "Mivan Technology Corp",
-    panelType: "Standard Wall Panel",
-    panelCategory: "Wall Panel",
-    panelCode: "WP-450-2400",
-    standardDimension: "450 × 2400 mm",
-    length: 2400,
-    width: 450,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 21.8,
-    description: "Medium-width partition wall panel for corridor walls, window jambs, and door surround assemblies.",
-    manufacturerRef: "MIV-WP-2445",
-    isVerifiedStandard: true,
+    id: "MFR-GETO",
+    name: "Geto Aluminum Formwork Co.",
+    formworkSystems: ["Geto High-Rise 65mm", "Geto Quick-Deck"],
+    country: "China",
+    description: "Large-scale aluminum formwork producer certified for multi-story residential towers.",
+    contactInfo: "overseas@geto.com.cn",
     isActive: true
   },
   {
-    id: "CAT-WP-300-2400",
-    manufacturer: "AlumaSystems Global",
-    panelType: "Standard Wall Panel",
-    panelCategory: "Wall Panel",
-    panelCode: "WP-300-2400",
-    standardDimension: "300 × 2400 mm",
-    length: 2400,
-    width: 300,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 15.2,
-    description: "Narrow wall compensation panel for tight room corners and mechanical shaft enclosures.",
-    manufacturerRef: "ASG-WP-30",
-    isVerifiedStandard: true,
+    id: "MFR-PERI",
+    name: "PERI Formwork Systems",
+    formworkSystems: ["PERI Trio-Alu 65mm", "PERI Skydeck"],
+    country: "Germany",
+    description: "European precision engineering formwork and scaffolding technology.",
+    contactInfo: "info@peri.de",
     isActive: true
   },
   {
-    id: "CAT-WP-HD-600-2400",
-    manufacturer: "Geto Aluminum Formwork Co.",
-    panelType: "Heavy-Duty Exterior Wall Panel",
-    panelCategory: "Wall Panel",
-    panelCode: "EWP-600-2400",
-    standardDimension: "600 × 2400 mm",
-    length: 2400,
-    width: 600,
-    thickness: 70,
-    unit: "mm",
-    weightKg: 31.0,
-    description: "Exterior facade perimeter panel with heavy-duty kicker flange and weather seals for high wind-pressure casting.",
-    manufacturerRef: "GETO-EXT-2460",
-    isVerifiedStandard: true,
+    id: "MFR-DOKA",
+    name: "Doka Formwork",
+    formworkSystems: ["Doka Alu-Framax", "Doka Dokaflex"],
+    country: "Austria",
+    description: "Heavy-duty modular aluminum and steel framed wall formwork.",
+    contactInfo: "info@doka.com",
     isActive: true
   },
+  {
+    id: "MFR-SFORMS",
+    name: "Sforms Aluminum Tech",
+    formworkSystems: ["Sforms 65mm Deck & Wall System"],
+    country: "India / UAE",
+    description: "Cost-effective high-grade alloy aluminum formwork manufacturer.",
+    contactInfo: "contact@sforms.in",
+    isActive: true
+  }
+];
 
-  // Slab Panels
+// ============================================================================
+// CENTRALIZED PANEL TYPES CATALOG (PROMPT 1 SPECIFICATION)
+// ============================================================================
+export const INITIAL_PANEL_TYPES: MasterPanelTypeRecord[] = [
+  { id: "PT-IWP", name: "Internal Wall Panel", category: "Internal Wall", description: "Internal partition and dividing wall formwork panel.", isActive: true },
+  { id: "PT-EWP", name: "External Wall Panel", category: "External Wall", description: "Exterior facade and perimeter shear wall panel.", isActive: true },
+  { id: "PT-EXT", name: "Extend Panel", category: "Extend Panel", description: "Extension panel for ceiling height and floor adjustments.", isActive: true },
+  { id: "PT-SOF", name: "Soffit Panel", category: "Soffit Panel", description: "Soffit transition and slab-wall connection panel.", isActive: true },
+  { id: "PT-BM", name: "Beam Panel", category: "Beam Panel", description: "Structural concrete beam bottom and side formwork panel.", isActive: true },
+  { id: "PT-CA", name: "CA Panel", category: "CA Panel", description: "Corner Angle / Chamfer Angle panel for perimeter bevels.", isActive: true },
+  { id: "PT-IC", name: "IC Panel", category: "IC Panel", description: "Internal Corner angle panel connecting 90° inner walls.", isActive: true },
+  { id: "PT-SC", name: "SC Panel", category: "SC Panel", description: "Soffit Corner panel for beam-slab junction points.", isActive: true },
+  { id: "PT-SCR", name: "SCR Panel", category: "SCR Panel", description: "Soffit Corner Return panel for 3-way intersection corners.", isActive: true },
+  { id: "PT-SP", name: "Slab Panel", category: "Slab Panel", description: "Suspended slab deck formwork panel.", isActive: true },
+  { id: "PT-DEP", name: "Door End Panel", category: "Door End Panel", description: "Door opening side jamb enclosure panel.", isActive: true },
+  { id: "PT-WEP", name: "Wall End Panel", category: "Wall End Panel", description: "Wall termination and stop-end closure panel.", isActive: true },
+  { id: "PT-CP", name: "Corner Panel", category: "Corner Panel", description: "Corner compensation and alignment panel.", isActive: true },
+  { id: "PT-IC-STD", name: "Internal Corner", category: "Internal Corner", description: "Standard 90° internal corner angle extrusion.", isActive: true },
+  { id: "PT-EC-STD", name: "External Corner", category: "External Corner", description: "Standard external 90° corner clamp profile.", isActive: true },
+  { id: "PT-COL", name: "Column Panel", category: "Column Panel", description: "Square and rectangular structural column shutter panel.", isActive: true },
+  { id: "PT-STP", name: "Stair Panel", category: "Stair Panel", description: "Dedicated flight, landing, and tread-riser stair formwork component.", isActive: true },
+  { id: "PT-BS", name: "Beam Soffit", category: "Beam Soffit", description: "Horizontal underside soffit panel supporting concrete beams.", isActive: true },
+  { id: "PT-BSI", name: "Beam Side", category: "Beam Side", description: "Vertical side wall panel forming concrete beam depth.", isActive: true },
+  { id: "PT-FP", name: "Filler Panel", category: "Filler Panel", description: "Dimensional tolerance filler and infill strip.", isActive: true },
+  { id: "PT-KP", name: "Kicker Panel", category: "Kicker Panel", description: "Starter footing kicker anchored to the concrete slab.", isActive: true },
+  { id: "PT-SEP", name: "Stop End Panel", category: "Stop End Panel", description: "Construction joint end bulkhead stop panel.", isActive: true },
+  { id: "PT-PWP", name: "Platform/Working Panel", category: "Platform/Accessory Panel", description: "External worker access and working bracket platform panel.", isActive: true },
+  { id: "PT-SPEC", name: "Special Panel", category: "Special Panel", description: "Custom architectural geometries and core shaft panels.", isActive: true }
+];
+
+// ============================================================================
+// VERIFIED CENTRALIZED ALUMINUM FORMWORK MASTER CATALOG SEEDS
+// ============================================================================
+export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
+  // 1. Internal Wall Panels
   {
-    id: "CAT-SP-900-1800",
-    manufacturer: "Kumkang Kind Formwork",
-    panelType: "Standard Slab Decking Panel",
-    panelCategory: "Slab Panel",
-    panelCode: "SP-900-1800",
-    standardDimension: "900 × 1800 mm",
-    length: 1800,
-    width: 900,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 31.4,
-    description: "Large-span horizontal slab deck panel with reinforced underside cross-ribs for deflection control.",
-    manufacturerRef: "KK-SP-1890",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-  {
-    id: "CAT-SP-600-1800",
-    manufacturer: "Kumkang Kind Formwork",
-    panelType: "Standard Slab Decking Panel",
-    panelCategory: "Slab Panel",
-    panelCode: "SP-600-1800",
-    standardDimension: "600 × 1800 mm",
-    length: 1800,
-    width: 600,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 21.6,
-    description: "Standard suspended slab formwork panel for general residential and commercial deck layouts.",
-    manufacturerRef: "KK-SP-1860",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-  {
-    id: "CAT-SP-600-1200",
+    id: "CAT-IWP-1200-600",
     manufacturer: "Mivan Technology Corp",
-    panelType: "Standard Slab Decking Panel",
-    panelCategory: "Slab Panel",
-    panelCode: "SP-600-1200",
-    standardDimension: "600 × 1200 mm",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Internal Wall",
+    panelType: "Internal Wall Panel",
+    panelName: "Internal Wall Standard Modular Panel",
+    panelCode: "IWP-1200-600",
+    standardDimension: "1200 × 600 × 65 mm",
     length: 1200,
     width: 600,
     thickness: 65,
     unit: "mm",
     weightKg: 14.8,
-    description: "Modular slab panel for infill zones, perimeter spans, and early prop-head strip intervals.",
-    manufacturerRef: "MIV-SP-1260",
+    description: "Standard modular 1.2m internal room partition panel with tie-rod sleeves and pin holes at 50mm centers.",
+    manufacturerRef: "MIV-IWP-1260",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "SP-200"],
     isVerifiedStandard: true,
     isActive: true
   },
   {
-    id: "CAT-SP-450-1200",
-    manufacturer: "Sforms Aluminum Tech",
-    panelType: "Prop-Head Interface Slab Panel",
-    panelCategory: "Slab Panel",
-    panelCode: "SP-PH-450-1200",
-    standardDimension: "450 × 1200 mm",
-    length: 1200,
-    width: 450,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 11.2,
-    description: "Early-stripping slab deck panel designed with quick-release prop head interface slot.",
-    manufacturerRef: "SF-SP-PH45",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-
-  // Column Panels
-  {
-    id: "CAT-COL-600-2400",
-    manufacturer: "Navnirman Aluminum Extrusions",
-    panelType: "Standard Column Panel",
-    panelCategory: "Column Panel",
-    panelCode: "CP-600-2400",
-    standardDimension: "600 × 2400 mm",
+    id: "CAT-IWP-2400-600",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Internal Wall",
+    panelType: "Internal Wall Panel",
+    panelName: "Internal Wall Full-Height Panel",
+    panelCode: "IWP-2400-600",
+    standardDimension: "2400 × 600 × 65 mm",
     length: 2400,
     width: 600,
-    thickness: 75,
+    thickness: 65,
     unit: "mm",
-    weightKg: 33.2,
-    description: "High-pressure column formwork panel with integrated yoke connection slots for 80 kN/m² hydrostatic concrete pressure.",
-    manufacturerRef: "NAV-COL-60",
+    weightKg: 28.5,
+    description: "2.4m full-height vertical internal shear wall panel engineered with 4.0mm alloy 6061-T6 face skin.",
+    manufacturerRef: "MIV-IWP-2460",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "PPP-1525"],
     isVerifiedStandard: true,
     isActive: true
   },
   {
-    id: "CAT-COL-450-2400",
-    manufacturer: "Navnirman Aluminum Extrusions",
-    panelType: "Standard Column Panel",
-    panelCategory: "Column Panel",
-    panelCode: "CP-450-2400",
-    standardDimension: "450 × 2400 mm",
+    id: "CAT-IWP-2700-600",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Internal Wall",
+    panelType: "Internal Wall Panel",
+    panelName: "Internal Wall Extended High-Clearance Panel",
+    panelCode: "IWP-2700-600",
+    standardDimension: "2700 × 600 × 65 mm",
+    length: 2700,
+    width: 600,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 32.1,
+    description: "2.7m extended internal shear wall panel for residential high-ceiling living areas.",
+    manufacturerRef: "KK-IWP-2760",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "PPP-2538"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-IWP-2400-450",
+    manufacturer: "Aluma Systems International",
+    formworkSystem: "Aluma EasySet 65mm",
+    panelCategory: "Internal Wall",
+    panelType: "Internal Wall Panel",
+    panelName: "Internal Wall Corridor & Jamb Panel",
+    panelCode: "IWP-2400-450",
+    standardDimension: "2400 × 450 × 65 mm",
     length: 2400,
     width: 450,
-    thickness: 75,
+    thickness: 65,
     unit: "mm",
-    weightKg: 25.4,
-    description: "Medium column face panel with reinforced tie-rod yokes for square and rectangular columns.",
-    manufacturerRef: "NAV-COL-45",
+    weightKg: 21.6,
+    description: "Medium-width partition panel for corridors and doorway returns.",
+    manufacturerRef: "ALU-IWP-2445",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01"],
     isVerifiedStandard: true,
     isActive: true
   },
   {
-    id: "CAT-COL-400-3000",
+    id: "CAT-IWP-3000-600",
     manufacturer: "Geto Aluminum Formwork Co.",
-    panelType: "Adjustable Heavy Column Form",
-    panelCategory: "Column Panel",
-    panelCode: "CP-400-3000",
-    standardDimension: "400 × 3000 mm",
+    formworkSystem: "Geto High-Rise 65mm",
+    panelCategory: "Internal Wall",
+    panelType: "Internal Wall Panel",
+    panelName: "Internal Wall Podium & Lobby Panel",
+    panelCode: "IWP-3000-600",
+    standardDimension: "3000 × 600 × 65 mm",
     length: 3000,
-    width: 400,
-    thickness: 75,
+    width: 600,
+    thickness: 65,
     unit: "mm",
-    weightKg: 29.8,
-    description: "Adjustable column panel for variable section column forming up to 3.0m casting height.",
-    manufacturerRef: "GETO-CP-3040",
+    weightKg: 35.8,
+    description: "3.0-meter high-clearance wall panel for lobby architectural interior walls.",
+    manufacturerRef: "GETO-IWP-3060",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "PPP-2538"],
     isVerifiedStandard: true,
     isActive: true
   },
 
-  // Beam Panels
+  // 2. External Wall Panels
   {
-    id: "CAT-BP-300-2400",
-    manufacturer: "AlumaSystems Global",
-    panelType: "Standard Beam Side Panel",
-    panelCategory: "Beam Panel",
-    panelCode: "BS-300-2400",
-    standardDimension: "300 × 2400 mm",
-    length: 2400,
-    width: 300,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 16.5,
-    description: "Deep beam side formwork panel with top tie holes and bottom soffit alignment notch.",
-    manufacturerRef: "ASG-BS-3024",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-  {
-    id: "CAT-BP-400-2400",
-    manufacturer: "AlumaSystems Global",
-    panelType: "Standard Beam Side Panel",
-    panelCategory: "Beam Panel",
-    panelCode: "BS-400-2400",
-    standardDimension: "400 × 2400 mm",
-    length: 2400,
-    width: 400,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 20.8,
-    description: "Deep transfer beam side form panel engineered for deep structural beams.",
-    manufacturerRef: "ASG-BS-4024",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-  {
-    id: "CAT-BB-300-2400",
-    manufacturer: "Kumkang Kind Formwork",
-    panelType: "Standard Beam Bottom Soffit",
-    panelCategory: "Beam Panel",
-    panelCode: "BB-300-2400",
-    standardDimension: "300 × 2400 mm",
-    length: 2400,
-    width: 300,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 17.2,
-    description: "High-load beam bottom panel supported directly on shoring props.",
-    manufacturerRef: "KK-BB-3024",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-
-  // Corner Panels (Internal & External)
-  {
-    id: "CAT-IC-150-150-2400",
+    id: "CAT-EWP-1200-900",
     manufacturer: "Mivan Technology Corp",
-    panelType: "Standard 90° Internal Corner",
-    panelCategory: "Internal Corner",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "External Wall",
+    panelType: "External Wall Panel",
+    panelName: "External Wall Wide Modular Panel",
+    panelCode: "EWP-1200-900",
+    standardDimension: "1200 × 900 × 65 mm",
+    length: 1200,
+    width: 900,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 22.4,
+    description: "Wide-format exterior facade panel equipped with perimeter weather-seal groove.",
+    manufacturerRef: "MIV-EWP-1290",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "WB-300"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-EWP-2400-600",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    formworkSystem: "Geto High-Rise 65mm",
+    panelCategory: "External Wall",
+    panelType: "External Wall Panel",
+    panelName: "External Facade Heavy-Duty Panel",
+    panelCode: "EWP-2400-600",
+    standardDimension: "2400 × 600 × 70 mm",
+    length: 2400,
+    width: 600,
+    thickness: 70,
+    unit: "mm",
+    weightKg: 31.0,
+    description: "Heavy-duty exterior wall panel with 70mm frame profile and reinforced ribs for high wind pressures.",
+    manufacturerRef: "GETO-EWP-2460",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "KP-150-2400"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-EWP-2700-600",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "External Wall",
+    panelType: "External Wall Panel",
+    panelName: "External Facade High-Clearance Panel",
+    panelCode: "EWP-2700-600",
+    standardDimension: "2700 × 600 × 65 mm",
+    length: 2700,
+    width: 600,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 33.2,
+    description: "Full-height exterior facade shutter with integrated tie holes and kicker landing flange.",
+    manufacturerRef: "KK-EWP-2760",
+    compatibleAccessories: ["TR-15", "WN-15", "PC-22", "WP-PIN-01", "WEDGE-01", "PPP-2538"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 3. Extend Panels
+  {
+    id: "CAT-EXT-600-600",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Extend Panel",
+    panelType: "Extend Panel",
+    panelName: "Extend Panel Square Modular",
+    panelCode: "EXT-600-600",
+    standardDimension: "600 × 600 × 65 mm",
+    length: 600,
+    width: 600,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 7.8,
+    description: "Vertical height extension panel mounted above standard 2.4m wall panels for ceiling level adjustments.",
+    manufacturerRef: "MIV-EXT-6060",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "CL-65"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-EXT-300-600",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Extend Panel",
+    panelType: "Extend Panel",
+    panelName: "Extend Panel 300mm Infill",
+    panelCode: "EXT-300-600",
+    standardDimension: "300 × 600 × 65 mm",
+    length: 600,
+    width: 300,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 4.5,
+    description: "Precision 300mm vertical height extension shutter.",
+    manufacturerRef: "KK-EXT-3060",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "CL-65"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 4. Soffit Panels
+  {
+    id: "CAT-SOF-1200-600",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Soffit Panel",
+    panelType: "Soffit Panel",
+    panelName: "Soffit Modular Transition Panel",
+    panelCode: "SOF-1200-600",
+    standardDimension: "1200 × 600 × 65 mm",
+    length: 1200,
+    width: 600,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 14.2,
+    description: "Soffit corner and edge panel supporting early wall stripping while maintaining continuous slab propping.",
+    manufacturerRef: "MIV-SOF-1260",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525", "SP-200"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-SOF-150-2400",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Soffit Panel",
+    panelType: "Soffit Panel",
+    panelName: "Soffit Length Corner Strip",
+    panelCode: "SO-150-2400",
+    standardDimension: "150 × 2400 × 65 mm",
+    length: 2400,
+    width: 150,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 11.5,
+    description: "Wall-to-slab transition soffit angle extrusion for quick-strip drop-head systems.",
+    manufacturerRef: "KK-SO-1524",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 5. Beam Panels
+  {
+    id: "CAT-BM-1500-300",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Beam Panel",
+    panelType: "Beam Panel",
+    panelName: "Structural Beam Bottom & Side Panel",
+    panelCode: "BM-1500-300",
+    standardDimension: "1500 × 300 × 65 mm",
+    length: 1500,
+    width: 300,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 11.8,
+    description: "Reinforced modular beam bottom and side panel with prop-head brackets.",
+    manufacturerRef: "MIV-BM-1530",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15", "PPP-1525"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-BM-1200-400",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Beam Panel",
+    panelType: "Beam Panel",
+    panelName: "Deep Girder Beam Side Panel",
+    panelCode: "BM-1200-400",
+    standardDimension: "1200 × 400 × 65 mm",
+    length: 1200,
+    width: 400,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 12.6,
+    description: "Modular beam formwork for 400mm drop-depth transfer beams.",
+    manufacturerRef: "KK-BM-1240",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 6. CA Panels (Chamfer Angle / Corner Angle)
+  {
+    id: "CAT-CA-100-2400",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "CA Panel",
+    panelType: "CA Panel",
+    panelName: "Chamfer Angle Bevel Corner Panel",
+    panelCode: "CA-100-2400",
+    standardDimension: "100 × 100 × 2400 mm",
+    length: 2400,
+    width: 100,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 12.5,
+    description: "45-degree architectural chamfer corner extrusion preventing chipping at column and wall corners.",
+    manufacturerRef: "MIV-CA-1024",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-CA-75-2400",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    formworkSystem: "Geto High-Rise 65mm",
+    panelCategory: "CA Panel",
+    panelType: "CA Panel",
+    panelName: "Chamfer Angle 75mm Bevel Panel",
+    panelCode: "CA-75-2400",
+    standardDimension: "75 × 75 × 2400 mm",
+    length: 2400,
+    width: 75,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 9.8,
+    description: "75mm chamfer angle transition extrusion for monolithic edge finishing.",
+    manufacturerRef: "GETO-CA-7524",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 7. IC Panels (Internal Corner)
+  {
+    id: "CAT-IC-150-2400",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "IC Panel",
+    panelType: "IC Panel",
+    panelName: "Internal Corner 90° Angle Panel",
     panelCode: "IC-150-2400",
     standardDimension: "150 × 150 × 2400 mm",
     length: 2400,
@@ -314,16 +473,19 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     thickness: 65,
     unit: "mm",
     weightKg: 18.6,
-    description: "90-degree internal angle connection panel linking perpendicular room shear walls.",
+    description: "Rigid 90-degree internal angle connection panel linking perpendicular room shear walls.",
     manufacturerRef: "MIV-IC-1524",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
     isVerifiedStandard: true,
     isActive: true
   },
   {
-    id: "CAT-IC-200-200-2400",
+    id: "CAT-IC-200-2400",
     manufacturer: "Geto Aluminum Formwork Co.",
-    panelType: "Standard 90° Internal Corner",
-    panelCategory: "Internal Corner",
+    formworkSystem: "Geto High-Rise 65mm",
+    panelCategory: "IC Panel",
+    panelType: "IC Panel",
+    panelName: "Internal Corner 200mm Core Panel",
     panelCode: "IC-200-2400",
     standardDimension: "200 × 200 × 2400 mm",
     length: 2400,
@@ -333,14 +495,253 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     weightKg: 23.4,
     description: "Heavy internal corner panel for elevator shafts and stair core 90° junctions.",
     manufacturerRef: "GETO-IC-2024",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 8. SC Panels (Soffit Corner)
+  {
+    id: "CAT-SC-150-1200",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "SC Panel",
+    panelType: "SC Panel",
+    panelName: "Soffit Corner Beam Junction Panel",
+    panelCode: "SC-150-1200",
+    standardDimension: "150 × 150 × 1200 mm",
+    length: 1200,
+    width: 150,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 10.2,
+    description: "Soffit corner angle forming horizontal wall-to-deck or beam-to-slab transition corners.",
+    manufacturerRef: "KK-SC-1512",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 9. SCR Panels (Soffit Corner Return)
+  {
+    id: "CAT-SCR-150-150",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "SCR Panel",
+    panelType: "SCR Panel",
+    panelName: "Soffit Corner Return 3-Way Junction",
+    panelCode: "SCR-150-150",
+    standardDimension: "150 × 150 × 150 mm",
+    length: 150,
+    width: 150,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 2.8,
+    description: "Precision 3-dimensional corner component connecting wall corner, beam corner, and slab soffit.",
+    manufacturerRef: "MIV-SCR-1515",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 10. Slab Panels
+  {
+    id: "CAT-SP-1200-1200",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Slab Panel",
+    panelType: "Slab Panel",
+    panelName: "Slab Decking Square Modular Panel",
+    panelCode: "SP-1200-1200",
+    standardDimension: "1200 × 1200 × 65 mm",
+    length: 1200,
+    width: 1200,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 24.2,
+    description: "Standard square horizontal slab deck panel with reinforced underside cross-ribs for deflection control.",
+    manufacturerRef: "KK-SP-1212",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525"],
     isVerifiedStandard: true,
     isActive: true
   },
   {
-    id: "CAT-EC-65-65-2400",
+    id: "CAT-SP-900-1800",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Slab Panel",
+    panelType: "Slab Panel",
+    panelName: "Large-Span Slab Decking Panel",
+    panelCode: "SP-900-1800",
+    standardDimension: "900 × 1800 × 65 mm",
+    length: 1800,
+    width: 900,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 31.4,
+    description: "Large-span horizontal slab deck panel for high-efficiency floor decking.",
+    manufacturerRef: "KK-SP-1890",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-2538"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-SP-600-1200",
     manufacturer: "Mivan Technology Corp",
-    panelType: "Standard External Corner Angle",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Slab Panel",
+    panelType: "Slab Panel",
+    panelName: "Modular Slab Infill Panel",
+    panelCode: "SP-600-1200",
+    standardDimension: "600 × 1200 × 65 mm",
+    length: 1200,
+    width: 600,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 14.8,
+    description: "Modular slab panel for infill zones, perimeter spans, and early prop-head strip intervals.",
+    manufacturerRef: "MIV-SP-1260",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 11. Door End Panels
+  {
+    id: "CAT-DEP-2100-200",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Door End Panel",
+    panelType: "Door End Panel",
+    panelName: "Door Opening Jamb End Panel",
+    panelCode: "DEP-2100-200",
+    standardDimension: "2100 × 200 × 65 mm",
+    length: 2100,
+    width: 200,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 16.5,
+    description: "Full-height vertical closure panel for standard 2.1m doorway openings in shear wall layouts.",
+    manufacturerRef: "MIV-DEP-2120",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-DEP-2100-150",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Door End Panel",
+    panelType: "Door End Panel",
+    panelName: "Door Opening 150mm End Panel",
+    panelCode: "DEP-2100-150",
+    standardDimension: "2100 × 150 × 65 mm",
+    length: 2100,
+    width: 150,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 13.2,
+    description: "150mm wall thickness doorway jamb termination formwork.",
+    manufacturerRef: "KK-DEP-2115",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 12. Wall End Panels
+  {
+    id: "CAT-WEP-2400-200",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Wall End Panel",
+    panelType: "Wall End Panel",
+    panelName: "Wall Termination End Bulkhead Panel",
+    panelCode: "WEP-2400-200",
+    standardDimension: "2400 × 200 × 65 mm",
+    length: 2400,
+    width: 200,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 17.8,
+    description: "Vertical stop-end panel closing off free wall ends and window opening sides.",
+    manufacturerRef: "MIV-WEP-2420",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-WEP-2700-200",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Wall End Panel",
+    panelType: "Wall End Panel",
+    panelName: "Wall End Extended Bulkhead Panel",
+    panelCode: "WEP-2700-200",
+    standardDimension: "2700 × 200 × 65 mm",
+    length: 2700,
+    width: 200,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 19.8,
+    description: "2.7m extended wall end closure panel for high-clearance shear wall terminations.",
+    manufacturerRef: "KK-WEP-2720",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 13. Corner Panels
+  {
+    id: "CAT-CP-300-2400",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Corner Panel",
+    panelType: "Corner Panel",
+    panelName: "Corner Compensation Alignment Panel",
+    panelCode: "CP-300-2400",
+    standardDimension: "300 × 2400 × 65 mm",
+    length: 2400,
+    width: 300,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 16.5,
+    description: "Corner adjustment panel installed adjoining internal corners for precise grid dimensioning.",
+    manufacturerRef: "MIV-CP-2430",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 14. Internal Corners
+  {
+    id: "CAT-IC-STD-150-2400",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Internal Corner",
+    panelType: "Internal Corner",
+    panelName: "Standard Internal 90° Corner",
+    panelCode: "IC-150-2400-STD",
+    standardDimension: "150 × 150 × 2400 mm",
+    length: 2400,
+    width: 150,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 18.6,
+    description: "Internal corner extrusion connecting right-angled interior shear walls.",
+    manufacturerRef: "MIV-IC-90-24",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 15. External Corners
+  {
+    id: "CAT-EC-65-2400",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
     panelCategory: "External Corner",
+    panelType: "External Corner",
+    panelName: "Standard External 90° Clamp Profile",
     panelCode: "EC-65-2400",
     standardDimension: "65 × 65 × 2400 mm",
     length: 2400,
@@ -350,56 +751,193 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     weightKg: 9.8,
     description: "Rigid 90-degree outer corner extrusion clamping external wall panels together.",
     manufacturerRef: "MIV-EC-6524",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "CL-65"],
     isVerifiedStandard: true,
     isActive: true
   },
 
-  // Soffit Panels
+  // 16. Column Panels
   {
-    id: "CAT-SO-150-2400",
-    manufacturer: "Kumkang Kind Formwork",
-    panelType: "Soffit Length Corner Panel",
-    panelCategory: "Soffit Panel",
-    panelCode: "SO-150-2400",
-    standardDimension: "150 × 2400 mm",
+    id: "CAT-COL-600-2400",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Column Panel",
+    panelType: "Column Panel",
+    panelName: "Structural Column Shutter Panel",
+    panelCode: "COL-600-2400",
+    standardDimension: "600 × 2400 × 65 mm",
     length: 2400,
-    width: 150,
-    thickness: 65,
-    unit: "mm",
-    weightKg: 11.5,
-    description: "Wall-to-slab transition soffit angle supporting early stripping of vertical wall panels while keeping slab propped.",
-    manufacturerRef: "KK-SO-1524",
-    isVerifiedStandard: true,
-    isActive: true
-  },
-
-  // Deck Panels
-  {
-    id: "CAT-DP-600-1200",
-    manufacturer: "Sforms Aluminum Tech",
-    panelType: "Interlocking Deck Panel",
-    panelCategory: "Deck Panel",
-    panelCode: "DP-600-1200",
-    standardDimension: "600 × 1200 mm",
-    length: 1200,
     width: 600,
     thickness: 65,
     unit: "mm",
-    weightKg: 14.2,
-    description: "Interlocking tongue-and-groove decking panel providing flush concrete ceiling finish.",
-    manufacturerRef: "SF-DP-6012",
+    weightKg: 28.5,
+    description: "Heavy-duty column shuttering panel engineered for high hydrostatic concrete head pressure.",
+    manufacturerRef: "MIV-COL-2460",
+    compatibleAccessories: ["TR-15", "WN-15", "CL-80", "WB-300", "WP-PIN-01", "WEDGE-01"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-COL-750-2400",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    formworkSystem: "Geto High-Rise 65mm",
+    panelCategory: "Column Panel",
+    panelType: "Column Panel",
+    panelName: "Wide Column Perimeter Shutter",
+    panelCode: "COL-750-2400",
+    standardDimension: "750 × 2400 × 65 mm",
+    length: 2400,
+    width: 750,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 34.2,
+    description: "Wide column panel for structural core columns in commercial buildings.",
+    manufacturerRef: "GETO-COL-2475",
+    compatibleAccessories: ["TR-15", "WN-15", "CL-80", "WB-300", "WP-PIN-01", "WEDGE-01"],
     isVerifiedStandard: true,
     isActive: true
   },
 
-  // Filler Panels
+  // 17. Stair Panels (Dedicated Category & Parameters - Prompt 10)
+  {
+    id: "CAT-STP-FLT-1200",
+    manufacturer: "Geto Aluminum Formwork Co.",
+    formworkSystem: "Geto High-Rise 65mm",
+    panelCategory: "Stair Panel",
+    panelType: "Stair Panel",
+    panelName: "Monolithic Stair Flight Panel (10 Steps)",
+    panelCode: "STP-FLT-1200",
+    standardDimension: "1200 × 300 × 65 mm",
+    length: 3000,
+    width: 1200,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 42.5,
+    description: "Complete monolithic flight shutter for 10-step staircases with 300mm tread and 150mm riser.",
+    manufacturerRef: "GETO-STP-1200",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15", "PPP-1525"],
+    stairConfig: {
+      stairPanelType: "Flight Panel",
+      stairWidth: 1200,
+      tread: 300,
+      riser: 150,
+      slopeAngle: 30.5,
+      numberOfSteps: 10
+    },
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-STP-FLT-1000",
+    manufacturer: "Kumkang Kind Formwork",
+    formworkSystem: "Kumkang 65mm Standard System",
+    panelCategory: "Stair Panel",
+    panelType: "Stair Panel",
+    panelName: "Standard Stair Flight Panel (8 Steps)",
+    panelCode: "STP-FLT-1000",
+    standardDimension: "1000 × 280 × 65 mm",
+    length: 2400,
+    width: 1000,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 36.0,
+    description: "8-step residential stair flight formwork with 280mm tread and 175mm riser at 32° slope.",
+    manufacturerRef: "KK-STP-1000",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15", "PPP-1525"],
+    stairConfig: {
+      stairPanelType: "Flight Panel",
+      stairWidth: 1000,
+      tread: 280,
+      riser: 175,
+      slopeAngle: 32.0,
+      numberOfSteps: 8
+    },
+    isVerifiedStandard: true,
+    isActive: true
+  },
+  {
+    id: "CAT-STP-LND-1200",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Stair Panel",
+    panelType: "Stair Panel",
+    panelName: "Stair Intermediate Landing Panel",
+    panelCode: "STP-LND-1200",
+    standardDimension: "1200 × 1200 × 65 mm",
+    length: 1200,
+    width: 1200,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 24.5,
+    description: "Intermediate rest landing horizontal shuttering panel for stair core enclosures.",
+    manufacturerRef: "MIV-STP-LND",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525"],
+    stairConfig: {
+      stairPanelType: "Landing Panel",
+      stairWidth: 1200,
+      tread: 300,
+      riser: 150,
+      slopeAngle: 0,
+      numberOfSteps: 1
+    },
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 18. Beam Soffit Panels
+  {
+    id: "CAT-BS-1200-300",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Beam Soffit",
+    panelType: "Beam Soffit",
+    panelName: "Beam Underside Soffit Panel",
+    panelCode: "BS-1200-300",
+    standardDimension: "1200 × 300 × 65 mm",
+    length: 1200,
+    width: 300,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 9.6,
+    description: "Horizontal underside soffit shutter supporting concrete beams between vertical supports.",
+    manufacturerRef: "MIV-BS-1230",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "PPP-1525"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 19. Beam Side Panels
+  {
+    id: "CAT-BSI-1200-500",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Beam Side",
+    panelType: "Beam Side",
+    panelName: "Deep Beam Side Wall Panel",
+    panelCode: "BSI-1200-500",
+    standardDimension: "1200 × 500 × 65 mm",
+    length: 1200,
+    width: 500,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 15.2,
+    description: "Vertical beam side shutter designed for 500mm deep concrete perimeter beams.",
+    manufacturerRef: "MIV-BSI-1250",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 20. Filler Panels
   {
     id: "CAT-FP-100-2400",
     manufacturer: "Mivan Technology Corp",
-    panelType: "Standard Filler Compensation Panel",
+    formworkSystem: "Mivan 65mm Standard System",
     panelCategory: "Filler Panel",
+    panelType: "Filler Panel",
+    panelName: "100mm Precision Tolerance Filler",
     panelCode: "FP-100-2400",
-    standardDimension: "100 × 2400 mm",
+    standardDimension: "100 × 2400 × 65 mm",
     length: 2400,
     width: 100,
     thickness: 65,
@@ -407,16 +945,19 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     weightKg: 6.8,
     description: "Dimensional adjustment panel for custom room spans and structural tolerances.",
     manufacturerRef: "MIV-FP-1024",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01"],
     isVerifiedStandard: true,
     isActive: true
   },
   {
     id: "CAT-FP-50-2400",
     manufacturer: "Mivan Technology Corp",
-    panelType: "Standard Filler Compensation Panel",
+    formworkSystem: "Mivan 65mm Standard System",
     panelCategory: "Filler Panel",
+    panelType: "Filler Panel",
+    panelName: "50mm Gap Infill Extrusion",
     panelCode: "FP-50-2400",
-    standardDimension: "50 × 2400 mm",
+    standardDimension: "50 × 2400 × 65 mm",
     length: 2400,
     width: 50,
     thickness: 65,
@@ -424,18 +965,21 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     weightKg: 4.2,
     description: "50mm precision gap filler extrusion for non-standard room layouts.",
     manufacturerRef: "MIV-FP-5024",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01"],
     isVerifiedStandard: true,
     isActive: true
   },
 
-  // Kicker Panels
+  // 21. Kicker Panels
   {
     id: "CAT-KP-150-2400",
     manufacturer: "Kumkang Kind Formwork",
-    panelType: "Standard Starter Footing Kicker",
+    formworkSystem: "Kumkang 65mm Standard System",
     panelCategory: "Kicker Panel",
+    panelType: "Kicker Panel",
+    panelName: "Starter Slab Footing Kicker",
     panelCode: "KP-150-2400",
-    standardDimension: "150 × 2400 mm",
+    standardDimension: "150 × 2400 × 65 mm",
     length: 2400,
     width: 150,
     thickness: 65,
@@ -443,35 +987,65 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     weightKg: 9.6,
     description: "Bottom alignment starter kicker bolted to the concrete slab edge to anchor upper-floor wall panels.",
     manufacturerRef: "KK-KP-1524",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
     isVerifiedStandard: true,
     isActive: true
   },
 
-  // Platform & Special Panels
+  // 22. Stop End Panels
   {
-    id: "CAT-ST-TREAD-300-1200",
-    manufacturer: "Geto Aluminum Formwork Co.",
-    panelType: "Stair Tread & Riser Panel",
-    panelCategory: "Special Panel",
-    panelCode: "ST-TRD-300-1200",
-    standardDimension: "300 × 1200 mm",
-    length: 1200,
-    width: 300,
+    id: "CAT-SEP-2400-200",
+    manufacturer: "Mivan Technology Corp",
+    formworkSystem: "Mivan 65mm Standard System",
+    panelCategory: "Stop End Panel",
+    panelType: "Stop End Panel",
+    panelName: "Construction Joint Stop-End Panel",
+    panelCode: "SEP-2400-200",
+    standardDimension: "2400 × 200 × 65 mm",
+    length: 2400,
+    width: 200,
     thickness: 65,
     unit: "mm",
-    weightKg: 13.5,
-    description: "Monolithic stair flight formwork component for rapid simultaneous casting with core walls.",
-    manufacturerRef: "GETO-ST-TRD",
+    weightKg: 18.2,
+    description: "Bulkhead stop-end shutter equipped with rebar comb slots for construction cold joints.",
+    manufacturerRef: "MIV-SEP-2420",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15"],
     isVerifiedStandard: true,
     isActive: true
   },
+
+  // 23. Platform / Working Panels
+  {
+    id: "CAT-PWP-1200-800",
+    manufacturer: "Aluma Systems International",
+    formworkSystem: "Aluma EasySet 65mm",
+    panelCategory: "Platform/Accessory Panel",
+    panelType: "Platform/Working Panel",
+    panelName: "External Scaffold Working Platform",
+    panelCode: "PWP-1200-800",
+    standardDimension: "1200 × 800 × 65 mm",
+    length: 1200,
+    width: 800,
+    thickness: 65,
+    unit: "mm",
+    weightKg: 19.5,
+    description: "Perforated non-slip worker access deck panel mounted on external wall climbing brackets.",
+    manufacturerRef: "ALU-PWP-1280",
+    compatibleAccessories: ["WB-800", "WP-PIN-01", "WEDGE-01"],
+    isVerifiedStandard: true,
+    isActive: true
+  },
+
+  // 24. Special Panels
   {
     id: "CAT-LS-600-2400",
     manufacturer: "Mivan Technology Corp",
-    panelType: "Quick-Stripping Core Shaft Panel",
+    formworkSystem: "Mivan Monolithic High-Rise",
     panelCategory: "Special Panel",
+    panelType: "Special Panel",
+    panelName: "Quick-Stripping Core Shaft Panel",
     panelCode: "LS-600-2400",
-    standardDimension: "600 × 2400 mm",
+    standardDimension: "600 × 2400 × 65 mm",
     length: 2400,
     width: 600,
     thickness: 65,
@@ -479,12 +1053,13 @@ export const INITIAL_PANEL_CATALOG: PanelMasterCatalogItem[] = [
     weightKg: 29.5,
     description: "Elevator shaft inner formwork panel configured with crane-lift stripping corners.",
     manufacturerRef: "MIV-LS-2460",
+    compatibleAccessories: ["WP-PIN-01", "WEDGE-01", "TR-15", "WN-15", "PPP-2538"],
     isVerifiedStandard: true,
     isActive: true
   }
 ];
 
-// Initial Master Projects
+
 export const INITIAL_MASTER_PROJECTS: MasterProjectRecord[] = [
   {
     id: "PRJ-001",
@@ -1666,7 +2241,7 @@ export class MasterDataService {
           length: m.length,
           width: m.width,
           thickness: m.thickness || 65,
-          unit: m.unit || "mm",
+          unit: (m.unit as "mm" | "m") || "mm",
           isVerifiedStandard: !!m.isVerifiedStandard
         });
       }
@@ -1704,6 +2279,299 @@ export class MasterDataService {
       description: m.description,
       category: m.panelCategory
     }));
+  }
+
+  // --- 1.1 EXACT CASCADING HIERARCHICAL METHODS (PROMPT 2 & 3) ---
+
+  // Level 1: Get Categories
+  static async getCategories(): Promise<string[]> {
+    const catalog = await this.getPanelCatalog({ activeOnly: true });
+    const set = new Set<string>();
+    INITIAL_PANEL_TYPES.forEach(t => set.add(t.category));
+    catalog.forEach(c => {
+      if (c.panelCategory) set.add(c.panelCategory);
+    });
+    return Array.from(set).sort();
+  }
+
+  // Level 2: Get Panel Types for Category
+  static async getPanelTypesForCategory(category: string): Promise<string[]> {
+    const catalog = await this.getPanelCatalog({ activeOnly: true });
+    const set = new Set<string>();
+    INITIAL_PANEL_TYPES.filter(t => !category || category === "ALL" || t.category === category).forEach(t => set.add(t.name));
+    catalog.filter(c => !category || category === "ALL" || c.panelCategory === category).forEach(c => {
+      if (c.panelType) set.add(c.panelType);
+    });
+    return Array.from(set).sort();
+  }
+
+  // Level 3: Get Panel Names for Category & Panel Type
+  static async getPanelNamesForType(category: string, panelType: string): Promise<string[]> {
+    const catalog = await this.getPanelCatalog({ activeOnly: true });
+    const set = new Set<string>();
+    catalog
+      .filter(c => (!category || category === "ALL" || c.panelCategory === category) &&
+                   (!panelType || panelType === "ALL" || c.panelType === panelType))
+      .forEach(c => {
+        if (c.panelName) set.add(c.panelName);
+      });
+    if (set.size === 0 && panelType && panelType !== "ALL") {
+      set.add(`${panelType} Standard`);
+    }
+    return Array.from(set).sort();
+  }
+
+  // Level 4: Get Manufacturers and Formwork Systems for selected Panel
+  static async getManufacturersForPanel(
+    category: string,
+    panelType: string,
+    panelName?: string
+  ): Promise<Array<{ manufacturer: string; formworkSystem?: string }>> {
+    const catalog = await this.getPanelCatalog({ activeOnly: true });
+    const matches = catalog.filter(c => {
+      if (category && category !== "ALL" && c.panelCategory !== category) return false;
+      if (panelType && panelType !== "ALL" && c.panelType !== panelType) return false;
+      if (panelName && panelName !== "ALL" && c.panelName && c.panelName !== panelName) return false;
+      return true;
+    });
+
+    const mfrMap = new Map<string, { manufacturer: string; formworkSystem?: string }>();
+    matches.forEach(m => {
+      const key = `${m.manufacturer}||${m.formworkSystem || ""}`;
+      if (!mfrMap.has(key)) {
+        mfrMap.set(key, { manufacturer: m.manufacturer, formworkSystem: m.formworkSystem });
+      }
+    });
+
+    if (mfrMap.size === 0) {
+      INITIAL_MANUFACTURERS.forEach(m => {
+        mfrMap.set(`${m.name}||${m.formworkSystems[0]}`, { manufacturer: m.name, formworkSystem: m.formworkSystems[0] });
+      });
+    }
+
+    return Array.from(mfrMap.values());
+  }
+
+  // Level 5: Get Dimensions for Selection
+  static async getDimensionsForSelection(
+    category: string,
+    panelType: string,
+    panelName?: string,
+    manufacturer?: string,
+    formworkSystem?: string
+  ): Promise<Array<{
+    standardDimension: string;
+    length: number;
+    width: number;
+    thickness: number;
+    height?: number;
+    unit: string;
+    weightKg?: number;
+    isVerifiedStandard: boolean;
+  }>> {
+    const catalog = await this.getPanelCatalog({ activeOnly: true });
+    const matches = catalog.filter(c => {
+      if (category && category !== "ALL" && c.panelCategory !== category) return false;
+      if (panelType && panelType !== "ALL" && c.panelType !== panelType) return false;
+      if (panelName && panelName !== "ALL" && c.panelName && c.panelName !== panelName) return false;
+      if (manufacturer && manufacturer !== "ALL" && c.manufacturer !== manufacturer) return false;
+      if (formworkSystem && formworkSystem !== "ALL" && c.formworkSystem && c.formworkSystem !== formworkSystem) return false;
+      return true;
+    });
+
+    const dimMap = new Map<string, {
+      standardDimension: string;
+      length: number;
+      width: number;
+      thickness: number;
+      height?: number;
+      unit: string;
+      weightKg?: number;
+      isVerifiedStandard: boolean;
+    }>();
+
+    matches.forEach(m => {
+      const key = m.standardDimension || `${m.length} × ${m.width} × ${m.thickness} ${m.unit}`;
+      if (!dimMap.has(key)) {
+        dimMap.set(key, {
+          standardDimension: key,
+          length: m.length,
+          width: m.width,
+          thickness: m.thickness,
+          height: m.height,
+          unit: m.unit || "mm",
+          weightKg: m.weightKg,
+          isVerifiedStandard: !!m.isVerifiedStandard
+        });
+      }
+    });
+
+    return Array.from(dimMap.values()).sort((a, b) => b.width - a.width || b.length - a.length);
+  }
+
+  // Level 6: Get Panel Codes and Complete Master Records
+  static async getCodesForSelection(
+    category: string,
+    panelType: string,
+    panelName?: string,
+    manufacturer?: string,
+    dimensionStr?: string,
+    formworkSystem?: string
+  ): Promise<PanelMasterCatalogItem[]> {
+    const catalog = await this.getPanelCatalog({ activeOnly: true });
+    return catalog.filter(c => {
+      if (category && category !== "ALL" && c.panelCategory !== category) return false;
+      if (panelType && panelType !== "ALL" && c.panelType !== panelType) return false;
+      if (panelName && panelName !== "ALL" && c.panelName && c.panelName !== panelName) return false;
+      if (manufacturer && manufacturer !== "ALL" && c.manufacturer !== manufacturer) return false;
+      if (formworkSystem && formworkSystem !== "ALL" && c.formworkSystem && c.formworkSystem !== formworkSystem) return false;
+      if (dimensionStr && dimensionStr !== "ALL" && c.standardDimension !== dimensionStr) return false;
+      return true;
+    });
+  }
+
+  // Level 7: Get Compatible Accessories based on panelCode, panelType, and manufacturer
+  static async getCompatibleAccessoriesForPanel(
+    panelCode: string,
+    panelType?: string,
+    manufacturer?: string
+  ): Promise<AccessoryMasterCatalogItem[]> {
+    const accCatalog = await this.getAccessoryCatalog({ activeOnly: true });
+    const panelCatalog = await this.getPanelCatalog();
+    const panel = panelCatalog.find(p => p.panelCode === panelCode);
+
+    if (panel && panel.compatibleAccessories && panel.compatibleAccessories.length > 0) {
+      const explicitCodes = new Set(panel.compatibleAccessories.map(c => c.toUpperCase().trim()));
+      const matches = accCatalog.filter(a => explicitCodes.has(a.accessoryCode.toUpperCase().trim()));
+      if (matches.length > 0) return matches;
+    }
+
+    return this.getCompatibleAccessories(panelType || (panel ? panel.panelType : ""), panelCode);
+  }
+
+  // --- 1.1.2 MASTER DATA MANAGEMENT & DUPLICATE CHECKS (PROMPT 12 & 13) ---
+  static async checkDuplicatePanelCode(
+    panelCode: string,
+    manufacturer: string,
+    formworkSystem?: string,
+    excludeId?: string
+  ): Promise<boolean> {
+    const catalog = await this.getPanelCatalog();
+    const targetCode = panelCode.trim().toUpperCase();
+    const targetMfr = manufacturer.trim().toLowerCase();
+    const targetSys = (formworkSystem || "").trim().toLowerCase();
+
+    return catalog.some(item => {
+      if (excludeId && item.id === excludeId) return false;
+      const matchCode = item.panelCode.trim().toUpperCase() === targetCode;
+      const matchMfr = item.manufacturer.trim().toLowerCase() === targetMfr;
+      const matchSys = !targetSys || !item.formworkSystem || item.formworkSystem.trim().toLowerCase() === targetSys;
+      return matchCode && matchMfr && matchSys;
+    });
+  }
+
+  static async findSimilarPanels(
+    panelType: string,
+    length: number,
+    width: number,
+    manufacturer?: string
+  ): Promise<PanelMasterCatalogItem[]> {
+    const catalog = await this.getPanelCatalog();
+    return catalog.filter(item => {
+      const typeMatch = item.panelType.toLowerCase() === panelType.toLowerCase();
+      const lengthMatch = Math.abs(item.length - length) <= 100;
+      const widthMatch = Math.abs(item.width - width) <= 50;
+      const mfrMatch = !manufacturer || item.manufacturer.toLowerCase() === manufacturer.toLowerCase();
+      return typeMatch && lengthMatch && widthMatch && mfrMatch;
+    });
+  }
+
+  static async addPanelType(name: string, category: string, description?: string): Promise<void> {
+    const newType: MasterPanelTypeRecord = {
+      id: `PT-CUSTOM-${Date.now().toString().slice(-6)}`,
+      name: name.trim(),
+      category: category.trim(),
+      description: description?.trim() || `Configurable panel type for ${name.trim()}`,
+      isActive: true,
+      createdAt: new Date().toISOString()
+    };
+    await DbService.writeDocument<MasterPanelTypeRecord>("panelTypes", newType, INITIAL_PANEL_TYPES);
+  }
+
+  static async addManufacturer(name: string, formworkSystems: string[], country = "Global", contactInfo?: string): Promise<void> {
+    const newMfr: MasterManufacturerRecord = {
+      id: `MFR-${name.replace(/[^A-Za-z0-9]/g, "-").toUpperCase()}-${Date.now().toString().slice(-4)}`,
+      name: name.trim(),
+      formworkSystems: formworkSystems.length ? formworkSystems : [`${name.trim()} Standard System`],
+      country: country.trim(),
+      contactInfo: contactInfo?.trim() || "",
+      isActive: true,
+      createdAt: new Date().toISOString()
+    };
+    await DbService.writeDocument<MasterManufacturerRecord>("manufacturers", newMfr, INITIAL_MANUFACTURERS);
+  }
+
+  static async addDimension(
+    panelType: string,
+    manufacturer: string,
+    length: number,
+    width: number,
+    thickness: number,
+    unit = "mm",
+    formworkSystem?: string
+  ): Promise<void> {
+    const newDim: MasterPanelDimensionRecord = {
+      id: `DIM-${Date.now().toString().slice(-6)}`,
+      panelType,
+      manufacturer,
+      formworkSystem,
+      length,
+      width,
+      thickness,
+      unit,
+      formatted: `${length} × ${width} × ${thickness} ${unit}`,
+      isActive: true
+    };
+    await DbService.writeDocument<MasterPanelDimensionRecord>("panelDimensions", newDim, []);
+  }
+
+  // Transaction-based inventory recording (Prompt 14)
+  static async recordStockTransaction(tx: StockTransactionRecord): Promise<void> {
+    const fullTx: StockTransactionRecord = {
+      ...tx,
+      id: tx.id || `TX-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: tx.timestamp || new Date().toISOString()
+    };
+    await DbService.writeDocument<StockTransactionRecord>("stockTransactions", fullTx, []);
+    try {
+      await DbService.addAuditLog({
+        id: `LOG-TX-${Date.now().toString().slice(-6)}`,
+        action: `Inventory ${tx.transactionType}: ${tx.panelCode}`,
+        userId: tx.performedBy || "System User",
+        userName: tx.performedBy || "System User",
+        userRole: (tx.performedByRole as any) || "Warehouse Manager",
+        timestamp: new Date().toISOString(),
+        details: `${tx.transactionType} ${tx.quantity} units of ${tx.panelCode} (${tx.panelType}) at ${tx.warehouseName || tx.fromLocation} -> ${tx.toLocation}.`,
+        severity: tx.transactionType === "DAMAGE" ? "Warning" : "Info",
+        category: "Material / Store"
+      });
+    } catch (e) {
+      console.warn("Audit log notice:", e);
+    }
+  }
+
+  static async getStockTransactions(filters?: {
+    panelCode?: string;
+    warehouseId?: string;
+    transactionType?: string;
+  }): Promise<StockTransactionRecord[]> {
+    const all = await DbService.fetchCollection<StockTransactionRecord>("stockTransactions", []);
+    return all.filter(t => {
+      if (filters?.panelCode && t.panelCode !== filters.panelCode) return false;
+      if (filters?.warehouseId && t.warehouseId !== filters.warehouseId) return false;
+      if (filters?.transactionType && t.transactionType !== filters.transactionType) return false;
+      return true;
+    });
   }
 
   // --- 1.2 CENTRALIZED ACCESSORIES MASTER CATALOG ---

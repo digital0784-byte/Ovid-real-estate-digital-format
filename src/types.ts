@@ -27,9 +27,12 @@ export interface AuditLog {
   timestamp: string;
   userId: string;
   userName: string;
-  role: UserRole;
+  role?: UserRole | string;
+  userRole?: string;
   action: string;
   details: string;
+  severity?: "INFO" | "WARNING" | "CRITICAL" | string;
+  category?: string;
   gps?: {
     latitude: number;
     longitude: number;
@@ -698,17 +701,36 @@ export interface WarehousePanelTypeEntry {
   id: string;
   warehouseId: string;
   warehouseName: string;
-  panelTypeName: string; // e.g. "Wall Panel", "Slab Panel", "Corner Panel", "Column Panel"
-  panelCode: string;     // e.g. "WP-600-2400"
-  panelCategory: "Wall" | "Slab" | "Corner" | "Column" | "Beam" | "Deck" | "Accessory" | "Special";
+  panelTypeName: string; // e.g. "Internal Wall Panel", "External Wall Panel", "Extend Panel", "Soffit Panel", "Beam Panel", "CA Panel", "IC Panel", "SC Panel", "SCR Panel", "Slab Panel", "Door End Panel", "Wall End Panel", "Corner Panel", "Internal Corner", "External Corner", "Column Panel", "Stair Panel", "Beam Soffit", "Beam Side", "Filler Panel", "Kicker Panel", "Stop End Panel", "Platform/Working Panel"
+  panelName?: string;    // e.g. "Internal Wall Standard Panel", "Corridor Partition Panel"
+  panelCode: string;     // e.g. "IWP-1200-600", "WP-600-2400"
+  panelCategory: "Wall" | "Internal Wall" | "External Wall" | "Slab" | "Corner" | "Column" | "Beam" | "Deck" | "Stair" | "Soffit" | "Filler" | "Kicker" | "Accessory" | "Special" | string;
+  manufacturer?: string;
+  formworkSystem?: string;
+  catalogId?: string;
   description?: string;
   dimension: {
     length: number;
     width: number;
     heightThickness?: number;
-    unit: "mm" | "m";
-    formatted: string; // e.g. "600 × 2400 mm" or "0.60 × 2.40 m"
+    height?: number;
+    unit: "mm" | "m" | string;
+    formatted: string; // e.g. "1200 × 600 × 65 mm" or "600 × 2400 mm"
   };
+  stairConfig?: {
+    stairPanelType?: string;
+    stairWidth?: number;
+    tread?: number;
+    riser?: number;
+    slopeAngle?: number;
+    numberOfSteps?: number;
+  };
+  project?: string;
+  site?: string;
+  building?: string;
+  floor?: number;
+  zone?: string;
+  stair?: string;
   condition: PanelConditionType;
   serialMode: "Range" | "Individual";
   serialPrefix?: string;
@@ -1086,6 +1108,8 @@ export const DEPARTMENTS_CATALOG = [
 // === CENTRALIZED MASTER DATA SYSTEM TYPES ===
 
 export type PanelCategoryType =
+  | "Internal Wall"
+  | "External Wall"
   | "Wall Panel"
   | "Slab Panel"
   | "Column Panel"
@@ -1093,32 +1117,128 @@ export type PanelCategoryType =
   | "Corner Panel"
   | "Internal Corner"
   | "External Corner"
+  | "CA Panel"
+  | "IC Panel"
+  | "SC Panel"
+  | "SCR Panel"
   | "Soffit Panel"
   | "Deck Panel"
+  | "Door End Panel"
+  | "Wall End Panel"
+  | "Stair Panel"
+  | "Beam Soffit"
+  | "Beam Side"
   | "Filler Panel"
   | "Kicker Panel"
+  | "Extend Panel"
+  | "Stop End Panel"
   | "Platform/Accessory Panel"
   | "Special Panel";
+
+export interface StairPanelConfig {
+  stairPanelType?: "Flight Panel" | "Landing Panel" | "Tread-Riser Unit" | "Stringer Panel" | string;
+  stairWidth?: number; // mm (e.g. 1000, 1200)
+  tread?: number; // mm (e.g. 280, 300)
+  riser?: number; // mm (e.g. 150, 175)
+  slopeAngle?: number; // degrees (e.g. 28.5, 30.5)
+  numberOfSteps?: number; // (e.g. 8, 9, 10)
+}
 
 export interface PanelMasterCatalogItem {
   id: string;
   manufacturer: string;
-  panelType: string;
+  formworkSystem?: string; // e.g. "Mivan 65mm Standard System", "Aluma EasySet", "Kumkang 65mm System"
+  panelType: string;       // e.g. "Internal Wall Panel", "External Wall Panel", "Extend Panel", "Soffit Panel", "Beam Panel", "CA Panel", "IC Panel", "SC Panel", "SCR Panel", "Slab Panel", "Door End Panel", "Wall End Panel", "Corner Panel", "Internal Corner", "External Corner", "Column Panel", "Stair Panel", "Beam Soffit", "Beam Side", "Filler Panel", "Kicker Panel", "Stop End Panel", "Platform/Working Panel"
+  panelName?: string;      // e.g. "Internal Wall Standard Panel", "Corridor Partition Panel"
   panelCategory: PanelCategoryType | string;
-  panelCode: string;
-  standardDimension: string; // e.g. "600 × 2400 mm"
+  panelCode: string;       // e.g. "IWP-1200-600", "EWP-1200-900", "CA-100-2400"
+  manufacturerCode?: string; // Original manufacturer code
+  internalErpCode?: string;  // Internal ERP code
+  standardDimension: string; // e.g. "1200 × 600 × 65 mm" or "600 × 2400 mm"
   length: number;
   width: number;
   thickness: number;
-  unit: "mm" | "m";
+  height?: number; // where applicable
+  unit: "mm" | "m" | "inch" | string;
   weightKg?: number;
   description: string;
   manufacturerRef?: string;
+  barcode?: string;
+  qrCodePayload?: string;
+  serialTrackingRequired?: boolean;
+  compatibleAccessories?: string[]; // accessory codes, e.g. ["TR-15", "WN-15", "PC-22", "WEDGE-01", "PIN-1650"]
+  stairConfig?: StairPanelConfig;
   isVerifiedStandard: boolean; // Must not claim unverified dimensions are official international standards
   isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
   updatedBy?: string;
+}
+
+export interface MasterManufacturerRecord {
+  id: string;
+  name: string;
+  formworkSystems: string[];
+  country: string;
+  description?: string;
+  contactInfo?: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface MasterPanelTypeRecord {
+  id: string;
+  name: string;
+  category: PanelCategoryType | string;
+  description?: string;
+  isActive: boolean;
+  createdAt?: string;
+}
+
+export interface MasterPanelDimensionRecord {
+  id: string;
+  panelType: string;
+  manufacturer: string;
+  formworkSystem?: string;
+  length: number;
+  width: number;
+  thickness: number;
+  height?: number;
+  unit: string;
+  formatted: string; // "1200 × 600 × 65 mm"
+  weightKg?: number;
+  isActive: boolean;
+}
+
+export interface StockTransactionRecord {
+  id: string;
+  panelId: string;
+  panelCode: string;
+  panelName?: string;
+  panelType: string;
+  manufacturer?: string;
+  dimension: string;
+  transactionType: "REGISTER" | "ISSUE" | "TRANSFER" | "RETURN" | "INSTALL" | "DAMAGE" | "REPAIR" | "AUDIT_ADJUST";
+  quantity: number;
+  fromLocation: string;
+  toLocation: string;
+  warehouseId: string;
+  warehouseName: string;
+  projectId?: string;
+  projectName?: string;
+  siteId?: string;
+  siteName?: string;
+  building?: string;
+  floor?: number;
+  zone?: string;
+  stair?: string;
+  condition?: PanelConditionType;
+  status?: PanelInventoryStatus;
+  serialNumbers?: string[];
+  performedBy: string;
+  performedByRole?: string;
+  notes?: string;
+  timestamp: string;
 }
 
 export interface MasterProjectRecord {
@@ -1225,3 +1345,347 @@ export interface PanelAccessoryEntry {
   unitCostEtb?: number;
   notes?: string;
 }
+
+// === SITE STORE MATERIAL REQUEST & ISSUE MANAGEMENT TYPES ===
+
+export type MaterialRequestLifecycleStatus =
+  | "DRAFT"
+  | "REQUESTED"
+  | "UNDER_REVIEW"
+  | "APPROVED"
+  | "PARTIALLY_APPROVED"
+  | "REJECTED"
+  | "READY_FOR_ISSUE"
+  | "ISSUED"
+  | "RECEIVED"
+  | "CONSUMED"
+  | "PARTIALLY_RETURNED"
+  | "RETURNED"
+  | "CLOSED";
+
+export type MaterialItemCondition =
+  | "Good"
+  | "Used"
+  | "Damaged"
+  | "Under Repair"
+  | "Missing"
+  | "Unusable";
+
+export interface RequestAttachedAccessory {
+  id: string;
+  accessoryName: string;
+  accessoryCode: string;
+  dimension: string;
+  unit: string;
+  quantity: number;
+  availableStock?: number;
+}
+
+export interface MaterialRequestAuditEntry {
+  action: string;
+  performedBy: string;
+  performedByUid: string;
+  role: string;
+  timestamp: string;
+  details: string;
+  previousStatus?: string;
+  newStatus?: string;
+}
+
+export interface EnhancedMaterialRequest {
+  id: string;
+  requestNumber: string;
+  date: string;
+  time: string;
+  timestamp: number;
+  requesterUid: string;
+  requesterName: string;
+  requesterRole: string; // "Team Leader" | "Gang Chief" | "Section Head" | string
+  project: string;
+  projectId: string;
+  site: string;
+  siteId: string;
+  building: string;
+  floor: string | number;
+  zone: string;
+  teamGangSection: string;
+  siteStoreId: string;
+  siteStoreName: string;
+  materialCategory: string; // "Aluminum Formwork Panels" | "Stair Panels" | "Panel Accessories" | "Construction Materials" | "Tools" | "Equipment" | "Consumables"
+  materialName: string;
+  materialCode: string;
+  panelType?: string;
+  panelDimension?: string;
+  serialNumbers?: string[];
+  manufacturer?: string;
+  formworkSystem?: string;
+  requestedQuantity: number;
+  approvedQuantity: number;
+  issuedQuantity: number;
+  returnedQuantity: number;
+  unit: string;
+  requiredDate: string;
+  priority: "Normal" | "Urgent" | "Critical";
+  reason: string;
+  workActivity: string;
+  notes?: string;
+  photoUrl?: string;
+  cadRef?: string;
+  status: MaterialRequestLifecycleStatus;
+  reviewedBy?: string;
+  reviewedByRole?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  issuedBy?: string;
+  issuedAt?: string;
+  receivedBy?: string;
+  receivedAt?: string;
+  receiverConfirmation?: boolean;
+  attachedAccessories?: RequestAttachedAccessory[];
+  history: MaterialRequestAuditEntry[];
+}
+
+export interface EnhancedMaterialIssue {
+  id: string;
+  requestId: string;
+  date: string;
+  time: string;
+  timestamp: number;
+  project: string;
+  projectId: string;
+  site: string;
+  siteId: string;
+  building: string;
+  floor: string | number;
+  zone: string;
+  teamGangSection: string;
+  siteStoreId: string;
+  siteStoreName: string;
+  materialCategory: string;
+  materialName: string;
+  materialCode: string;
+  panelType?: string;
+  panelDimension?: string;
+  serialNumbers?: string[];
+  requestedQuantity: number;
+  approvedQuantity: number;
+  issuedQuantity: number;
+  unit: string;
+  condition: MaterialItemCondition;
+  storageLocation: string;
+  issuedBy: string;
+  issuedByUid: string;
+  receivedBy: string;
+  receivedByUid: string;
+  receivedByRole: string;
+  isReceivedConfirmed: boolean;
+  receivedAt?: string;
+  workActivity: string;
+  reason: string;
+  status: "ISSUED" | "RECEIVED" | "PARTIALLY_RETURNED" | "RETURNED";
+  note?: string;
+}
+
+export interface EnhancedMaterialReturn {
+  id: string;
+  originalIssueId: string;
+  requestId?: string;
+  date: string;
+  time: string;
+  timestamp: number;
+  userUid: string;
+  userName: string;
+  userRole: string;
+  project: string;
+  projectId: string;
+  site: string;
+  siteId: string;
+  building: string;
+  floor: string | number;
+  zone: string;
+  teamGangSection: string;
+  siteStoreId: string;
+  siteStoreName: string;
+  materialCategory: string;
+  materialName: string;
+  materialCode: string;
+  panelType?: string;
+  panelDimension?: string;
+  serialNumbers?: string[];
+  originallyIssuedQuantity: number;
+  usedQuantity: number;
+  returnedQuantity: number;
+  condition: MaterialItemCondition;
+  returnReason: string;
+  receivedByStoreOwner: string;
+  receivedByStoreOwnerUid: string;
+  returnConfirmation: boolean;
+  photoUrl?: string;
+  notes?: string;
+}
+
+// === DAILY SITE STORE MATERIAL MOVEMENT REPORT & AUTOMATIC NOTIFICATION TYPES ===
+
+export interface DailyReportIssuedItem {
+  no: number;
+  time: string;
+  user: string;
+  userUid: string;
+  role: string;
+  project: string;
+  site: string;
+  location: string; // Building - Floor - Zone
+  material: string;
+  code: string;
+  qty: number;
+  unit: string;
+  condition: string;
+  issueId: string;
+}
+
+export interface DailyReportReturnedItem {
+  no: number;
+  time: string;
+  user: string;
+  userUid: string;
+  role: string;
+  project: string;
+  site: string;
+  location: string;
+  material: string;
+  code: string;
+  issuedQty: number;
+  usedQty: number;
+  returnedQty: number;
+  condition: string;
+  returnId: string;
+}
+
+export interface DailyReportPanelMovement {
+  panelType: string;
+  panelCode: string;
+  dimension: string;
+  serialNumber: string;
+  issued: number;
+  returned: number;
+  installed: number;
+  damaged: number;
+  missing: number;
+  currentStatus: string;
+}
+
+export interface DailyReportUserBreakdown {
+  userName: string;
+  userRole: string;
+  teamGangSection: string;
+  issued: number;
+  returned: number;
+  net: number;
+}
+
+export interface DailyReportSiteStoreSummary {
+  siteStoreId: string;
+  siteStoreName: string;
+  siteName: string;
+  projectName: string;
+  issued: number;
+  returned: number;
+  net: number;
+  damaged: number;
+  missing: number;
+}
+
+export interface DailySiteStoreMaterialReport {
+  id: string; // idempotent: DMR-{reportDate}-{siteStoreId}
+  reportDate: string; // YYYY-MM-DD
+  generatedAt: string;
+  timezone: string; // "Africa/Addis_Ababa"
+  siteStoreId: string; // or "ALL"
+  siteStoreName: string;
+  projectId?: string;
+  projectName?: string;
+  siteId?: string;
+  siteName?: string;
+  summary: {
+    totalTransactions: number;
+    totalItemsIssued: number;
+    totalItemsReturned: number;
+    netMovement: number; // Issued - Returned
+    damagedReturns: number;
+    missingItems: number;
+    unusableItems: number;
+  };
+  siteStoreBreakdown: DailyReportSiteStoreSummary[];
+  issuedMaterials: DailyReportIssuedItem[];
+  returnedMaterials: DailyReportReturnedItem[];
+  panelMovements: DailyReportPanelMovement[];
+  userBreakdown: DailyReportUserBreakdown[];
+  reconciliation: {
+    openingStock: number;
+    received: number;
+    returned: number;
+    transferIn: number;
+    issued: number;
+    transferOut: number;
+    damaged: number;
+    missing: number;
+    adjustments: number;
+    calculatedClosingStock: number;
+    systemRecordedStock: number;
+    isBalanced: boolean;
+    discrepancyCount: number;
+    status: "BALANCED" | "DISCREPANCY_DETECTED" | "RESOLVED";
+  };
+  notificationStatus: {
+    notifiedRoles: string[]; // ["Warehouse Manager", "Head Office Manager", "Super Admin"]
+    sentAt: string;
+    deliveryChannels: {
+      inApp: boolean;
+      push: boolean;
+      email: boolean;
+    };
+    readBy: string[];
+  };
+  reportStatus: "FINAL" | "DRAFT" | "AUTO_GENERATED";
+  generatedBy: string;
+  generatedAutomatically: boolean;
+}
+
+export interface InventoryDiscrepancy {
+  id: string;
+  reportDate: string;
+  siteStoreId: string;
+  siteStoreName: string;
+  materialName: string;
+  materialCode: string;
+  discrepancyType:
+    | "NEGATIVE_STOCK"
+    | "MISSING_SERIAL"
+    | "DUPLICATE_SERIAL"
+    | "ISSUED_GREATER_THAN_APPROVED"
+    | "RETURNED_GREATER_THAN_ISSUED"
+    | "INVENTORY_MISMATCH"
+    | "UNCONFIRMED_RECEIPT"
+    | "UNRESOLVED_DAMAGED"
+    | "UNRESOLVED_MISSING";
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  details: string;
+  detectedAt: string;
+  status: "OPEN" | "INVESTIGATING" | "RESOLVED" | "OVERRULED";
+  assignedTo: string[];
+  resolvedBy?: string;
+  resolvedAt?: string;
+  resolutionNotes?: string;
+}
+
+export interface DailyReportScheduleConfig {
+  id: string;
+  reportTime: string; // e.g. "18:00"
+  timezone: string; // "Africa/Addis_Ababa"
+  workingDays: string[]; // ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+  includeWeekends: boolean;
+  includeHolidays: boolean;
+  recipients: string[]; // ["Warehouse Manager", "Head Office Manager", "Super Admin"]
+  autoSyncToHQ: boolean;
+}
+

@@ -419,6 +419,55 @@ service cloud.firestore {
       allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
       allow delete: if isAdminOrHeadOffice();
     }
+    match /dailyMaterialReports/{reportId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /enhancedMaterialRequests/{requestId} {
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isSiteStoreRole() || isProjectManager() ||
+                     (resource.data.requesterUid == request.auth.uid) ||
+                     (userDocExists() && 'assignedSite' in getUserData() && getUserData().assignedSite == resource.data.site);
+      allow create: if !isSignedIn() || (isSignedIn() && (
+                      isAdminOrHeadOffice() || isSiteStoreRole() ||
+                      (request.resource.data.requesterUid == request.auth.uid)
+                    ));
+      allow update: if !isSignedIn() || isAdminOrHeadOffice() ||
+                     // Site store owner can approve/reject/issue, but requester CANNOT approve own request
+                     (isSiteStoreRole() && (isSuperAdmin() || resource.data.requesterUid != request.auth.uid)) ||
+                     // Requester can confirm receipt or cancel draft
+                     (resource.data.requesterUid == request.auth.uid && request.resource.data.status in ['RECEIVED', 'CONSUMED', 'PARTIALLY_RETURNED', 'RETURNED', 'CLOSED']);
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /enhancedMaterialIssues/{issueId} {
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isSiteStoreRole() ||
+                     (resource.data.requesterUid == request.auth.uid) ||
+                     (resource.data.receivedByUid == request.auth.uid);
+      allow create: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice() ||
+                     (request.auth.uid == resource.data.receivedByUid);
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /enhancedMaterialReturns/{returnId} {
+      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isSiteStoreRole() ||
+                     (resource.data.userUid == request.auth.uid);
+      allow create: if !isSignedIn() || isSignedIn();
+      allow update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
+    }
+    match /stockTransactions/{txId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow create: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow update, delete: if false; // Immutable audit ledger
+    }
+    match /stockReservations/{resId} {
+      allow read, write: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+    }
+    match /inventoryDiscrepancies/{discrepancyId} {
+      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow create, update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
+    }
 
     // 10. CAD Files & Site Operational Logs
     match /cadFiles/{cadId} {

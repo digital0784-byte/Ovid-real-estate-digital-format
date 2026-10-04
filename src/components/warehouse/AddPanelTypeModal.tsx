@@ -41,9 +41,11 @@ import {
   MasterSiteStoreRecord,
   MasterStorageLocationRecord,
   PanelAccessoryEntry,
-  AccessoryMasterCatalogItem
+  AccessoryMasterCatalogItem,
+  StairPanelConfig,
+  PanelMasterCatalogItem
 } from "../../types";
-import { MasterDataService, INITIAL_ACCESSORY_CATALOG } from "../../services/masterDataService";
+import { MasterDataService, INITIAL_ACCESSORY_CATALOG, INITIAL_PANEL_TYPES, INITIAL_MANUFACTURERS } from "../../services/masterDataService";
 import { SearchableSmartDropdown, DropdownOption } from "../common/SearchableSmartDropdown";
 
 interface AddPanelTypeModalProps {
@@ -55,6 +57,8 @@ interface AddPanelTypeModalProps {
   warehouseName: string;
   warehouseId: string;
   isAmharic?: boolean;
+  currentUserRole?: string;
+  currentUserName?: string;
 }
 
 export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
@@ -65,13 +69,18 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
   initialData,
   warehouseName,
   warehouseId,
-  isAmharic = false
+  isAmharic = false,
+  currentUserRole = "Super Admin",
+  currentUserName = "Authorized Manager"
 }) => {
   // --- 1. MASTER DATA STATES ---
-  const [panelCatalog, setPanelCatalog] = useState<any[]>([]);
+  const [panelCatalog, setPanelCatalog] = useState<PanelMasterCatalogItem[]>([]);
+  const [availableCategories, setAvailableCategories] = useState<string[]>([]);
   const [availablePanelTypes, setAvailablePanelTypes] = useState<string[]>([]);
+  const [availablePanelNames, setAvailablePanelNames] = useState<string[]>([]);
+  const [availableManufacturers, setAvailableManufacturers] = useState<Array<{ manufacturer: string; formworkSystem?: string }>>([]);
   const [availableDimensions, setAvailableDimensions] = useState<any[]>([]);
-  const [availableCodes, setAvailableCodes] = useState<any[]>([]);
+  const [availableCodes, setAvailableCodes] = useState<PanelMasterCatalogItem[]>([]);
 
   // Project, Site, Warehouse, Site Store, Location master records
   const [projects, setProjects] = useState<MasterProjectRecord[]>([]);
@@ -80,24 +89,83 @@ export const AddPanelTypeModal: React.FC<AddPanelTypeModalProps> = ({
   const [siteStores, setSiteStores] = useState<MasterSiteStoreRecord[]>([]);
   const [existingLocations, setExistingLocations] = useState<MasterStorageLocationRecord[]>([]);
 
-  // --- 2. CASCADING SELECTIONS: Panel Type -> Dimension -> Panel Code ---
+  // --- 2. CASCADING SELECTIONS (Prompt 2 & 3 exact relationship):
+  // Panel Category -> Panel Type -> Panel Name -> Manufacturer/Formwork System -> Dimension -> Panel Code -> Compatible Accessories
+  const [selectedCategory, setSelectedCategory] = useState<string>(
+    initialData?.panelCategory || "Internal Wall"
+  );
   const [selectedPanelType, setSelectedPanelType] = useState<string>(
-    initialData?.panelTypeName || "Standard Wall Panel"
+    initialData?.panelTypeName || "Internal Wall Panel"
+  );
+  const [selectedPanelName, setSelectedPanelName] = useState<string>(
+    initialData?.panelName || "Internal Wall Standard Modular Panel"
+  );
+  const [selectedManufacturer, setSelectedManufacturer] = useState<string>(
+    initialData?.manufacturer || "Mivan Technology Corp"
+  );
+  const [selectedFormworkSystem, setSelectedFormworkSystem] = useState<string>(
+    initialData?.formworkSystem || "Mivan 65mm Standard System"
   );
   const [selectedDimensionStr, setSelectedDimensionStr] = useState<string>(
-    initialData?.dimension.formatted || "600 × 2400 mm"
+    initialData?.dimension.formatted || "1200 × 600 × 65 mm"
   );
-  const [panelCode, setPanelCode] = useState<string>(initialData?.panelCode || "WP-600-2400");
+  const [panelCode, setPanelCode] = useState<string>(initialData?.panelCode || "IWP-1200-600");
+  const [manufacturerCode, setManufacturerCode] = useState<string>("MIV-IWP-1260");
+  const [internalErpCode, setInternalErpCode] = useState<string>("ERP-IWP-1200");
   const [panelCategory, setPanelCategory] = useState<WarehousePanelTypeEntry["panelCategory"]>(
-    initialData?.panelCategory || "Wall"
+    initialData?.panelCategory || "Internal Wall"
   );
-  const [length, setLength] = useState<number>(initialData?.dimension.length || 2400);
+  const [length, setLength] = useState<number>(initialData?.dimension.length || 1200);
   const [width, setWidth] = useState<number>(initialData?.dimension.width || 600);
   const [heightThickness, setHeightThickness] = useState<number>(initialData?.dimension.heightThickness || 65);
-  const [unit, setUnit] = useState<"mm" | "m">(initialData?.dimension.unit || "mm");
+  const [height, setHeight] = useState<number | undefined>(initialData?.dimension.height || undefined);
+  const [unit, setUnit] = useState<"mm" | "m" | string>(initialData?.dimension.unit || "mm");
   const [description, setDescription] = useState<string>(initialData?.description || "");
   const [manufacturer, setManufacturer] = useState<string>("Mivan Technology Corp");
-  const [weightKg, setWeightKg] = useState<number>(28.5);
+  const [weightKg, setWeightKg] = useState<number>(14.8);
+
+  // Dedicated Stair Panel Configuration (Prompt 10)
+  const [isStairCategory, setIsStairCategory] = useState<boolean>(false);
+  const [stairPanelType, setStairPanelType] = useState<string>("Flight Panel");
+  const [stairWidth, setStairWidth] = useState<number>(1200);
+  const [stairTread, setStairTread] = useState<number>(300);
+  const [stairRiser, setStairRiser] = useState<number>(150);
+  const [stairSlope, setStairSlope] = useState<number>(30.5);
+  const [stairSteps, setStairSteps] = useState<number>(10);
+
+  // Destination Site & Structural Tracking (Prompt 14)
+  const [building, setBuilding] = useState<string>(initialData?.building || "Tower A");
+  const [floor, setFloor] = useState<number>(initialData?.floor ?? 1);
+  const [zone, setZone] = useState<string>(initialData?.zone || "Zone 1 - East Wing");
+  const [stair, setStair] = useState<string>(initialData?.stair || "Stair Core 1");
+
+  // Admin Master Data Modals (Prompt 12 & 13)
+  const [showAddTypeModal, setShowAddTypeModal] = useState<boolean>(false);
+  const [showAddDimModal, setShowAddDimModal] = useState<boolean>(false);
+  const [showAddMfrModal, setShowAddMfrModal] = useState<boolean>(false);
+  const [showRequestMasterModal, setShowRequestMasterModal] = useState<boolean>(false);
+
+  // Form states for adding new master records
+  const [newTypeName, setNewTypeName] = useState<string>("");
+  const [newTypeCategory, setNewTypeCategory] = useState<string>("Wall Panel");
+  const [newTypeDescription, setNewTypeDescription] = useState<string>("");
+
+  const [newDimLength, setNewDimLength] = useState<number>(1200);
+  const [newDimWidth, setNewDimWidth] = useState<number>(600);
+  const [newDimThickness, setNewDimThickness] = useState<number>(65);
+  const [newDimUnit, setNewDimUnit] = useState<string>("mm");
+
+  const [newMfrName, setNewMfrName] = useState<string>("");
+  const [newMfrSystem, setNewMfrSystem] = useState<string>("");
+  const [newMfrCountry, setNewMfrCountry] = useState<string>("Global");
+
+  const [requestMasterDetails, setRequestMasterDetails] = useState<string>("");
+  const [requestMasterReason, setRequestMasterReason] = useState<string>("");
+  const [masterSuccessMessage, setMasterSuccessMessage] = useState<string | null>(null);
+  const [masterErrorMessage, setMasterErrorMessage] = useState<string | null>(null);
+
+  // Check admin authorization
+  const isMasterDataAdmin = ["Super Admin", "Head Office", "Head Office Manager", "Admin / Head Office", "Master Data Administrator"].includes(currentUserRole);
 
   // --- 2.2 ACCESSORIES MASTER DATA & CASCADING STATES ---
   const [accessoriesList, setAccessoriesList] = useState<PanelAccessoryEntry[]>(
