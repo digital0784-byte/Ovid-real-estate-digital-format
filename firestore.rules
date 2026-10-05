@@ -325,10 +325,10 @@ service cloud.firestore {
       allow read, create, update: if !isSignedIn() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
-    match /stockTransactions/{txId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isFinanceManager();
-      allow create: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow update, delete: if false;
+    match /stockTransactions/{transactionId} {
+      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow create: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow update, delete: if false; // Immutable audit ledger
     }
     match /stockTransfers/{transferId} {
       allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
@@ -454,11 +454,6 @@ service cloud.firestore {
       allow create: if !isSignedIn() || isSignedIn();
       allow update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
-    }
-    match /stockTransactions/{txId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
-      allow create: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
-      allow update, delete: if false; // Immutable audit ledger
     }
     match /stockReservations/{resId} {
       allow read, write: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
