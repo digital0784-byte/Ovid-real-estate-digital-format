@@ -53,11 +53,13 @@ import {
 import { SiteStoreMovementService, DEFAULT_SCHEDULE_CONFIG } from "../services/siteStoreMovementService";
 import { MasterDataService } from "../services/masterDataService";
 import { SearchableSmartDropdown, DropdownOption } from "./common/SearchableSmartDropdown";
+import { WarehouseStoreRoleArchitecturePanel } from "./WarehouseStoreRoleArchitecturePanel";
 
 interface SiteStoreMaterialMovementHubProps {
   currentUserRole?: string;
   currentUserName?: string;
   currentUserUid?: string;
+  currentUserProfile?: any;
   isAmharic?: boolean;
   onNavigateToTab?: (tab: string) => void;
 }
@@ -66,12 +68,13 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
   currentUserRole = "Site Store Owner",
   currentUserName = "Eng. Sisay Alemu",
   currentUserUid = "USER-STO-01",
+  currentUserProfile,
   isAmharic = false,
   onNavigateToTab
 }) => {
   // Navigation Sub-Tabs
   const [activeSubTab, setActiveSubTab] = useState<
-    "role-dashboard" | "daily-report" | "create-request" | "request-queue" | "receive-return" | "reconciliation" | "audit-reports"
+    "role-dashboard" | "daily-report" | "create-request" | "request-queue" | "receive-return" | "reconciliation" | "audit-reports" | "warehouse-architecture"
   >("role-dashboard");
 
   // Core Data States
@@ -446,7 +449,8 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
             { id: "request-queue", label: isAmharic ? "3. የጥያቄዎችና ወጪ ዝርዝር" : `3. Request & Issue Queue (${requests.length})`, icon: ArrowRightLeft },
             { id: "receive-return", label: isAmharic ? "4. ርክክብ እና ዕቃ መመለሻ" : "4. Receive & Return Materials", icon: RotateCcw },
             { id: "reconciliation", label: isAmharic ? "5. ስቶክ ማስታረቂያና ግጭት" : `5. Stock Reconciliation & Alerts (${discrepancies.filter(d => d.status === "OPEN").length})`, icon: ShieldCheck },
-            { id: "audit-reports", label: isAmharic ? "6. 12ቱ የኮንስትራክሽን ሪፖርቶች & ኦዲት" : "6. 12 ERP Reports & Audit Log", icon: FileText }
+            { id: "audit-reports", label: isAmharic ? "6. 12ቱ የኮንስትራክሽን ሪፖርቶች & ኦዲት" : "6. 12 ERP Reports & Audit Log", icon: FileText },
+            { id: "warehouse-architecture", label: isAmharic ? "7. መጋዘንና ስቶር አርክቴክቸር (18 DbService)" : "7. Warehouse & Store Role Architecture", icon: Building2 }
           ].map(tab => {
             const Icon = tab.icon;
             const isActive = activeSubTab === tab.id;
@@ -2044,6 +2048,59 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* TAB 7: WAREHOUSE & STORE ROLE ARCHITECTURE (18 Firestore DbService APIs) */}
+      {/* ========================================================================= */}
+      {activeSubTab === "warehouse-architecture" && (
+        <div className="space-y-4 animate-fadeIn">
+          <div className="bg-slate-900 border border-cyan-800/40 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3 shadow-lg">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                <Building2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-white flex items-center gap-2">
+                  <span>{isAmharic ? "የመጋዘን እና ሳይት ስቶር ሚና አርክቴክቸር" : "Warehouse & Site Store Role Architecture Command Hub"}</span>
+                  <span className="px-2 py-0.5 rounded-md text-[10px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                    Live Firestore Connected (18 DbService APIs)
+                  </span>
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {isAmharic
+                    ? "የተማከለ ማዕከላዊ መጋዘን (17 ሞጁሎች) እና የሳይት ስቶር (13 ሞጁሎች) የቁጥጥር ማዕከል ከእውነተኛ Firestore ዳታቤዝ ጋር የተገናኘ"
+                    : "Central Warehouse (17 modules) & Site Store (13 modules) enterprise role command console with persistent Firestore audit ledger"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-slate-400">{isAmharic ? "የሚሰራበት ሞድ:" : "Operating Mode:"}</span>
+              <span className={`px-2.5 py-1 rounded-lg font-bold border text-xs ${
+                isStoreOwner 
+                  ? "bg-amber-500/10 text-amber-300 border-amber-500/30" 
+                  : "bg-cyan-500/10 text-cyan-300 border-cyan-500/30"
+              }`}>
+                {isStoreOwner ? "Site Store Mode (13 Modules)" : "Warehouse Manager Mode (17 Modules)"}
+              </span>
+            </div>
+          </div>
+
+          <WarehouseStoreRoleArchitecturePanel
+            appMode={isStoreOwner ? "store_owner" : "warehouse_manager"}
+            currentUserRole={activeRole as any}
+            currentUserName={activeName}
+            currentUserProfile={{
+              uid: activeUid,
+              displayName: activeName,
+              role: activeRole as any,
+              assignedSite: currentUserProfile?.assignedSite || "Bole Heights Phase I",
+              assignedWarehouse: currentUserProfile?.assignedWarehouse || "Central Warehouse - Kality Hub"
+            }}
+            isAmharic={isAmharic}
+          />
         </div>
       )}
 

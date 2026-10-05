@@ -3023,6 +3023,7 @@ export default function App() {
             currentUserRole={currentUserRole}
             currentUserName={currentUserProfile?.displayName || "Authorized ERP User"}
             currentUserUid={currentUserProfile?.uid || auth?.currentUser?.uid || "USER-SYSTEM"}
+            currentUserProfile={currentUserProfile}
             onNavigateToTab={(tab) => setActiveTab(tab)}
           />
         )}
