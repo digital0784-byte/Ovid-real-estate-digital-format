@@ -970,9 +970,36 @@ export default function App() {
     const unsubscribeNotifications = DbService.subscribeNotifications((fetched) => {
       if (!fetched) return;
       
+      const readIds = NotificationService.getReadNotificationIds();
+
+      // Ensure any fetched item that was ever marked read locally or persistently is locked as Read
+      const sanitizedFetched = fetched.map((item) => {
+        const isAlreadyRead = readIds.has(item.id) || 
+          item.read === true || 
+          item.isRead === true || 
+          item.status === "Read" || 
+          item.status === "Acknowledged" || 
+          item.status === "Completed" || 
+          (Array.isArray(item.readBy) && (item.readBy.includes(currentUserRole) || item.readBy.includes("all")));
+
+        if (isAlreadyRead) {
+          NotificationService.markIdAsReadPersistently(item.id);
+          return {
+            ...item,
+            read: true,
+            status: "Read" as const,
+            readBy: Array.isArray(item.readBy) && item.readBy.length > 0 ? item.readBy : ["all"]
+          };
+        }
+        return item;
+      });
+
+      const sortedFetched = NotificationService.sortNewestToOldest(sanitizedFetched);
+
       setNotifications((prev) => {
+        const prevReadIds = new Set(prev.filter(p => p.read === true || p.status === "Read").map(p => p.id));
         const prevIds = new Set(prev.map(n => n.id));
-        const newNotifs = fetched.filter(n => !prevIds.has(n.id));
+        const newNotifs = sortedFetched.filter(n => !prevIds.has(n.id) && !readIds.has(n.id) && !prevReadIds.has(n.id));
         
         if (newNotifs.length > 0) {
           newNotifs.forEach(notif => {
@@ -984,11 +1011,21 @@ export default function App() {
             }
           });
         }
-        return fetched;
+
+        // Lock any item that was previously read in 'prev' so it NEVER reverts to unread
+        const merged = sortedFetched.map(item => {
+          if (prevReadIds.has(item.id)) {
+            NotificationService.markIdAsReadPersistently(item.id);
+            return { ...item, read: true, status: "Read" as const };
+          }
+          return item;
+        });
+
+        return NotificationService.sortNewestToOldest(merged);
       });
 
       // Synchronize into NotificationService and trigger live alerts/chimes/browser notifications
-      NotificationService.mergeRemoteNotifications(fetched, currentUserRole, selectedProject);
+      NotificationService.mergeRemoteNotifications(sortedFetched, currentUserRole, selectedProject);
     });
 
     return () => {
@@ -1472,13 +1509,17 @@ export default function App() {
   }, [selectedProject]);
 
   const handleMarkAsReadNotification = React.useCallback(async (id: string) => {
+    // 1. Immediately lock ID into persistent storage so it can NEVER revert
+    NotificationService.markIdAsReadPersistently(id);
+    NotificationService.markAsRead(id, currentUserRole);
+
     setNotifications((prev) => {
       const updated = prev.map((n) => {
         if (n.id === id) {
           const currentReadBy = Array.isArray(n.readBy) ? n.readBy : [];
           const newReadBy = currentReadBy.includes(currentUserRole)
             ? currentReadBy
-            : [...currentReadBy, currentUserRole];
+            : [...currentReadBy, currentUserRole, "all"];
           return {
             ...n,
             read: true,
@@ -1495,17 +1536,22 @@ export default function App() {
           console.error("Error updating notification in Firestore:", e)
         );
       }
-      return updated;
+      return NotificationService.sortNewestToOldest(updated);
     });
   }, [currentUserRole]);
 
   const handleMarkAllAsReadNotifications = React.useCallback(async () => {
+    NotificationService.markAllAsRead(currentUserRole, selectedProject);
+
     setNotifications((prev) => {
+      const allIds = prev.map(n => n.id);
+      NotificationService.markMultipleIdsAsReadPersistently(allIds);
+
       const updated = prev.map((n) => {
         const currentReadBy = Array.isArray(n.readBy) ? n.readBy : [];
         const newReadBy = currentReadBy.includes(currentUserRole)
           ? currentReadBy
-          : [...currentReadBy, currentUserRole];
+          : [...currentReadBy, currentUserRole, "all"];
         return {
           ...n,
           read: true,
@@ -1519,9 +1565,9 @@ export default function App() {
           console.error("Error updating notification in Firestore:", e)
         );
       });
-      return updated;
+      return NotificationService.sortNewestToOldest(updated);
     });
-  }, [currentUserRole]);
+  }, [currentUserRole, selectedProject]);
 
   const handleUpdateWorker = async (updatedWorker: Worker) => {
     setWorkers((prev) => prev.map((w) => (w.id === updatedWorker.id ? updatedWorker : w)));

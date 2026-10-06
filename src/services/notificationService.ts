@@ -2,6 +2,7 @@ import { EnterpriseNotification, NotificationCategory, NotificationPriority, Not
 
 const STORAGE_KEY_NOTIFICATIONS = "buildsync_enterprise_notifications";
 const STORAGE_KEY_SETTINGS = "buildsync_notification_settings";
+const STORAGE_KEY_READ_IDS = "buildsync_read_notification_ids";
 
 // Realistic seed notifications across all 31 Categories
 const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
@@ -767,9 +768,33 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
     };
   }
 
+  const rawId = rawNotif.id || "";
+  const isPersistRead = !!(rawId && NotificationService.isReadPersistently(rawId));
+  const isRead = !!(
+    isPersistRead ||
+    rawNotif.read === true ||
+    rawNotif.isRead === true ||
+    rawNotif.status === "Read" ||
+    rawNotif.status === "Acknowledged" ||
+    rawNotif.status === "Completed" ||
+    (Array.isArray(rawNotif.readBy) && rawNotif.readBy.length > 0)
+  );
+
+  // If determined to be read, immediately lock it persistently into read storage
+  if (isRead && rawId) {
+    NotificationService.markIdAsReadPersistently(rawId);
+  }
+
+  const numericTs = NotificationService.getNumericTimestamp(rawNotif) || Date.now();
+  const dateObj = new Date(numericTs);
+
   if (rawNotif.category && rawNotif.description && rawNotif.status) {
     return {
       ...rawNotif,
+      status: isRead ? "Read" : rawNotif.status,
+      read: isRead ? true : !!rawNotif.read,
+      readBy: isRead ? (Array.isArray(rawNotif.readBy) && rawNotif.readBy.length > 0 ? rawNotif.readBy : ["all"]) : rawNotif.readBy || [],
+      timestamp: numericTs,
       targetRoles: rawNotif.targetRoles || [
         UserRole.SUPER_ADMIN,
         UserRole.HEAD_OFFICE,
@@ -784,18 +809,15 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
     } as EnterpriseNotification;
   }
 
-  const isRead = !!(rawNotif.read || (rawNotif.readBy && rawNotif.readBy.length > 0));
-  const dateObj = rawNotif.timestamp ? new Date(rawNotif.timestamp) : new Date();
-
   return {
-    id: rawNotif.id || `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+    id: rawId || `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
     title: rawNotif.title || rawNotif.type || "System Notification",
     titleAm: rawNotif.titleAm || rawNotif.title,
     description: rawNotif.message || rawNotif.description || "",
     descriptionAm: rawNotif.descriptionAm || rawNotif.message || "",
     category: (rawNotif.category as NotificationCategory) || "System Update Notifications",
     priority: (rawNotif.priority as NotificationPriority) || "Medium",
-    status: (rawNotif.status as NotificationStatus) || (isRead ? "Read" : "Unread"),
+    status: (isRead ? "Read" : (rawNotif.status as NotificationStatus) || "Unread"),
     projectName: rawNotif.projectName || "Global System",
     siteName: rawNotif.siteName || "Main Site",
     sender: rawNotif.sender || "System Engine",
@@ -814,8 +836,9 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
     ],
     date: dateObj.toISOString().slice(0, 10),
     time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    timestamp: typeof rawNotif.timestamp === "number" ? rawNotif.timestamp : dateObj.getTime(),
+    timestamp: numericTs,
     isAiGenerated: !!rawNotif.isAiGenerated,
+    read: isRead,
     readBy: rawNotif.readBy || (isRead ? ["all"] : []),
     deliveryChannels: rawNotif.deliveryChannels || { inApp: true, push: false, email: false, sms: false },
     actionTab: rawNotif.actionTab || "dashboard"
@@ -1015,49 +1038,200 @@ export class NotificationService {
     }
   }
 
-  public static getNotifications(): EnterpriseNotification[] {
-    if (typeof window === "undefined") return SEED_NOTIFICATIONS;
-    const stored = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(SEED_NOTIFICATIONS));
-      return SEED_NOTIFICATIONS;
-    }
+  // Persistent Read State Management
+  public static getReadNotificationIds(): Set<string> {
+    if (typeof window === "undefined") return new Set<string>();
     try {
-      return JSON.parse(stored);
+      const raw = localStorage.getItem(STORAGE_KEY_READ_IDS);
+      if (!raw) return new Set<string>();
+      const parsed = JSON.parse(raw);
+      return new Set<string>(Array.isArray(parsed) ? parsed : []);
     } catch {
-      return SEED_NOTIFICATIONS;
+      return new Set<string>();
     }
+  }
+
+  public static isReadPersistently(id: string): boolean {
+    if (!id) return false;
+    const readIds = this.getReadNotificationIds();
+    return readIds.has(id);
+  }
+
+  public static markIdAsReadPersistently(id: string): void {
+    if (typeof window === "undefined" || !id) return;
+    try {
+      const readIds = this.getReadNotificationIds();
+      readIds.add(id);
+      localStorage.setItem(STORAGE_KEY_READ_IDS, JSON.stringify(Array.from(readIds)));
+    } catch (e) {
+      console.warn("Error saving read notification ID to localStorage:", e);
+    }
+  }
+
+  public static markMultipleIdsAsReadPersistently(ids: string[]): void {
+    if (typeof window === "undefined" || !ids || ids.length === 0) return;
+    try {
+      const readIds = this.getReadNotificationIds();
+      ids.forEach(id => {
+        if (id) readIds.add(id);
+      });
+      localStorage.setItem(STORAGE_KEY_READ_IDS, JSON.stringify(Array.from(readIds)));
+    } catch (e) {
+      console.warn("Error saving read notification IDs to localStorage:", e);
+    }
+  }
+
+  public static isNotificationUnread(notif: any, currentUserRole?: string): boolean {
+    if (!notif) return false;
+    if (this.isReadPersistently(notif.id)) return false;
+    if (notif.status === "Read" || notif.status === "Acknowledged" || notif.status === "Completed") return false;
+    if (notif.read === true || notif.isRead === true) return false;
+    if (currentUserRole && Array.isArray(notif.readBy) && (notif.readBy.includes(String(currentUserRole)) || notif.readBy.includes("all"))) {
+      return false;
+    }
+    return true;
+  }
+
+  // Safe numeric timestamp extractor
+  public static getNumericTimestamp(n: any): number {
+    if (!n) return 0;
+    // 1. Firestore Timestamp object or object with toDate/seconds
+    if (n.timestamp && typeof n.timestamp === "object") {
+      if (typeof n.timestamp.toDate === "function") {
+        try { return n.timestamp.toDate().getTime(); } catch {}
+      }
+      if (typeof n.timestamp.seconds === "number") {
+        return n.timestamp.seconds * 1000 + Math.floor((n.timestamp.nanoseconds || 0) / 1000000);
+      }
+    }
+    if (n.createdAt && typeof n.createdAt === "object") {
+      if (typeof n.createdAt.toDate === "function") {
+        try { return n.createdAt.toDate().getTime(); } catch {}
+      }
+      if (typeof n.createdAt.seconds === "number") {
+        return n.createdAt.seconds * 1000 + Math.floor((n.createdAt.nanoseconds || 0) / 1000000);
+      }
+    }
+    // 2. Direct numeric timestamp
+    if (typeof n.timestamp === "number" && !isNaN(n.timestamp) && n.timestamp > 0) {
+      return n.timestamp;
+    }
+    // 3. String timestamp (ISO string or numeric string)
+    if (typeof n.timestamp === "string") {
+      const parsed = Date.parse(n.timestamp);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+      const num = Number(n.timestamp);
+      if (!isNaN(num) && num > 0) return num;
+    }
+    // 4. Combined date and time
+    if (n.date) {
+      if (n.time) {
+        const parsed = Date.parse(`${n.date} ${n.time}`);
+        if (!isNaN(parsed) && parsed > 0) return parsed;
+      }
+      const parsed = Date.parse(n.date);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    // 5. createdAt field
+    if (n.createdAt) {
+      if (typeof n.createdAt === "number" && !isNaN(n.createdAt) && n.createdAt > 0) return n.createdAt;
+      const parsed = Date.parse(n.createdAt);
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+      const num = Number(n.createdAt);
+      if (!isNaN(num) && num > 0) return num;
+    }
+    return 0;
+  }
+
+  // Strict sorting: Newest to Oldest (new to old)
+  public static sortNewestToOldest<T extends { id?: string; timestamp?: any; date?: string; time?: string; createdAt?: any }>(items: T[]): T[] {
+    return [...items].sort((a, b) => {
+      const timeB = NotificationService.getNumericTimestamp(b);
+      const timeA = NotificationService.getNumericTimestamp(a);
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      const strB = `${b.date || ""} ${b.time || ""} ${b.id || ""}`;
+      const strA = `${a.date || ""} ${a.time || ""} ${a.id || ""}`;
+      return strB.localeCompare(strA);
+    });
+  }
+
+  public static getNotifications(): EnterpriseNotification[] {
+    if (typeof window === "undefined") return this.sortNewestToOldest(SEED_NOTIFICATIONS);
+    const readIds = this.getReadNotificationIds();
+    const stored = localStorage.getItem(STORAGE_KEY_NOTIFICATIONS);
+    let list: EnterpriseNotification[] = [];
+    if (!stored) {
+      list = SEED_NOTIFICATIONS;
+    } else {
+      try {
+        list = JSON.parse(stored);
+      } catch {
+        list = SEED_NOTIFICATIONS;
+      }
+    }
+
+    // Ensure any previously read item NEVER reverts to Unread
+    list = list.map(item => {
+      if (readIds.has(item.id)) {
+        return {
+          ...item,
+          status: "Read" as NotificationStatus,
+          read: true,
+          readBy: Array.isArray(item.readBy) && item.readBy.length > 0 ? item.readBy : ["all"]
+        };
+      }
+      return item;
+    });
+
+    // Always return strictly sorted newest to oldest
+    return this.sortNewestToOldest(list);
   }
 
   private static saveNotifications(list: EnterpriseNotification[]): void {
     if (typeof window === "undefined") return;
-    localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(list));
-    this.notifyListeners(list);
+    const sorted = this.sortNewestToOldest(list);
+    localStorage.setItem(STORAGE_KEY_NOTIFICATIONS, JSON.stringify(sorted));
+    this.notifyListeners(sorted);
   }
 
   // Merge remote notifications coming from Firestore onSnapshot
   public static mergeRemoteNotifications(remoteItems: any[], currentUserRole?: string, currentProject?: string): void {
     if (!remoteItems || remoteItems.length === 0) return;
 
+    const readIds = this.getReadNotificationIds();
     const currentList = this.getNotifications();
     const currentMap = new Map<string, EnterpriseNotification>(currentList.map(n => [n.id, n]));
     const newIncomingItems: EnterpriseNotification[] = [];
 
     remoteItems.forEach(item => {
       const adapted = adaptToEnterpriseNotification(item);
+      const isAlreadyRead = readIds.has(adapted.id) || (adapted as any).read === true || adapted.status === "Read";
+
+      if (isAlreadyRead) {
+        adapted.status = "Read";
+        (adapted as any).read = true;
+      }
+
       if (!currentMap.has(adapted.id)) {
         currentMap.set(adapted.id, adapted);
-        newIncomingItems.push(adapted);
+        if (!isAlreadyRead) {
+          newIncomingItems.push(adapted);
+        }
       } else {
-        // Update status if remote changed
         const existing = currentMap.get(adapted.id)!;
-        if (item.status && item.status !== existing.status) {
+        // If it was already read locally or persistently, DO NOT let remote revert it back to Unread
+        if (existing.status === "Read" || readIds.has(existing.id) || (existing as any).read === true) {
+          existing.status = "Read";
+          (existing as any).read = true;
+        } else if (item.status && item.status !== existing.status) {
           existing.status = item.status;
         }
       }
     });
 
-    const updatedList = Array.from(currentMap.values()).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    const updatedList = this.sortNewestToOldest(Array.from(currentMap.values()));
     this.saveNotifications(updatedList);
 
     // Trigger real-time alert for newly received remote notifications
@@ -1082,7 +1256,7 @@ export class NotificationService {
   }
 
   private static notifyListeners(list: EnterpriseNotification[]): void {
-    this.listeners.forEach(fn => fn(list));
+    this.listeners.forEach(fn => fn(this.sortNewestToOldest(list)));
   }
 
   // Filter notifications according to RBAC role and assigned project
@@ -1093,8 +1267,9 @@ export class NotificationService {
   ): EnterpriseNotification[] {
     const all = customList || this.getNotifications();
     const roleStr = String(role);
+    const readIds = this.getReadNotificationIds();
 
-    return all.filter(n => {
+    const filtered = all.filter(n => {
       // Role check: If super admin, head office, HR manager, store owner, or role matches targetRoles
       const matchesRole = 
         roleStr === UserRole.SUPER_ADMIN || 
@@ -1142,47 +1317,77 @@ export class NotificationService {
 
       return matchesRole && matchesProject && !isStillSnoozed;
     });
+
+    // Ensure read status is respected and sort newest to oldest
+    const processed = filtered.map(item => {
+      if (readIds.has(item.id)) {
+        return {
+          ...item,
+          status: "Read" as NotificationStatus,
+          read: true
+        };
+      }
+      return item;
+    });
+
+    return this.sortNewestToOldest(processed);
   }
 
   // Unread count
   public static getUnreadCount(role: UserRole | string, projectName?: string): number {
     const filtered = this.getNotificationsForRoleAndProject(role, projectName);
-    return filtered.filter(n => n.status === "Unread" && !n.isArchived).length;
+    return filtered.filter(n => this.isNotificationUnread(n, String(role)) && !n.isArchived).length;
   }
 
   // Update Notification Status
-  public static markAsRead(id: string): void {
+  public static markAsRead(id: string, role?: string): void {
+    if (!id) return;
+    this.markIdAsReadPersistently(id);
     const list = this.getNotifications();
     const item = list.find(n => n.id === id);
-    if (item && item.status === "Unread") {
+    if (item) {
       item.status = "Read";
+      (item as any).read = true;
+      if (!Array.isArray(item.readBy)) item.readBy = [];
+      if (role && !item.readBy.includes(role)) item.readBy.push(role);
+      if (!item.readBy.includes("all")) item.readBy.push("all");
       this.saveNotifications(list);
     }
   }
 
   public static markAsUnread(id: string): void {
-    const list = this.getNotifications();
-    const item = list.find(n => n.id === id);
-    if (item) {
-      item.status = "Unread";
-      this.saveNotifications(list);
-    }
+    // Under strict system policy: Once a notification has been read, it must NEVER revert to new / unread.
+    // Persistent read record is preserved to ensure an immutable audit history.
+    if (!id) return;
+    console.info(`[NotificationService] Notification ${id} read status is permanently locked: once read, it cannot revert to unread.`);
   }
 
-  public static acknowledge(id: string): void {
+  public static acknowledge(id: string, role?: string): void {
+    if (!id) return;
+    this.markIdAsReadPersistently(id);
     const list = this.getNotifications();
     const item = list.find(n => n.id === id);
     if (item) {
       item.status = "Acknowledged";
+      (item as any).read = true;
+      if (!Array.isArray(item.readBy)) item.readBy = [];
+      if (role && !item.readBy.includes(role)) item.readBy.push(role);
+      if (!item.readBy.includes("all")) item.readBy.push("all");
       this.saveNotifications(list);
     }
   }
 
-  public static markAsCompleted(id: string): void {
+  public static markAsCompleted(id: string, role?: string): void {
+    if (!id) return;
+    this.markIdAsReadPersistently(id);
     const list = this.getNotifications();
     const item = list.find(n => n.id === id);
     if (item) {
       item.status = "Completed";
+      (item as any).read = true;
+      if (!Array.isArray(item.readBy)) item.readBy = [];
+      if (role && !item.readBy.includes(role)) item.readBy.push(role);
+      if (!item.readBy.includes("all")) item.readBy.push("all");
       this.saveNotifications(list);
     }
   }
@@ -1215,6 +1420,7 @@ export class NotificationService {
   public static markAllAsRead(role: UserRole | string, projectName?: string): void {
     const list = this.getNotifications();
     const roleStr = String(role);
+    const readIdsToPersist: string[] = [];
 
     list.forEach(n => {
       const matchesRole = 
@@ -1238,11 +1444,14 @@ export class NotificationService {
                  (rStr.includes("hr") && targetRoleStr.includes("hr"));
         });
       const matchesProject = !projectName || projectName === "ALL" || n.projectName === "Global System" || n.projectName === projectName;
-      if (matchesRole && matchesProject && n.status === "Unread") {
+      if (matchesRole && matchesProject) {
         n.status = "Read";
+        (n as any).read = true;
+        readIdsToPersist.push(n.id);
       }
     });
 
+    this.markMultipleIdsAsReadPersistently(readIdsToPersist);
     this.saveNotifications(list);
   }
 

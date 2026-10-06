@@ -270,15 +270,36 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   useEffect(() => {
     const updateList = () => {
       let combined: EnterpriseNotification[] = [];
+      const readIds = NotificationService.getReadNotificationIds();
+
       if (systemNotifications && systemNotifications.length > 0) {
         combined = systemNotifications.map(n => adaptToEnterpriseNotification(n));
       }
       const serviceNotifs = NotificationService.getNotifications();
-      const existingIds = new Set(combined.map(c => c.id));
+      const existingMap = new Map(combined.map(c => [c.id, c]));
+
       serviceNotifs.forEach(sn => {
-        if (!existingIds.has(sn.id)) {
+        if (!existingMap.has(sn.id)) {
           combined.push(sn);
+        } else {
+          const existing = existingMap.get(sn.id)!;
+          if (sn.status === "Read" || (sn as any).read === true || readIds.has(sn.id) || existing.status === "Read" || (existing as any).read === true) {
+            existing.status = "Read";
+            (existing as any).read = true;
+          }
         }
+      });
+
+      // Apply persistent read state across all combined items so read notifications never revert to unread
+      combined = combined.map(item => {
+        if (readIds.has(item.id) || item.status === "Read" || (item as any).read === true) {
+          return {
+            ...item,
+            status: "Read" as NotificationStatus,
+            read: true
+          };
+        }
+        return item;
       });
 
       const filtered = NotificationService.getNotificationsForRoleAndProject(
@@ -286,7 +307,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
         selectedProject,
         combined.length > 0 ? combined : undefined
       );
-      setNotifications(filtered);
+      setNotifications(NotificationService.sortNewestToOldest(filtered));
     };
 
     updateList();
@@ -303,9 +324,13 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
     setFilters(prev => ({ ...prev, projectName: selectedProject || "ALL" }));
   }, [selectedProject]);
 
-  // Filtered Notifications
+  const isItemUnread = (n: EnterpriseNotification) => {
+    return NotificationService.isNotificationUnread(n, String(currentUserRole));
+  };
+
+  // Filtered Notifications - Strictly Sorted Newest to Oldest (new to old)
   const filteredNotifications = useMemo(() => {
-    return notifications.filter(n => {
+    const list = notifications.filter(n => {
       // Search
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase();
@@ -335,6 +360,10 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
       // Status
       if (filters.status === "Archived") {
         if (!n.isArchived) return false;
+      } else if (filters.status === "Unread") {
+        if (!isItemUnread(n) || n.isArchived) return false;
+      } else if (filters.status === "Read") {
+        if (isItemUnread(n) || n.isArchived) return false;
       } else {
         if (n.isArchived) return false; // hide archived in normal views
         if (filters.status !== "ALL" && n.status !== filters.status) {
@@ -370,17 +399,19 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
       return true;
     });
-  }, [notifications, filters, selectedCategoryTab]);
+
+    return NotificationService.sortNewestToOldest(list);
+  }, [notifications, filters, selectedCategoryTab, currentUserRole]);
 
   // Statistics
   const stats = useMemo(() => {
     const total = notifications.filter(n => !n.isArchived).length;
-    const unread = notifications.filter(n => n.status === "Unread" && !n.isArchived).length;
-    const critical = notifications.filter(n => n.priority === "Critical" && !n.isArchived).length;
+    const unread = notifications.filter(n => isItemUnread(n) && !n.isArchived).length;
+    const critical = notifications.filter(n => n.priority === "Critical" && isItemUnread(n) && !n.isArchived).length;
     const aiGenerated = notifications.filter(n => n.isAiGenerated && !n.isArchived).length;
     const acknowledged = notifications.filter(n => (n.status === "Acknowledged" || n.status === "Completed") && !n.isArchived).length;
     return { total, unread, critical, aiGenerated, acknowledged };
-  }, [notifications]);
+  }, [notifications, currentUserRole]);
 
   // Priority Styles
   const getPriorityStyle = (priority: NotificationPriority) => {
@@ -422,18 +453,18 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   const handleActionClick = (notif: EnterpriseNotification, action: "read" | "unread" | "ack" | "complete" | "snooze" | "archive" | "delete") => {
     switch (action) {
       case "read":
-        NotificationService.markAsRead(notif.id);
+        NotificationService.markAsRead(notif.id, String(currentUserRole));
         if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "unread":
-        NotificationService.markAsUnread(notif.id);
+        // Strict system policy: Once read, a notification never reverts to unread / new
         break;
       case "ack":
-        NotificationService.acknowledge(notif.id);
+        NotificationService.acknowledge(notif.id, String(currentUserRole));
         if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "complete":
-        NotificationService.markAsCompleted(notif.id);
+        NotificationService.markAsCompleted(notif.id, String(currentUserRole));
         if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "snooze":
@@ -949,7 +980,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               <div
                 key={notif.id}
                 className={`border rounded-2xl p-4 transition-all duration-200 shadow-md ${style.border} ${style.cardBg} ${
-                  notif.status === "Unread"
+                  isItemUnread(notif)
                     ? "border-amber-500/40 ring-1 ring-amber-500/20"
                     : "border-slate-800"
                 }`}
@@ -975,7 +1006,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                       )}
 
                       <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold ${
-                        notif.status === "Unread"
+                        isItemUnread(notif)
                           ? "bg-amber-500/20 text-amber-300 border border-amber-500/40"
                           : notif.status === "Acknowledged"
                           ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
@@ -983,7 +1014,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                           ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                           : "bg-slate-700/60 text-slate-400"
                       }`}>
-                        {notif.status}
+                        {isItemUnread(notif) ? "Unread" : notif.status === "Unread" ? "Read" : notif.status}
                       </span>
 
                       <span className="text-[11px] text-slate-400 ml-auto flex items-center space-x-1">
@@ -1051,23 +1082,23 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                   {/* Right Action Buttons Toolbar */}
                   <div className="flex flex-wrap lg:flex-col items-center justify-end gap-2 pt-2 lg:pt-0 border-t lg:border-t-0 border-slate-800">
                     <div className="flex items-center space-x-1.5">
-                      {notif.status === "Unread" ? (
+                      {isItemUnread(notif) ? (
                         <button
                           onClick={() => handleActionClick(notif, "read")}
                           className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow transition-all flex items-center space-x-1"
                           title="Mark as Read"
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span>Read</span>
+                          <span>{langDisplayMode === "am" ? "አንብብ" : "Read"}</span>
                         </button>
                       ) : (
-                        <button
-                          onClick={() => handleActionClick(notif, "unread")}
-                          className="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 transition-all"
-                          title="Mark as Unread"
+                        <div
+                          className="px-2.5 py-1.5 bg-slate-800/80 text-emerald-400 text-xs font-semibold rounded-xl border border-emerald-500/30 flex items-center space-x-1"
+                          title="Already Read / የተነበበ"
                         >
-                          Unread
-                        </button>
+                          <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>{langDisplayMode === "am" ? "የተነበበ" : "Read"}</span>
+                        </div>
                       )}
 
                       {notif.status !== "Acknowledged" && notif.status !== "Completed" && (
@@ -1089,7 +1120,12 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                       </button>
 
                       <button
-                        onClick={() => setSelectedNotif(notif)}
+                        onClick={() => {
+                          setSelectedNotif(notif);
+                          if (isItemUnread(notif)) {
+                            handleActionClick(notif, "read");
+                          }
+                        }}
                         className="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 rounded-xl text-xs transition-all"
                         title="View Full Details"
                       >

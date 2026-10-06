@@ -16,7 +16,7 @@ import {
   Archive,
   Volume2
 } from "lucide-react";
-import { EnterpriseNotification, UserRole, NotificationPriority } from "../types";
+import { EnterpriseNotification, UserRole, NotificationPriority, NotificationStatus } from "../types";
 import { NotificationService, adaptToEnterpriseNotification } from "../services/notificationService";
 
 interface NotificationBellDropdownProps {
@@ -105,15 +105,36 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   useEffect(() => {
     const updateList = () => {
       let combined: EnterpriseNotification[] = [];
+      const readIds = NotificationService.getReadNotificationIds();
+
       if (systemNotifications && systemNotifications.length > 0) {
         combined = systemNotifications.map(n => adaptToEnterpriseNotification(n));
       }
       const serviceNotifs = NotificationService.getNotifications();
-      const existingIds = new Set(combined.map(c => c.id));
+      const existingMap = new Map(combined.map(c => [c.id, c]));
+
       serviceNotifs.forEach(sn => {
-        if (!existingIds.has(sn.id)) {
+        if (!existingMap.has(sn.id)) {
           combined.push(sn);
+        } else {
+          const existing = existingMap.get(sn.id)!;
+          if (sn.status === "Read" || (sn as any).read === true || readIds.has(sn.id) || existing.status === "Read" || (existing as any).read === true) {
+            existing.status = "Read";
+            (existing as any).read = true;
+          }
         }
+      });
+
+      // Apply persistent read state across all combined items
+      combined = combined.map(item => {
+        if (readIds.has(item.id) || item.status === "Read" || (item as any).read === true) {
+          return {
+            ...item,
+            status: "Read" as NotificationStatus,
+            read: true
+          };
+        }
+        return item;
       });
 
       const filtered = NotificationService.getNotificationsForRoleAndProject(
@@ -121,7 +142,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
         selectedProject,
         combined.length > 0 ? combined : undefined
       );
-      setNotifications(filtered);
+      setNotifications(NotificationService.sortNewestToOldest(filtered));
     };
 
     updateList();
@@ -145,9 +166,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   }, []);
 
   const isItemUnread = (n: EnterpriseNotification) => {
-    if (n.status === "Read") return false;
-    if ((n as any).read === true || (n as any).isRead === true) return false;
-    return true;
+    return NotificationService.isNotificationUnread(n, String(currentUserRole));
   };
 
   const unreadCount = notifications.filter(n => isItemUnread(n) && !n.isArchived).length;
@@ -155,12 +174,14 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
     n => n.priority === "Critical" && isItemUnread(n) && !n.isArchived
   ).length;
 
-  const displayNotifications = notifications.filter(n => {
-    if (n.isArchived) return false;
-    if (activeTab === "unread") return isItemUnread(n);
-    if (activeTab === "ai") return n.isAiGenerated;
-    return true;
-  }).slice(0, 10);
+  const displayNotifications: EnterpriseNotification[] = NotificationService.sortNewestToOldest<EnterpriseNotification>(
+    notifications.filter(n => {
+      if (n.isArchived) return false;
+      if (activeTab === "unread") return isItemUnread(n);
+      if (activeTab === "ai") return n.isAiGenerated;
+      return true;
+    })
+  ).slice(0, 15);
 
   const getPriorityBadgeClass = (priority: NotificationPriority) => {
     switch (priority) {
@@ -368,8 +389,9 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
               displayNotifications.map((notif) => (
                 <div
                   key={notif.id}
-                  className={`p-3.5 transition-colors group relative ${
-                    notif.status === "Unread"
+                  onClick={() => handleActionClick(notif)}
+                  className={`p-3.5 transition-colors group relative cursor-pointer ${
+                    isItemUnread(notif)
                       ? "bg-amber-50/60 dark:bg-amber-950/20 hover:bg-amber-100/50 dark:hover:bg-amber-950/40"
                       : "hover:bg-slate-50 dark:hover:bg-slate-800/50"
                   }`}
@@ -387,7 +409,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
                         </div>
                       ) : (
                         <div className={`w-2.5 h-2.5 mt-1.5 rounded-full ${
-                          notif.status === "Unread" ? "bg-amber-500 shadow-sm" : "bg-slate-300 dark:bg-slate-700"
+                          isItemUnread(notif) ? "bg-amber-500 shadow-sm" : "bg-slate-300 dark:bg-slate-700"
                         }`} />
                       )}
                     </div>
@@ -430,7 +452,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
                         </span>
 
                         <div className="flex items-center space-x-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
-                          {notif.status === "Unread" && (
+                          {isItemUnread(notif) && (
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();

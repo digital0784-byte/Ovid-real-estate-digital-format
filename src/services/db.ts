@@ -588,7 +588,34 @@ export const DbService = {
         read: false
       }
     ];
-    return fetchCollection<any>("notifications", defaultNotifs);
+    const items = await fetchCollection<any>("notifications", defaultNotifs);
+
+    // Apply persistent read state so read notifications never revert to unread
+    let readIds = new Set<string>();
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("buildsync_read_notification_ids");
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) readIds = new Set<string>(parsed);
+        }
+      } catch {}
+    }
+
+    const processed = items.map(n => {
+      if (readIds.has(n.id) || n.status === "Read" || n.read === true) {
+        return { ...n, status: "Read", read: true };
+      }
+      return n;
+    });
+
+    // Strictly sort newest to oldest (new to old)
+    return processed.sort((a, b) => {
+      const timeB = NotificationService.getNumericTimestamp(b);
+      const timeA = NotificationService.getNumericTimestamp(a);
+      if (timeB !== timeA) return timeB - timeA;
+      return String(b.id || "").localeCompare(String(a.id || ""));
+    });
   },
 
   subscribeNotifications(
@@ -606,13 +633,35 @@ export const DbService = {
             return { ...data, id: data.id || docSnap.id };
           });
           console.log(`[DbService.onSnapshot] Live update received for 'notifications'. Document count: ${items.length}`);
-          if (items.length > 0) {
-            offlineEngine.saveCache("notifications", items);
-            callback(items);
-          } else {
-            const cached = offlineEngine.getCache<any>("notifications", []);
-            callback(cached);
+          
+          let readIds = new Set<string>();
+          if (typeof window !== "undefined") {
+            try {
+              const raw = localStorage.getItem("buildsync_read_notification_ids");
+              if (raw) {
+                const parsed = JSON.parse(raw);
+                if (Array.isArray(parsed)) readIds = new Set<string>(parsed);
+              }
+            } catch {}
           }
+
+          const rawList = items.length > 0 ? items : offlineEngine.getCache<any>("notifications", []);
+          const processed = rawList.map(n => {
+            if (readIds.has(n.id) || n.status === "Read" || n.read === true) {
+              return { ...n, status: "Read", read: true };
+            }
+            return n;
+          }).sort((a, b) => {
+            const timeB = NotificationService.getNumericTimestamp(b);
+            const timeA = NotificationService.getNumericTimestamp(a);
+            if (timeB !== timeA) return timeB - timeA;
+            return String(b.id || "").localeCompare(String(a.id || ""));
+          });
+
+          if (items.length > 0) {
+            offlineEngine.saveCache("notifications", processed);
+          }
+          callback(processed);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "notifications");

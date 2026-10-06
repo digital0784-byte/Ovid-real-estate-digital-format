@@ -951,6 +951,8 @@ export interface EnterpriseNotification {
   actionPayload?: Record<string, any>;
   tags?: string[];
   readBy?: string[];
+  read?: boolean;
+  isRead?: boolean;
   moduleSource?: string;
 }
 

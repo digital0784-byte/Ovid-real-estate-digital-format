@@ -43,6 +43,7 @@ import {
 } from "recharts";
 import { Worker, AttendanceRecord, UserRole, AttendanceMethod, Team, SystemNotification } from "../types";
 import { SyncMonitor } from "./SyncMonitor";
+import { NotificationService } from "../services/notificationService";
 
 interface HeadOfficeSyncModuleProps {
   workers: Worker[];
@@ -114,14 +115,32 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   // Sync systemNotifications prop into smart notifications list
   useEffect(() => {
     if (!systemNotifications) return;
+    const readIds = NotificationService.getReadNotificationIds();
     
     setNotifications((prev) => {
-      const prevIds = new Set(prev.map(n => n.id));
+      // 1. Update existing items in prev if marked read
+      const updatedPrev = prev.map(n => {
+        if (readIds.has(n.id)) {
+          return { ...n, isRead: true };
+        }
+        const sysMatch = systemNotifications.find(s => s.id === n.id);
+        if (sysMatch && sysMatch.read) {
+          NotificationService.markIdAsReadPersistently(n.id);
+          return { ...n, isRead: true };
+        }
+        return n;
+      });
+
+      const prevIds = new Set(updatedPrev.map(n => n.id));
       
       const newMapped: SmartNotification[] = systemNotifications
         .filter(sys => !prevIds.has(sys.id))
         .map(sys => {
           const isNewReg = sys.type === "New Registrant";
+          const isRead = sys.read || readIds.has(sys.id);
+          if (isRead) {
+            NotificationService.markIdAsReadPersistently(sys.id);
+          }
           return {
             id: sys.id,
             type: isNewReg ? "new_registrant" : "late",
@@ -130,12 +149,12 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
             messageEn: sys.message,
             messageAm: sys.message,
             timestamp: new Date(sys.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isRead: sys.read
+            isRead: isRead
           };
         });
         
-      if (newMapped.length === 0) return prev;
-      return [...newMapped, ...prev];
+      if (newMapped.length === 0) return updatedPrev;
+      return [...newMapped, ...updatedPrev];
     });
   }, [systemNotifications]);
 
@@ -2009,6 +2028,8 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
             
             <button
               onClick={() => {
+                const allIds = notifications.map(n => n.id);
+                NotificationService.markMultipleIdsAsReadPersistently(allIds);
                 setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
               }}
               className="bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
@@ -2026,12 +2047,18 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
               notifications.map((notif) => (
               <div
                 key={notif.id}
-                className={`p-4 rounded-xl border flex items-start space-x-3.5 transition-colors relative ${
+                onClick={() => {
+                  if (!notif.isRead) {
+                    NotificationService.markIdAsReadPersistently(notif.id);
+                    setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, isRead: true } : n));
+                  }
+                }}
+                className={`p-4 rounded-xl border flex items-start space-x-3.5 transition-colors relative cursor-pointer ${
                   notif.isRead 
                     ? "bg-slate-50/50 border-slate-100 text-slate-600" 
                     : notif.type === "new_registrant"
-                      ? "bg-emerald-50/30 border-emerald-100 text-slate-900 font-medium"
-                      : "bg-red-50/30 border-red-100 text-slate-900 font-medium"
+                      ? "bg-emerald-50/30 border-emerald-100 text-slate-900 font-medium hover:bg-emerald-50/60"
+                      : "bg-red-50/30 border-red-100 text-slate-900 font-medium hover:bg-red-50/60"
                 }`}
               >
                 {/* Alert Indicator circle */}
