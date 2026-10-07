@@ -16,11 +16,11 @@ describe('LoginScreen Component Unit Tests', () => {
       />
     );
 
-    expect(screen.getByText(/Digital Construction ERP/i)).toBeInTheDocument();
-    expect(screen.getByPlaceholderText(/emp-101/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Digital Construction ERP/i).length).toBeGreaterThan(0);
+    expect(screen.getByPlaceholderText(/digital_construction_erprealestate\.com/i)).toBeInTheDocument();
   });
 
-  it('allows user to input Employee ID and Password', () => {
+  it('allows user to input Email and Password', () => {
     const handleLogin = vi.fn();
 
     render(
@@ -32,13 +32,13 @@ describe('LoginScreen Component Unit Tests', () => {
       />
     );
 
-    const empIdInput = screen.getByPlaceholderText(/emp-101/i);
+    const emailInput = screen.getByPlaceholderText(/digital_construction_erprealestate\.com/i);
     const passwordInput = screen.getByPlaceholderText(/••••••••/i);
 
-    fireEvent.change(empIdInput, { target: { value: 'HO-01' } });
+    fireEvent.change(emailInput, { target: { value: 'ho-admin@digital_construction_erprealestate.com' } });
     fireEvent.change(passwordInput, { target: { value: 'SecurePass123!' } });
 
-    expect((empIdInput as HTMLInputElement).value).toBe('HO-01');
+    expect((emailInput as HTMLInputElement).value).toBe('ho-admin@digital_construction_erprealestate.com');
     expect((passwordInput as HTMLInputElement).value).toBe('SecurePass123!');
   });
 });

@@ -63,6 +63,7 @@ import { SmartCustomSelect } from "./SmartCustomSelect";
 import { PanelMasterDatabaseView } from "./PanelMasterDatabaseView";
 import { AccessoryMasterDatabaseView } from "./AccessoryMasterDatabaseView";
 import { MasterPanelSelector, MasterPanelSelectorResult } from "./MasterPanelSelector";
+import { PanelTraceabilityModule } from "./PanelTraceabilityModule";
 import { MASTER_PANEL_DATABASE } from "../data/panelMasterDatabase";
 import { QrCodeView } from "./QrCodeView";
 import { QrScannerModal, ScannedQrPayload } from "./QrScannerModal";
@@ -1445,6 +1446,17 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
           <span>{t("⚙️ Accessories Master Library", "⚙️ የአክሰሰሪዎች ማስተር ላይብረሪ")}</span>
         </button>
         <button
+          onClick={() => setActiveSubTab("traceability")}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1.5 ${
+            activeSubTab === "traceability"
+              ? "bg-red-600 text-white font-bold"
+              : "bg-red-50 text-red-700 hover:bg-red-100"
+          }`}
+        >
+          <QrCode size={14} className="animate-pulse" />
+          <span>{t("🔍 Panel Traceability Module", "🔍 የፓነል ዱካ መከታተያ ሞጁል")}</span>
+        </button>
+        <button
           onClick={() => setActiveSubTab("database")}
           className={`px-4 py-2 rounded-lg text-xs font-medium transition-colors ${
             activeSubTab === "database"
@@ -1951,6 +1963,15 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                 </div>
 
               </div>
+            )}
+
+            {/* === PANEL TRACEABILITY MODULE VIEW === */}
+            {activeSubTab === "traceability" && (
+              <PanelTraceabilityModule
+                isAmharic={isAmharic}
+                currentUserRole={currentUserRole}
+                currentUserName={currentUserName}
+              />
             )}
 
             {/* === PANEL DATABASE VIEW === */}

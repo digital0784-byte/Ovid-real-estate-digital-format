@@ -70,6 +70,7 @@ import { EnterpriseNotificationCenter } from "./components/EnterpriseNotificatio
 import { LiveNotificationToast } from "./components/LiveNotificationToast";
 import { NotificationService } from "./services/notificationService";
 import { RoleChangeApprovalService } from "./services/roleChangeApprovalService";
+import { PanelTraceabilityModule } from "./components/PanelTraceabilityModule";
 
 // Lucide Icons
 import { 
@@ -651,7 +652,7 @@ export default function App() {
     }
   };
 
-  const allTabs = ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
+  const allTabs = ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
 
   // Aluminum Formwork Management System is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
   const formworkAllowedRoles: UserRole[] = [
@@ -664,23 +665,23 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "siteStoreMovement", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "siteStoreMovement", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "siteStoreMovement", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
-    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
+    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "financeErp", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
   };
 
   const hasAccess = (tab: string): boolean => {
@@ -2391,6 +2392,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Panel Traceability Module Tab */}
+            {tabPermissions[currentUserRole]?.includes("panelTraceability") && (
+              <button
+                onClick={() => setActiveTab("panelTraceability")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-red-400 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "panelTraceability" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <QrCode size={15} className="text-red-400 animate-pulse" />
+                <span>{isAmharic ? "የፓነል ዱካ መከታተያ" : "Panel Traceability"}</span>
+              </button>
+            )}
+
             {/* Security & Settings Tab */}
             {tabPermissions[currentUserRole]?.includes("securitySettings") && (
               <button
@@ -2523,6 +2537,7 @@ export default function App() {
                 <div className="space-y-1">
                   {[
                     { id: "formworkManagement", num: 13, nameEn: "Formwork Management", nameAm: "13. አሉሚኒየም ፎርምወርክ (Formwork Management)", icon: Grid },
+                    { id: "panelTraceability", num: "13T", nameEn: "Panel Traceability", nameAm: "13.1 የፓነል ዱካ መከታተያ (Panel Traceability)", icon: QrCode },
                     { id: "projectDocs", num: 14, nameEn: "Project Docs & CAD", nameAm: "14. የፕሮጀክት ሰነዶች & CAD (Project Docs & CAD)", icon: FileText },
                     { id: "cadDrawing", num: 15, nameEn: "CAD Drawings & Photos", nameAm: "15. የካድ ንድፎች እና ፎቶዎች (CAD Drawings & Photos)", icon: FileText },
                     { id: "siteLayout", num: 16, nameEn: "Site Layout", nameAm: "16. የሳይት ሌይአውት (Site Layout)", icon: Compass },
@@ -3071,6 +3086,15 @@ export default function App() {
             currentUserUid={currentUserProfile?.uid || auth?.currentUser?.uid || "USER-SYSTEM"}
             currentUserProfile={currentUserProfile}
             onNavigateToTab={(tab) => setActiveTab(tab)}
+          />
+        )}
+
+        {activeTab === "panelTraceability" && (
+          <PanelTraceabilityModule
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserId={currentUserProfile?.uid || auth?.currentUser?.uid || "USER-CURRENT"}
+            currentUserName={currentUserProfile?.displayName || `${currentUserRole} User`}
           />
         )}
       </main>

@@ -1691,3 +1691,320 @@ export interface DailyReportScheduleConfig {
   autoSyncToHQ: boolean;
 }
 
+// ============================================================================
+// PANEL TRACEABILITY MODULE TYPES (DIGITAL CONSTRUCTION ERP SYSTEM)
+// ============================================================================
+
+export type PanelTraceabilityStatus =
+  | "AVAILABLE"
+  | "RESERVED"
+  | "REQUESTED"
+  | "APPROVED"
+  | "ISSUED"
+  | "IN_TRANSIT"
+  | "AT_SITE_STORE"
+  | "ASSIGNED"
+  | "INSTALLED"
+  | "IN_USE"
+  | "DISASSEMBLED"
+  | "RETURNED"
+  | "DAMAGED"
+  | "UNDER_REPAIR"
+  | "MISSING"
+  | "LOST"
+  | "RETIRED";
+
+export type PanelPhysicalCondition =
+  | "NEW"
+  | "GOOD"
+  | "USED_GOOD"
+  | "MINOR_DAMAGE"
+  | "DAMAGED"
+  | "CRITICAL_DAMAGE"
+  | "UNDER_REPAIR"
+  | "UNUSABLE";
+
+export type StandardPanelCategory =
+  | "Internal Wall Panel"
+  | "External Wall Panel"
+  | "Extend Panel"
+  | "Soffit Panel"
+  | "Beam Panel"
+  | "CA"
+  | "IC"
+  | "SC"
+  | "SCR"
+  | "Slab Panel"
+  | "Door End"
+  | "Wall End"
+  | "Stair Panel"
+  | "Corner Panel"
+  | "Filler Panel"
+  | "Special Panel"
+  | "Other";
+
+export type PanelInstallationStatus =
+  | "NOT_INSTALLED"
+  | "IN_PROGRESS"
+  | "INSTALLED"
+  | "IN_USE"
+  | "DISASSEMBLED";
+
+export interface PanelAssociatedAccessory {
+  accessoryId: string;
+  accessoryCode: string;
+  serialNumber?: string;
+  accessoryType: "Pin" | "Wedge" | "Tie" | "Corner accessory" | "Support accessory" | string;
+  dimensions: string;
+  quantity: number;
+  condition: PanelPhysicalCondition;
+  currentLocation: string;
+  movementHistory?: string[];
+  addedAt?: string;
+}
+
+export interface TraceablePanel {
+  panelId: string;
+  panelCode: string;
+  serialNumber: string;
+  QRCode: string;
+  barcode: string;
+  panelType: string;
+  panelCategory: StandardPanelCategory | string;
+  dimensions: string;
+  length: number;
+  width: number;
+  thickness: number;
+  weight?: number;
+  manufacturer?: string;
+  purchaseDate?: string;
+  condition: PanelPhysicalCondition;
+  status: PanelTraceabilityStatus;
+  currentLocation: string;
+  currentWarehouseId?: string;
+  currentSiteStoreId?: string;
+  currentProjectId?: string;
+  currentSiteId?: string;
+  currentBuildingId?: string;
+  currentFloorId?: string;
+  currentZoneId?: string;
+  assignedTeamLeaderId?: string;
+  assignedGangChiefId?: string;
+  assignedSectionHeadId?: string;
+  installationStatus: PanelInstallationStatus;
+  createdAt: string;
+  updatedAt: string;
+
+  // Extended properties for full ERP integration
+  associatedAccessories?: PanelAssociatedAccessory[];
+  stairConfig?: StairPanelConfig;
+  lastMovementId?: string;
+  lastMovementAction?: string;
+  lastMovementDate?: string;
+  lastUserId?: string;
+  lastUserName?: string;
+  lastScannedDate?: string;
+  lastScannedBy?: string;
+  photoUrl?: string;
+  expectedReturnDate?: string;
+  notes?: string;
+  qrReplacementCount?: number;
+  lastQrReprintDate?: string;
+}
+
+export type PanelTraceabilityAction =
+  | "RECEIVE"
+  | "TRANSFER"
+  | "REQUEST"
+  | "APPROVE"
+  | "ISSUE"
+  | "ASSIGN"
+  | "INSTALL"
+  | "USE"
+  | "DISASSEMBLE"
+  | "RETURN"
+  | "DAMAGE_REPORT"
+  | "REPAIR_START"
+  | "REPAIR_COMPLETE"
+  | "MISSING_REPORT"
+  | "FOUND"
+  | "RETIRE"
+  | "AUDIT_RECONCILE"
+  | "ACCESSORY_ATTACH"
+  | "ACCESSORY_DETACH"
+  | "QR_LABEL_REPRINT";
+
+export interface PanelTraceabilityMovement {
+  movementId: string;
+  panelId: string;
+  serialNumber: string;
+  panelCode: string;
+  action: PanelTraceabilityAction;
+  fromLocation: string;
+  toLocation: string;
+  projectId?: string;
+  projectName?: string;
+  siteId?: string;
+  siteName?: string;
+  buildingId?: string;
+  floorId?: string;
+  zoneId?: string;
+  assignedTeamLeaderId?: string;
+  assignedGangChiefId?: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  timestamp: string;
+  reason: string;
+  conditionBefore: PanelPhysicalCondition;
+  conditionAfter: PanelPhysicalCondition;
+  notes?: string;
+  attachmentPhoto?: string;
+  statusBefore?: PanelTraceabilityStatus;
+  statusAfter?: PanelTraceabilityStatus;
+}
+
+export interface PanelDamageInspection {
+  inspectionId: string;
+  panelId: string;
+  serialNumber: string;
+  panelCode: string;
+  damageType: "Bent / Deformed" | "Cracked Weld" | "Face Dent" | "Corner Damaged" | "Pin Hole Enlarged" | "Coating Stripped" | "Missing Profile" | "Other";
+  damageDescription: string;
+  severity: "MINOR" | "MODERATE" | "CRITICAL" | "SCRAP";
+  damagePhoto?: string;
+  reportedBy: string;
+  reportedByRole: string;
+  dateTime: string;
+  currentLocation: string;
+  repairDecision: "REPAIR_ON_SITE" | "TRANSFER_TO_CENTRAL_WORKSHOP" | "RETIRE_AND_SCRAP" | "MONITOR_IN_SERVICE";
+  repairStatus: "PENDING_ASSESSMENT" | "UNDER_REPAIR" | "REPAIRED_APPROVED" | "SCRAPPED";
+  estimatedRepairCostEtb?: number;
+  repairedDate?: string;
+  repairedBy?: string;
+}
+
+export interface PanelIssueTransaction {
+  issueId: string;
+  panelSerial: string;
+  panelCode: string;
+  panelId: string;
+  requesterId: string;
+  requesterName: string;
+  requesterRole: string;
+  teamLeaderId?: string;
+  teamLeaderName?: string;
+  gangChiefId?: string;
+  gangChiefName?: string;
+  sectionHeadId?: string;
+  project: string;
+  projectId: string;
+  site: string;
+  siteId: string;
+  building: string;
+  floor: string;
+  zone: string;
+  issueDateTime: string;
+  expectedReturnDate: string;
+  condition: PanelPhysicalCondition;
+  issuedBy: string;
+  issuedByRole: string;
+  accessoriesIssued?: { type: string; qty: number }[];
+  notes?: string;
+}
+
+export interface PanelReturnTransaction {
+  returnId: string;
+  panelSerial: string;
+  panelCode: string;
+  panelId: string;
+  returnDateTime: string;
+  returnedBy: string;
+  returnedByRole: string;
+  condition: PanelPhysicalCondition;
+  damageStatus: "NO_DAMAGE" | "MINOR_DAMAGE" | "CRITICAL_DAMAGE" | "UNUSABLE";
+  missingAccessories: string[];
+  photosIfDamaged?: string[];
+  inspectionResult: "ACCEPTED_BACK_TO_STOCK" | "ACCEPTED_NEEDS_CLEANING" | "QUARANTINED_FOR_REPAIR" | "REJECTED_HEAVY_DAMAGE";
+  inspectorName: string;
+  inspectorRole: string;
+  destinationStoreOrWarehouse: string;
+  notes?: string;
+}
+
+export interface PanelInventoryReconciliationRecord {
+  reconciliationId: string;
+  auditDate: string;
+  facilityType: "WAREHOUSE" | "SITE_STORE" | "PROJECT_SITE";
+  facilityId: string;
+  facilityName: string;
+  panelCode: string;
+  panelType: string;
+  dimension: string;
+  systemStock: number;
+  physicalStock: number;
+  issuedPanels: number;
+  returnedPanels: number;
+  installedPanels: number;
+  damagedPanels: number;
+  missingPanels: number;
+  discrepancyCount: number;
+  discrepancyType: "MATCH" | "SURPLUS" | "SHORTAGE" | "LOCATION_MISMATCH";
+  auditedBy: string;
+  auditedByRole: string;
+  status: "CONFIRMED_MATCH" | "DISCREPANCY_FLAGGED" | "INVESTIGATING" | "RECONCILED";
+  actionTaken?: string;
+  notes?: string;
+}
+
+export interface DailyPanelMovementReportData {
+  reportId: string;
+  reportDate: string;
+  scopeType: "ALL" | "WAREHOUSE" | "SITE_STORE" | "PROJECT" | "SITE";
+  scopeId: string;
+  scopeName: string;
+  openingPanels: number;
+  received: number;
+  transferredIn: number;
+  transferredOut: number;
+  issued: number;
+  returned: number;
+  installed: number;
+  disassembled: number;
+  damaged: number;
+  missing: number;
+  lost: number;
+  closingPanels: number;
+  breakdownByWarehouse: { name: string; count: number }[];
+  breakdownBySiteStore: { name: string; count: number }[];
+  breakdownByProject: { name: string; count: number }[];
+  breakdownByTeam: { name: string; count: number }[];
+  breakdownByGang: { name: string; count: number }[];
+  movementRecordsCount: number;
+  generatedAt: string;
+  generatedBy: string;
+  notificationsSentTo: string[];
+}
+
+export interface PanelTraceabilityAuditLog {
+  id: string;
+  userId: string;
+  userName: string;
+  userRole: string;
+  action: string;
+  panelId: string;
+  serialNumber: string;
+  panelCode: string;
+  previousLocation: string;
+  newLocation: string;
+  previousStatus: string;
+  newStatus: string;
+  previousCondition: string;
+  newCondition: string;
+  timestamp: string;
+  ipDeviceMetadata: string;
+  notes: string;
+  oldQrStatus?: string;
+  replacementReason?: string;
+}
+
