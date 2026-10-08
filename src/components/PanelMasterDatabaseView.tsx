@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   MASTER_PANEL_DATABASE,
   MASTER_CATEGORIES,
@@ -1964,7 +1965,11 @@ export const PanelMasterDatabaseView: React.FC<PanelMasterDatabaseViewProps> = (
 
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col items-center justify-center space-y-3">
               <div className="w-40 h-40 bg-white border-2 border-slate-900 p-2 rounded-xl flex items-center justify-center shadow-md">
-                <QrCode size={130} className="text-slate-900" />
+                <QRCodeSVG 
+                  value={qrModalRecord.qrCode || qrModalRecord.panelCode || qrModalRecord.panelId} 
+                  size={130} 
+                  level="M" 
+                />
               </div>
 
               <div className="font-mono text-xs text-slate-700 font-bold space-y-1">

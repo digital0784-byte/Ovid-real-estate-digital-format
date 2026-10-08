@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   X,
   Building2,
@@ -1249,7 +1250,11 @@ export const WarehouseRegistrationModal: React.FC<WarehouseRegistrationModalProp
 
             <div className="p-4 bg-slate-950 rounded-2xl border border-slate-800 space-y-2">
               <div className="w-32 h-32 mx-auto bg-white p-2 rounded-xl flex items-center justify-center">
-                <QrCode size={110} className="text-slate-950" />
+                <QRCodeSVG 
+                  value={inspectingPanel.qrCodePayload || inspectingPanel.panelCode || inspectingPanel.id} 
+                  size={110} 
+                  level="M" 
+                />
               </div>
               <span className="text-xs font-mono font-bold text-amber-400 block">{inspectingPanel.panelCode}</span>
               <span className="text-[11px] font-mono text-slate-300 block">{inspectingPanel.dimension.formatted}</span>

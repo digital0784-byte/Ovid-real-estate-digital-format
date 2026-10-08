@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { 
   StandardPanelCategory, 
   PanelPhysicalCondition, 
@@ -230,9 +231,26 @@ export const PanelRegistrationModal: React.FC<Props> = ({
               </div>
             </div>
 
-            <div className="pt-2 text-[10px] text-slate-500 flex items-center space-x-1.5">
-              <QrCode size={12} className="text-red-400" />
-              <span>QR Payload: <strong className="text-slate-300 font-mono">DIGITAL-ERP://PANEL/{serialNumber.toUpperCase()}</strong></span>
+            <div className="pt-2 p-3 bg-slate-950 border border-slate-800 rounded-xl flex items-center space-x-3.5">
+              <div className="bg-white p-1.5 rounded-lg shrink-0 shadow-sm">
+                <QRCodeSVG 
+                  value={`DIGITAL-ERP://PANEL/${(serialNumber || "PANEL").toUpperCase()}`} 
+                  size={64} 
+                  level="M" 
+                />
+              </div>
+              <div className="text-[11px] space-y-1 overflow-hidden">
+                <div className="text-slate-400 text-[10px] font-bold uppercase tracking-wider flex items-center space-x-1">
+                  <QrCode size={12} className="text-red-400" />
+                  <span>{isAmharic ? "ቀጥታ የQR መለያ ምስል" : "Live QR Identity Preview"}</span>
+                </div>
+                <div className="text-slate-200 font-mono text-xs font-bold truncate">
+                  DIGITAL-ERP://PANEL/{(serialNumber || "PANEL").toUpperCase()}
+                </div>
+                <div className="text-[10px] text-slate-500">
+                  {isAmharic ? "መለያው በቋሚነት ወደ ዳታቤዝ ይመዘገባል" : "Original unique identity linked to this panel"}
+                </div>
+              </div>
             </div>
           </div>
 

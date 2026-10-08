@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import {
   Search,
   Plus,
@@ -2078,7 +2079,7 @@ export const AccessoryMasterDatabaseView: React.FC<AccessoryMasterDatabaseViewPr
                       <div className="font-mono font-bold text-amber-600 text-xs">{item.code}</div>
                       <div className="text-[10px] text-slate-800 font-semibold truncate">{item.name}</div>
                       <div className="my-1 flex justify-center">
-                        <QrCode className="w-12 h-12 text-slate-900" />
+                        <QRCodeSVG value={item.qrCode || item.code} size={48} level="M" />
                       </div>
                       <div className="text-[9px] text-slate-500 font-mono">{item.qrCode}</div>
                     </div>

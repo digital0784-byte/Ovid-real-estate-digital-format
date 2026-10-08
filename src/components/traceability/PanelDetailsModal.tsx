@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { 
   TraceablePanel, 
   PanelTraceabilityMovement, 
@@ -28,7 +29,8 @@ import {
   AlertTriangle,
   History,
   Info,
-  Printer
+  Printer,
+  Eye
 } from "lucide-react";
 import { QrReprintModal } from "./QrReprintModal";
 
@@ -51,6 +53,7 @@ export const PanelDetailsModal: React.FC<Props> = ({
 }) => {
   const [activeTab, setActiveTab] = useState<"DETAILS" | "HISTORY" | "ACCESSORIES" | "STAIR">("DETAILS");
   const [isReprintModalOpen, setIsReprintModalOpen] = useState(false);
+  const [isViewQrModalOpen, setIsViewQrModalOpen] = useState(false);
   const [movements] = useState<PanelTraceabilityMovement[]>(() => 
     PanelTraceabilityService.getMovements(panel.panelId)
   );
@@ -200,33 +203,79 @@ export const PanelDetailsModal: React.FC<Props> = ({
 
               {/* Unique Identity Fields (Section 1) */}
               <div className="bg-slate-950/40 border border-slate-800/80 rounded-xl p-4 space-y-3">
-                <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider border-b border-slate-800 pb-2">
-                  {isAmharic ? "ቋሚ እና ልዩ መለያዎች (Unique Permanent Identity)" : "Unique Permanent Identity Fields"}
-                </h4>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Panel ID:</span>
-                    <span className="font-mono text-slate-200 font-bold">{panel.panelId}</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800 pb-2 gap-2">
+                  <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider">
+                    {isAmharic ? "ቋሚ እና ልዩ መለያዎች (Unique Permanent Identity)" : "Unique Permanent Identity Fields"}
+                  </h4>
+                  {/* Action buttons: VIEW QR, PRINT QR, REPRINT QR */}
+                  <div className="flex items-center space-x-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setIsViewQrModalOpen(true)}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer transition-colors"
+                      title={isAmharic ? "QR በሙሉ መጠን ተመልከት" : "View full-size QR code"}
+                    >
+                      <Eye size={12} className="text-blue-400" />
+                      <span>{isAmharic ? "QR እይ" : "VIEW QR"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => window.print()}
+                      className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer transition-colors"
+                      title={isAmharic ? "QR መለያ አትም" : "Print QR label"}
+                    >
+                      <Printer size={12} className="text-emerald-400" />
+                      <span>{isAmharic ? "QR አትም" : "PRINT QR"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsReprintModalOpen(true)}
+                      className="px-2.5 py-1 bg-amber-950/80 hover:bg-amber-900/90 text-amber-300 border border-amber-700/60 rounded-lg text-[11px] font-bold flex items-center space-x-1 cursor-pointer transition-colors"
+                      title={isAmharic ? "የተበላሸ/የጠፋ QR በነበረው ማንነት መልሰህ አትም" : "Reprint identical QR for damaged/lost replacement"}
+                    >
+                      <QrCode size={12} className="text-amber-400" />
+                      <span>{isAmharic ? "QR መልሰህ አትም" : "REPRINT QR"}</span>
+                    </button>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Serial Number:</span>
-                    <span className="font-mono text-white font-bold">{panel.serialNumber}</span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center">
+                  {/* Visual QR Code Card */}
+                  <div className="p-2.5 bg-white rounded-xl border border-slate-300 shadow-md flex flex-col items-center justify-center shrink-0">
+                    <QRCodeSVG 
+                      value={panel.QRCode || `DIGITAL-ERP://PANEL/${panel.serialNumber}`} 
+                      size={96} 
+                      level="M" 
+                    />
+                    <span className="text-[8px] font-mono font-bold text-slate-800 mt-1">VERIFIED TAG</span>
                   </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Panel Code:</span>
-                    <span className="font-mono text-slate-200">{panel.panelCode}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">QR Code Payload:</span>
-                    <span className="font-mono text-xs text-red-400 truncate block" title={panel.QRCode}>{panel.QRCode}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Barcode:</span>
-                    <span className="font-mono text-xs text-slate-300">{panel.barcode}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-500 block text-[10px]">Installation Status:</span>
-                    <span className="text-slate-300">{panel.installationStatus}</span>
+
+                  {/* Identity Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 flex-1 w-full">
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Panel ID:</span>
+                      <span className="font-mono text-slate-200 font-bold">{panel.panelId}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Serial Number:</span>
+                      <span className="font-mono text-white font-bold">{panel.serialNumber}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Panel Code:</span>
+                      <span className="font-mono text-slate-200">{panel.panelCode}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">QR Code Payload:</span>
+                      <span className="font-mono text-xs text-red-400 truncate block" title={panel.QRCode}>{panel.QRCode}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Barcode:</span>
+                      <span className="font-mono text-xs text-slate-300">{panel.barcode}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[10px]">Installation Status:</span>
+                      <span className="text-slate-300">{panel.installationStatus}</span>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -565,6 +614,93 @@ export const PanelDetailsModal: React.FC<Props> = ({
               role: currentUserRole || "User"
             }}
           />
+        )}
+
+        {/* View Full-Size QR Identity Modal */}
+        {isViewQrModalOpen && (
+          <div className="fixed inset-0 z-[60] bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+            <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl p-6 text-center space-y-4">
+              <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                <div className="flex items-center space-x-2 text-left">
+                  <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500">
+                    <QrCode size={16} />
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-bold text-white">
+                      {isAmharic ? "የፓነል ዲጂታል መለያ (QR Tag)" : "Panel Digital Identity Tag"}
+                    </h4>
+                    <p className="text-[10px] text-slate-400 font-mono">{panel.serialNumber}</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsViewQrModalOpen(false)}
+                  className="p-1 text-slate-400 hover:text-white rounded-lg"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              {/* Crisp SVG QR display */}
+              <div className="p-4 bg-white rounded-2xl border-2 border-slate-900 mx-auto inline-flex flex-col items-center justify-center shadow-lg">
+                <QRCodeSVG
+                  value={panel.QRCode || `DIGITAL-ERP://PANEL/${panel.serialNumber}`}
+                  size={180}
+                  level="M"
+                />
+                <span className="text-[10px] font-mono font-bold text-slate-800 mt-2 tracking-wider">
+                  SCAN FOR TRACEABILITY
+                </span>
+              </div>
+
+              {/* Specs info */}
+              <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono space-y-1 text-left">
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Panel ID:</span>
+                  <span className="text-slate-200 font-bold">{panel.panelId}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Serial Number:</span>
+                  <span className="text-amber-400 font-bold">{panel.serialNumber}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Panel Code:</span>
+                  <span className="text-white">{panel.panelCode}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-500">Dimensions:</span>
+                  <span className="text-slate-300">{panel.dimensions}</span>
+                </div>
+                <div className="flex justify-between truncate">
+                  <span className="text-slate-500">Location:</span>
+                  <span className="text-slate-300 truncate max-w-[200px]" title={panel.currentLocation}>{panel.currentLocation}</span>
+                </div>
+              </div>
+
+              {/* Buttons: Print, Reprint, Close */}
+              <div className="grid grid-cols-2 gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="py-2.5 px-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-red-950/50 cursor-pointer"
+                >
+                  <Printer size={14} />
+                  <span>{isAmharic ? "QR አትም" : "PRINT QR"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsViewQrModalOpen(false);
+                    setIsReprintModalOpen(true);
+                  }}
+                  className="py-2.5 px-3 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-700/60 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
+                >
+                  <QrCode size={14} />
+                  <span>{isAmharic ? "QR መልሰህ አትም" : "REPRINT QR"}</span>
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

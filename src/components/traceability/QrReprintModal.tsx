@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { TraceablePanel } from "../../types";
 import { PanelTraceabilityService } from "../../services/panelTraceabilityService";
 import { 
@@ -328,7 +329,11 @@ export const QrReprintModal: React.FC<Props> = ({
                   <div className="flex items-center space-x-4">
                     {/* Visual QR Code Display */}
                     <div className="p-2 border-2 border-slate-900 rounded-lg bg-white flex flex-col items-center justify-center shrink-0">
-                      <QrCode size={92} className="text-slate-950" />
+                      <QRCodeSVG 
+                        value={panel.QRCode || `DIGITAL-ERP://PANEL/${panel.serialNumber}`} 
+                        size={92} 
+                        level="M" 
+                      />
                       <span className="text-[8px] font-mono mt-1 font-bold text-slate-700">SCAN ME</span>
                     </div>
 

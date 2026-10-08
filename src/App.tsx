@@ -115,7 +115,8 @@ import {
   MapPinOff,
   PlusCircle,
   ArrowRightLeft,
-  Package
+  Package,
+  QrCode
 } from "lucide-react";
 
 export interface UserProfile {

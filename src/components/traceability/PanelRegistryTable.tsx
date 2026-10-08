@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { 
   TraceablePanel, 
   PanelTraceabilityStatus, 
@@ -19,7 +20,8 @@ import {
   RefreshCw,
   SlidersHorizontal,
   ChevronRight,
-  Printer
+  Printer,
+  X
 } from "lucide-react";
 
 interface Props {
@@ -44,6 +46,7 @@ export const PanelRegistryTable: React.FC<Props> = ({
   const [searchTerm, setSearchTerm] = useState("");
   const [filterCategory, setFilterCategory] = useState<string>("ALL");
   const [filterCondition, setFilterCondition] = useState<string>("ALL");
+  const [viewQrPanel, setViewQrPanel] = useState<TraceablePanel | null>(null);
 
   const filteredPanels = useMemo(() => {
     return panels.filter(panel => {
@@ -285,26 +288,61 @@ export const PanelRegistryTable: React.FC<Props> = ({
                   </td>
                   <td className="px-3 py-3 text-right whitespace-nowrap">
                     <div className="flex items-center justify-end space-x-1.5">
+                      {/* VIEW QR button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewQrPanel(p);
+                        }}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 hover:border-cyan-600 rounded text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
+                        title={isAmharic ? "QR በሙሉ መጠን እይ" : "View QR Code"}
+                      >
+                        <Eye size={11} className="text-cyan-400" />
+                        <span>VIEW QR</span>
+                      </button>
+
+                      {/* PRINT QR button */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewQrPanel(p);
+                          setTimeout(() => window.print(), 100);
+                        }}
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 hover:border-emerald-600 rounded text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
+                        title={isAmharic ? "QR መለያ አትም" : "Print QR Label"}
+                      >
+                        <Printer size={11} className="text-emerald-400" />
+                        <span>PRINT QR</span>
+                      </button>
+
+                      {/* REPRINT QR button */}
                       {onOpenReprintModal && (
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             onOpenReprintModal(p);
                           }}
-                          className="p-1.5 text-slate-400 hover:text-amber-300 hover:bg-slate-800 rounded transition-colors cursor-pointer border border-transparent hover:border-slate-700"
+                          className="px-2 py-1 bg-amber-950/70 hover:bg-amber-900/90 text-amber-300 border border-amber-800/60 rounded text-[10px] font-bold transition-colors flex items-center space-x-1 cursor-pointer"
                           title={isAmharic ? "QR መልሰህ አትም (Reprint QR)" : "Reprint QR Label"}
                         >
-                          <Printer size={13} />
+                          <QrCode size={11} className="text-amber-400" />
+                          <span>REPRINT QR</span>
                         </button>
                       )}
+
+                      {/* Inspect details button */}
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           onSelectPanel(p);
                         }}
-                        className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[11px] font-semibold transition-colors flex items-center space-x-1 cursor-pointer"
+                        className="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded text-[10px] font-semibold transition-colors flex items-center space-x-1 cursor-pointer"
+                        title={isAmharic ? "ዝርዝር መረጃ" : "Inspect Details"}
                       >
-                        <Eye size={12} />
                         <span>{isAmharic ? "ዝርዝር" : "Inspect"}</span>
                       </button>
                     </div>
@@ -315,6 +353,98 @@ export const PanelRegistryTable: React.FC<Props> = ({
           </tbody>
         </table>
       </div>
+
+      {/* VIEW QR MODAL OVERLAY */}
+      {viewQrPanel && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-700 w-full max-w-md rounded-2xl shadow-2xl p-6 text-center space-y-4">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <div className="flex items-center space-x-2 text-left">
+                <div className="w-8 h-8 rounded-lg bg-red-600/20 border border-red-500/40 flex items-center justify-center text-red-500">
+                  <QrCode size={16} />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-white">
+                    {isAmharic ? "የፓነል QR መለያ እና ማተሚያ" : "Panel QR Identification Tag"}
+                  </h4>
+                  <p className="text-[10px] text-slate-400 font-mono">{viewQrPanel.serialNumber}</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewQrPanel(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-lg cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* High-Performance Vector SVG QR Code */}
+            <div className="p-4 bg-white rounded-2xl border-2 border-slate-900 mx-auto inline-flex flex-col items-center justify-center shadow-lg">
+              <QRCodeSVG
+                value={viewQrPanel.QRCode || `DIGITAL-ERP://PANEL/${viewQrPanel.serialNumber}`}
+                size={170}
+                level="M"
+              />
+              <span className="text-[10px] font-mono font-bold text-slate-900 mt-2 tracking-wider">
+                PANEL IDENTITY VERIFIED
+              </span>
+            </div>
+
+            {/* Panel Metadata Details */}
+            <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-xs font-mono space-y-1.5 text-left">
+              <div className="flex justify-between">
+                <span className="text-slate-500">Panel ID:</span>
+                <span className="text-slate-200 font-bold">{viewQrPanel.panelId}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Serial Number:</span>
+                <span className="text-amber-400 font-bold">{viewQrPanel.serialNumber}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Panel Code:</span>
+                <span className="text-white font-bold">{viewQrPanel.panelCode}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">Category / Dim:</span>
+                <span className="text-slate-300">{viewQrPanel.panelCategory} ({viewQrPanel.dimensions})</span>
+              </div>
+              <div className="flex justify-between truncate">
+                <span className="text-slate-500">Location:</span>
+                <span className="text-slate-300 truncate max-w-[210px]" title={viewQrPanel.currentLocation}>{viewQrPanel.currentLocation}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-500">QR Identity:</span>
+                <span className="text-red-400 text-[11px] truncate max-w-[210px]" title={viewQrPanel.QRCode}>{viewQrPanel.QRCode}</span>
+              </div>
+            </div>
+
+            {/* Quick Action Buttons: PRINT QR, REPRINT QR, CLOSE */}
+            <div className="grid grid-cols-2 gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => window.print()}
+                className="py-2.5 px-3 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 shadow-md shadow-red-950/50 cursor-pointer"
+              >
+                <Printer size={14} />
+                <span>{isAmharic ? "QR አትም" : "PRINT QR"}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const p = viewQrPanel;
+                  setViewQrPanel(null);
+                  if (onOpenReprintModal) onOpenReprintModal(p);
+                }}
+                className="py-2.5 px-3 bg-amber-950/80 hover:bg-amber-900 text-amber-300 border border-amber-700/60 rounded-xl text-xs font-bold flex items-center justify-center space-x-1.5 cursor-pointer"
+              >
+                <QrCode size={14} />
+                <span>{isAmharic ? "QR መልሰህ አትም" : "REPRINT QR"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

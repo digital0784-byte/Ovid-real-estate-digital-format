@@ -1291,10 +1291,12 @@ export class PanelTraceabilityService {
           title: `⚠️ Panel Discrepancy Alert: ${params.facilityName}`,
           description: `Audit found ${Math.abs(discrepancyCount)} discrepancy in panel code ${code} (${sample.panelType}) at ${params.facilityName}. System: ${systemStock}, Physical: ${physicalStock}.`,
           type: "Warning",
-          category: "Formwork & Panels",
+          category: "Aluminum Formwork Panel Tracking Notifications",
           priority: "High",
-          targetRole: "Warehouse Manager",
+          status: "Unread",
+          targetRoles: ["Warehouse Manager"],
           sender: "Panel Reconciliation Engine",
+          actionTab: "panelTraceability",
           actionUrl: "/traceability",
           metadata: { panelCode: code, facilityId: params.facilityId, discrepancyCount }
         });
@@ -1410,10 +1412,12 @@ export class PanelTraceabilityService {
       title: `📊 Daily Panel Movement Report Ready (${today})`,
       description: `Daily report generated for ${scope.name}. Opening: ${openingPanels}, Issued: ${issued}, Returned: ${returned}, Installed: ${installed}, Closing: ${closingPanels}.`,
       type: "System",
-      category: "Formwork & Panels",
-      priority: "Normal",
-      targetRole: "Warehouse Manager",
+      category: "Aluminum Formwork Panel Tracking Notifications",
+      priority: "Medium",
+      status: "Unread",
+      targetRoles: ["Warehouse Manager", "Head Office Manager", "Project Manager", "Super Admin"],
       sender: "Panel Movement Automated Service",
+      actionTab: "panelTraceability",
       actionUrl: "/traceability",
       metadata: { reportId: report.reportId, date: today }
     });

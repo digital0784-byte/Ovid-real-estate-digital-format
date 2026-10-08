@@ -954,6 +954,10 @@ export interface EnterpriseNotification {
   read?: boolean;
   isRead?: boolean;
   moduleSource?: string;
+  type?: string;
+  targetRole?: string;
+  actionUrl?: string;
+  metadata?: Record<string, any>;
 }
 
 export interface NotificationFilterState {
@@ -1144,6 +1148,13 @@ export interface StairPanelConfig {
   riser?: number; // mm (e.g. 150, 175)
   slopeAngle?: number; // degrees (e.g. 28.5, 30.5)
   numberOfSteps?: number; // (e.g. 8, 9, 10)
+  riserHeightMm?: number;
+  treadDepthMm?: number;
+  totalSteps?: number;
+  stairWidthMm?: number;
+  flightAngleDeg?: number;
+  stringerType?: string;
+  landingLengthMm?: number;
 }
 
 export interface PanelMasterCatalogItem {
