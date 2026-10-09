@@ -1775,6 +1775,7 @@ export interface PanelAssociatedAccessory {
 }
 
 export interface TraceablePanel {
+  id?: string;
   panelId: string;
   panelCode: string;
   serialNumber: string;
@@ -1846,6 +1847,7 @@ export type PanelTraceabilityAction =
   | "QR_LABEL_REPRINT";
 
 export interface PanelTraceabilityMovement {
+  id?: string;
   movementId: string;
   panelId: string;
   serialNumber: string;
@@ -1876,6 +1878,7 @@ export interface PanelTraceabilityMovement {
 }
 
 export interface PanelDamageInspection {
+  id?: string;
   inspectionId: string;
   panelId: string;
   serialNumber: string;
@@ -1896,6 +1899,7 @@ export interface PanelDamageInspection {
 }
 
 export interface PanelIssueTransaction {
+  id?: string;
   issueId: string;
   panelSerial: string;
   panelCode: string;
@@ -1925,6 +1929,7 @@ export interface PanelIssueTransaction {
 }
 
 export interface PanelReturnTransaction {
+  id?: string;
   returnId: string;
   panelSerial: string;
   panelCode: string;
@@ -1944,6 +1949,7 @@ export interface PanelReturnTransaction {
 }
 
 export interface PanelInventoryReconciliationRecord {
+  id?: string;
   reconciliationId: string;
   auditDate: string;
   facilityType: "WAREHOUSE" | "SITE_STORE" | "PROJECT_SITE";
@@ -2017,5 +2023,17 @@ export interface PanelTraceabilityAuditLog {
   notes: string;
   oldQrStatus?: string;
   replacementReason?: string;
+}
+
+export interface ConfiguredDimensionOption {
+  id: string;
+  category: StandardPanelCategory | string;
+  name: string;
+  length: number;
+  width: number;
+  thickness: number;
+  formatted: string;
+  weightKg: number;
+  isStandard: boolean;
 }
 

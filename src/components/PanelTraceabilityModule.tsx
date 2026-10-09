@@ -80,6 +80,20 @@ export const PanelTraceabilityModule: React.FC<Props> = ({
     }
   };
 
+  useEffect(() => {
+    const handleUpdate = () => {
+      refreshData();
+    };
+    window.addEventListener("traceable_panels_updated", handleUpdate);
+    window.addEventListener("panel_audit_logs_updated", handleUpdate);
+    window.addEventListener("panel_movements_updated", handleUpdate);
+    return () => {
+      window.removeEventListener("traceable_panels_updated", handleUpdate);
+      window.removeEventListener("panel_audit_logs_updated", handleUpdate);
+      window.removeEventListener("panel_movements_updated", handleUpdate);
+    };
+  }, [inspectedPanel]);
+
   const currentUser = {
     id: currentUserId,
     name: currentUserName,

@@ -520,6 +520,137 @@
         "project": { "type": "string" }
       },
       "required": ["id", "invoiceId", "amount", "date", "project"]
+    },
+    "TraceablePanel": {
+      "title": "TraceablePanel",
+      "description": "Formwork panel record with permanent QR code, serial number, and physical condition tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "panelId": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "panelCode": { "type": "string" },
+        "QRCode": { "type": "string" },
+        "barcode": { "type": "string" },
+        "panelType": { "type": "string" },
+        "panelCategory": { "type": "string" },
+        "dimensions": { "type": "string" },
+        "length": { "type": "number" },
+        "width": { "type": "number" },
+        "thickness": { "type": "number" },
+        "condition": { "type": "string" },
+        "status": { "type": "string" },
+        "currentLocation": { "type": "string" }
+      },
+      "required": ["id", "panelId", "serialNumber", "QRCode"]
+    },
+    "PanelTraceabilityMovement": {
+      "title": "PanelTraceabilityMovement",
+      "description": "Panel lifecycle movement, dispatch, receipt, erection, and return history record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "movementId": { "type": "string" },
+        "panelId": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "action": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "fromLocation": { "type": "string" },
+        "toLocation": { "type": "string" },
+        "statusBefore": { "type": "string" },
+        "statusAfter": { "type": "string" }
+      },
+      "required": ["id", "movementId", "panelId", "action", "timestamp"]
+    },
+    "PanelDamageInspection": {
+      "title": "PanelDamageInspection",
+      "description": "Formwork panel physical damage inspection report with severity assessment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "inspectionId": { "type": "string" },
+        "panelId": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "damageType": { "type": "string" },
+        "severity": { "type": "string" },
+        "repairDecision": { "type": "string" },
+        "inspectionDate": { "type": "string" }
+      },
+      "required": ["id", "inspectionId", "panelId", "damageType", "severity"]
+    },
+    "PanelIssueTransaction": {
+      "title": "PanelIssueTransaction",
+      "description": "Panel issue handover record from store/warehouse to site team or section head.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "issueId": { "type": "string" },
+        "panelId": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "site": { "type": "string" },
+        "issueDate": { "type": "string" }
+      },
+      "required": ["id", "issueId", "panelId", "site", "issueDate"]
+    },
+    "PanelReturnTransaction": {
+      "title": "PanelReturnTransaction",
+      "description": "Panel return transaction record with receiving inspection and condition check.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "returnId": { "type": "string" },
+        "panelId": { "type": "string" },
+        "serialNumber": { "type": "string" },
+        "returnDate": { "type": "string" },
+        "inspectionResult": { "type": "string" }
+      },
+      "required": ["id", "returnId", "panelId", "returnDate"]
+    },
+    "PanelInventoryReconciliationRecord": {
+      "title": "PanelInventoryReconciliationRecord",
+      "description": "Physical panel barcode/QR count reconciliation record against system ledger.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reconciliationId": { "type": "string" },
+        "auditDate": { "type": "string" },
+        "facilityId": { "type": "string" },
+        "facilityName": { "type": "string" },
+        "systemCount": { "type": "number" },
+        "physicalCount": { "type": "number" },
+        "discrepancy": { "type": "number" }
+      },
+      "required": ["id", "reconciliationId", "auditDate", "facilityName"]
+    },
+    "PanelTraceabilityAuditLog": {
+      "title": "PanelTraceabilityAuditLog",
+      "description": "Immutable enterprise audit event trail for all panel modifications, scans, and reprints.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "action": { "type": "string" },
+        "panelId": { "type": "string" },
+        "serialNumber": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "userId", "action", "panelId"]
+    },
+    "ConfiguredDimensionOption": {
+      "title": "ConfiguredDimensionOption",
+      "description": "Standardized formwork panel dimensional specification library entry.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "length": { "type": "number" },
+        "width": { "type": "number" },
+        "thickness": { "type": "number" },
+        "formatted": { "type": "string" }
+      },
+      "required": ["id", "name", "category", "formatted"]
     }
   },
   "firestore": {
@@ -658,6 +789,38 @@
     "/paymentRecords/{paymentId}": {
       "schema": "PaymentRecord",
       "description": "Disbursements, bank settlement records, and invoice payments."
+    },
+    "/traceablePanels/{panelId}": {
+      "schema": "TraceablePanel",
+      "description": "Aluminum formwork serialized traceable panels."
+    },
+    "/panelTraceabilityMovements/{movementId}": {
+      "schema": "PanelTraceabilityMovement",
+      "description": "Traceable panel dispatch, receipt, movement, and installation history."
+    },
+    "/panelDamageInspections/{inspectionId}": {
+      "schema": "PanelDamageInspection",
+      "description": "Traceable panel damage condition inspection reports."
+    },
+    "/panelIssueTransactions/{issueId}": {
+      "schema": "PanelIssueTransaction",
+      "description": "Traceable panel issuance handovers to site teams."
+    },
+    "/panelReturnTransactions/{returnId}": {
+      "schema": "PanelReturnTransaction",
+      "description": "Traceable panel return records and receiving inspections."
+    },
+    "/panelInventoryReconciliations/{reconciliationId}": {
+      "schema": "PanelInventoryReconciliationRecord",
+      "description": "Traceable panel stock counts and discrepancy reconciliations."
+    },
+    "/panelTraceabilityAuditLogs/{logId}": {
+      "schema": "PanelTraceabilityAuditLog",
+      "description": "Immutable audit trails for panel traceability events."
+    },
+    "/panelDimensionLibrary/{dimensionId}": {
+      "schema": "ConfiguredDimensionOption",
+      "description": "Pre-configured panel dimensional library catalog."
     }
   }
 }

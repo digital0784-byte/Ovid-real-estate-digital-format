@@ -34,8 +34,21 @@ import {
   RegisteredWarehouse,
   WarehousePanelTypeEntry,
   PayrollRecord,
-  Expense
+  Expense,
+  TraceablePanel,
+  PanelTraceabilityMovement,
+  PanelDamageInspection,
+  PanelIssueTransaction,
+  PanelReturnTransaction,
+  PanelInventoryReconciliationRecord,
+  PanelTraceabilityAuditLog,
+  ConfiguredDimensionOption
 } from "../types";
+import {
+  INITIAL_SEED_PANELS,
+  INITIAL_SEED_MOVEMENTS,
+  DEFAULT_DIMENSION_LIBRARY
+} from "../data/panelTraceabilitySeed";
 import {
   StoreMaterialItem,
   MaterialReceivingReport,
@@ -1418,5 +1431,484 @@ export const DbService = {
   },
   async updatePaymentRecord(item: any): Promise<void> {
     await writeDocument<any>("paymentRecords", item, []);
+  },
+
+  // ============================================================
+  // PANEL TRACEABILITY FIRESTORE COLLECTIONS (Primary Cloud Store)
+  // ============================================================
+
+  // 1. traceablePanels ("traceablePanels")
+  async getTraceablePanels(): Promise<TraceablePanel[]> {
+    const raw = await fetchCollection<any>("traceablePanels", INITIAL_SEED_PANELS);
+    return raw.map(p => ({ ...p, id: p.id || p.panelId, panelId: p.panelId || p.id }));
+  },
+
+  getCachedTraceablePanels(): TraceablePanel[] {
+    const raw = offlineEngine.getCache<any>("traceablePanels", INITIAL_SEED_PANELS);
+    return raw.map(p => ({ ...p, id: p.id || p.panelId, panelId: p.panelId || p.id }));
+  },
+
+  subscribeTraceablePanels(
+    callback: (panels: TraceablePanel[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      console.log("[DbService] Subscribing real-time onSnapshot listener to 'traceablePanels'...");
+      const colRef = collection(db, "traceablePanels");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as TraceablePanel;
+            const id = data.id || data.panelId || docSnap.id;
+            return { ...data, id, panelId: data.panelId || id };
+          });
+          console.log(`[DbService.onSnapshot] Live update for 'traceablePanels': ${items.length} docs`);
+          if (items.length > 0) {
+            offlineEngine.saveCache("traceablePanels", items);
+            callback(items);
+          } else {
+            const cached = offlineEngine.getCache<TraceablePanel>("traceablePanels", INITIAL_SEED_PANELS);
+            callback(cached);
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "traceablePanels");
+          console.warn("[DbService.onSnapshot] Error in 'traceablePanels', using cache:", error);
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<TraceablePanel>("traceablePanels", INITIAL_SEED_PANELS));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<TraceablePanel>("traceablePanels", INITIAL_SEED_PANELS));
+      return () => {};
+    }
+  },
+
+  async addTraceablePanel(panel: TraceablePanel): Promise<void> {
+    const id = panel.id || panel.panelId;
+    const item = { ...panel, id, panelId: panel.panelId || id };
+    await writeDocument<any>("traceablePanels", item, INITIAL_SEED_PANELS);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("traceable_panels_updated"));
+    }
+  },
+
+  async updateTraceablePanel(panel: TraceablePanel): Promise<void> {
+    const id = panel.id || panel.panelId;
+    const item = { ...panel, id, panelId: panel.panelId || id };
+    await writeDocument<any>("traceablePanels", item, INITIAL_SEED_PANELS);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("traceable_panels_updated"));
+    }
+  },
+
+  async deleteTraceablePanel(panelId: string): Promise<void> {
+    await removeDocument<any>("traceablePanels", panelId, INITIAL_SEED_PANELS);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("traceable_panels_updated"));
+    }
+  },
+
+  // 2. panelTraceabilityMovements ("panelTraceabilityMovements")
+  async getPanelTraceabilityMovements(): Promise<PanelTraceabilityMovement[]> {
+    const raw = await fetchCollection<any>("panelTraceabilityMovements", INITIAL_SEED_MOVEMENTS);
+    return raw.map(m => ({ ...m, id: m.id || m.movementId, movementId: m.movementId || m.id }));
+  },
+
+  getCachedPanelTraceabilityMovements(): PanelTraceabilityMovement[] {
+    const raw = offlineEngine.getCache<any>("panelTraceabilityMovements", INITIAL_SEED_MOVEMENTS);
+    return raw.map(m => ({ ...m, id: m.id || m.movementId, movementId: m.movementId || m.id }));
+  },
+
+  subscribePanelTraceabilityMovements(
+    callback: (movements: PanelTraceabilityMovement[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelTraceabilityMovements");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelTraceabilityMovement;
+            const id = data.id || data.movementId || docSnap.id;
+            return { ...data, id, movementId: data.movementId || id };
+          });
+          if (items.length > 0) {
+            offlineEngine.saveCache("panelTraceabilityMovements", items);
+            callback(items);
+          } else {
+            callback(offlineEngine.getCache<PanelTraceabilityMovement>("panelTraceabilityMovements", INITIAL_SEED_MOVEMENTS));
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelTraceabilityMovements");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PanelTraceabilityMovement>("panelTraceabilityMovements", INITIAL_SEED_MOVEMENTS));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<PanelTraceabilityMovement>("panelTraceabilityMovements", INITIAL_SEED_MOVEMENTS));
+      return () => {};
+    }
+  },
+
+  async addPanelTraceabilityMovement(movement: PanelTraceabilityMovement): Promise<void> {
+    const id = movement.id || movement.movementId;
+    const item = { ...movement, id, movementId: movement.movementId || id };
+    await writeDocument<any>("panelTraceabilityMovements", item, INITIAL_SEED_MOVEMENTS);
+  },
+
+  async updatePanelTraceabilityMovement(movement: PanelTraceabilityMovement): Promise<void> {
+    const id = movement.id || movement.movementId;
+    const item = { ...movement, id, movementId: movement.movementId || id };
+    await writeDocument<any>("panelTraceabilityMovements", item, INITIAL_SEED_MOVEMENTS);
+  },
+
+  async deletePanelTraceabilityMovement(movementId: string): Promise<void> {
+    await removeDocument<any>("panelTraceabilityMovements", movementId, INITIAL_SEED_MOVEMENTS);
+  },
+
+  // 3. panelDamageInspections ("panelDamageInspections")
+  async getPanelDamageInspections(): Promise<PanelDamageInspection[]> {
+    const raw = await fetchCollection<any>("panelDamageInspections", []);
+    return raw.map(d => ({ ...d, id: d.id || d.inspectionId, inspectionId: d.inspectionId || d.id }));
+  },
+
+  getCachedPanelDamageInspections(): PanelDamageInspection[] {
+    const raw = offlineEngine.getCache<any>("panelDamageInspections", []);
+    return raw.map(d => ({ ...d, id: d.id || d.inspectionId, inspectionId: d.inspectionId || d.id }));
+  },
+
+  subscribePanelDamageInspections(
+    callback: (damages: PanelDamageInspection[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelDamageInspections");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelDamageInspection;
+            const id = data.id || data.inspectionId || docSnap.id;
+            return { ...data, id, inspectionId: data.inspectionId || id };
+          });
+          offlineEngine.saveCache("panelDamageInspections", items);
+          callback(items);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelDamageInspections");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PanelDamageInspection>("panelDamageInspections", []));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<PanelDamageInspection>("panelDamageInspections", []));
+      return () => {};
+    }
+  },
+
+  async addPanelDamageInspection(inspection: PanelDamageInspection): Promise<void> {
+    const id = inspection.id || inspection.inspectionId;
+    const item = { ...inspection, id, inspectionId: inspection.inspectionId || id };
+    await writeDocument<any>("panelDamageInspections", item, []);
+  },
+
+  async updatePanelDamageInspection(inspection: PanelDamageInspection): Promise<void> {
+    const id = inspection.id || inspection.inspectionId;
+    const item = { ...inspection, id, inspectionId: inspection.inspectionId || id };
+    await writeDocument<any>("panelDamageInspections", item, []);
+  },
+
+  async deletePanelDamageInspection(inspectionId: string): Promise<void> {
+    await removeDocument<any>("panelDamageInspections", inspectionId, []);
+  },
+
+  // 4. panelIssueTransactions ("panelIssueTransactions")
+  async getPanelIssueTransactions(): Promise<PanelIssueTransaction[]> {
+    const raw = await fetchCollection<any>("panelIssueTransactions", []);
+    return raw.map(i => ({ ...i, id: i.id || i.issueId, issueId: i.issueId || i.id }));
+  },
+
+  getCachedPanelIssueTransactions(): PanelIssueTransaction[] {
+    const raw = offlineEngine.getCache<any>("panelIssueTransactions", []);
+    return raw.map(i => ({ ...i, id: i.id || i.issueId, issueId: i.issueId || i.id }));
+  },
+
+  subscribePanelIssueTransactions(
+    callback: (issues: PanelIssueTransaction[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelIssueTransactions");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelIssueTransaction;
+            const id = data.id || data.issueId || docSnap.id;
+            return { ...data, id, issueId: data.issueId || id };
+          });
+          offlineEngine.saveCache("panelIssueTransactions", items);
+          callback(items);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelIssueTransactions");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PanelIssueTransaction>("panelIssueTransactions", []));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<PanelIssueTransaction>("panelIssueTransactions", []));
+      return () => {};
+    }
+  },
+
+  async addPanelIssueTransaction(issue: PanelIssueTransaction): Promise<void> {
+    const id = issue.id || issue.issueId;
+    const item = { ...issue, id, issueId: issue.issueId || id };
+    await writeDocument<any>("panelIssueTransactions", item, []);
+  },
+
+  async updatePanelIssueTransaction(issue: PanelIssueTransaction): Promise<void> {
+    const id = issue.id || issue.issueId;
+    const item = { ...issue, id, issueId: issue.issueId || id };
+    await writeDocument<any>("panelIssueTransactions", item, []);
+  },
+
+  async deletePanelIssueTransaction(issueId: string): Promise<void> {
+    await removeDocument<any>("panelIssueTransactions", issueId, []);
+  },
+
+  // 5. panelReturnTransactions ("panelReturnTransactions")
+  async getPanelReturnTransactions(): Promise<PanelReturnTransaction[]> {
+    const raw = await fetchCollection<any>("panelReturnTransactions", []);
+    return raw.map(r => ({ ...r, id: r.id || r.returnId, returnId: r.returnId || r.id }));
+  },
+
+  getCachedPanelReturnTransactions(): PanelReturnTransaction[] {
+    const raw = offlineEngine.getCache<any>("panelReturnTransactions", []);
+    return raw.map(r => ({ ...r, id: r.id || r.returnId, returnId: r.returnId || r.id }));
+  },
+
+  subscribePanelReturnTransactions(
+    callback: (returns: PanelReturnTransaction[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelReturnTransactions");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelReturnTransaction;
+            const id = data.id || data.returnId || docSnap.id;
+            return { ...data, id, returnId: data.returnId || id };
+          });
+          offlineEngine.saveCache("panelReturnTransactions", items);
+          callback(items);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelReturnTransactions");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PanelReturnTransaction>("panelReturnTransactions", []));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<PanelReturnTransaction>("panelReturnTransactions", []));
+      return () => {};
+    }
+  },
+
+  async addPanelReturnTransaction(returnRecord: PanelReturnTransaction): Promise<void> {
+    const id = returnRecord.id || returnRecord.returnId;
+    const item = { ...returnRecord, id, returnId: returnRecord.returnId || id };
+    await writeDocument<any>("panelReturnTransactions", item, []);
+  },
+
+  async updatePanelReturnTransaction(returnRecord: PanelReturnTransaction): Promise<void> {
+    const id = returnRecord.id || returnRecord.returnId;
+    const item = { ...returnRecord, id, returnId: returnRecord.returnId || id };
+    await writeDocument<any>("panelReturnTransactions", item, []);
+  },
+
+  async deletePanelReturnTransaction(returnId: string): Promise<void> {
+    await removeDocument<any>("panelReturnTransactions", returnId, []);
+  },
+
+  // 6. panelInventoryReconciliations ("panelInventoryReconciliations")
+  async getPanelInventoryReconciliations(): Promise<PanelInventoryReconciliationRecord[]> {
+    const raw = await fetchCollection<any>("panelInventoryReconciliations", []);
+    return raw.map(rc => ({ ...rc, id: rc.id || rc.reconciliationId, reconciliationId: rc.reconciliationId || rc.id }));
+  },
+
+  getCachedPanelInventoryReconciliations(): PanelInventoryReconciliationRecord[] {
+    const raw = offlineEngine.getCache<any>("panelInventoryReconciliations", []);
+    return raw.map(rc => ({ ...rc, id: rc.id || rc.reconciliationId, reconciliationId: rc.reconciliationId || rc.id }));
+  },
+
+  subscribePanelInventoryReconciliations(
+    callback: (records: PanelInventoryReconciliationRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelInventoryReconciliations");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelInventoryReconciliationRecord;
+            const id = data.id || data.reconciliationId || docSnap.id;
+            return { ...data, id, reconciliationId: data.reconciliationId || id };
+          });
+          offlineEngine.saveCache("panelInventoryReconciliations", items);
+          callback(items);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelInventoryReconciliations");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PanelInventoryReconciliationRecord>("panelInventoryReconciliations", []));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<PanelInventoryReconciliationRecord>("panelInventoryReconciliations", []));
+      return () => {};
+    }
+  },
+
+  async addPanelInventoryReconciliation(record: PanelInventoryReconciliationRecord): Promise<void> {
+    const id = record.id || record.reconciliationId;
+    const item = { ...record, id, reconciliationId: record.reconciliationId || id };
+    await writeDocument<any>("panelInventoryReconciliations", item, []);
+  },
+
+  async updatePanelInventoryReconciliation(record: PanelInventoryReconciliationRecord): Promise<void> {
+    const id = record.id || record.reconciliationId;
+    const item = { ...record, id, reconciliationId: record.reconciliationId || id };
+    await writeDocument<any>("panelInventoryReconciliations", item, []);
+  },
+
+  async deletePanelInventoryReconciliation(reconciliationId: string): Promise<void> {
+    await removeDocument<any>("panelInventoryReconciliations", reconciliationId, []);
+  },
+
+  // 7. panelTraceabilityAuditLogs ("panelTraceabilityAuditLogs")
+  async getPanelTraceabilityAuditLogs(): Promise<PanelTraceabilityAuditLog[]> {
+    return fetchCollection<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", []);
+  },
+
+  getCachedPanelTraceabilityAuditLogs(): PanelTraceabilityAuditLog[] {
+    return offlineEngine.getCache<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", []);
+  },
+
+  subscribePanelTraceabilityAuditLogs(
+    callback: (logs: PanelTraceabilityAuditLog[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelTraceabilityAuditLogs");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as PanelTraceabilityAuditLog;
+            return { ...data, id: data.id || docSnap.id };
+          });
+          offlineEngine.saveCache("panelTraceabilityAuditLogs", items);
+          callback(items);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelTraceabilityAuditLogs");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", []));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", []));
+      return () => {};
+    }
+  },
+
+  async addPanelTraceabilityAuditLog(log: PanelTraceabilityAuditLog): Promise<void> {
+    await writeDocument<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", log, []);
+  },
+  async updatePanelTraceabilityAuditLog(log: PanelTraceabilityAuditLog): Promise<void> {
+    await writeDocument<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", log, []);
+  },
+
+  // 8. panelDimensionLibrary ("panelDimensionLibrary")
+  async getPanelDimensionLibrary(): Promise<ConfiguredDimensionOption[]> {
+    return fetchCollection<ConfiguredDimensionOption>("panelDimensionLibrary", DEFAULT_DIMENSION_LIBRARY);
+  },
+
+  getCachedPanelDimensionLibrary(): ConfiguredDimensionOption[] {
+    return offlineEngine.getCache<ConfiguredDimensionOption>("panelDimensionLibrary", DEFAULT_DIMENSION_LIBRARY);
+  },
+
+  subscribePanelDimensionLibrary(
+    callback: (dimensions: ConfiguredDimensionOption[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "panelDimensionLibrary");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as ConfiguredDimensionOption;
+            return { ...data, id: data.id || docSnap.id };
+          });
+          if (items.length > 0) {
+            offlineEngine.saveCache("panelDimensionLibrary", items);
+            callback(items);
+          } else {
+            callback(offlineEngine.getCache<ConfiguredDimensionOption>("panelDimensionLibrary", DEFAULT_DIMENSION_LIBRARY));
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "panelDimensionLibrary");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<ConfiguredDimensionOption>("panelDimensionLibrary", DEFAULT_DIMENSION_LIBRARY));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<ConfiguredDimensionOption>("panelDimensionLibrary", DEFAULT_DIMENSION_LIBRARY));
+      return () => {};
+    }
+  },
+
+  async addPanelDimensionOption(dimension: ConfiguredDimensionOption): Promise<void> {
+    await writeDocument<ConfiguredDimensionOption>("panelDimensionLibrary", dimension, DEFAULT_DIMENSION_LIBRARY);
+  },
+
+  async updatePanelDimensionOption(dimension: ConfiguredDimensionOption): Promise<void> {
+    await writeDocument<ConfiguredDimensionOption>("panelDimensionLibrary", dimension, DEFAULT_DIMENSION_LIBRARY);
+  },
+
+  async deletePanelDimensionOption(dimensionId: string): Promise<void> {
+    await removeDocument<ConfiguredDimensionOption>("panelDimensionLibrary", dimensionId, DEFAULT_DIMENSION_LIBRARY);
+  },
+
+  // Aliases for convenience
+  async addPanelDimension(dimension: ConfiguredDimensionOption): Promise<void> {
+    return this.addPanelDimensionOption(dimension);
+  },
+
+  async updatePanelDimension(dimension: ConfiguredDimensionOption): Promise<void> {
+    return this.updatePanelDimensionOption(dimension);
+  },
+
+  async deletePanelDimension(dimensionId: string): Promise<void> {
+    return this.deletePanelDimensionOption(dimensionId);
   }
 };

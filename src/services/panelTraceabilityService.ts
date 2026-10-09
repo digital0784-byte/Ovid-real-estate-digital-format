@@ -499,53 +499,105 @@ const INITIAL_SEED_MOVEMENTS: PanelTraceabilityMovement[] = [
 ];
 
 export class PanelTraceabilityService {
-  // Load panels
+  // Load panels (DbService / Firestore is primary source of truth, localStorage as offline fallback)
   static getPanels(): TraceablePanel[] {
+    let dbPanels = DbService.getCachedTraceablePanels();
+    let localPanels: TraceablePanel[] = [];
     try {
       const data = localStorage.getItem(STORAGE_PANELS);
       if (data) {
-        return JSON.parse(data);
+        localPanels = JSON.parse(data);
       }
     } catch (e) {
-      console.warn("Failed to parse panels from storage, using seed:", e);
+      console.warn("Failed to parse panels from storage fallback:", e);
     }
-    this.savePanels(INITIAL_SEED_PANELS);
-    return INITIAL_SEED_PANELS;
+
+    if (localPanels && localPanels.length > 0) {
+      if (!dbPanels || dbPanels.length === 0) {
+        dbPanels = localPanels;
+      } else {
+        const dbIds = new Set(dbPanels.map(p => p.panelId || p.id));
+        const missing = localPanels.filter(p => !dbIds.has(p.panelId || p.id));
+        if (missing.length > 0) {
+          dbPanels = [...dbPanels, ...missing];
+          missing.forEach(p => DbService.addTraceablePanel(p).catch(() => {}));
+        }
+      }
+    }
+
+    if (!dbPanels || dbPanels.length === 0) {
+      dbPanels = INITIAL_SEED_PANELS;
+      this.savePanels(INITIAL_SEED_PANELS);
+    }
+
+    return dbPanels;
   }
 
-  // Save panels
+  // Save panels (DbService / Firestore is primary store, localStorage is offline fallback)
   static savePanels(panels: TraceablePanel[]): void {
     try {
       localStorage.setItem(STORAGE_PANELS, JSON.stringify(panels));
     } catch (e) {
-      console.error("Failed to save panels to storage:", e);
+      console.error("Failed to save panels to offline storage fallback:", e);
     }
+    panels.forEach(p => {
+      DbService.updateTraceablePanel(p).catch(err => {
+        console.warn("[PanelTraceabilityService] Error syncing panel to DbService:", err);
+      });
+    });
   }
 
-  // Dimension library methods
+  // Dimension library methods (Firestore via DbService is source of truth)
   static getDimensionsLibrary(): ConfiguredDimensionOption[] {
+    let dbDims = DbService.getCachedPanelDimensionLibrary();
+    let localDims: ConfiguredDimensionOption[] = [];
     try {
       const data = localStorage.getItem(STORAGE_DIMENSION_LIBRARY);
-      if (data) return JSON.parse(data);
+      if (data) localDims = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to load dimensions library:", e);
+      console.warn("Failed to load dimensions library from fallback:", e);
     }
-    this.saveDimensionsLibrary(DEFAULT_DIMENSION_LIBRARY);
-    return DEFAULT_DIMENSION_LIBRARY;
+
+    if (localDims && localDims.length > 0) {
+      if (!dbDims || dbDims.length === 0) {
+        dbDims = localDims;
+      } else {
+        const dbIds = new Set(dbDims.map(d => d.id));
+        const missing = localDims.filter(d => !dbIds.has(d.id));
+        if (missing.length > 0) {
+          dbDims = [...dbDims, ...missing];
+          missing.forEach(d => DbService.addPanelDimensionOption(d).catch(() => {}));
+        }
+      }
+    }
+
+    if (!dbDims || dbDims.length === 0) {
+      dbDims = DEFAULT_DIMENSION_LIBRARY;
+      this.saveDimensionsLibrary(DEFAULT_DIMENSION_LIBRARY);
+    }
+    return dbDims;
   }
 
   static saveDimensionsLibrary(dimensions: ConfiguredDimensionOption[]): void {
     try {
       localStorage.setItem(STORAGE_DIMENSION_LIBRARY, JSON.stringify(dimensions));
     } catch (e) {
-      console.error("Failed to save dimension library:", e);
+      console.error("Failed to save dimension library to fallback:", e);
     }
+    dimensions.forEach(d => {
+      DbService.updatePanelDimensionOption(d).catch(err => {
+        console.warn("[PanelTraceabilityService] Error syncing dimension to DbService:", err);
+      });
+    });
   }
 
   static addDimensionOption(dimension: ConfiguredDimensionOption, user: { id: string; name: string; role: string }): void {
     const list = this.getDimensionsLibrary();
     list.unshift(dimension);
     this.saveDimensionsLibrary(list);
+    DbService.addPanelDimensionOption(dimension).catch(err => {
+      console.warn("[PanelTraceabilityService] Error adding dimension to DbService:", err);
+    });
     this.logAudit({
       userId: user.id,
       userName: user.name,
@@ -565,39 +617,79 @@ export class PanelTraceabilityService {
     });
   }
 
-  // Movement history
+  // Movement history (Firestore via DbService is source of truth)
   static getMovements(panelId?: string): PanelTraceabilityMovement[] {
+    let dbMovements = DbService.getCachedPanelTraceabilityMovements();
+    let localMovements: PanelTraceabilityMovement[] = [];
     try {
       const data = localStorage.getItem(STORAGE_MOVEMENTS);
-      let list: PanelTraceabilityMovement[] = data ? JSON.parse(data) : INITIAL_SEED_MOVEMENTS;
-      if (!data) this.saveMovements(INITIAL_SEED_MOVEMENTS);
-      if (panelId) {
-        return list.filter(m => m.panelId === panelId || m.serialNumber === panelId);
-      }
-      return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      if (data) localMovements = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to get movements:", e);
-      return INITIAL_SEED_MOVEMENTS;
+      console.warn("Failed to get movements from fallback:", e);
     }
+
+    if (localMovements && localMovements.length > 0) {
+      if (!dbMovements || dbMovements.length === 0) {
+        dbMovements = localMovements;
+      } else {
+        const dbIds = new Set(dbMovements.map(m => m.movementId || m.id));
+        const missing = localMovements.filter(m => !dbIds.has(m.movementId || m.id));
+        if (missing.length > 0) {
+          dbMovements = [...dbMovements, ...missing];
+          missing.forEach(m => DbService.addPanelTraceabilityMovement(m).catch(() => {}));
+        }
+      }
+    }
+
+    if (!dbMovements || dbMovements.length === 0) {
+      dbMovements = INITIAL_SEED_MOVEMENTS;
+      this.saveMovements(INITIAL_SEED_MOVEMENTS);
+    }
+
+    let list = dbMovements;
+    if (panelId) {
+      list = list.filter(m => m.panelId === panelId || m.serialNumber === panelId);
+    }
+    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
   }
 
   static saveMovements(movements: PanelTraceabilityMovement[]): void {
     try {
       localStorage.setItem(STORAGE_MOVEMENTS, JSON.stringify(movements));
     } catch (e) {
-      console.error("Failed to save movements:", e);
+      console.error("Failed to save movements to fallback:", e);
     }
+    movements.forEach(m => {
+      DbService.updatePanelTraceabilityMovement(m).catch(err => {
+        console.warn("[PanelTraceabilityService] Error syncing movement to DbService:", err);
+      });
+    });
   }
 
-  // Audit logs (immutable)
+  // Audit logs (immutable, Firestore via DbService is source of truth)
   static getAuditLogs(): PanelTraceabilityAuditLog[] {
+    let dbLogs = DbService.getCachedPanelTraceabilityAuditLogs();
+    let localLogs: PanelTraceabilityAuditLog[] = [];
     try {
       const data = localStorage.getItem(STORAGE_AUDIT_LOGS);
-      if (data) return JSON.parse(data);
+      if (data) localLogs = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to get audit logs:", e);
+      console.warn("Failed to get audit logs from fallback:", e);
     }
-    return [];
+
+    if (localLogs && localLogs.length > 0) {
+      if (!dbLogs || dbLogs.length === 0) {
+        dbLogs = localLogs;
+      } else {
+        const dbIds = new Set(dbLogs.map(l => l.id));
+        const missing = localLogs.filter(l => !dbIds.has(l.id));
+        if (missing.length > 0) {
+          dbLogs = [...dbLogs, ...missing];
+          missing.forEach(l => DbService.addPanelTraceabilityAuditLog(l).catch(() => {}));
+        }
+      }
+    }
+    return dbLogs || [];
   }
 
   static logAudit(entry: Omit<PanelTraceabilityAuditLog, "id" | "timestamp">): void {
@@ -609,9 +701,16 @@ export class PanelTraceabilityService {
         timestamp: new Date().toISOString()
       };
       logs.unshift(newEntry);
-      // Keep recent 1000 logs
+      // Keep recent 1000 logs in local fallback
       if (logs.length > 1000) logs.splice(1000);
-      localStorage.setItem(STORAGE_AUDIT_LOGS, JSON.stringify(logs));
+      try {
+        localStorage.setItem(STORAGE_AUDIT_LOGS, JSON.stringify(logs));
+      } catch {}
+
+      // Write to primary Firestore audit logs collection
+      DbService.addPanelTraceabilityAuditLog(newEntry).catch(err => {
+        console.warn("[PanelTraceabilityService] Error appending audit log to DbService:", err);
+      });
     } catch (e) {
       console.error("Failed to append audit log:", e);
     }
@@ -1022,11 +1121,14 @@ export class PanelTraceabilityService {
     });
 
     if (result.success) {
-      // Store issue transaction record
+      // Store issue transaction record (DbService is primary, localStorage is offline fallback)
       try {
         const issues = this.getIssueTransactions();
         issues.unshift(issue);
         localStorage.setItem(STORAGE_ISSUES, JSON.stringify(issues));
+        DbService.addPanelIssueTransaction(issue).catch(err => {
+          console.warn("[PanelTraceabilityService] Error saving issue transaction to DbService:", err);
+        });
       } catch (e) {
         console.error("Failed to store issue record:", e);
       }
@@ -1035,13 +1137,28 @@ export class PanelTraceabilityService {
   }
 
   static getIssueTransactions(): PanelIssueTransaction[] {
+    let dbIssues = DbService.getCachedPanelIssueTransactions();
+    let localIssues: PanelIssueTransaction[] = [];
     try {
       const data = localStorage.getItem(STORAGE_ISSUES);
-      if (data) return JSON.parse(data);
+      if (data) localIssues = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to get issue transactions:", e);
+      console.warn("Failed to get issue transactions from fallback:", e);
     }
-    return [];
+
+    if (localIssues && localIssues.length > 0) {
+      if (!dbIssues || dbIssues.length === 0) {
+        dbIssues = localIssues;
+      } else {
+        const dbIds = new Set(dbIssues.map(i => i.issueId || i.id));
+        const missing = localIssues.filter(i => !dbIds.has(i.issueId || i.id));
+        if (missing.length > 0) {
+          dbIssues = [...dbIssues, ...missing];
+          missing.forEach(i => DbService.addPanelIssueTransaction(i).catch(() => {}));
+        }
+      }
+    }
+    return dbIssues || [];
   }
 
   // Return Panel (Section 8)
@@ -1070,6 +1187,9 @@ export class PanelTraceabilityService {
         const returns = this.getReturnTransactions();
         returns.unshift(returnRecord);
         localStorage.setItem(STORAGE_RETURNS, JSON.stringify(returns));
+        DbService.addPanelReturnTransaction(returnRecord).catch(err => {
+          console.warn("[PanelTraceabilityService] Error saving return transaction to DbService:", err);
+        });
       } catch (e) {
         console.error("Failed to store return record:", e);
       }
@@ -1078,13 +1198,28 @@ export class PanelTraceabilityService {
   }
 
   static getReturnTransactions(): PanelReturnTransaction[] {
+    let dbReturns = DbService.getCachedPanelReturnTransactions();
+    let localReturns: PanelReturnTransaction[] = [];
     try {
       const data = localStorage.getItem(STORAGE_RETURNS);
-      if (data) return JSON.parse(data);
+      if (data) localReturns = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to get return transactions:", e);
+      console.warn("Failed to get return transactions from fallback:", e);
     }
-    return [];
+
+    if (localReturns && localReturns.length > 0) {
+      if (!dbReturns || dbReturns.length === 0) {
+        dbReturns = localReturns;
+      } else {
+        const dbIds = new Set(dbReturns.map(r => r.returnId || r.id));
+        const missing = localReturns.filter(r => !dbIds.has(r.returnId || r.id));
+        if (missing.length > 0) {
+          dbReturns = [...dbReturns, ...missing];
+          missing.forEach(r => DbService.addPanelReturnTransaction(r).catch(() => {}));
+        }
+      }
+    }
+    return dbReturns || [];
   }
 
   // Report Damage (Section 7)
@@ -1116,6 +1251,9 @@ export class PanelTraceabilityService {
         const damages = this.getDamageInspections();
         damages.unshift(inspection);
         localStorage.setItem(STORAGE_DAMAGES, JSON.stringify(damages));
+        DbService.addPanelDamageInspection(inspection).catch(err => {
+          console.warn("[PanelTraceabilityService] Error saving damage inspection to DbService:", err);
+        });
       } catch (e) {
         console.error("Failed to save damage inspection:", e);
       }
@@ -1124,13 +1262,28 @@ export class PanelTraceabilityService {
   }
 
   static getDamageInspections(): PanelDamageInspection[] {
+    let dbDamages = DbService.getCachedPanelDamageInspections();
+    let localDamages: PanelDamageInspection[] = [];
     try {
       const data = localStorage.getItem(STORAGE_DAMAGES);
-      if (data) return JSON.parse(data);
+      if (data) localDamages = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to get damage inspections:", e);
+      console.warn("Failed to get damage inspections from fallback:", e);
     }
-    return [];
+
+    if (localDamages && localDamages.length > 0) {
+      if (!dbDamages || dbDamages.length === 0) {
+        dbDamages = localDamages;
+      } else {
+        const dbIds = new Set(dbDamages.map(d => d.inspectionId || d.id));
+        const missing = localDamages.filter(d => !dbIds.has(d.inspectionId || d.id));
+        if (missing.length > 0) {
+          dbDamages = [...dbDamages, ...missing];
+          missing.forEach(d => DbService.addPanelDamageInspection(d).catch(() => {}));
+        }
+      }
+    }
+    return dbDamages || [];
   }
 
   // Associated Accessories (Section 10)
@@ -1303,11 +1456,16 @@ export class PanelTraceabilityService {
       }
     }
 
-    // Save records
+    // Save records (DbService is primary, localStorage is offline fallback)
     try {
       const existing = this.getReconciliations();
       const combined = [...records, ...existing];
       localStorage.setItem(STORAGE_RECONCILIATIONS, JSON.stringify(combined));
+      records.forEach(rc => {
+        DbService.addPanelInventoryReconciliation(rc).catch(err => {
+          console.warn("[PanelTraceabilityService] Error saving reconciliation to DbService:", err);
+        });
+      });
     } catch (e) {
       console.error("Failed to save reconciliations:", e);
     }
@@ -1316,13 +1474,28 @@ export class PanelTraceabilityService {
   }
 
   static getReconciliations(): PanelInventoryReconciliationRecord[] {
+    let dbRecs = DbService.getCachedPanelInventoryReconciliations();
+    let localRecs: PanelInventoryReconciliationRecord[] = [];
     try {
       const data = localStorage.getItem(STORAGE_RECONCILIATIONS);
-      if (data) return JSON.parse(data);
+      if (data) localRecs = JSON.parse(data);
     } catch (e) {
-      console.warn("Failed to get reconciliations:", e);
+      console.warn("Failed to get reconciliations from fallback:", e);
     }
-    return [];
+
+    if (localRecs && localRecs.length > 0) {
+      if (!dbRecs || dbRecs.length === 0) {
+        dbRecs = localRecs;
+      } else {
+        const dbIds = new Set(dbRecs.map(rc => rc.reconciliationId || rc.id));
+        const missing = localRecs.filter(rc => !dbIds.has(rc.reconciliationId || rc.id));
+        if (missing.length > 0) {
+          dbRecs = [...dbRecs, ...missing];
+          missing.forEach(rc => DbService.addPanelInventoryReconciliation(rc).catch(() => {}));
+        }
+      }
+    }
+    return dbRecs || [];
   }
 
   // Daily Movement Report Generation (Section 15)
@@ -1424,4 +1597,151 @@ export class PanelTraceabilityService {
 
     return report;
   }
+
+  // Primary asynchronous loaders directly against Firestore (source of truth)
+  static async fetchPanels(): Promise<TraceablePanel[]> {
+    return DbService.getTraceablePanels();
+  }
+  static async fetchMovements(): Promise<PanelTraceabilityMovement[]> {
+    return DbService.getPanelTraceabilityMovements();
+  }
+  static async fetchDamageInspections(): Promise<PanelDamageInspection[]> {
+    return DbService.getPanelDamageInspections();
+  }
+  static async fetchIssueTransactions(): Promise<PanelIssueTransaction[]> {
+    return DbService.getPanelIssueTransactions();
+  }
+  static async fetchReturnTransactions(): Promise<PanelReturnTransaction[]> {
+    return DbService.getPanelReturnTransactions();
+  }
+  static async fetchReconciliations(): Promise<PanelInventoryReconciliationRecord[]> {
+    return DbService.getPanelInventoryReconciliations();
+  }
+  static async fetchAuditLogs(): Promise<PanelTraceabilityAuditLog[]> {
+    return DbService.getPanelTraceabilityAuditLogs();
+  }
+  static async fetchDimensionsLibrary(): Promise<ConfiguredDimensionOption[]> {
+    return DbService.getPanelDimensionLibrary();
+  }
+}
+
+// ============================================================
+// AUTOMATIC FIRESTORE REAL-TIME SYNCHRONIZATION
+// ============================================================
+if (typeof window !== "undefined") {
+  // 1. Initial Firestore primary load & background sync
+  setTimeout(() => {
+    DbService.getTraceablePanels().then(panels => {
+      if (panels && panels.length > 0) {
+        try { localStorage.setItem(STORAGE_PANELS, JSON.stringify(panels)); } catch {}
+        window.dispatchEvent(new CustomEvent("traceable_panels_updated", { detail: panels }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelTraceabilityMovements().then(movements => {
+      if (movements && movements.length > 0) {
+        try { localStorage.setItem(STORAGE_MOVEMENTS, JSON.stringify(movements)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_movements_updated", { detail: movements }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelDamageInspections().then(damages => {
+      if (damages && damages.length > 0) {
+        try { localStorage.setItem(STORAGE_DAMAGES, JSON.stringify(damages)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_damages_updated", { detail: damages }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelIssueTransactions().then(issues => {
+      if (issues && issues.length > 0) {
+        try { localStorage.setItem(STORAGE_ISSUES, JSON.stringify(issues)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_issues_updated", { detail: issues }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelReturnTransactions().then(returns => {
+      if (returns && returns.length > 0) {
+        try { localStorage.setItem(STORAGE_RETURNS, JSON.stringify(returns)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_returns_updated", { detail: returns }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelInventoryReconciliations().then(recs => {
+      if (recs && recs.length > 0) {
+        try { localStorage.setItem(STORAGE_RECONCILIATIONS, JSON.stringify(recs)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_reconciliations_updated", { detail: recs }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelTraceabilityAuditLogs().then(logs => {
+      if (logs && logs.length > 0) {
+        try { localStorage.setItem(STORAGE_AUDIT_LOGS, JSON.stringify(logs)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_audit_logs_updated", { detail: logs }));
+      }
+    }).catch(() => {});
+
+    DbService.getPanelDimensionLibrary().then(dims => {
+      if (dims && dims.length > 0) {
+        try { localStorage.setItem(STORAGE_DIMENSION_LIBRARY, JSON.stringify(dims)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_dimensions_updated", { detail: dims }));
+      }
+    }).catch(() => {});
+  }, 100);
+
+  // 2. Real-time subscriptions for multi-user / cross-device synchronization
+  DbService.subscribeTraceablePanels((livePanels) => {
+    if (livePanels && livePanels.length > 0) {
+      try { localStorage.setItem(STORAGE_PANELS, JSON.stringify(livePanels)); } catch {}
+      window.dispatchEvent(new CustomEvent("traceable_panels_updated", { detail: livePanels }));
+    }
+  });
+
+  DbService.subscribePanelTraceabilityMovements((liveMovements) => {
+    if (liveMovements && liveMovements.length > 0) {
+      try { localStorage.setItem(STORAGE_MOVEMENTS, JSON.stringify(liveMovements)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_movements_updated", { detail: liveMovements }));
+    }
+  });
+
+  DbService.subscribePanelDamageInspections((liveDamages) => {
+    if (liveDamages && liveDamages.length > 0) {
+      try { localStorage.setItem(STORAGE_DAMAGES, JSON.stringify(liveDamages)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_damages_updated", { detail: liveDamages }));
+    }
+  });
+
+  DbService.subscribePanelIssueTransactions((liveIssues) => {
+    if (liveIssues && liveIssues.length > 0) {
+      try { localStorage.setItem(STORAGE_ISSUES, JSON.stringify(liveIssues)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_issues_updated", { detail: liveIssues }));
+    }
+  });
+
+  DbService.subscribePanelReturnTransactions((liveReturns) => {
+    if (liveReturns && liveReturns.length > 0) {
+      try { localStorage.setItem(STORAGE_RETURNS, JSON.stringify(liveReturns)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_returns_updated", { detail: liveReturns }));
+    }
+  });
+
+  DbService.subscribePanelInventoryReconciliations((liveRecs) => {
+    if (liveRecs && liveRecs.length > 0) {
+      try { localStorage.setItem(STORAGE_RECONCILIATIONS, JSON.stringify(liveRecs)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_reconciliations_updated", { detail: liveRecs }));
+    }
+  });
+
+  DbService.subscribePanelTraceabilityAuditLogs((liveLogs) => {
+    if (liveLogs && liveLogs.length > 0) {
+      try { localStorage.setItem(STORAGE_AUDIT_LOGS, JSON.stringify(liveLogs)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_audit_logs_updated", { detail: liveLogs }));
+    }
+  });
+
+  DbService.subscribePanelDimensionLibrary((liveDims) => {
+    if (liveDims && liveDims.length > 0) {
+      try { localStorage.setItem(STORAGE_DIMENSION_LIBRARY, JSON.stringify(liveDims)); } catch {}
+      window.dispatchEvent(new CustomEvent("panel_dimensions_updated", { detail: liveDims }));
+    }
+  });
 }

@@ -608,5 +608,68 @@ service cloud.firestore {
     match /paymentRecords/{paymentId} {
       allow read, write: if true;
     }
+
+    // ==========================================
+    // 22. Panel Traceability & Lifecycle Collections
+    // ==========================================
+    function isTraceabilityWriter() {
+      return isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor() || isWarehouseRole() || isSiteStoreRole();
+    }
+
+    // 22.1 traceablePanels
+    match /traceablePanels/{panelId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
+
+    // 22.2 panelTraceabilityMovements
+    match /panelTraceabilityMovements/{movementId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
+
+    // 22.3 panelDamageInspections
+    match /panelDamageInspections/{inspectionId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
+
+    // 22.4 panelIssueTransactions
+    match /panelIssueTransactions/{issueId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
+
+    // 22.5 panelReturnTransactions
+    match /panelReturnTransactions/{returnId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
+
+    // 22.6 panelInventoryReconciliations
+    match /panelInventoryReconciliations/{reconciliationId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
+
+    // 22.7 panelTraceabilityAuditLogs (create-only and immutable like auditLogs)
+    match /panelTraceabilityAuditLogs/{logId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create: if !isSignedIn() || isTraceabilityWriter();
+      allow update, delete: if false; // Immutable audit log
+    }
+
+    // 22.8 panelDimensionLibrary
+    match /panelDimensionLibrary/{dimensionId} {
+      allow read: if !isSignedIn() || isSignedIn();
+      allow create, update: if !isSignedIn() || isTraceabilityWriter();
+      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+    }
   }
 }
