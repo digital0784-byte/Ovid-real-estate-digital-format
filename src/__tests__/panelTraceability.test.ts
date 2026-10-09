@@ -213,4 +213,89 @@ describe('Panel Traceability Module & Lifecycle Unit Tests', () => {
     expect(reprintLog?.userRole).toBe('Store Owner');
     expect(reprintLog?.previousLocation).toBe(originalLocation);
   });
+
+  it('records and retrieves issues, returns, and damage inspections across collections', () => {
+    const panels = PanelTraceabilityService.getPanels();
+    const panel = panels.find(p => p.status === 'AVAILABLE' || p.status === 'AT_SITE_STORE') || panels[0];
+    const testUser = { id: 'USER-SO-02', name: 'Almaz Store', role: 'Site Store Owner' };
+
+    // 1. Issue Transaction
+    const issueRes = PanelTraceabilityService.issuePanel({
+      panelId: panel.panelId,
+      issueId: `ISSUE-${Date.now()}`,
+      panelSerial: panel.serialNumber,
+      panelCode: panel.panelCode,
+      requesterId: 'ENG-01',
+      requesterName: 'Dawit Engineer',
+      requesterRole: 'Site Engineer',
+      project: 'Bole Heights',
+      projectId: 'PRJ-01',
+      site: 'Bole Heights',
+      siteId: 'SITE-01',
+      building: 'Block B',
+      floor: 'Floor 4',
+      zone: 'Zone 4A',
+      issueDateTime: new Date().toISOString(),
+      expectedReturnDate: '2026-10-25',
+      condition: 'GOOD',
+      issuedBy: 'Almaz Store',
+      issuedByRole: 'Site Store Owner',
+      notes: 'Testing issue tracking persistence'
+    }, testUser);
+    expect(issueRes.success).toBe(true);
+
+    const issues = PanelTraceabilityService.getIssueTransactions();
+    expect(issues.length).toBeGreaterThan(0);
+    expect(issues[0].panelId).toBe(panel.panelId);
+
+    // 2. Return Transaction
+    const returnRes = PanelTraceabilityService.returnPanel({
+      returnId: `RET-${Date.now()}`,
+      panelId: panel.panelId,
+      panelSerial: panel.serialNumber,
+      panelCode: panel.panelCode,
+      returnDateTime: new Date().toISOString(),
+      destinationStoreOrWarehouse: 'Bole Heights Site Store 01',
+      returnedBy: 'Dawit Engineer',
+      returnedByRole: 'Site Engineer',
+      condition: 'GOOD',
+      inspectionResult: 'ACCEPTED_BACK_TO_STOCK',
+      damageStatus: 'NO_DAMAGE',
+      missingAccessories: [],
+      inspectorName: 'Almaz Store',
+      inspectorRole: 'Site Store Owner'
+    }, testUser);
+    expect(returnRes.success).toBe(true);
+
+    const returns = PanelTraceabilityService.getReturnTransactions();
+    expect(returns.length).toBeGreaterThan(0);
+    expect(returns[0].panelId).toBe(panel.panelId);
+
+    // 3. Damage Inspection
+    const damageRes = PanelTraceabilityService.reportDamage({
+      inspectionId: `DMG-${Date.now()}`,
+      panelId: panel.panelId,
+      serialNumber: panel.serialNumber,
+      panelCode: panel.panelCode,
+      dateTime: new Date().toISOString(),
+      reportedBy: 'Almaz Store',
+      reportedByRole: 'Site Store Owner',
+      damageType: 'Bent / Deformed',
+      damageDescription: 'Corner flange bent 5mm',
+      severity: 'MODERATE',
+      repairDecision: 'TRANSFER_TO_CENTRAL_WORKSHOP',
+      repairStatus: 'UNDER_REPAIR',
+      currentLocation: 'Bole Heights Site Store 01'
+    }, testUser);
+    expect(damageRes.success).toBe(true);
+
+    const damages = PanelTraceabilityService.getDamageInspections();
+    expect(damages.length).toBeGreaterThan(0);
+    expect(damages[0].panelId).toBe(panel.panelId);
+
+    // 4. Dimensions Library
+    const dimensions = PanelTraceabilityService.getDimensionsLibrary();
+    expect(dimensions.length).toBeGreaterThan(0);
+  });
 });
+
