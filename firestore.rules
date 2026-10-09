@@ -193,23 +193,23 @@ service cloud.firestore {
       allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
     }
     match /registeredSites/{siteId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(siteId)) || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(siteId)) || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /siteStores/{storeId} {
-      allow read: if !isSignedIn() || (isSiteStoreRole() && isAuthorizedForSite(storeId)) || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(storeId));
+      allow read: if (isSiteStoreRole() && isAuthorizedForSite(storeId)) || isWarehouseRole() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(storeId));
       allow delete: if isAdminOrHeadOffice();
     }
     match /registeredWarehouses/{warehouseId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
+      allow read: if isWarehouseRole() || isProjectManager();
+      allow create, update: if (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
       allow delete: if isAdminOrHeadOffice();
     }
     match /warehouses/{warehouseId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
+      allow read: if isWarehouseRole() || isProjectManager();
+      allow create, update: if (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
       allow delete: if isAdminOrHeadOffice();
     }
     match /zones/{zoneId} {
@@ -217,8 +217,8 @@ service cloud.firestore {
       allow write: if true;
     }
     match /floorZones/{fzId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSiteEngineer();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSiteEngineer();
+      allow create, update: if isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -253,23 +253,23 @@ service cloud.firestore {
     // 6. Materials, Material Categories, Inventory & Audits
     match /materials/{materialId} {
       allow read: if true;
-      allow create: if !isSignedIn() || isWarehouseRole();
-      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow create: if isWarehouseRole();
+      allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /materialCategories/{categoryId} {
       allow read: if true;
-      allow create, update: if !isSignedIn() || isWarehouseRole();
+      allow create, update: if isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /inventory/{inventoryId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow create, update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow create, update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /inventoryAudits/{auditId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isFinanceManager();
-      allow create, update: if !isSignedIn() || isWarehouseRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole() || isFinanceManager();
+      allow create, update: if isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -283,128 +283,128 @@ service cloud.firestore {
 
     // 8. Formwork Panels & Panel Logs (Strictly Controlled Only by Warehouse Manager App, Head Office Manager App, and Admin App)
     match /formworkPanels/{panelId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update, delete: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update, delete: if isAdminOrHeadOffice() || isWarehouseRole();
     }
     match /panelMovementLogs/{logId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /panelDamageReports/{reportId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /panelRepairRecords/{recordId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
 
     // 9. Warehouse & Site Store Canonical Workflows (Requests, Transfers, Receipts, Issues, Returns, Counts, Adjustments, Discrepancies, Transactions)
     match /overseasShipments/{shipmentId} {
-      allow read, write: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow read, write: if isWarehouseRole() || isFinanceManager();
     }
     match /customsRecords/{recordId} {
-      allow read, write: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow read, write: if isWarehouseRole() || isFinanceManager();
     }
     match /suppliers/{supplierId} {
-      allow read, create, update: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow read, create, update: if isWarehouseRole() || isFinanceManager();
       allow delete: if isAdminOrHeadOffice();
     }
     match /supplierSchedules/{scheduleId} {
-      allow read, create, update: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow read, create, update: if isWarehouseRole() || isFinanceManager();
       allow delete: if isAdminOrHeadOffice();
     }
     match /goodsReceipts/{grnId} {
-      allow read, create, update: if !isSignedIn() || isWarehouseRole() || isFinanceManager();
+      allow read, create, update: if isWarehouseRole() || isFinanceManager();
       allow delete: if isAdminOrHeadOffice();
     }
     match /stockAdjustments/{adjustmentId} {
-      allow read, create, update: if !isSignedIn() || isWarehouseRole();
+      allow read, create, update: if isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /stockTransactions/{transactionId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isFinanceManager() || isAdminOrHeadOffice();
-      allow create: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow read: if isWarehouseRole() || isSiteStoreRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow create: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
       allow update, delete: if false; // Immutable audit ledger
     }
     match /stockTransfers/{transferId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow create: if !isSignedIn() || isWarehouseRole();
-      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow create: if isWarehouseRole();
+      allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /dispatchTransfers/{transferId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow create: if !isSignedIn() || isWarehouseRole();
-      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow create: if isWarehouseRole();
+      allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /stockDiscrepancies/{discrepancyId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow create: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
-      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow create: if isSiteStoreRole() || isWarehouseRole();
+      allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /siteReceivingReports/{reportId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow create, update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow create, update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /materialIssues/{recordId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /materialIssueRecords/{recordId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /materialReturns/{recordId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /materialReturnRecords/{recordId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /materialRequests/{requestId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole() || isProjectManager();
-      allow create: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
-      allow update: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole() || isProjectManager();
+      allow create: if isSiteStoreRole() || isWarehouseRole();
+      allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /stockCounts/{countId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
-      allow create, update: if !isSignedIn() || isSiteStoreRole();
+      allow read: if isSiteStoreRole() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /damagedMissingReports/{reportId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /truckFleets/{fleetId} {
-      allow read: if !isSignedIn() || isWarehouseRole() || isSiteStoreRole();
-      allow create, update: if !isSignedIn() || isWarehouseRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow create, update: if isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /sitePanelBreakdowns/{breakdownId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if !isSignedIn() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
     match /dailyRequisitions/{reqId} {
-      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read, create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
       allow delete: if isAdminOrHeadOffice();
     }
     match /dailyConsumptionVariances/{varId} {
-      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow read, create, update: if isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
     match /requisitionAuditLogs/{logId} {
@@ -412,27 +412,27 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     match /dailyReturnReports/{repId} {
-      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read, create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
       allow delete: if isAdminOrHeadOffice();
     }
     match /dailyConsolidatedReports/{repId} {
-      allow read, create, update: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read, create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
       allow delete: if isAdminOrHeadOffice();
     }
     match /dailyMaterialReports/{reportId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
     match /enhancedMaterialRequests/{requestId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isSiteStoreRole() || isProjectManager() ||
+      allow read: if isAdminOrHeadOffice() || isSiteStoreRole() || isProjectManager() ||
                      (resource.data.requesterUid == request.auth.uid) ||
                      (userDocExists() && 'assignedSite' in getUserData() && getUserData().assignedSite == resource.data.site);
-      allow create: if !isSignedIn() || (isSignedIn() && (
+      allow create: if (isSignedIn() && (
                       isAdminOrHeadOffice() || isSiteStoreRole() ||
                       (request.resource.data.requesterUid == request.auth.uid)
                     ));
-      allow update: if !isSignedIn() || isAdminOrHeadOffice() ||
+      allow update: if isAdminOrHeadOffice() ||
                      // Site store owner can approve/reject/issue, but requester CANNOT approve own request
                      (isSiteStoreRole() && (isSuperAdmin() || resource.data.requesterUid != request.auth.uid)) ||
                      // Requester can confirm receipt or cancel draft
@@ -440,27 +440,27 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice();
     }
     match /enhancedMaterialIssues/{issueId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isSiteStoreRole() ||
+      allow read: if isAdminOrHeadOffice() || isSiteStoreRole() ||
                      (resource.data.requesterUid == request.auth.uid) ||
                      (resource.data.receivedByUid == request.auth.uid);
-      allow create: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
-      allow update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice() ||
+      allow create: if isSiteStoreRole() || isAdminOrHeadOffice();
+      allow update: if isSiteStoreRole() || isAdminOrHeadOffice() ||
                      (request.auth.uid == resource.data.receivedByUid);
       allow delete: if isAdminOrHeadOffice();
     }
     match /enhancedMaterialReturns/{returnId} {
-      allow read: if !isSignedIn() || isAdminOrHeadOffice() || isSiteStoreRole() ||
+      allow read: if isAdminOrHeadOffice() || isSiteStoreRole() ||
                      (resource.data.userUid == request.auth.uid);
-      allow create: if !isSignedIn() || isSignedIn();
-      allow update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow create: if isSignedIn();
+      allow update: if isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
     match /stockReservations/{resId} {
-      allow read, write: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow read, write: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
     }
     match /inventoryDiscrepancies/{discrepancyId} {
-      allow read: if !isSignedIn() || isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
-      allow create, update: if !isSignedIn() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -618,58 +618,51 @@ service cloud.firestore {
 
     // 22.1 traceablePanels
     match /traceablePanels/{panelId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
 
     // 22.2 panelTraceabilityMovements
     match /panelTraceabilityMovements/{movementId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
 
     // 22.3 panelDamageInspections
     match /panelDamageInspections/{inspectionId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
 
     // 22.4 panelIssueTransactions
     match /panelIssueTransactions/{issueId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
 
     // 22.5 panelReturnTransactions
     match /panelReturnTransactions/{returnId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
 
     // 22.6 panelInventoryReconciliations
     match /panelInventoryReconciliations/{reconciliationId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
 
     // 22.7 panelTraceabilityAuditLogs (create-only and immutable like auditLogs)
     match /panelTraceabilityAuditLogs/{logId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create: if !isSignedIn() || isTraceabilityWriter();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isTraceabilityWriter();
       allow update, delete: if false; // Immutable audit log
     }
 
     // 22.8 panelDimensionLibrary
     match /panelDimensionLibrary/{dimensionId} {
-      allow read: if !isSignedIn() || isSignedIn();
-      allow create, update: if !isSignedIn() || isTraceabilityWriter();
-      allow delete: if !isSignedIn() || isSuperAdmin() || isHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update, delete: if isSignedIn() && isTraceabilityWriter();
     }
   }
 }
