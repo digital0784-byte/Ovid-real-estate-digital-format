@@ -6,7 +6,9 @@ import {
   getDocs, 
   setDoc, 
   deleteDoc,
-  onSnapshot
+  onSnapshot,
+  query,
+  limit
 } from "firebase/firestore";
 import { 
   Worker, 
@@ -205,9 +207,16 @@ class OfflineCacheAndOutboxEngine {
           } else if (item.action === "delete") {
             await deleteDoc(doc(db, item.collectionName, item.id));
           }
-        } catch (err) {
-          console.warn(`Outbox sync failed for ${item.collectionName}/${item.id}, retaining in queue:`, err);
-          remaining.push(item);
+        } catch (err: any) {
+          const isPermissionDenied = 
+            err?.code === "permission-denied" || 
+            String(err?.message || "").includes("PERMISSION_DENIED");
+          if (isPermissionDenied) {
+            console.warn(`Outbox item ${item.collectionName}/${item.id} rejected by rules (permission-denied). Dropping from queue.`);
+          } else {
+            console.warn(`Outbox sync failed for ${item.collectionName}/${item.id}, retaining in queue:`, err);
+            remaining.push(item);
+          }
         }
       }
       localStorage.setItem(outboxKey, JSON.stringify(remaining));
@@ -231,12 +240,13 @@ if (typeof window !== "undefined") {
 }
 
 // Unified Primary Data Fetcher & Modifier (Firestore is primary source of truth)
-async function fetchCollection<T extends { id: string }>(collectionName: string, defaultData: T[]): Promise<T[]> {
+async function fetchCollection<T extends { id: string }>(collectionName: string, defaultData: T[], maxLimit: number = 100): Promise<T[]> {
   if (isFirebaseReady && db) {
     try {
-      console.log(`[DbService] Fetching Firestore collection "${collectionName}"...`);
+      console.log(`[DbService] Fetching Firestore collection "${collectionName}" (bounded query limit ${maxLimit})...`);
       const colRef = collection(db, collectionName);
-      const snapshot = await getDocs(colRef);
+      const q = query(colRef, limit(maxLimit));
+      const snapshot = await getDocs(q);
       const cached = offlineEngine.getCache<T>(collectionName, defaultData);
 
       if (!snapshot.empty) {
@@ -294,9 +304,17 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
       console.log(`[DbService] Writing document "${sanitizedItem.id}" to Firestore collection "${collectionName}"...`);
       await setDoc(doc(db, collectionName, sanitizedItem.id), sanitizedItem, { merge: true });
       console.log(`[DbService] Successfully saved document "${sanitizedItem.id}" to Firestore collection "${collectionName}".`);
-    } catch (err) {
-      console.warn(`Firestore primary write failed for "${collectionName}/${sanitizedItem.id}". Enqueueing in outbox:`, err);
-      offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
+    } catch (err: any) {
+      const isPermissionDenied = 
+        err?.code === "permission-denied" || 
+        String(err?.message || "").includes("PERMISSION_DENIED");
+      
+      if (isPermissionDenied) {
+        console.warn(`[DbService] Write rejected by Firestore security rules for "${collectionName}/${sanitizedItem.id}" (insufficient role permissions). Not queuing in outbox.`);
+      } else {
+        console.warn(`Firestore primary write failed for "${collectionName}/${sanitizedItem.id}". Enqueueing in outbox:`, err);
+        offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
+      }
     }
   } else {
     offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
@@ -311,9 +329,17 @@ async function removeDocument<T extends { id: string }>(collectionName: string, 
       console.log(`[DbService] Deleting document "${id}" from Firestore collection "${collectionName}"...`);
       await deleteDoc(doc(db, collectionName, id));
       console.log(`[DbService] Successfully deleted document "${id}" from Firestore collection "${collectionName}".`);
-    } catch (err) {
-      console.warn(`Firestore primary delete failed for "${collectionName}/${id}". Enqueueing in outbox:`, err);
-      offlineEngine.queueOutbox("delete", collectionName, id);
+    } catch (err: any) {
+      const isPermissionDenied = 
+        err?.code === "permission-denied" || 
+        String(err?.message || "").includes("PERMISSION_DENIED");
+      
+      if (isPermissionDenied) {
+        console.warn(`[DbService] Delete rejected by Firestore security rules for "${collectionName}/${id}" (insufficient role permissions). Not queuing in outbox.`);
+      } else {
+        console.warn(`Firestore primary delete failed for "${collectionName}/${id}". Enqueueing in outbox:`, err);
+        offlineEngine.queueOutbox("delete", collectionName, id);
+      }
     }
   } else {
     offlineEngine.queueOutbox("delete", collectionName, id);

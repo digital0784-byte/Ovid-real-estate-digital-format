@@ -1,8 +1,65 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isImage() {
+      return request.resource.contentType.matches('image/.*');
+    }
+
+    function isDocument() {
+      return request.resource.contentType.matches('application/pdf') ||
+             request.resource.contentType.matches('image/.*') ||
+             request.resource.contentType.matches('application/octet-stream') ||
+             request.resource.contentType.matches('text/.*');
+    }
+
+    function isValidSize(maxBytes) {
+      return request.resource.size <= maxBytes;
+    }
+
+    // Default safety net: lock everything
     match /{allPaths=**} {
       allow read, write: if false;
+    }
+
+    // Worker profile photos & ID cards (up to 5MB)
+    match /workers/{workerId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && isValidSize(5 * 1024 * 1024);
+    }
+
+    // User avatars & attachments (up to 5MB)
+    match /users/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && request.auth.uid == userId && isImage() && isValidSize(5 * 1024 * 1024);
+    }
+
+    // Aluminum Formwork panel photos & damage inspection images (up to 10MB)
+    match /panelTraceability/{panelId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && isValidSize(10 * 1024 * 1024);
+    }
+
+    // Site progress inspection photos (up to 10MB)
+    match /inspections/{inspectionId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isImage() && isValidSize(10 * 1024 * 1024);
+    }
+
+    // CAD drawings, blueprints, and project documents (up to 50MB)
+    match /cadDrawings/{drawingId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isDocument() && isValidSize(50 * 1024 * 1024);
+    }
+
+    // General project documents and vault files (up to 50MB)
+    match /projectDocs/{docId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && isDocument() && isValidSize(50 * 1024 * 1024);
     }
   }
 }

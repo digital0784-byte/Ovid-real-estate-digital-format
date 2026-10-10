@@ -554,6 +554,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     // Validate inputs depending on authMethod
     let targetRole = selectedRole;
     let identifiedMethod = "Password Check";
+    let activeProfile: any = null;
 
     if (authMethod === "credentials") {
       if (!email || !password) {
@@ -605,15 +606,17 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       if (lowerEmail === "mejennur669@gmail.com") {
         targetRole = UserRole.SUPER_ADMIN;
         foundRoleInDb = true;
+        activeProfile = {
+          uid: currentUid || "super-admin-nuriye",
+          displayName: "Nuriye Ahmed Adem",
+          email: "mejennur669@gmail.com",
+          phoneNumber: "0910097862/0920843843",
+          role: UserRole.SUPER_ADMIN,
+          requestedRole: UserRole.SUPER_ADMIN,
+          status: "Active"
+        };
         if (currentUid && db) {
-          await setDoc(doc(db, "users", currentUid), {
-            displayName: "Nuriye Ahmed Adem",
-            email: "mejennur669@gmail.com",
-            phoneNumber: "0910097862/0920843843",
-            role: UserRole.SUPER_ADMIN,
-            requestedRole: UserRole.SUPER_ADMIN,
-            status: "Active"
-          }, { merge: true }).catch(() => {});
+          await setDoc(doc(db, "users", currentUid), activeProfile, { merge: true }).catch(() => {});
         }
       }
 
@@ -623,6 +626,19 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           const userDocSnap = await getDoc(doc(db, "users", currentUid));
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
+            activeProfile = {
+              uid: currentUid,
+              displayName: userData.displayName || userData.name || lowerEmail.split("@")[0],
+              email: userData.email || lowerEmail,
+              phoneNumber: userData.phoneNumber || "",
+              role: userData.role,
+              requestedRole: userData.requestedRole || userData.role,
+              status: userData.status || "Active",
+              department: userData.department,
+              trade: userData.trade,
+              position: userData.position,
+              createdAt: userData.createdAt
+            };
             if (userData.role && userData.role !== "Pending") {
               targetRole = (userData.role === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
                 ? UserRole.HEAD_OFFICE
@@ -677,6 +693,29 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           targetRole = UserRole.SUPER_ADMIN;
         } else {
           targetRole = "Pending" as any;
+          if (currentUid && db) {
+            // Provision the initial Pending user profile in Firestore so user exists across Auth & Firestore
+            const initialProfile = {
+              displayName: lowerEmail.split("@")[0] || "OVID Employee",
+              name: lowerEmail.split("@")[0] || "OVID Employee",
+              email: lowerEmail,
+              phoneNumber: "",
+              role: "Pending",
+              status: "Pending",
+              createdAt: new Date().toISOString(),
+              employeeId: `EMP-${currentUid.slice(0, 6).toUpperCase()}`,
+              department: "General Operations",
+              trade: "Staff",
+              position: "Pending Approval",
+              requestedRole: "Pending",
+              id: currentUid,
+              uid: currentUid
+            };
+            await setDoc(doc(db, "users", currentUid), initialProfile, { merge: true }).catch((err) => {
+              console.warn("Could not auto-provision Pending user profile in Firestore:", err);
+            });
+            activeProfile = initialProfile;
+          }
         }
       }
       
@@ -904,7 +943,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
     setSuccessMessage(isAmharic ? "በተሳካ ሁኔታ ገብተዋል! በመጫን ላይ..." : "Authorized successfully! Loading ERP...");
     setTimeout(() => {
-      onLoginSuccess(targetRole, identifiedMethod, simulatedLog);
+      onLoginSuccess(targetRole, identifiedMethod, simulatedLog, activeProfile);
     }, 800);
   };
 

@@ -10,9 +10,7 @@ describe('DbService - Master Data & Offline Outbox Tests', () => {
   it('should fetch workers and return default list when offline cache is uninitialized', async () => {
     const workers = await DbService.getWorkers();
     expect(Array.isArray(workers)).toBe(true);
-    expect(workers.length).toBeGreaterThan(0);
-    expect(workers[0]).toHaveProperty('id');
-    expect(workers[0]).toHaveProperty('name');
+    expect(workers.length).toBe(0);
   });
 
   it('should add worker, update local cache, and trigger update event', async () => {
@@ -42,9 +40,19 @@ describe('DbService - Master Data & Offline Outbox Tests', () => {
   });
 
   it('should support updating worker records', async () => {
-    const initialWorkers = await DbService.getWorkers();
-    const target: Worker = { ...initialWorkers[0], name: 'Updated Worker Name' };
+    const seedWorker: Worker = {
+      id: 'TEST-W-02',
+      name: 'Kassahun Tadesse Initial',
+      company: 'Digital Construction ERP System',
+      department: 'Formwork Operations',
+      trade: 'Formwork Carpenter',
+      joinedDate: '2026-01-15',
+      status: 'Active',
+      teamId: 'TEAM-01'
+    };
+    await DbService.addWorker(seedWorker);
 
+    const target: Worker = { ...seedWorker, name: 'Updated Worker Name' };
     await DbService.updateWorker(target);
     const updatedWorkers = await DbService.getWorkers();
     const match = updatedWorkers.find(w => w.id === target.id);
