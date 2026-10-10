@@ -2037,3 +2037,81 @@ export interface ConfiguredDimensionOption {
   isStandard: boolean;
 }
 
+// ============================================================================
+// TASK MANAGEMENT & ENTERPRISE EXECUTION TYPES (DIGITAL CONSTRUCTION ERP)
+// ============================================================================
+
+export type TaskStatus =
+  | "Pending"
+  | "In Progress"
+  | "Completed"
+  | "Rejected"
+  | "Cancelled"
+  | "Overdue";
+
+export type TaskPriority = "Low" | "Medium" | "High" | "Critical";
+
+export interface ErpTaskEvidence {
+  id: string;
+  name: string;
+  url?: string;
+  type?: "Document" | "Photo" | "Drawing" | "CAD" | "Report";
+  uploadedAt: string;
+  uploadedBy: string;
+}
+
+export interface ErpTask {
+  id: string; // e.g. TSK-2026-101
+  taskId: string;
+  taskName: string;
+  description: string;
+  projectId: string;
+  projectName: string;
+  siteId?: string;
+  siteName: string;
+  building?: string;
+  floor?: number | string;
+  zone?: string;
+  assignedToId?: string;
+  assignedToName: string; // Assigned person
+  assignedToRole?: string;
+  assignedTeamLeader?: string;
+  assignedGangChief?: string;
+  createdById: string;
+  createdByName: string; // Created by
+  createdByRole?: string;
+  createdAt: string; // ISO string
+  dueDate: string; // YYYY-MM-DD
+  status: TaskStatus;
+  priority: TaskPriority;
+  updatedAt: string; // Last updated
+  updatedById?: string;
+  updatedByName?: string;
+  completionDate?: string; // Completion date
+  category?: "Formwork Assembly" | "Concrete Cast" | "Quality Inspection" | "Safety Rectification" | "Panel Movement" | "General Civil" | string;
+  relatedEvidence?: ErpTaskEvidence[];
+  relatedPanelSerials?: string[];
+  relatedZoneId?: string;
+  completionPercentage?: number;
+  notes?: string;
+}
+
+export interface TaskFilterPreferences {
+  searchTerm: string;
+  projectId: string;
+  siteName: string;
+  building: string;
+  floor: string;
+  zone: string;
+  assignedPerson: string;
+  createdByName: string;
+  status: string;
+  priority: string;
+  category: string;
+  dateFilterType: "all" | "today" | "yesterday" | "last7" | "last30" | "thisMonth" | "custom";
+  customStartDate?: string;
+  customEndDate?: string;
+  sortField: "createdAt" | "taskName" | "dueDate" | "updatedAt" | "priority" | "status" | "completionDate";
+  sortDirection: "asc" | "desc";
+}
+

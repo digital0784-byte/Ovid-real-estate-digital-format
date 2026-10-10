@@ -71,6 +71,8 @@ import { LiveNotificationToast } from "./components/LiveNotificationToast";
 import { NotificationService } from "./services/notificationService";
 import { RoleChangeApprovalService } from "./services/roleChangeApprovalService";
 import { PanelTraceabilityModule } from "./components/PanelTraceabilityModule";
+import { TaskManagementSearchHub } from "./components/TaskManagementSearchHub";
+import { FirestoreDataExplorer } from "./components/FirestoreDataExplorer";
 
 // Lucide Icons
 import { 
@@ -653,7 +655,7 @@ export default function App() {
     }
   };
 
-  const allTabs = ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
+  const allTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
 
   // Aluminum Formwork Management System is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
   const formworkAllowedRoles: UserRole[] = [
@@ -666,23 +668,23 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
-    [UserRole.SITE_ENGINEER]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
-    [UserRole.SUPERVISOR]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
-    [UserRole.TIME_KEEPER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.ASSEMBLER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "warehouseManagerApp", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_OWNER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.WORKER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.HR_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
-    [UserRole.SURVEYOR]: ["dashboard", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
-    [UserRole.HSE_OFFICER]: ["dashboard", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.DRIVER]: ["dashboard", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
-    [UserRole.AUDITOR]: ["dashboard", "notificationCenter", "customInputHub", "panelTraceability", "financeErp", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
+    [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.TIME_KEEPER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.ASSEMBLER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseManagerApp", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.STORE_OWNER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.WORKER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SURVEYOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
+    [UserRole.HSE_OFFICER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.DRIVER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
+    [UserRole.AUDITOR]: ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "panelTraceability", "financeErp", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
   };
 
   const hasAccess = (tab: string): boolean => {
@@ -2004,6 +2006,32 @@ export default function App() {
               </button>
             )}
 
+            {/* Task Management & Multi-Field Search Tab */}
+            {tabPermissions[currentUserRole]?.includes("taskManagement") && (
+              <button
+                onClick={() => setActiveTab("taskManagement")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "taskManagement" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <CheckCircle2 size={15} className="text-red-500 animate-pulse" />
+                <span>{isAmharic ? "ተግባራት & ፍለጋ (Tasks)" : "Task Management & Search"}</span>
+              </button>
+            )}
+
+            {/* Firestore Data Explorer Tab (Admin/Authorized Only) */}
+            {tabPermissions[currentUserRole]?.includes("firestoreExplorer") && (
+              <button
+                onClick={() => setActiveTab("firestoreExplorer")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "firestoreExplorer" ? "text-white border-emerald-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Database size={15} className="text-emerald-400 animate-pulse" />
+                <span>{isAmharic ? "ዳታቤዝ መርማሪ (Data Explorer)" : "Firestore Data Explorer"}</span>
+              </button>
+            )}
+
             {/* Enterprise Notification Center Tab */}
             {tabPermissions[currentUserRole]?.includes("notificationCenter") && (
               <button
@@ -2458,6 +2486,8 @@ export default function App() {
                 <div className="space-y-1">
                   {[
                     { id: "dashboard", num: 1, nameEn: "Dashboard", nameAm: "1. ዳሽቦርድ (Dashboard)", icon: Activity },
+                    { id: "taskManagement", num: "1T", nameEn: "Task Management & Search", nameAm: "1.1 የስራ ትዕዛዞች ፍለጋ (Task Search & Hub)", icon: CheckCircle2 },
+                    { id: "firestoreExplorer", num: "1D", nameEn: "Firestore Data Explorer", nameAm: "1.2 ዳታቤዝ መርማሪ (Data Explorer)", icon: Database },
                     { id: "workerProfiles", num: 2, nameEn: "Worker Profiles", nameAm: "2. የሰራተኞች መገለጫዎች (Worker Profiles)", icon: Users },
                     { id: "customInputHub", num: 3, nameEn: "Data Input Hub", nameAm: "3. የመረጃ ግብአት ማዕከል (Data Input Hub)", icon: PlusCircle },
                     { id: "notificationCenter", num: 4, nameEn: "Notifications Center", nameAm: "4. የማስታወቂያዎች ማዕከል (Notifications Center)", icon: Bell },
@@ -2690,6 +2720,26 @@ export default function App() {
             formworkPanels={formworkPanels}
             panelMovementLogs={panelMovementLogs}
             onAddAttendance={handleAddAttendance}
+          />
+        )}
+
+        {activeTab === "taskManagement" && (
+          <TaskManagementSearchHub
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            zones={zones}
+            workers={workers}
+            isAmharic={isAmharic}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "firestoreExplorer" && (
+          <FirestoreDataExplorer
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            isAmharic={isAmharic}
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
 
@@ -3272,6 +3322,44 @@ export default function App() {
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
                           {isAmharic ? "የአሉሚኒየም ፎርምወርክ እና አጠቃላይ የሳይት ሁኔታ ማጠቃለያ" : "Formwork status, attendance, and site KPIs"}
+                        </p>
+                      </button>
+                    )}
+
+                    {hasAccess("taskManagement") && (
+                      <button
+                        onClick={() => { setActiveTab("taskManagement"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "taskManagement" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-red-500/10 text-red-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <CheckCircle2 size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "1.1 የስራ ትዕዛዞች ፍለጋ" : "1.1 Task Management & Search"}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የግንባታ ስራዎች ፍለጋ፣ ማጣሪያ፣ ምደባና ቁጥጥር" : "Task search, multi-field filtering & execution audits"}
+                        </p>
+                      </button>
+                    )}
+
+                    {hasAccess("firestoreExplorer") && (
+                      <button
+                        onClick={() => { setActiveTab("firestoreExplorer"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "firestoreExplorer" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Database size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "1.2 ዳታቤዝ መርማሪ" : "1.2 Firestore Data Explorer"}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የዳታቤዝ ሰነዶች፣ መረጃዎችና መስኮች ፍተሻ" : "Inspect 30+ collections, raw JSON data & safe schemas"}
                         </p>
                       </button>
                     )}

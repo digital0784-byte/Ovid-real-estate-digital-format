@@ -118,6 +118,31 @@
       },
       "required": ["id", "name", "unit"]
     },
+    "ErpTask": {
+      "title": "ErpTask",
+      "description": "Represents field construction tasks, work orders, assigned personnel, deadlines and execution status.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "taskId": { "type": "string" },
+        "taskName": { "type": "string" },
+        "description": { "type": "string" },
+        "projectId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "siteName": { "type": "string" },
+        "building": { "type": "string" },
+        "floor": { "type": "string" },
+        "zone": { "type": "string" },
+        "assignedToName": { "type": "string" },
+        "createdByName": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "dueDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "In Progress", "Completed", "Rejected", "Cancelled", "Overdue"] },
+        "priority": { "type": "string", "enum": ["Critical", "High", "Medium", "Low"] },
+        "category": { "type": "string" }
+      },
+      "required": ["id", "taskName", "projectName", "dueDate", "status", "priority"]
+    },
     "Inventory": {
       "title": "Inventory",
       "description": "Represents active inventory balances, quantities, and reorder levels across sites.",
@@ -821,6 +846,10 @@
     "/panelDimensionLibrary/{dimensionId}": {
       "schema": "ConfiguredDimensionOption",
       "description": "Pre-configured panel dimensional library catalog."
+    },
+    "/tasks/{taskId}": {
+      "schema": "ErpTask",
+      "description": "Field construction tasks, assignments, status and execution records."
     }
   }
 }

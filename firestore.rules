@@ -172,12 +172,45 @@ service cloud.firestore {
       );
       allow delete: if isSuperAdmin();
     }
+
     match /registrants/{regId} {
-      allow read, write: if true;
+      allow read: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+        isSignedIn() && (
+          regId == request.auth.uid ||
+          (resource != null && (
+            ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
+            ('uid' in resource.data && resource.data.uid == request.auth.uid)
+          ))
+        )
+      );
+      allow create: if isSignedIn() && (
+        regId == request.auth.uid ||
+        ('userId' in incoming() && incoming().userId == request.auth.uid) ||
+        ('uid' in incoming() && incoming().uid == request.auth.uid)
+      );
+      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow delete: if isSuperAdmin() || isHeadOffice();
     }
+
     match /role_change_requests/{reqId} {
-      allow read, write: if true;
+      allow read: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+        isSignedIn() && (
+          reqId == request.auth.uid ||
+          (resource != null && (
+            ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
+            ('uid' in resource.data && resource.data.uid == request.auth.uid)
+          ))
+        )
+      );
+      allow create: if isSignedIn() && (
+        reqId == request.auth.uid ||
+        ('userId' in incoming() && incoming().userId == request.auth.uid) ||
+        ('uid' in incoming() && incoming().uid == request.auth.uid)
+      );
+      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow delete: if isSuperAdmin() || isHeadOffice();
     }
+
     match /roles/{roleId} {
       allow read: if isSignedIn();
       allow write: if isAdminOrHeadOffice();
@@ -185,245 +218,314 @@ service cloud.firestore {
 
     // 2. Projects, Sites & Registered Sites / Warehouses (Role-Scoped)
     match /projects/{projectId} {
-      allow read: if true;
-      allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /sites/{siteId} {
-      allow read: if true;
-      allow write: if isSignedIn() || isSuperAdmin() || isHeadOffice() || isProjectManager();
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /registeredSites/{siteId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read: if isSignedIn();
       allow create, update: if isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(siteId)) || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /siteStores/{storeId} {
-      allow read: if (isSiteStoreRole() && isAuthorizedForSite(storeId)) || isWarehouseRole() || isProjectManager();
+      allow read: if isSignedIn();
       allow create, update: if isAdminOrHeadOffice() || (isSiteStoreRole() && isAuthorizedForSite(storeId));
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /registeredWarehouses/{warehouseId} {
-      allow read: if isWarehouseRole() || isProjectManager();
+      allow read: if isSignedIn();
       allow create, update: if (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /warehouses/{warehouseId} {
-      allow read: if isWarehouseRole() || isProjectManager();
+      allow read: if isSignedIn();
       allow create, update: if (isWarehouseRole() && isAuthorizedForWarehouse(warehouseId));
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /zones/{zoneId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /floorZones/{fzId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSiteEngineer();
+      allow read: if isSignedIn();
       allow create, update: if isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
 
     // 3. Employees, Workers & Teams
     match /employees/{employeeId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isHRManager();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /workers/{workerId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice() || isHRManager();
     }
+
     match /teams/{teamId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 4. Attendance & Worker Evaluations
     match /attendance/{attendanceId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isTimeKeeper() || isSupervisor() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /evaluations/{evaluationId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isSupervisor() || isProjectManager() || isHRManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 5. Payroll
     match /payroll/{payrollId} {
-      allow read: if true;
-      allow write: if true;
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 6. Materials, Material Categories, Inventory & Audits
     match /materials/{materialId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create: if isWarehouseRole();
       allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /materialCategories/{categoryId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow create, update: if isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /inventory/{inventoryId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow read: if isSignedIn();
       allow create, update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /inventoryAudits/{auditId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole() || isFinanceManager();
-      allow create, update: if isWarehouseRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow create, update: if isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
 
     // 7. Equipment & Vehicles
     match /equipment/{equipmentId} {
-      allow read, write: if true;
-    }
-    match /vehicles/{vehicleId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isWarehouseRole() || isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
     }
 
-    // 8. Formwork Panels & Panel Logs (Strictly Controlled Only by Warehouse Manager App, Head Office Manager App, and Admin App)
+    match /vehicles/{vehicleId} {
+      allow read: if isSignedIn();
+      allow create, update: if isWarehouseRole() || isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 8. Formwork Panels & Panel Logs
     match /formworkPanels/{panelId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager() || isSiteEngineer();
       allow create, update, delete: if isAdminOrHeadOffice() || isWarehouseRole();
     }
+
     match /panelMovementLogs/{logId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /panelDamageReports/{reportId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager() || isSiteEngineer();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isSiteEngineer() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /panelRepairRecords/{recordId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole();
       allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
 
-    // 9. Warehouse & Site Store Canonical Workflows (Requests, Transfers, Receipts, Issues, Returns, Counts, Adjustments, Discrepancies, Transactions)
+    // 9. Warehouse & Site Store Canonical Workflows
     match /overseasShipments/{shipmentId} {
-      allow read, write: if isWarehouseRole() || isFinanceManager();
+      allow read: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow write: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
     }
+
     match /customsRecords/{recordId} {
-      allow read, write: if isWarehouseRole() || isFinanceManager();
+      allow read: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow write: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
     }
+
     match /suppliers/{supplierId} {
-      allow read, create, update: if isWarehouseRole() || isFinanceManager();
+      allow read: if isSignedIn();
+      allow create, update: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /supplierSchedules/{scheduleId} {
-      allow read, create, update: if isWarehouseRole() || isFinanceManager();
+      allow read: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow create, update: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /goodsReceipts/{grnId} {
-      allow read, create, update: if isWarehouseRole() || isFinanceManager();
+      allow read: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
+      allow create, update: if isWarehouseRole() || isFinanceManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /stockAdjustments/{adjustmentId} {
-      allow read, create, update: if isWarehouseRole();
+      allow read: if isWarehouseRole() || isAdminOrHeadOffice();
+      allow create, update: if isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /stockTransactions/{transactionId} {
       allow read: if isWarehouseRole() || isSiteStoreRole() || isFinanceManager() || isAdminOrHeadOffice();
       allow create: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
       allow update, delete: if false; // Immutable audit ledger
     }
+
     match /stockTransfers/{transferId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole();
-      allow create: if isWarehouseRole();
+      allow read: if isSignedIn();
+      allow create: if isWarehouseRole() || isSiteStoreRole();
       allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /dispatchTransfers/{transferId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole();
+      allow read: if isSignedIn();
       allow create: if isWarehouseRole();
       allow update: if isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /stockDiscrepancies/{discrepancyId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole();
-      allow create: if isSiteStoreRole() || isWarehouseRole();
-      allow update: if isWarehouseRole() || isSiteStoreRole();
+      allow read: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
+      allow create: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
+      allow update: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /siteReceivingReports/{reportId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole();
-      allow create, update: if isWarehouseRole() || isSiteStoreRole();
+      allow read: if isSignedIn();
+      allow create, update: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /materialIssues/{recordId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /materialIssueRecords/{recordId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /materialReturns/{recordId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /materialReturnRecords/{recordId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /materialRequests/{requestId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole() || isProjectManager();
-      allow create: if isSiteStoreRole() || isWarehouseRole();
-      allow update: if isWarehouseRole() || isSiteStoreRole();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice() || isProjectManager();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /stockCounts/{countId} {
-      allow read: if isSiteStoreRole() || isAdminOrHeadOffice();
-      allow create, update: if isSiteStoreRole();
+      allow read: if isSiteStoreRole() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /damagedMissingReports/{reportId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
-      allow create, update: if isSiteStoreRole() || isWarehouseRole();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice() || isSiteEngineer() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /truckFleets/{fleetId} {
-      allow read: if isWarehouseRole() || isSiteStoreRole();
-      allow create, update: if isWarehouseRole();
+      allow read: if isSignedIn();
+      allow create, update: if isWarehouseRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /sitePanelBreakdowns/{breakdownId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole();
-      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /dailyRequisitions/{reqId} {
-      allow read, create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read: if isSignedIn();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isSupervisor() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /dailyConsumptionVariances/{varId} {
-      allow read, create, update: if isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow read: if isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice() || isWarehouseRole();
+      allow create, update: if isSiteStoreRole() || isProjectManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /requisitionAuditLogs/{logId} {
-      allow read, create: if true;
-      allow update, delete: if false;
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Immutable audit log
     }
+
     match /dailyReturnReports/{repId} {
-      allow read, create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /dailyConsolidatedReports/{repId} {
-      allow read, create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager();
+      allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /dailyMaterialReports/{reportId} {
-      allow read: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
-      allow create, update: if isSiteStoreRole() || isAdminOrHeadOffice();
+      allow read: if isSignedIn();
+      allow create, update: if isSiteStoreRole() || isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /enhancedMaterialRequests/{requestId} {
       allow read: if isAdminOrHeadOffice() || isSiteStoreRole() || isProjectManager() ||
                      (resource.data.requesterUid == request.auth.uid) ||
@@ -439,6 +541,7 @@ service cloud.firestore {
                      (resource.data.requesterUid == request.auth.uid && request.resource.data.status in ['RECEIVED', 'CONSUMED', 'PARTIALLY_RETURNED', 'RETURNED', 'CLOSED']);
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /enhancedMaterialIssues/{issueId} {
       allow read: if isAdminOrHeadOffice() || isSiteStoreRole() ||
                      (resource.data.requesterUid == request.auth.uid) ||
@@ -448,6 +551,7 @@ service cloud.firestore {
                      (request.auth.uid == resource.data.receivedByUid);
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /enhancedMaterialReturns/{returnId} {
       allow read: if isAdminOrHeadOffice() || isSiteStoreRole() ||
                      (resource.data.userUid == request.auth.uid);
@@ -455,158 +559,269 @@ service cloud.firestore {
       allow update: if isSiteStoreRole() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
+
     match /stockReservations/{resId} {
       allow read, write: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
     }
+
     match /inventoryDiscrepancies/{discrepancyId} {
       allow read: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice();
-      allow create, update: if isSiteStoreRole() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isAdminOrHeadOffice() || isWarehouseRole();
       allow delete: if isAdminOrHeadOffice();
     }
 
     // 10. CAD Files & Site Operational Logs
     match /cadFiles/{cadId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || hasRole('CAD Engineer') || hasRole('Surveyor');
+      allow delete: if isAdminOrHeadOffice() || isProjectManager();
     }
+
     match /dailyReports/{reportId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /progressLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /qualityLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || hasRole('QA/QC Engineer') || hasRole('Quality Inspector');
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /qualitySnags/{snagId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || hasRole('QA/QC Engineer');
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /safetyLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || hasRole('Safety Officer') || hasRole('HSE Officer');
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /concreteTruckLogs/{truckId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 11. Notifications
     match /notifications/{notifId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (
+        isAdminOrHeadOffice() ||
+        (resource != null && (
+          ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
+          ('recipientId' in resource.data && resource.data.recipientId == request.auth.uid)
+        ))
+      );
+      allow delete: if isAdminOrHeadOffice() || (
+        isSignedIn() && (
+          resource != null && (
+            ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
+            ('recipientId' in resource.data && resource.data.recipientId == request.auth.uid)
+          )
+        )
+      );
     }
 
     // 12. Approvals
     match /approvals/{approvalId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHeadOffice() || isProjectManager() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 12.1 Tasks (Digital Construction ERP Tasks Management)
+    match /tasks/{taskId} {
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || hasRole('Team Leader') || hasRole('Gang Chief') || (
+        isSignedIn() && (
+          ('assignedToId' in resource.data && resource.data.assignedToId == request.auth.uid) ||
+          ('createdById' in resource.data && resource.data.createdById == request.auth.uid)
+        )
+      );
+      allow delete: if isAdminOrHeadOffice() || isProjectManager();
     }
 
     // 13. Expenses, Invoices, & Contracts
     match /expenses/{expenseId} {
-      allow read, write: if true;
-    }
-    match /invoices/{invoiceId} {
-      allow read, write: if true;
-    }
-    match /contracts/{contractId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
-    // 14. Audit Logs
+    match /invoices/{invoiceId} {
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    match /contracts/{contractId} {
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 14. Audit Logs (read for HR/Admin, create for signed-in, immutable)
     match /auditLogs/{logId} {
-      allow read, create, update: if true;
-      allow delete: if false;
+      allow read: if isAdminOrHeadOffice() || isHRManager();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Immutable audit log
     }
 
     // 15. Admin Invitations
     match /invitations/{inviteId} {
-      allow read, write: if true;
+      allow read, write: if isSuperAdmin() || isHeadOffice() || isHRManager();
     }
+
     // 16. Enterprise ERP Hub Collections (Procurement, Feedbacks, Appraisals)
     match /procurements/{procId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager() || isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /employeeFeedbacks/{feedbackId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice() || isHRManager() || (
+        isSignedIn() && (
+          ('employeeId' in resource.data && resource.data.employeeId == request.auth.uid) ||
+          ('submittedBy' in resource.data && resource.data.submittedBy == request.auth.uid)
+        )
+      );
+      allow create: if isSignedIn();
+      allow update: if isAdminOrHeadOffice() || isHRManager();
+      allow delete: if isAdminOrHeadOffice();
     }
+
     match /performanceAppraisals/{appraisalId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice() || isHRManager() || (
+        isSignedIn() && ('employeeId' in resource.data && resource.data.employeeId == request.auth.uid)
+      );
+      allow create, update: if isAdminOrHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 17. Batch B Enterprise Collections
     // 17.1 enterpriseDocuments
     match /enterpriseDocuments/{docId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 17.2 enterpriseChatMessages
     match /enterpriseChatMessages/{messageId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdminOrHeadOffice() || (
+        isSignedIn() && ('senderId' in resource.data && resource.data.senderId == request.auth.uid)
+      );
     }
 
     // 17.3 clientApprovals
     match /clientApprovals/{approvalId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 17.4 siteDiaryLogs
     match /siteDiaryLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 18. Batch C Enterprise Collections
     // 18.1 projectPermits
     match /projectPermits/{permitId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 18.2 enterpriseAssets
     match /enterpriseAssets/{assetId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 18.3 maintenanceSchedules
     match /maintenanceSchedules/{scheduleId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 18.4 costTrackingItems
     match /costTrackingItems/{itemId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 19. Batch D Enterprise Collections
     // 19.1 aiRiskAssessments
     match /aiRiskAssessments/{riskId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || hasRole('Safety Officer') || hasRole('HSE Officer');
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 19.2 trainingRecords
     match /trainingRecords/{recordId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isHRManager() || isProjectManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 19.3 apiIntegrationLogs
     match /apiIntegrationLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice();
+      allow create: if isSignedIn();
+      allow update, delete: if false; // Immutable system audit log
     }
 
     // 20. Batch E Enterprise Collections
     // 20.1 backupLogs
     match /backupLogs/{logId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice();
+      allow create: if isAdminOrHeadOffice();
+      allow update, delete: if false; // Immutable backup audit log
     }
 
     // 20.2 approvalWorkflows
     match /approvalWorkflows/{workflowId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 21. Finance ERP Collections
     // 21.1 projectBudgets
     match /projectBudgets/{budgetId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // 21.2 paymentRecords
     match /paymentRecords/{paymentId} {
-      allow read, write: if true;
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager();
+      allow delete: if isAdminOrHeadOffice();
     }
 
     // ==========================================

@@ -42,8 +42,10 @@ import {
   PanelReturnTransaction,
   PanelInventoryReconciliationRecord,
   PanelTraceabilityAuditLog,
-  ConfiguredDimensionOption
+  ConfiguredDimensionOption,
+  ErpTask
 } from "../types";
+import { initialErpTasks } from "../data/initialTasks";
 import {
   INITIAL_SEED_PANELS,
   INITIAL_SEED_MOVEMENTS,
@@ -1910,5 +1912,59 @@ export const DbService = {
 
   async deletePanelDimension(dimensionId: string): Promise<void> {
     return this.deletePanelDimensionOption(dimensionId);
+  },
+
+  // ============================================================
+  // TASK MANAGEMENT FIRESTORE COLLECTIONS ("tasks")
+  // ============================================================
+
+  async getTasks(): Promise<ErpTask[]> {
+    return fetchCollection<ErpTask>("tasks", initialErpTasks);
+  },
+
+  getCachedTasks(): ErpTask[] {
+    return offlineEngine.getCache<ErpTask>("tasks", initialErpTasks);
+  },
+
+  subscribeTasks(
+    callback: (tasks: ErpTask[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (isFirebaseReady && db) {
+      const colRef = collection(db, "tasks");
+      const unsubscribe = onSnapshot(
+        colRef,
+        (snapshot) => {
+          const items = snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as ErpTask;
+            return { ...data, id: data.id || docSnap.id };
+          });
+          const merged = items.length > 0 ? items : initialErpTasks;
+          offlineEngine.saveCache("tasks", merged);
+          callback(merged);
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "tasks");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<ErpTask>("tasks", initialErpTasks));
+        }
+      );
+      return unsubscribe;
+    } else {
+      callback(offlineEngine.getCache<ErpTask>("tasks", initialErpTasks));
+      return () => {};
+    }
+  },
+
+  async addTask(task: ErpTask): Promise<void> {
+    await writeDocument<ErpTask>("tasks", task, initialErpTasks);
+  },
+
+  async updateTask(task: ErpTask): Promise<void> {
+    await writeDocument<ErpTask>("tasks", task, initialErpTasks);
+  },
+
+  async deleteTask(taskId: string): Promise<void> {
+    await removeDocument<ErpTask>("tasks", taskId, initialErpTasks);
   }
 };
