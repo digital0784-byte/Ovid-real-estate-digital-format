@@ -155,9 +155,12 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow create: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
-        isOwner(userId) &&
+        (isOwner(userId) || (isSignedIn() && (
+          ('uid' in incoming() && incoming().uid == request.auth.uid) ||
+          ('id' in incoming() && incoming().id == request.auth.uid)
+        ))) &&
         incoming().keys().hasOnly([
-          'displayName', 'email', 'phoneNumber', 'role', 'status', 'createdAt',
+          'displayName', 'email', 'phoneNumber', 'role', 'status', 'createdAt', 'updatedAt',
           'employeeId', 'name', 'department', 'trade', 'position', 'requestedRole',
           'id', 'uid'
         ]) &&
@@ -165,11 +168,14 @@ service cloud.firestore {
         incoming().status == 'Pending'
       );
       allow update: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
-        isOwner(userId) &&
+        (isOwner(userId) || (isSignedIn() && (
+          ('uid' in incoming() && incoming().uid == request.auth.uid) ||
+          ('id' in incoming() && incoming().id == request.auth.uid)
+        ))) &&
         incoming().role == existing().role &&
         incoming().status == existing().status &&
         incoming().diff(existing()).affectedKeys().hasOnly([
-          'displayName', 'email', 'phoneNumber', 'createdAt',
+          'displayName', 'email', 'phoneNumber', 'createdAt', 'updatedAt',
           'employeeId', 'name', 'department', 'trade', 'position', 'requestedRole',
           'id', 'uid'
         ])
@@ -271,7 +277,12 @@ service cloud.firestore {
 
     // 3. Employees, Workers & Teams
     match /employees/{employeeId} {
-      allow read: if isSignedIn();
+      allow read: if isAdminOrHeadOffice() || isHRManager() || isFinanceManager() || (
+        isSignedIn() && (
+          ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
+          ('uid' in resource.data && resource.data.uid == request.auth.uid)
+        )
+      );
       allow create, update: if isAdminOrHeadOffice() || isHRManager();
       allow delete: if isAdminOrHeadOffice();
     }
@@ -303,7 +314,23 @@ service cloud.firestore {
 
     // 5. Payroll
     match /payroll/{payrollId} {
-      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager() || isProjectManager() || isAuditor();
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager() || isProjectManager() || isAuditor() || (
+        isSignedIn() && (
+          ('workerId' in resource.data && resource.data.workerId == request.auth.uid) ||
+          ('employeeId' in resource.data && resource.data.employeeId == request.auth.uid)
+        )
+      );
+      allow create, update: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager();
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    match /payrolls/{payrollId} {
+      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager() || isProjectManager() || isAuditor() || (
+        isSignedIn() && (
+          ('workerId' in resource.data && resource.data.workerId == request.auth.uid) ||
+          ('employeeId' in resource.data && resource.data.employeeId == request.auth.uid)
+        )
+      );
       allow create, update: if isAdminOrHeadOffice() || isFinanceManager() || isHRManager();
       allow delete: if isAdminOrHeadOffice();
     }
@@ -680,7 +707,11 @@ service cloud.firestore {
     // 14. Audit Logs (read for Admin/HR/Finance/Auditor, create for signed-in, immutable)
     match /auditLogs/{logId} {
       allow read: if isAdminOrHeadOffice() || isHRManager() || isFinanceManager() || isAuditor();
-      allow create: if isSignedIn();
+      allow create: if isSignedIn() && (
+        !('userId' in incoming()) ||
+        incoming().userId == request.auth.uid ||
+        isAdminOrHeadOffice()
+      );
       allow update, delete: if false; // Immutable audit log
     }
 
@@ -873,8 +904,12 @@ service cloud.firestore {
 
     // 22.7 panelTraceabilityAuditLogs (create-only and immutable like auditLogs)
     match /panelTraceabilityAuditLogs/{logId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn() && isTraceabilityWriter();
+      allow read: if isAdminOrHeadOffice() || isAuditor() || isProjectManager() || isTraceabilityWriter();
+      allow create: if isSignedIn() && isTraceabilityWriter() && (
+        !('userId' in incoming()) ||
+        incoming().userId == request.auth.uid ||
+        isAdminOrHeadOffice()
+      );
       allow update, delete: if false; // Immutable audit log
     }
 

@@ -18,7 +18,8 @@
         "requestedRole": { "type": "string" },
         "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager"] },
         "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
-        "createdAt": { "type": "string" }
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
       },
       "required": ["uid", "email", "role", "status"]
     },

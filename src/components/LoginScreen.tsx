@@ -420,7 +420,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       const newAuditLog: AuditLog = {
         id: `AUD-REG-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
         timestamp: nowIso,
-        userId: fullEmpId,
+        userId: targetUserId,
         userName: regName.trim(),
         role: sanitizedRegRole,
         action: "User Self-Registration",
