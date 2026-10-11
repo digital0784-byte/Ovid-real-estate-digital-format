@@ -37,17 +37,7 @@ service cloud.firestore {
       return (isSignedIn() && (
         (('email' in request.auth.token) && request.auth.token.email == 'mejennur669@gmail.com') ||
         (('phone_number' in request.auth.token) && request.auth.token.phone_number == '+251910097862') ||
-        (('phone_number' in request.auth.token) && request.auth.token.phone_number == '+251920843843') ||
-        (userDocExists() && (
-          (('email' in getUserData()) && getUserData().email == 'mejennur669@gmail.com') ||
-          (('phoneNumber' in getUserData()) && (
-            getUserData().phoneNumber == '0910097862/0920843843' ||
-            getUserData().phoneNumber == '0910097862' ||
-            getUserData().phoneNumber == '0920843843' ||
-            getUserData().phoneNumber == '+251910097862' ||
-            getUserData().phoneNumber == '+251920843843'
-          ))
-        ))
+        (('phone_number' in request.auth.token) && request.auth.token.phone_number == '+251920843843')
       )) || hasRole('Super Admin');
     }
 
@@ -154,7 +144,10 @@ service cloud.firestore {
     // 1. Users collection, Registrants & Role Change Requests
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow create: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+      allow create: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        incoming().role != 'Super Admin'
+      ) || (
         (isOwner(userId) || (isSignedIn() && (
           ('uid' in incoming() && incoming().uid == request.auth.uid) ||
           ('id' in incoming() && incoming().id == request.auth.uid)
@@ -167,7 +160,11 @@ service cloud.firestore {
         incoming().role == 'Pending' &&
         incoming().status == 'Pending'
       );
-      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager() || (
+      allow update: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        incoming().role != 'Super Admin' &&
+        existing().role != 'Super Admin'
+      ) || (
         (isOwner(userId) || (isSignedIn() && (
           ('uid' in incoming() && incoming().uid == request.auth.uid) ||
           ('id' in incoming() && incoming().id == request.auth.uid)
@@ -193,13 +190,26 @@ service cloud.firestore {
           ))
         )
       );
-      allow create: if isSignedIn() && (
-        regId == request.auth.uid ||
-        ('userId' in incoming() && incoming().userId == request.auth.uid) ||
-        ('uid' in incoming() && incoming().uid == request.auth.uid)
+      allow create: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin')
+      ) || (
+        isSignedIn() && (
+          regId == request.auth.uid ||
+          ('userId' in incoming() && incoming().userId == request.auth.uid) ||
+          ('uid' in incoming() && incoming().uid == request.auth.uid)
+        ) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin')
       );
-      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager();
-      allow delete: if isSuperAdmin() || isHeadOffice();
+      allow update: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('role' in existing()) || existing().role != 'Super Admin')
+      );
+      allow delete: if isSuperAdmin() || (
+        isHeadOffice() &&
+        (!('role' in existing()) || existing().role != 'Super Admin')
+      );
     }
 
     match /role_change_requests/{reqId} {
@@ -212,18 +222,41 @@ service cloud.firestore {
           ))
         )
       );
-      allow create: if isSignedIn() && (
-        reqId == request.auth.uid ||
-        ('userId' in incoming() && incoming().userId == request.auth.uid) ||
-        ('uid' in incoming() && incoming().uid == request.auth.uid)
+      allow create: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('requestedRole' in incoming()) || incoming().requestedRole != 'Super Admin')
+      ) || (
+        isSignedIn() && (
+          reqId == request.auth.uid ||
+          ('userId' in incoming() && incoming().userId == request.auth.uid) ||
+          ('uid' in incoming() && incoming().uid == request.auth.uid)
+        ) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('requestedRole' in incoming()) || incoming().requestedRole != 'Super Admin')
       );
-      allow update: if isSuperAdmin() || isHeadOffice() || isHRManager();
-      allow delete: if isSuperAdmin() || isHeadOffice();
+      allow update: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('role' in existing()) || existing().role != 'Super Admin') &&
+        (!('requestedRole' in incoming()) || incoming().requestedRole != 'Super Admin') &&
+        (!('requestedRole' in existing()) || existing().requestedRole != 'Super Admin')
+      );
+      allow delete: if isSuperAdmin() || (
+        isHeadOffice() &&
+        (!('role' in existing()) || existing().role != 'Super Admin') &&
+        (!('requestedRole' in existing()) || existing().requestedRole != 'Super Admin')
+      );
     }
 
     match /roles/{roleId} {
       allow read: if isSignedIn();
-      allow write: if isAdminOrHeadOffice();
+      allow write: if isSuperAdmin() || (
+        isAdminOrHeadOffice() &&
+        roleId != 'Super Admin' &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('role' in existing()) || existing().role != 'Super Admin')
+      );
     }
 
     // 2. Projects, Sites & Registered Sites / Warehouses (Role-Scoped)
@@ -283,8 +316,19 @@ service cloud.firestore {
           ('uid' in resource.data && resource.data.uid == request.auth.uid)
         )
       );
-      allow create, update: if isAdminOrHeadOffice() || isHRManager();
-      allow delete: if isAdminOrHeadOffice();
+      allow create: if isSuperAdmin() || (
+        (isAdminOrHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin')
+      );
+      allow update: if isSuperAdmin() || (
+        (isAdminOrHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('role' in existing()) || existing().role != 'Super Admin')
+      );
+      allow delete: if isSuperAdmin() || (
+        isAdminOrHeadOffice() &&
+        (!('role' in existing()) || existing().role != 'Super Admin')
+      );
     }
 
     match /workers/{workerId} {
@@ -717,7 +761,17 @@ service cloud.firestore {
 
     // 15. Admin Invitations
     match /invitations/{inviteId} {
-      allow read, write: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow read: if isSuperAdmin() || isHeadOffice() || isHRManager();
+      allow create: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin')
+      );
+      allow update: if isSuperAdmin() || (
+        (isHeadOffice() || isHRManager()) &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('role' in existing()) || existing().role != 'Super Admin')
+      );
+      allow delete: if isSuperAdmin();
     }
 
     // 16. Enterprise ERP Hub Collections (Procurement, Feedbacks, Appraisals)

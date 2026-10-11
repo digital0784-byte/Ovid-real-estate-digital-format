@@ -1625,12 +1625,26 @@ export class PanelTraceabilityService {
   }
 }
 
+import { auth } from "../firebase";
+import { onAuthStateChanged } from "firebase/auth";
+
 // ============================================================
 // AUTOMATIC FIRESTORE REAL-TIME SYNCHRONIZATION
 // ============================================================
 if (typeof window !== "undefined") {
-  // 1. Initial Firestore primary load & background sync
-  setTimeout(() => {
+  let activeUnsubscribers: (() => void)[] = [];
+
+  const cleanupListeners = () => {
+    activeUnsubscribers.forEach(unsub => {
+      try { unsub(); } catch {}
+    });
+    activeUnsubscribers = [];
+  };
+
+  const setupLiveSync = () => {
+    cleanupListeners();
+
+    // 1. Initial Firestore primary load & background sync
     DbService.getTraceablePanels().then(panels => {
       if (panels && panels.length > 0) {
         try { localStorage.setItem(STORAGE_PANELS, JSON.stringify(panels)); } catch {}
@@ -1686,62 +1700,74 @@ if (typeof window !== "undefined") {
         window.dispatchEvent(new CustomEvent("panel_dimensions_updated", { detail: dims }));
       }
     }).catch(() => {});
-  }, 100);
 
-  // 2. Real-time subscriptions for multi-user / cross-device synchronization
-  DbService.subscribeTraceablePanels((livePanels) => {
-    if (livePanels && livePanels.length > 0) {
-      try { localStorage.setItem(STORAGE_PANELS, JSON.stringify(livePanels)); } catch {}
-      window.dispatchEvent(new CustomEvent("traceable_panels_updated", { detail: livePanels }));
-    }
-  });
+    // 2. Real-time subscriptions for multi-user / cross-device synchronization
+    const u1 = DbService.subscribeTraceablePanels((livePanels) => {
+      if (livePanels && livePanels.length > 0) {
+        try { localStorage.setItem(STORAGE_PANELS, JSON.stringify(livePanels)); } catch {}
+        window.dispatchEvent(new CustomEvent("traceable_panels_updated", { detail: livePanels }));
+      }
+    });
 
-  DbService.subscribePanelTraceabilityMovements((liveMovements) => {
-    if (liveMovements && liveMovements.length > 0) {
-      try { localStorage.setItem(STORAGE_MOVEMENTS, JSON.stringify(liveMovements)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_movements_updated", { detail: liveMovements }));
-    }
-  });
+    const u2 = DbService.subscribePanelTraceabilityMovements((liveMovements) => {
+      if (liveMovements && liveMovements.length > 0) {
+        try { localStorage.setItem(STORAGE_MOVEMENTS, JSON.stringify(liveMovements)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_movements_updated", { detail: liveMovements }));
+      }
+    });
 
-  DbService.subscribePanelDamageInspections((liveDamages) => {
-    if (liveDamages && liveDamages.length > 0) {
-      try { localStorage.setItem(STORAGE_DAMAGES, JSON.stringify(liveDamages)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_damages_updated", { detail: liveDamages }));
-    }
-  });
+    const u3 = DbService.subscribePanelDamageInspections((liveDamages) => {
+      if (liveDamages && liveDamages.length > 0) {
+        try { localStorage.setItem(STORAGE_DAMAGES, JSON.stringify(liveDamages)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_damages_updated", { detail: liveDamages }));
+      }
+    });
 
-  DbService.subscribePanelIssueTransactions((liveIssues) => {
-    if (liveIssues && liveIssues.length > 0) {
-      try { localStorage.setItem(STORAGE_ISSUES, JSON.stringify(liveIssues)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_issues_updated", { detail: liveIssues }));
-    }
-  });
+    const u4 = DbService.subscribePanelIssueTransactions((liveIssues) => {
+      if (liveIssues && liveIssues.length > 0) {
+        try { localStorage.setItem(STORAGE_ISSUES, JSON.stringify(liveIssues)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_issues_updated", { detail: liveIssues }));
+      }
+    });
 
-  DbService.subscribePanelReturnTransactions((liveReturns) => {
-    if (liveReturns && liveReturns.length > 0) {
-      try { localStorage.setItem(STORAGE_RETURNS, JSON.stringify(liveReturns)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_returns_updated", { detail: liveReturns }));
-    }
-  });
+    const u5 = DbService.subscribePanelReturnTransactions((liveReturns) => {
+      if (liveReturns && liveReturns.length > 0) {
+        try { localStorage.setItem(STORAGE_RETURNS, JSON.stringify(liveReturns)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_returns_updated", { detail: liveReturns }));
+      }
+    });
 
-  DbService.subscribePanelInventoryReconciliations((liveRecs) => {
-    if (liveRecs && liveRecs.length > 0) {
-      try { localStorage.setItem(STORAGE_RECONCILIATIONS, JSON.stringify(liveRecs)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_reconciliations_updated", { detail: liveRecs }));
-    }
-  });
+    const u6 = DbService.subscribePanelInventoryReconciliations((liveRecs) => {
+      if (liveRecs && liveRecs.length > 0) {
+        try { localStorage.setItem(STORAGE_RECONCILIATIONS, JSON.stringify(liveRecs)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_reconciliations_updated", { detail: liveRecs }));
+      }
+    });
 
-  DbService.subscribePanelTraceabilityAuditLogs((liveLogs) => {
-    if (liveLogs && liveLogs.length > 0) {
-      try { localStorage.setItem(STORAGE_AUDIT_LOGS, JSON.stringify(liveLogs)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_audit_logs_updated", { detail: liveLogs }));
-    }
-  });
+    const u7 = DbService.subscribePanelTraceabilityAuditLogs((liveLogs) => {
+      if (liveLogs && liveLogs.length > 0) {
+        try { localStorage.setItem(STORAGE_AUDIT_LOGS, JSON.stringify(liveLogs)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_audit_logs_updated", { detail: liveLogs }));
+      }
+    });
 
-  DbService.subscribePanelDimensionLibrary((liveDims) => {
-    if (liveDims && liveDims.length > 0) {
-      try { localStorage.setItem(STORAGE_DIMENSION_LIBRARY, JSON.stringify(liveDims)); } catch {}
-      window.dispatchEvent(new CustomEvent("panel_dimensions_updated", { detail: liveDims }));
-    }
-  });
+    const u8 = DbService.subscribePanelDimensionLibrary((liveDims) => {
+      if (liveDims && liveDims.length > 0) {
+        try { localStorage.setItem(STORAGE_DIMENSION_LIBRARY, JSON.stringify(liveDims)); } catch {}
+        window.dispatchEvent(new CustomEvent("panel_dimensions_updated", { detail: liveDims }));
+      }
+    });
+
+    activeUnsubscribers = [u1, u2, u3, u4, u5, u6, u7, u8];
+  };
+
+  if (auth) {
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        setupLiveSync();
+      } else {
+        cleanupListeners();
+      }
+    });
+  }
 }

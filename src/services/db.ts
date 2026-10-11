@@ -241,7 +241,7 @@ if (typeof window !== "undefined") {
 
 // Unified Primary Data Fetcher & Modifier (Firestore is primary source of truth)
 async function fetchCollection<T extends { id: string }>(collectionName: string, defaultData: T[], maxLimit: number = 100): Promise<T[]> {
-  if (isFirebaseReady && db) {
+  if (isFirebaseReady && db && auth?.currentUser) {
     try {
       console.log(`[DbService] Fetching Firestore collection "${collectionName}" (bounded query limit ${maxLimit})...`);
       const colRef = collection(db, collectionName);
@@ -378,7 +378,7 @@ export const DbService = {
     callback: (users: any[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "users");
       const unsubscribe = onSnapshot(
         colRef,
@@ -421,7 +421,7 @@ export const DbService = {
     callback: (workersList: Worker[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "workers");
       const unsubscribe = onSnapshot(
         colRef,
@@ -663,7 +663,7 @@ export const DbService = {
     callback: (notifs: any[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       console.log("[DbService] Subscribing real-time onSnapshot listener to 'notifications'...");
       const colRef = collection(db, "notifications");
       const unsubscribe = onSnapshot(
@@ -746,7 +746,7 @@ export const DbService = {
     callback: (panels: AluminumFormworkPanel[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       console.log("[DbService] Subscribing real-time onSnapshot listener to 'formworkPanels'...");
       const colRef = collection(db, "formworkPanels");
       const unsubscribe = onSnapshot(
@@ -803,7 +803,7 @@ export const DbService = {
     callback: (logs: PanelMovementLog[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       console.log("[DbService] Subscribing real-time onSnapshot listener to 'panelMovementLogs'...");
       const colRef = collection(db, "panelMovementLogs");
       const unsubscribe = onSnapshot(
@@ -1480,7 +1480,7 @@ export const DbService = {
     callback: (panels: TraceablePanel[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       console.log("[DbService] Subscribing real-time onSnapshot listener to 'traceablePanels'...");
       const colRef = collection(db, "traceablePanels");
       const unsubscribe = onSnapshot(
@@ -1554,7 +1554,7 @@ export const DbService = {
     callback: (movements: PanelTraceabilityMovement[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelTraceabilityMovements");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1615,7 +1615,7 @@ export const DbService = {
     callback: (damages: PanelDamageInspection[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelDamageInspections");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1672,7 +1672,7 @@ export const DbService = {
     callback: (issues: PanelIssueTransaction[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelIssueTransactions");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1729,7 +1729,7 @@ export const DbService = {
     callback: (returns: PanelReturnTransaction[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelReturnTransactions");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1786,7 +1786,7 @@ export const DbService = {
     callback: (records: PanelInventoryReconciliationRecord[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelInventoryReconciliations");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1841,7 +1841,7 @@ export const DbService = {
     callback: (logs: PanelTraceabilityAuditLog[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelTraceabilityAuditLogs");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1886,7 +1886,7 @@ export const DbService = {
     callback: (dimensions: ConfiguredDimensionOption[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "panelDimensionLibrary");
       const unsubscribe = onSnapshot(
         colRef,
@@ -1956,7 +1956,7 @@ export const DbService = {
     callback: (tasks: ErpTask[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db) {
+    if (isFirebaseReady && db && auth?.currentUser) {
       const colRef = collection(db, "tasks");
       const unsubscribe = onSnapshot(
         colRef,
