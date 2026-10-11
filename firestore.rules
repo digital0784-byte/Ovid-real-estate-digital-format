@@ -169,6 +169,7 @@ service cloud.firestore {
           ('uid' in incoming() && incoming().uid == request.auth.uid) ||
           ('id' in incoming() && incoming().id == request.auth.uid)
         ))) &&
+        (isOwner(userId) || (('uid' in existing()) && existing().uid == request.auth.uid)) &&
         incoming().role == existing().role &&
         incoming().status == existing().status &&
         incoming().diff(existing()).affectedKeys().hasOnly([
