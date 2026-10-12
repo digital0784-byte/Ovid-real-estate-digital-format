@@ -37,6 +37,7 @@ import { PayrollHub } from "./PayrollHub";
 import { DailyAttendanceReportsHub } from "./DailyAttendanceReportsHub";
 import { AttendanceSecurityRbacHub } from "./AttendanceSecurityRbacHub";
 import { Lock, ShieldAlert, Key } from "lucide-react";
+import { offlineSyncService } from "../services/offlineSyncService";
 
 interface AttendanceProps {
   workers: Worker[];
@@ -668,8 +669,12 @@ export const Attendance: React.FC<AttendanceProps> = ({
         setAlerts(prev => [newAlert, ...prev]);
       }
 
+      // Generate a stable globally-unique client ID once upon creation (never regenerated on retries)
+      const stableId = offlineSyncService.generateStableId("ATT");
+      const clientCaptureIso = new Date().toISOString();
+
       const newRecord: AttendanceRecord = {
-        id: `ATT-${Date.now()}`,
+        id: stableId,
         workerId: worker.id,
         workerName: worker.name,
         department: worker.department,
@@ -691,20 +696,24 @@ export const Attendance: React.FC<AttendanceProps> = ({
         gpsLocationString: `Bole Heights Tower 1 FL ${selectedFloor} (${simLocation === "on-site" ? "On-Site" : "Off-Site"})`
       };
 
-      // Add custom system fields for billing/reports
+      // Add custom system fields for billing/reports and offline timestamps
       (newRecord as any).deviceId = simDeviceId;
       (newRecord as any).breakTime = breakDuration;
       (newRecord as any).netWorkingHours = 0;
       (newRecord as any).remarks = `Secure ${selectedMethod} authentication. Verified by ${currentUserRole}.`;
+      (newRecord as any).capturedAt = clientCaptureIso;
 
-      // Handle Offline Caching
+      // Always save locally to durable queue before UI confirmation
+      setOfflineQueue(prev => {
+        const filtered = prev.filter(q => q.record.id !== stableId);
+        return [...filtered, { type: "In", record: newRecord }];
+      });
+      onAddAttendance(newRecord);
+
       if (isOffline) {
-        setOfflineQueue(prev => [...prev, { type: "In", record: newRecord }]);
         alert(isAmharic 
-          ? `ግንኙነት የለም! የ ${worker.name} መግቢያ መዝገብ በተሳካ ሁኔታ ከመስመር ውጭ (Local cache) ተቀምጧል።`
-          : `No network connection detected! Check-In record for ${worker.name} has been cached locally in SQLite/IndexedDB queue.`);
-      } else {
-        onAddAttendance(newRecord);
+          ? `የ ${worker.name} መግቢያ መዝገብ በተሳካ ሁኔታ በአካባቢ ማከማቻ (Local queue) ተቀምጧል። መስመር ሲመለስ በራስ-ሰር ይመሳሰላል።`
+          : `Check-In record for ${worker.name} successfully saved to local durable queue. Will synchronize automatically once connectivity returns.`);
       }
 
       setScanStatus("idle");
@@ -763,16 +772,20 @@ export const Attendance: React.FC<AttendanceProps> = ({
       (updatedRecord as any).breakTime = breakDuration;
       (updatedRecord as any).netWorkingHours = parseFloat(netWorkingHours.toFixed(2));
       (updatedRecord as any).remarks = `Clock-out secure match. Net: ${netWorkingHours.toFixed(2)} hrs. Verified by ${currentUserRole}.`;
+      (updatedRecord as any).capturedAt = (latestRecord as any).capturedAt || new Date().toISOString();
+      (updatedRecord as any).updatedAt = new Date().toISOString();
 
-      // Handle Offline Caching
+      // Ensure local durable queue persistence precedes UI confirmation
+      setOfflineQueue(prev => {
+        const filtered = prev.filter(q => q.record.id !== updatedRecord.id);
+        return [...filtered, { type: "Out", record: updatedRecord }];
+      });
+      onAddAttendance(updatedRecord);
+
       if (isOffline) {
-        // If there was an un-checkout record locally, replace or append
-        setOfflineQueue(prev => [...prev, { type: "Out", record: updatedRecord }]);
         alert(isAmharic 
-          ? `ግንኙነት የለም! የ ${worker.name} መውጫ መዝገብ በተሳካ ሁኔታ ከመስመር ውጭ (Local cache) ተቀምጧል።`
-          : `No network connection detected! Check-Out record for ${worker.name} has been cached locally in SQLite/IndexedDB queue.`);
-      } else {
-        onAddAttendance(updatedRecord);
+          ? `የ ${worker.name} መውጫ መዝገብ በተሳካ ሁኔታ በአካባቢ ማከማቻ (Local queue) ተቀምጧል። መስመር ሲመለስ በራስ-ሰር ይመሳሰላል።`
+          : `Check-Out record for ${worker.name} successfully saved to local durable queue. Will synchronize automatically once connectivity returns.`);
       }
 
       setScanStatus("idle");

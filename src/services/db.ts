@@ -298,11 +298,21 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
   // 1. Update local cache immediately for instantaneous UI updates
   offlineEngine.updateCacheItem<T>(collectionName, sanitizedItem, defaultData);
 
-  // 2. Primary Firestore sync or Outbox Queue
+  // 2. Ensure stable capturedAt timestamp is preserved
+  const itemWithTimestamp: any = {
+    ...sanitizedItem,
+    capturedAt: (sanitizedItem as any).capturedAt || (sanitizedItem as any).timestamp || new Date().toISOString()
+  };
+
+  // 3. Primary Firestore sync with idempotent setDoc or durable queue fallback
   if (isFirebaseReady && db) {
     try {
       console.log(`[DbService] Writing document "${sanitizedItem.id}" to Firestore collection "${collectionName}"...`);
-      await setDoc(doc(db, collectionName, sanitizedItem.id), sanitizedItem, { merge: true });
+      const syncPayload = {
+        ...itemWithTimestamp,
+        serverReceivedAt: new Date().toISOString()
+      };
+      await setDoc(doc(db, collectionName, sanitizedItem.id), syncPayload, { merge: true });
       console.log(`[DbService] Successfully saved document "${sanitizedItem.id}" to Firestore collection "${collectionName}".`);
     } catch (err: any) {
       const isPermissionDenied = 
@@ -312,12 +322,21 @@ async function writeDocument<T extends { id: string }>(collectionName: string, i
       if (isPermissionDenied) {
         console.warn(`[DbService] Write rejected by Firestore security rules for "${collectionName}/${sanitizedItem.id}" (insufficient role permissions). Not queuing in outbox.`);
       } else {
-        console.warn(`Firestore primary write failed for "${collectionName}/${sanitizedItem.id}". Enqueueing in outbox:`, err);
-        offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
+        console.warn(`Firestore primary write failed for "${collectionName}/${sanitizedItem.id}". Enqueueing in durable outbox:`, err);
+        offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, itemWithTimestamp);
+        // Also register into durable queue for exponential backoff and status tracking
+        try {
+          const { offlineSyncService } = await import("./offlineSyncService");
+          offlineSyncService.enqueue(collectionName, "set", itemWithTimestamp);
+        } catch {}
       }
     }
   } else {
-    offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, sanitizedItem);
+    offlineEngine.queueOutbox("set", collectionName, sanitizedItem.id, itemWithTimestamp);
+    try {
+      const { offlineSyncService } = await import("./offlineSyncService");
+      offlineSyncService.enqueue(collectionName, "set", itemWithTimestamp);
+    } catch {}
   }
 }
 

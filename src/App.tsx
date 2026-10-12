@@ -146,6 +146,14 @@ export default function App() {
   const [formworkPanels, setFormworkPanels] = useState<AluminumFormworkPanel[]>([]);
   const [panelMovementLogs, setPanelMovementLogs] = useState<PanelMovementLog[]>([]);
   const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
+  const [syncStats, setSyncStats] = useState({
+    pendingCount: 0,
+    syncingCount: 0,
+    failedCount: 0,
+    syncedCount: 0,
+    isOnline: true,
+    isSyncing: false
+  });
   const [isLoading, setIsLoading] = useState(true);
 
   // Shell UI parameters
@@ -908,12 +916,25 @@ export default function App() {
       logAction("Network Status: Offline", "Device disconnected from the cloud. Enabled offline buffer queue.");
     };
 
+    const handleSyncStatus = (event: any) => {
+      if (event?.detail) {
+        setSyncStats(event.detail);
+      }
+    };
+
     window.addEventListener("online", handleOnline);
     window.addEventListener("offline", handleOffline);
+    window.addEventListener("offline_sync_status_changed", handleSyncStatus);
+
+    // Initial stats load
+    import("./services/offlineSyncService").then(({ offlineSyncService }) => {
+      setSyncStats(offlineSyncService.getStats());
+    }).catch(() => {});
 
     return () => {
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      window.removeEventListener("offline_sync_status_changed", handleSyncStatus);
     };
   }, []);
 
@@ -1915,19 +1936,56 @@ export default function App() {
               </div>
             </div>
 
-            {/* Connection Status Badge */}
-            <div className={`flex items-center space-x-1.5 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all ${
-              isOnline 
-                ? "bg-emerald-50 text-emerald-700 border-emerald-100" 
-                : "bg-amber-50 text-amber-700 border-amber-200 animate-pulse"
+            {/* Enhanced Connection & Durable Sync Status Badge */}
+            <div className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all shadow-sm ${
+              !isOnline
+                ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse"
+                : syncStats.isSyncing
+                ? "bg-blue-50 text-blue-700 border-blue-200"
+                : syncStats.pendingCount > 0
+                ? "bg-orange-50 text-orange-700 border-orange-200"
+                : "bg-emerald-50 text-emerald-700 border-emerald-100"
             }`}>
-              <span className={`w-2 h-2 rounded-full ${isOnline ? "bg-emerald-500" : "bg-amber-500 animate-ping"}`}></span>
-              <span>
-                {isOnline 
-                  ? (isAmharic ? "መስመር ላይ" : "Online") 
-                  : (isAmharic ? "ከመስመር ውጭ (የአካባቢ ማከማቻ)" : "Offline Mode (Local)")
-                }
-              </span>
+              <span className={`w-2 h-2 rounded-full ${
+                !isOnline 
+                  ? "bg-amber-500 animate-ping" 
+                  : syncStats.isSyncing 
+                  ? "bg-blue-500 animate-spin" 
+                  : syncStats.pendingCount > 0 
+                  ? "bg-orange-500" 
+                  : "bg-emerald-500"
+              }`}></span>
+              
+              <div className="flex items-center space-x-1.5">
+                <span>
+                  {!isOnline 
+                    ? (isAmharic ? "ከመስመር ውጭ (Local Queue)" : "Offline Mode (Local)") 
+                    : syncStats.isSyncing
+                    ? (isAmharic ? "በማመሳሰል ላይ..." : "Syncing...")
+                    : (isAmharic ? "መስመር ላይ" : "Online")
+                  }
+                </span>
+
+                {syncStats.pendingCount > 0 && (
+                  <span className="bg-orange-200/80 text-orange-900 px-1.5 py-0.2 rounded-full text-[10px] font-black font-mono">
+                    {syncStats.pendingCount} {isAmharic ? "መዝገቦች በወረፋ" : "pending"}
+                  </span>
+                )}
+              </div>
+
+              {isOnline && syncStats.pendingCount > 0 && (
+                <button
+                  onClick={() => {
+                    import("./services/offlineSyncService").then(({ offlineSyncService }) => {
+                      offlineSyncService.processQueue().catch(() => {});
+                    });
+                  }}
+                  className="ml-1 p-0.5 hover:bg-orange-200 rounded text-orange-800 transition-colors cursor-pointer"
+                  title={isAmharic ? "አሁን አመሳስል" : "Sync Now"}
+                >
+                  <RefreshCw size={11} className={syncStats.isSyncing ? "animate-spin" : ""} />
+                </button>
+              )}
             </div>
 
             {/* Enterprise Notification Bell Dropdown */}
