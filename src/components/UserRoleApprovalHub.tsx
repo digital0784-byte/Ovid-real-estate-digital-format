@@ -48,21 +48,26 @@ interface UserRoleApprovalHubProps {
 
 // Complete catalog of Construction Job Roles as defined in specification
 const CONSTRUCTION_ROLES_CATALOG = [
-  { role: UserRole.WAREHOUSE_MANAGER, nameEn: "Warehouse Manager", nameAm: "የመጋዘን አስተዳዳሪ" },
-  { role: UserRole.STORE_OWNER, nameEn: "Store Owner", nameAm: "የሳይት ስቶር አቃቤ" },
+  { role: UserRole.SYSTEM_OPERATOR, nameEn: "System Operator", nameAm: "የሲስተም ኦፕሬተር" },
+  { role: UserRole.HEAD_OFFICE, nameEn: "Head Office", nameAm: "የዋና መስሪያ ቤት አመራር" },
   { role: UserRole.PROJECT_MANAGER, nameEn: "Project Manager", nameAm: "የፕሮጀክት ሥራ አስኪያጅ" },
-  { role: UserRole.SITE_ENGINEER, nameEn: "Site Engineer", nameAm: "የሳይት መሐንዲስ" },
   { role: UserRole.SECTION_HEAD, nameEn: "Section Head", nameAm: "የክፍል ኃላፊ" },
-  { role: UserRole.SUPERVISOR, nameEn: "Supervisor", nameAm: "የግንባታ ተቆጣጣሪ" },
   { role: UserRole.TEAM_LEADER, nameEn: "Team Leader", nameAm: "የቡድን መሪ" },
   { role: UserRole.GANG_CHIEF, nameEn: "Gang Chief", nameAm: "የጋንግ መሪ (የሠራተኞች መሪ)" },
-  { role: UserRole.TIME_KEEPER, nameEn: "Time Keeper", nameAm: "የሰዓት ተቆጣጣሪ (ታይም ኪፐር)" },
   { role: UserRole.ASSEMBLER, nameEn: "Assembler", nameAm: "ተገጣጣሚ ሠራተኛ (አሰምብለር)" },
+  { role: UserRole.STORE_MANAGER, nameEn: "Store Manager", nameAm: "የስቶር ሥራ አስኪያጅ" },
+  { role: UserRole.STORE_OWNER, nameEn: "Store Owner", nameAm: "የሳይት ስቶር አቃቤ" },
   { role: UserRole.FINANCE_MANAGER, nameEn: "Finance Manager", nameAm: "የሒሳብና ፋይናንስ ሥራ አስኪያጅ" },
+  { role: UserRole.AUDITOR, nameEn: "Auditor", nameAm: "ኦዲተር" },
+  { role: UserRole.SUPERVISOR, nameEn: "Supervisor", nameAm: "የግንባታ ተቆጣጣሪ" },
+  { role: UserRole.SITE_ENGINEER, nameEn: "Site Engineer", nameAm: "የሳይት መሐንዲስ" },
   { role: UserRole.HSE_OFFICER, nameEn: "HSE Officer", nameAm: "የደህንነትና አካባቢ ጥበቃ ኃላፊ" },
-  { role: UserRole.DRIVER, nameEn: "Driver", nameAm: "የተሽከርካሪ አሽከርካሪ" },
   { role: UserRole.SURVEYOR, nameEn: "Surveyor", nameAm: "የመሬት ልኬታ መሐንዲስ (ሱርቬየር)" },
-  { role: UserRole.HEAD_OFFICE, nameEn: "Head Office", nameAm: "የዋና መስሪያ ቤት አመራር" }
+  { role: UserRole.TIME_KEEPER, nameEn: "Time Keeper", nameAm: "የሰዓት ተቆጣጣሪ (ታይም ኪፐር)" },
+  { role: UserRole.WAREHOUSE_MANAGER, nameEn: "Warehouse Manager", nameAm: "የመጋዘን አስተዳዳሪ" },
+  { role: UserRole.HR_MANAGER, nameEn: "HR", nameAm: "የሰው ኃይል አስተዳዳሪ (HR)" },
+  { role: UserRole.DRIVER, nameEn: "Driver", nameAm: "የተሽከርካሪ አሽከርካሪ" },
+  { role: UserRole.WORKER, nameEn: "Worker", nameAm: "የግንባታ ሠራተኛ (Worker)" }
 ];
 
 export function UserRoleApprovalHub({

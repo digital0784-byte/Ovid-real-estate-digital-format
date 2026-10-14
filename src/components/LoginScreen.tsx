@@ -1708,11 +1708,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       className="w-full pl-9 pr-9 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white focus:outline-none focus:border-red-500 transition-all font-mono appearance-none cursor-pointer relative z-0"
                     >
                       {[
+                        { role: UserRole.SYSTEM_OPERATOR, label: isAmharic ? "የሲስተም ኦፕሬተር (System Operator)" : "System Operator" },
                         { role: UserRole.HEAD_OFFICE, label: isAmharic ? "ዋና መሥሪያ ቤት (Head Office)" : "Head Office" },
                         { role: UserRole.PROJECT_MANAGER, label: isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ (Project Manager)" : "Project Manager" },
                         { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },
                         { role: UserRole.SUPERVISOR, label: isAmharic ? "ተቆጣጣሪ (Supervisor)" : "Supervisor" },
-                        { role: UserRole.SITE_ENGINEER, label: isAmharic ? "የሳይት መሃንዲስ (Site Engineer)" : "Site Engineer" },
+                        { role: UserRole.SITE_ENGINEER, label: isAmharic ? "የሳይት መሐንዲስ (Site Engineer)" : "Site Engineer" },
                         { role: UserRole.HSE_OFFICER, label: isAmharic ? "የደህንነት ኃላፊ (HSE Officer)" : "HSE Officer" },
                         { role: UserRole.SURVEYOR, label: isAmharic ? "ሰርቬየር (Surveyor)" : "Surveyor" },
                         { role: UserRole.TIME_KEEPER, label: isAmharic ? "የሰዓት ተቆጣጣሪ (Time Keeper)" : "Time Keeper" },
@@ -1720,9 +1721,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.GANG_CHIEF, label: isAmharic ? "የጋንግ ቺፍ (Gang Chief)" : "Gang Chief" },
                         { role: UserRole.ASSEMBLER, label: isAmharic ? "ተገጣጣሚ ሠራተኛ (Assembler)" : "Assembler" },
                         { role: UserRole.WAREHOUSE_MANAGER, label: isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager" },
+                        { role: UserRole.STORE_MANAGER, label: isAmharic ? "የስቶር ሥራ አስኪያጅ (Store Manager)" : "Store Manager" },
                         { role: UserRole.STORE_OWNER, label: isAmharic ? "የሳይት ስቶር አቃቤ (Store Owner)" : "Store Owner" },
-                        { role: UserRole.STORE_MANAGER, label: isAmharic ? "የስቶር ማናጀር (Store Manager)" : "Store Manager" },
-                        { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል ሥራ አስኪያጅ (HR Manager)" : "HR Manager" },
+                        { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል / HR (HR Manager)" : "HR / HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
                         { role: UserRole.DRIVER, label: isAmharic ? "የተሽከርካሪ አሽከርካሪ (Driver)" : "Driver" },
                         { role: UserRole.AUDITOR, label: isAmharic ? "ኦዲተር (Auditor)" : "Auditor" },

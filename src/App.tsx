@@ -674,6 +674,7 @@ export default function App() {
 
   const tabPermissions: Record<UserRole, string[]> = {
     [UserRole.SUPER_ADMIN]: allTabs,
+    [UserRole.SYSTEM_OPERATOR]: ["dashboard", "taskManagement", "firestoreExplorer", "auditLog", "securitySettings", "notificationCenter", "customInputHub", "headOfficeSync", "mobileApps", "launchReadiness", "predictions", "biometricBoard", "fingerprintBoard", "biometricKiosk", "siteLayout", "cadDrawing", "projectDocs", "panelTraceability", "siteStoreMovement"],
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
@@ -686,6 +687,7 @@ export default function App() {
     [UserRole.STORE_OWNER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.STORE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.WORKER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
     [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
