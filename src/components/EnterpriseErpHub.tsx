@@ -1670,22 +1670,22 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "አጠቃላይ ፕሮጀክቶች" : "Total Projects"}</p>
               <h3 className="text-2xl font-black text-slate-900 mt-1">5</h3>
-              <p className="text-[10px] text-green-500 font-bold mt-1">● Bole Heights Site Active</p>
+              <p className="text-[10px] text-green-500 font-bold mt-1">● {isAmharic ? "የቦሌ ሃይትስ ሳይት በስራ ላይ" : "Bole Heights Site Active"}</p>
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ጠቅላላ ማቴሪያል" : "Material Inventory"}</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{totalWls.toLocaleString()} <span className="text-xs font-normal text-slate-500">Pcs</span></h3>
-              <p className="text-[10px] text-red-500 font-semibold mt-1">⚠️ {lowStockItems.length} Low Stock Alert Items</p>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{totalWls.toLocaleString()} <span className="text-xs font-normal text-slate-500">{isAmharic ? "ፍሬ" : "Pcs"}</span></h3>
+              <p className="text-[10px] text-red-500 font-semibold mt-1">⚠️ {lowStockItems.length} {isAmharic ? "አነስተኛ ክምችት ማስጠንቀቂያ" : "Low Stock Alert Items"}</p>
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ማሽነሪዎች ቁጥር" : "Active Equipment"}</p>
               <h3 className="text-2xl font-black text-slate-900 mt-1">{activeEqCount} / {equipment.length}</h3>
-              <p className="text-[10px] text-slate-500 font-semibold mt-1">1 Pump under maintenance</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">{isAmharic ? "1 ፓምፕ በጥገና ላይ" : "1 Pump under maintenance"}</p>
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "አጠቃላይ ጥራትና ደህንነት" : "HSE & Quality Index"}</p>
               <h3 className="text-2xl font-black text-emerald-600 mt-1">98.5%</h3>
-              <p className="text-[10px] text-slate-500 font-semibold mt-1">No major incidents today</p>
+              <p className="text-[10px] text-slate-500 font-semibold mt-1">{isAmharic ? "ዛሬ ምንም የከፋ አደጋ አልተመዘገበም" : "No major incidents today"}</p>
             </div>
           </div>
 
@@ -1693,25 +1693,25 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs lg:col-span-2 space-y-3">
               <div className="flex items-center justify-between">
                 <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "ዕለታዊ የግንባታ ሂደት እና ወጪ ንፅፅር" : "Daily Progress & Cost Allocation (ETB)"}</h4>
-                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">Bole Heights Block B1</span>
+                <span className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md font-mono">{isAmharic ? "ቦሌ ሃይትስ ብሎክ B1" : "Bole Heights Block B1"}</span>
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={[
-                    { name: "Mon", Progress: 82, Budget: 50, Actual: 48 },
-                    { name: "Tue", Progress: 88, Budget: 50, Actual: 52 },
-                    { name: "Wed", Progress: 94, Budget: 55, Actual: 54 },
-                    { name: "Thu", Progress: 96, Budget: 55, Actual: 53 },
-                    { name: "Fri", Progress: 95, Budget: 60, Actual: 59 },
-                    { name: "Sat", Progress: 98, Budget: 60, Actual: 58 }
+                    { name: isAmharic ? "ሰኞ" : "Mon", Progress: 82, Budget: 50, Actual: 48 },
+                    { name: isAmharic ? "ማክሰኞ" : "Tue", Progress: 88, Budget: 50, Actual: 52 },
+                    { name: isAmharic ? "ረቡዕ" : "Wed", Progress: 94, Budget: 55, Actual: 54 },
+                    { name: isAmharic ? "ሐሙስ" : "Thu", Progress: 96, Budget: 55, Actual: 53 },
+                    { name: isAmharic ? "አርብ" : "Fri", Progress: 95, Budget: 60, Actual: 59 },
+                    { name: isAmharic ? "ቅዳሜ" : "Sat", Progress: 98, Budget: 60, Actual: 58 }
                   ]}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis dataKey="name" stroke="#94a3b8" fontSize={10} />
                     <YAxis stroke="#94a3b8" fontSize={10} />
                     <Tooltip />
                     <Legend wrapperStyle={{ fontSize: 10 }} />
-                    <Bar dataKey="Progress" name="Formwork Productivity %" fill="#ef4444" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="Actual" name="Cost (x10k ETB)" fill="#334155" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Progress" name={isAmharic ? "የፎርምወርክ ምርታማነት %" : "Formwork Productivity %"} fill="#ef4444" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="Actual" name={isAmharic ? "ወጪ (x10ሺህ ብር)" : "Cost (x10k ETB)"} fill="#334155" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -1724,21 +1724,33 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <AlertTriangle className="text-red-500 shrink-0" size={16} />
                   <div>
                     <h5 className="text-[11px] font-bold text-red-900">{isAmharic ? "የማቴሪያል እጥረት ቅድመ-ማስጠንቀቂያ" : "Material Shortage Predictor"}</h5>
-                    <p className="text-[10px] text-red-700 mt-0.5">Formwork Pin Wedges down to 16,900. Reorder needed by Saturday to prevent cycle delay.</p>
+                    <p className="text-[10px] text-red-700 mt-0.5">
+                      {isAmharic
+                        ? "የአሉሚኒየም ፎርምወርክ ፒን እና ዌጅ ወደ 16,900 ዝቅ ብሏል። የስራ መስተጓጎልን ለመከላከል እስከ ቅዳሜ መታዘዝ አለበት።"
+                        : "Formwork Pin Wedges down to 16,900. Reorder needed by Saturday to prevent cycle delay."}
+                    </p>
                   </div>
                 </div>
                 <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg flex gap-2">
                   <AlertCircle className="text-amber-500 shrink-0" size={16} />
                   <div>
                     <h5 className="text-[11px] font-bold text-amber-900">{isAmharic ? "ማሽነሪዎች ጥገና ማንቂያ" : "Equipment Upkeep Reminder"}</h5>
-                    <p className="text-[10px] text-amber-700 mt-0.5">Concrete Pump Truck 02 is in maintenance. Swapping to reserve pump 03 for concrete pour at 14:00.</p>
+                    <p className="text-[10px] text-amber-700 mt-0.5">
+                      {isAmharic
+                        ? "የኮንክሪት ፓምፕ መኪና 02 በጥገና ላይ ነው። ከቀኑ 8:00 ለሚደረገው ኮንክሪት ሙሌት ወደ መጠባበቂያ ፓምፕ 03 ተቀይሯል።"
+                        : "Concrete Pump Truck 02 is in maintenance. Swapping to reserve pump 03 for concrete pour at 14:00."}
+                    </p>
                   </div>
                 </div>
                 <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex gap-2">
                   <CheckCircle className="text-emerald-500 shrink-0" size={16} />
                   <div>
                     <h5 className="text-[11px] font-bold text-emerald-900">{isAmharic ? "የኮንክሪት ሙከራ ስኬት" : "Cube Compressive Strength Check"}</h5>
-                    <p className="text-[10px] text-emerald-700 mt-0.5">Cube test CUBE-C30-41A achieved 24.5 MPa (81.6% target) on Day 7. Formwork stripping authorized.</p>
+                    <p className="text-[10px] text-emerald-700 mt-0.5">
+                      {isAmharic
+                        ? "የኪዩብ ሙከራ CUBE-C30-41A በ7ኛው ቀን 24.5 MPa (የታለመው 81.6%) አስመዝግቧል። ፎርምወርክ መፍታት ተፈቅዷል።"
+                        : "Cube test CUBE-C30-41A achieved 24.5 MPa (81.6% target) on Day 7. Formwork stripping authorized."}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -1791,7 +1803,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           <td className="p-3">
                             <div className="flex items-center gap-1.5">
                               <span>{mat.name}</span>
-                              {isLow && <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">Low Stock</span>}
+                              {isLow && <span className="bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full uppercase">{isAmharic ? "አነስተኛ ክምችት" : "Low Stock"}</span>}
                             </div>
                           </td>
                           <td className="p-3 font-mono text-[10px] text-slate-400">{mat.code}</td>
@@ -1800,10 +1812,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           <td className="p-3">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] ${
                               mat.cleaning === "Clean" ? "bg-green-50 text-green-700 border border-green-200/50" : "bg-amber-50 text-amber-700 border border-amber-200/50"
-                            }`}>{mat.cleaning}</span>
+                            }`}>
+                              {isAmharic ? (mat.cleaning === "Clean" ? "የጸዳ" : "ዘይት/ጽዳት ያስፈልጋል") : mat.cleaning}
+                            </span>
                           </td>
                           <td className="p-3">
-                            <span className="text-[10px] text-slate-500">{mat.repair}</span>
+                            <span className="text-[10px] text-slate-500">
+                              {isAmharic ? (mat.repair === "Ready" ? "ዝግጁ" : mat.repair === "Dent Check" ? "ጥገና ያስፈልጋል" : mat.repair) : mat.repair}
+                            </span>
                           </td>
                         </tr>
                       );
@@ -1842,10 +1858,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       }}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-xs font-semibold text-white focus:outline-none"
                     >
-                      <option value="Floor 4">Floor 4 Slab CAD (A-701)</option>
-                      <option value="Floor 5">Floor 5 Slab CAD (A-702)</option>
-                      <option value="Floor 6">Floor 6 Slab CAD (A-703)</option>
-                      <option value="Floor 7">Floor 7 Slab CAD (A-704)</option>
+                      <option value="Floor 4">{isAmharic ? "ፎቅ 4 የስላብ CAD (A-701)" : "Floor 4 Slab CAD (A-701)"}</option>
+                      <option value="Floor 5">{isAmharic ? "ፎቅ 5 የስላብ CAD (A-702)" : "Floor 5 Slab CAD (A-702)"}</option>
+                      <option value="Floor 6">{isAmharic ? "ፎቅ 6 የስላብ CAD (A-703)" : "Floor 6 Slab CAD (A-703)"}</option>
+                      <option value="Floor 7">{isAmharic ? "ፎቅ 7 የስላብ CAD (A-704)" : "Floor 7 Slab CAD (A-704)"}</option>
                     </select>
                   </div>
                   <div className="space-y-1">
@@ -1858,9 +1874,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       }}
                       className="w-full bg-slate-800 border border-slate-700 rounded-lg p-1.5 text-xs font-semibold text-white focus:outline-none"
                     >
-                      <option value="Zone A">Zone A - Main Slab Area</option>
-                      <option value="Zone B">Zone B - Elevator Core</option>
-                      <option value="Zone C">Zone C - Balconies & Shear-Walls</option>
+                      <option value="Zone A">{isAmharic ? "ቀጠና A - ዋናው ስላብ" : "Zone A - Main Slab Area"}</option>
+                      <option value="Zone B">{isAmharic ? "ቀጠና B - የሊፍት ኮር ግንብ" : "Zone B - Elevator Core"}</option>
+                      <option value="Zone C">{isAmharic ? "ቀጠና C - በረንዳዎችና ሺር-ዎል" : "Zone C - Balconies & Shear-Walls"}</option>
                     </select>
                   </div>
                 </div>
@@ -1871,7 +1887,6 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       setPlanIsRunning(true);
                       setTimeout(() => {
                         setPlanIsRunning(false);
-                        // Recalculate based on floor/zone
                         let multiplier = 1.0;
                         if (planFloor === "Floor 5") multiplier = 1.15;
                         if (planFloor === "Floor 6") multiplier = 1.30;
@@ -1918,13 +1933,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                   <div className="divide-y divide-slate-800 text-xs">
                     {[
-                      { key: "panels", name: "Formwork Aluminum Panels", code: "PNL-1200", stock: 450, color: "text-blue-400" },
-                      { key: "beams", name: "Mid-Beams 1200mm", code: "BEM-1200", stock: 180, color: "text-indigo-400" },
-                      { key: "soffits", name: "Soffit Lengths 900mm", code: "SOF-0900", stock: 85, color: "text-amber-400" },
-                      { key: "tieRods", name: "High-Tensile Tie Rods", code: "TIE-2000", stock: 680, color: "text-teal-400" },
-                      { key: "wedges", name: "Formwork Wedges", code: "WDG-0100", stock: 16900, color: "text-rose-400" },
-                      { key: "props", name: "Heavy Duty Shoring Props", code: "PRP-3500", stock: 140, color: "text-purple-400" },
-                      { key: "accessories", name: "Corner Brackets", code: "ACC-BRK", stock: 120, color: "text-emerald-400" },
+                      { key: "panels", name: isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነል" : "Formwork Aluminum Panels", code: "PNL-1200", stock: 450, color: "text-blue-400" },
+                      { key: "beams", name: isAmharic ? "ሚድ-ቢሞች 1200ሚሜ" : "Mid-Beams 1200mm", code: "BEM-1200", stock: 180, color: "text-indigo-400" },
+                      { key: "soffits", name: isAmharic ? "ሶፊት ሌንግዝ 900ሚሜ" : "Soffit Lengths 900mm", code: "SOF-0900", stock: 85, color: "text-amber-400" },
+                      { key: "tieRods", name: isAmharic ? "ባለከፍተኛ ጥንካሬ ታይ ሮድ" : "High-Tensile Tie Rods", code: "TIE-2000", stock: 680, color: "text-teal-400" },
+                      { key: "wedges", name: isAmharic ? "ፎርምወርክ ዌጆች" : "Formwork Wedges", code: "WDG-0100", stock: 16900, color: "text-rose-400" },
+                      { key: "props", name: isAmharic ? "ከባድ ሾሪንግ ፕሮፖች" : "Heavy Duty Shoring Props", code: "PRP-3500", stock: 140, color: "text-purple-400" },
+                      { key: "accessories", name: isAmharic ? "የማእዘን ብራኬቶች" : "Corner Brackets", code: "ACC-BRK", stock: 120, color: "text-emerald-400" },
                     ].map(comp => {
                       const req = planResults[comp.key] || 0;
                       const stock = comp.stock;
@@ -1937,16 +1952,16 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             <span className="font-bold text-slate-200 leading-tight">{comp.name}</span>
                             <span className="text-[9px] text-slate-500 font-mono">{comp.code}</span>
                           </div>
-                          <div className="text-slate-300 font-bold">{req} pcs</div>
-                          <div className="text-slate-400">{stock.toLocaleString()} pcs</div>
+                          <div className="text-slate-300 font-bold">{req} {isAmharic ? "ፍሬ" : "pcs"}</div>
+                          <div className="text-slate-400">{stock.toLocaleString()} {isAmharic ? "ፍሬ" : "pcs"}</div>
                           <div>
                             {isDeficit ? (
                               <span className="text-red-400 font-bold bg-red-950/50 border border-red-900/30 px-1.5 py-0.5 rounded text-[10px]">
-                                {diff} pcs (Shortage)
+                                {diff} {isAmharic ? "ፍሬ (እጥረት)" : "pcs (Shortage)"}
                               </span>
                             ) : (
                               <span className="text-emerald-400 font-bold bg-emerald-950/40 border border-emerald-900/30 px-1.5 py-0.5 rounded text-[10px]">
-                                +{diff} pcs (Surplus)
+                                +{diff} {isAmharic ? "ፍሬ (ትርፍ)" : "pcs (Surplus)"}
                               </span>
                             )}
                           </div>
@@ -1960,14 +1975,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="bg-slate-800 p-3.5 rounded-xl border border-slate-700/50 space-y-2 text-xs">
                   <h5 className="text-[10px] font-black uppercase text-red-400 tracking-wider flex items-center gap-1">
                     <CheckSquare size={12} />
-                    <span>AI Procurement & Dispatch Advice</span>
+                    <span>{isAmharic ? "አይአይ የግዢና ስምሪት ምክረ-ሀሳብ" : "AI Procurement & Dispatch Advice"}</span>
                   </h5>
                   <div className="space-y-2 font-medium text-slate-300 leading-relaxed text-[11px]">
                     {planResults.soffits > 85 && (
                       <p className="flex items-start gap-1.5">
                         <span className="text-red-400">⚠️</span>
                         <span>
-                          <strong>Soffit Deficit</strong>: A shortage of {planResults.soffits - 85} Soffit Lengths detected. Please request a warehouse transfer from Block C or initiate an immediate Purchase Order.
+                          <strong>{isAmharic ? "የሶፊት እጥረት" : "Soffit Deficit"}</strong>: {isAmharic ? `የ${planResults.soffits - 85} ሶፊት ርዝመቶች እጥረት ተገኝቷል። እባክዎ ከብሎክ C የመጋዘን ዝውውር ይጠይቁ ወይም አፋጣኝ የግዢ ትዕዛዝ ያውጡ።` : `A shortage of ${planResults.soffits - 85} Soffit Lengths detected. Please request a warehouse transfer from Block C or initiate an immediate Purchase Order.`}
                         </span>
                       </p>
                     )}
@@ -1975,14 +1990,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <p className="flex items-start gap-1.5">
                         <span className="text-red-400">⚠️</span>
                         <span>
-                          <strong>Prop Shortage</strong>: Shoring Props are deficient by {planResults.props - 140} units. System recommends dispatching from the central Digital Construction ERP warehouse immediately.
+                          <strong>{isAmharic ? "የፕሮፕ እጥረት" : "Prop Shortage"}</strong>: {isAmharic ? `የሾሪንግ ፕሮፖች በ${planResults.props - 140} ፍሬዎች አንሰዋል። ሲስተሙ ከዋናው Digital Construction ERP መጋዘን አሁኑኑ እንዲላክ ይመክራል።` : `Shoring Props are deficient by ${planResults.props - 140} units. System recommends dispatching from the central Digital Construction ERP warehouse immediately.`}
                         </span>
                       </p>
                     )}
                     {planResults.soffits <= 85 && planResults.props <= 140 && (
                       <p className="flex items-start gap-1.5">
                         <span className="text-green-400">✅</span>
-                        <span>All formwork components are in optimal stock surplus. Material dispatch and cycle setup can proceed safely.</span>
+                        <span>{isAmharic ? "ሁሉም የፎርምወርክ ክፍሎች በበቂ ክምችት ላይ ናቸው። የማቴሪያል ስምሪት እና የግንባታ ዑደት በሰላም መቀጠል ይችላል።" : "All formwork components are in optimal stock surplus. Material dispatch and cycle setup can proceed safely."}</span>
                       </p>
                     )}
                   </div>
@@ -1991,7 +2006,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <button
                       onClick={() => {
                         setPlanningSubmitted(true);
-                        alert("AI-generated material requisition submitted to procurement division. Reference PO-REQ-2026-CAD-09");
+                        alert(isAmharic ? "በአይአይ የተዘጋጀው የማቴሪያል ግዢ ጥያቄ ለግዢ ክፍል ተልኳል። ማጣቀሻ PO-REQ-2026-CAD-09" : "AI-generated material requisition submitted to procurement division. Reference PO-REQ-2026-CAD-09");
                         onLogAction("CAD Procurement Request", `Logged a deficit requisition request for ${planFloor} ${planZone} formwork assembly cycle.`);
                       }}
                       className={`w-full font-bold py-1.5 rounded text-[10px] uppercase tracking-wider transition-all cursor-pointer ${
@@ -2000,7 +2015,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           : "bg-red-600 hover:bg-red-700 text-white"
                       }`}
                     >
-                      {planningSubmitted ? "✓ Requisitions Dispatched" : "🛒 Auto-Submit Requisitions to Procurement"}
+                      {planningSubmitted ? (isAmharic ? "✓ የግዢ ጥያቄዎች ተልከዋል" : "✓ Requisitions Dispatched") : (isAmharic ? "🛒 የግዢ ጥያቄዎችን በራስ-ሰር ላክ" : "🛒 Auto-Submit Requisitions to Procurement")}
                     </button>
                   </div>
                 </div>
@@ -2018,11 +2033,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newMatItem.type}
                     onChange={(e) => setNewMatItem({ ...newMatItem, type: e.target.value })}
                   >
-                    <option value="Receiving">Material Receiving (ገቢ)</option>
-                    <option value="Issue">Material Issue to Zone (ወጪ)</option>
-                    <option value="Transfer">Material Transfer (ዝውውር)</option>
-                    <option value="Return">Material Return (መልስ)</option>
-                    <option value="Damage">Damage Report (የጉዳት ሪፖርት)</option>
+                    <option value="Receiving">{isAmharic ? "ማቴሪያል ገቢ (Receiving)" : "Material Receiving (ገቢ)"}</option>
+                    <option value="Issue">{isAmharic ? "ማቴሪያል ወጪ ለሳይት (Issue)" : "Material Issue to Zone (ወጪ)"}</option>
+                    <option value="Transfer">{isAmharic ? "ማቴሪያል ዝውውር (Transfer)" : "Material Transfer (ዝውውር)"}</option>
+                    <option value="Return">{isAmharic ? "ማቴሪያል መልስ (Return)" : "Material Return (መልስ)"}</option>
+                    <option value="Damage">{isAmharic ? "የጉዳት ሪፖርት (Damage Report)" : "Damage Report (የጉዳት ሪፖርት)"}</option>
                   </select>
                 </div>
                 <div>
@@ -2032,7 +2047,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newMatItem.name}
                     onChange={(e) => setNewMatItem({ ...newMatItem, name: e.target.value })}
                   >
-                    <option value="">-- select material --</option>
+                    <option value="">{isAmharic ? "-- ማቴሪያል ይምረጡ --" : "-- select material --"}</option>
                     {materials.map(m => (
                       <option key={m.id} value={m.name}>{m.name}</option>
                     ))}
@@ -2062,7 +2077,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ማስታወሻ" : "Remarks / Reference / Zone ID"}</label>
                   <input
                     type="text"
-                    placeholder="e.g. Returned from Floor 4 Zone A"
+                    placeholder={isAmharic ? "ምሳሌ፡ ከፎቅ 4 ቀጠና A የተመለሰ" : "e.g. Returned from Floor 4 Zone A"}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newMatItem.notes}
                     onChange={(e) => setNewMatItem({ ...newMatItem, notes: e.target.value })}
@@ -2098,7 +2113,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       eq.status === "Active" ? "bg-green-50 text-green-700 border border-green-200/50" : 
                       eq.status === "Maintenance" ? "bg-red-50 text-red-700 border border-red-200/50 animate-pulse" : 
                       "bg-slate-50 text-slate-500 border border-slate-200"
-                    }`}>{eq.status}</span>
+                    }`}>
+                      {isAmharic ? (eq.status === "Active" ? "በስራ ላይ" : eq.status === "Maintenance" ? "በጥገና ላይ" : eq.status === "Standby" ? "ዝግጁ" : eq.status) : eq.status}
+                    </span>
                     <div className="space-y-1">
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{eq.id}</p>
                       <h4 className="text-xs font-black text-slate-800">{eq.name}</h4>
@@ -2193,7 +2210,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የብልሽት ሪፖርት / ሌላ" : "Breakdown / Inspection Findings"}</label>
                   <textarea
                     rows={2}
-                    placeholder="Describe any warning lights or mechanical play observed..."
+                    placeholder={isAmharic ? "የማሽነሪ የማስጠንቀቂያ መብራቶች ወይም የቴክኒክ ክፍተቶችን ይግለጹ..." : "Describe any warning lights or mechanical play observed..."}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newEqLog.reportText}
                     onChange={(e) => setNewEqLog({ ...newEqLog, reportText: e.target.value })}
@@ -2251,7 +2268,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             pr.status.includes("Completed") || pr.status.includes("Received") ? "bg-green-50 text-green-700 border border-green-200/50" : 
                             pr.status.includes("Approved") ? "bg-blue-50 text-blue-700 border border-blue-200/50" : 
                             "bg-amber-50 text-amber-700 border border-amber-200/50 animate-pulse"
-                          }`}>{pr.status}</span>
+                          }`}>
+                            {isAmharic ? (
+                              pr.status === "Pending Approval" ? "ፍቃድ በመጠባበቅ ላይ" :
+                              pr.status.includes("Approved") ? "ተፈቅዷል" :
+                              pr.status.includes("Received") || pr.status.includes("Completed") ? "ተጠናቋል" : pr.status
+                            ) : pr.status}
+                          </span>
                         </td>
                         <td className="p-3 text-slate-400 text-[10px]">{pr.approvalBy}</td>
                         <td className="p-3 text-center">
@@ -2263,7 +2286,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               {isAmharic ? "አጽድቅ" : "Approve PR"}
                             </button>
                           ) : (
-                            <span className="text-[10px] text-slate-400">Locked</span>
+                            <span className="text-[10px] text-slate-400">{isAmharic ? "ተቆልፏል" : "Locked"}</span>
                           )}
                         </td>
                       </tr>
@@ -2281,7 +2304,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. M12 High tensile alignment pins"
+                    placeholder={isAmharic ? "ምሳሌ፡ M12 ባለከፍተኛ ጥንካሬ ፒኖች" : "e.g. M12 High tensile alignment pins"}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newPrItem.item}
                     onChange={(e) => setNewPrItem({ ...newPrItem, item: e.target.value })}
@@ -2293,7 +2316,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="e.g. 5,000 Pcs"
+                      placeholder={isAmharic ? "ምሳሌ፡ 5,000 ፍሬ" : "e.g. 5,000 Pcs"}
                       className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none font-mono"
                       value={newPrItem.qty}
                       onChange={(e) => setNewPrItem({ ...newPrItem, qty: e.target.value })}
@@ -2304,7 +2327,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="e.g. ETB 45,000"
+                      placeholder={isAmharic ? "ምሳሌ፡ 45,000 ብር" : "e.g. ETB 45,000"}
                       className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none font-mono"
                       value={newPrItem.cost}
                       onChange={(e) => setNewPrItem({ ...newPrItem, cost: e.target.value })}
@@ -2316,7 +2339,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Ethio Fasteners Ltd"
+                    placeholder={isAmharic ? "ምሳሌ፡ ኢትዮ ፋስተነርስ ኃ.የተ.የግ.ማ" : "e.g. Ethio Fasteners Ltd"}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newPrItem.supplier}
                     onChange={(e) => setNewPrItem({ ...newPrItem, supplier: e.target.value })}
@@ -2379,7 +2402,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             log.status.includes("Mitigated") || log.status.includes("Completed") || log.status.includes("Complied")
                               ? "bg-green-50 text-green-700 border border-green-200/50" 
                               : "bg-amber-50 text-amber-700 border border-amber-200/50"
-                          }`}>{log.status}</span>
+                          }`}>
+                            {isAmharic ? (
+                              log.status.includes("Mitigated") ? "መፍትሄ አግኝቷል" :
+                              log.status.includes("Completed") ? "ተጠናቋል" :
+                              log.status.includes("Complied") ? "ተፈትሾ ጸድቋል" :
+                              log.status.includes("Investigation") ? "በምርመራ ላይ" : log.status
+                            ) : log.status}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -2398,11 +2428,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newHseReport.type}
                     onChange={(e) => setNewHseReport({ ...newHseReport, type: e.target.value })}
                   >
-                    <option value="Incident Report">Incident Report (የአደጋ ሪፖርት)</option>
-                    <option value="Near Miss Report">Near Miss Report (ለትንሽ የተረፈ አደጋ)</option>
-                    <option value="Hazard Identification">Hazard ID (የአደጋ ምንጭ መጠቆሚያ)</option>
-                    <option value="Toolbox Meeting Log">Toolbox Meeting Log (ዕለታዊ የደህንነት ስብሰባ)</option>
-                    <option value="PPE Compliance Checklist">PPE Compliance Audit (የPPE ፍተሻ)</option>
+                    <option value="Incident Report">{isAmharic ? "የአደጋ ሪፖርት (Incident Report)" : "Incident Report (የአደጋ ሪፖርት)"}</option>
+                    <option value="Near Miss Report">{isAmharic ? "ለትንሽ የተረፈ አደጋ (Near Miss)" : "Near Miss Report (ለትንሽ የተረፈ አደጋ)"}</option>
+                    <option value="Hazard Identification">{isAmharic ? "የአደጋ ምንጭ መጠቆሚያ (Hazard ID)" : "Hazard ID (የአደጋ ምንጭ መጠቆሚያ)"}</option>
+                    <option value="Toolbox Meeting Log">{isAmharic ? "ዕለታዊ የደህንነት ስብሰባ (Toolbox)" : "Toolbox Meeting Log (ዕለታዊ የደህንነት ስብሰባ)"}</option>
+                    <option value="PPE Compliance Checklist">{isAmharic ? "የPPE ፍተሻ (PPE Compliance)" : "PPE Compliance Audit (የPPE ፍተሻ)"}</option>
                   </select>
                 </div>
                 <div>
@@ -2410,7 +2440,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <textarea
                     required
                     rows={3}
-                    placeholder="Prdigital_construction_erpe precise location, time, and severity of hazard..."
+                    placeholder={isAmharic ? "የአደጋውን ትክክለኛ ቦታ፣ ሰዓት እና የአደጋ ደረጃ ይግለጹ..." : "Provide precise location, time, and severity of hazard..."}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newHseReport.topic}
                     onChange={(e) => setNewHseReport({ ...newHseReport, topic: e.target.value })}
@@ -2464,7 +2494,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               : qc.status.includes("NCR")
                               ? "bg-red-50 text-red-700 border border-red-200/50"
                               : "bg-amber-50 text-amber-700 border border-amber-200/50"
-                          }`}>{qc.status}</span>
+                          }`}>
+                            {isAmharic ? (
+                              qc.status.includes("Passed") ? "አልፏል" :
+                              qc.status.includes("Signed") ? "ተፈርሟል" :
+                              qc.status.includes("NCR") ? "NCR ተከፍቷል" : "በሂደት ላይ"
+                            ) : qc.status}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -2503,10 +2539,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newQc.type}
                     onChange={(e) => setNewQc({ ...newQc, type: e.target.value })}
                   >
-                    <option value="Aluminum Formwork Inspection">Aluminum Formwork Inspection</option>
-                    <option value="Concrete Pre-pour Inspection">Concrete Pre-pour Inspection</option>
-                    <option value="Reinforcement Steel Inspection">Reinforcement Steel Inspection</option>
-                    <option value="Finishing & Wall Alignment Check">Finishing & Wall Alignment Check</option>
+                    <option value="Aluminum Formwork Inspection">{isAmharic ? "የአሉሚኒየም ፎርምወርክ ፍተሻ" : "Aluminum Formwork Inspection"}</option>
+                    <option value="Concrete Pre-pour Inspection">{isAmharic ? "የቅድመ-ሙሌት ኮንክሪት ፍተሻ" : "Concrete Pre-pour Inspection"}</option>
+                    <option value="Reinforcement Steel Inspection">{isAmharic ? "የአርማታ ብረት ዝርጋታ ፍተሻ" : "Reinforcement Steel Inspection"}</option>
+                    <option value="Finishing & Wall Alignment Check">{isAmharic ? "የግድግዳ አሰላለፍና ማጠናቀቂያ ፍተሻ" : "Finishing & Wall Alignment Check"}</option>
                   </select>
                 </div>
                 <div>
@@ -2526,9 +2562,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newQc.status}
                     onChange={(e) => setNewQc({ ...newQc, status: e.target.value })}
                   >
-                    <option value="Passed Inspection">Passed Inspection (አልፏል)</option>
-                    <option value="Pending Check">Pending Verification (በሂደት ላይ)</option>
-                    <option value="NCR Issued">NCR Issued (የጥራት ጉድለት ሪፖርት ተከፍቷል)</option>
+                    <option value="Passed Inspection">{isAmharic ? "አልፏል (Passed Inspection)" : "Passed Inspection (አልፏል)"}</option>
+                    <option value="Pending Check">{isAmharic ? "በሂደት ላይ (Pending Verification)" : "Pending Verification (በሂደት ላይ)"}</option>
+                    <option value="NCR Issued">{isAmharic ? "የጥራት ጉድለት ሪፖርት ተከፍቷል (NCR Issued)" : "NCR Issued (የጥራት ጉድለት ሪፖርት ተከፍቷል)"}</option>
                   </select>
                 </div>
                 <div>
@@ -2536,7 +2572,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <textarea
                     required
                     rows={2}
-                    placeholder="Pins locked, zero concrete debris, release agent applied..."
+                    placeholder={isAmharic ? "ፒኖች ተቆልፈዋል፣ የኮንክሪት ፍሳሽ የለም፣ የፎርምወርክ ዘይት ተቀብቷል..." : "Pins locked, zero concrete debris, release agent applied..."}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newQc.checklist}
                     onChange={(e) => setNewQc({ ...newQc, checklist: e.target.value })}
@@ -2559,8 +2595,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
       {activeSubTab === "concrete" && (
         <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-6">
           <div>
-            <h3 className="text-sm font-black uppercase text-slate-800">{isAmharic ? "የኮንክሪት ሙሌት፣ የስランプ ሙከራና የኪዩብ ጥንካሬ ቁጥጥር" : "Concrete Delivery, Pour Schedule & Lab Quality System"}</h3>
-            <p className="text-xs text-slate-500">{isAmharic ? "የመኪናዎች መድረሻ፣ የስランプ ሙከራ መለኪያዎች እና የኪዩብ ጥንካሬ (MPa) ማረጋገጫዎች" : "Track incoming concrete mixers, verify slump tests, log compressive cube crush records"}</p>
+            <h3 className="text-sm font-black uppercase text-slate-800">{isAmharic ? "የኮንክሪት ሙሌት፣ የስላምፕ ሙከራና የኪዩብ ጥንካሬ ቁጥጥር" : "Concrete Delivery, Pour Schedule & Lab Quality System"}</h3>
+            <p className="text-xs text-slate-500">{isAmharic ? "የመኪናዎች መድረሻ፣ የስላምፕ ሙከራ መለኪያዎች እና የኪዩብ ጥንካሬ (MPa) ማረጋገጫዎች" : "Track incoming concrete mixers, verify slump tests, log compressive cube crush records"}</p>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -2593,9 +2629,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3 text-center font-mono text-slate-900 font-bold">{trk.slump}</td>
                         <td className="p-3 font-mono text-slate-400 text-[10px]">
                           {trk.cureDays > 0 ? (
-                            <span className="text-green-600 font-bold">Cured {trk.cureDays} Days (72h Stripping Approved)</span>
+                            <span className="text-green-600 font-bold">
+                              {isAmharic ? `ለ${trk.cureDays} ቀናት የረጠበ (ከ72 ሰዓት በኋላ መፍታት የተፈቀደ)` : `Cured ${trk.cureDays} Days (72h Stripping Approved)`}
+                            </span>
                           ) : (
-                            <span className="text-amber-500 font-black animate-pulse">Under Water Curing...</span>
+                            <span className="text-amber-500 font-black animate-pulse">
+                              {isAmharic ? "በውሃ እየተነከረ ያለ..." : "Under Water Curing..."}
+                            </span>
                           )}
                         </td>
                         <td className="p-3">
@@ -2603,7 +2643,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             trk.status.includes("Approved") ? "bg-green-50 text-green-700 border border-green-200/50" : 
                             trk.status.includes("Approaching") ? "bg-slate-50 text-slate-500 border border-slate-200" :
                             "bg-amber-50 text-amber-700 border border-amber-200/50"
-                          }`}>{trk.status}</span>
+                          }`}>
+                            {isAmharic ? (
+                              trk.status.includes("Approved") ? "ተፈቅዷል" :
+                              trk.status.includes("Approaching") ? "በመድረስ ላይ" : "ስላምፕ ተፈትሿል"
+                            ) : trk.status}
+                          </span>
                         </td>
                       </tr>
                     ))}
@@ -2657,9 +2702,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newTruck.status}
                     onChange={(e) => setNewTruck({ ...newTruck, status: e.target.value })}
                   >
-                    <option value="Gate In">Gate In / Gate Control</option>
-                    <option value="Slump Tested">Slump Tested / Lab Checked</option>
-                    <option value="Poured & Approved">Concreting Complete</option>
+                    <option value="Gate In">{isAmharic ? "በር ላይ የደረሰ (Gate In)" : "Gate In / Gate Control"}</option>
+                    <option value="Slump Tested">{isAmharic ? "ስላምፕ የተፈተሸ (Slump Tested)" : "Slump Tested / Lab Checked"}</option>
+                    <option value="Poured & Approved">{isAmharic ? "ሙሌት ተጠናቆ የጸደቀ (Concreting Complete)" : "Concreting Complete"}</option>
                   </select>
                 </div>
                 <button
@@ -2706,7 +2751,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3 text-slate-500">{doc.type}</td>
                         <td className="p-3 font-mono text-red-600 font-black">{doc.ver}</td>
                         <td className="p-3 font-mono text-slate-400">{doc.syncDate}</td>
-                        <td className="p-3 text-slate-500 text-[11px] font-sans italic">{doc.approval}</td>
+                        <td className="p-3 text-slate-500 text-[11px] font-sans italic">
+                          {doc.approval === "Lead Admin Signed" && isAmharic ? "በዋና አድሚን የተፈረመ" : doc.approval}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -2724,18 +2771,18 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     onChange={(e) => setNewDocType(e.target.value)}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                   >
-                    <option value="CAD Drawing">CAD Drawing (.DWG / BIM)</option>
-                    <option value="Shop Drawing">Shop Drawing (.PDF)</option>
-                    <option value="Method Statement">Method Statement (.PDF)</option>
-                    <option value="Technical Submittal">Technical Submittal (.PDF)</option>
-                    <option value="RFI Log">RFI (Request for Information)</option>
+                    <option value="CAD Drawing">{isAmharic ? "የCAD ንድፍ (.DWG / BIM)" : "CAD Drawing (.DWG / BIM)"}</option>
+                    <option value="Shop Drawing">{isAmharic ? "የሾፕ ድሮይንግ (.PDF)" : "Shop Drawing (.PDF)"}</option>
+                    <option value="Method Statement">{isAmharic ? "የአሰራር ዘዴ መግለጫ (.PDF)" : "Method Statement (.PDF)"}</option>
+                    <option value="Technical Submittal">{isAmharic ? "ቴክኒካል ሰነድ (.PDF)" : "Technical Submittal (.PDF)"}</option>
+                    <option value="RFI Log">{isAmharic ? "የመረጃ መጠየቂያ RFI" : "RFI (Request for Information)"}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የፋይል ስም" : "File Name"}</label>
                   <input
                     type="text"
-                    placeholder="FormworkLayout_Floor4_B2_Rev3.pdf"
+                    placeholder={isAmharic ? "ለምሳሌ፡ FormworkLayout_Floor4_B2_Rev3.pdf" : "FormworkLayout_Floor4_B2_Rev3.pdf"}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newDocName}
                     onChange={(e) => setNewDocName(e.target.value)}
@@ -2786,7 +2833,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="bg-slate-950 p-3 text-white flex items-center justify-between border-b border-slate-800">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-green-500 animate-ping"></span>
-                    <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">Radio Channel #1 (Bole Heights)</span>
+                    <span className="text-[10px] font-black tracking-widest uppercase text-slate-400">
+                      {isAmharic ? "የሬዲዮ መስመር #1 (ቦሌ ሃይትስ)" : "Radio Channel #1 (Bole Heights)"}
+                    </span>
                   </div>
                 </div>
 
@@ -2848,7 +2897,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         }}
                         className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-[9px] px-2 py-1 rounded-md cursor-pointer transition-all uppercase"
                       >
-                        Play
+                        {isAmharic ? "አጫውት" : "Play"}
                       </button>
                     </div>
                   ))}
@@ -2900,14 +2949,16 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <span className="text-[10px] bg-slate-900 text-white font-mono px-2 py-0.5 rounded-md font-bold">{ca.id}</span>
                       <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
                         ca.status.includes("Fully") ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"
-                      }`}>{ca.status}</span>
+                      }`}>
+                        {ca.status === "Fully Approved" && isAmharic ? "ሙሉ በሙሉ የጸደቀ" : ca.status === "Approved with comments" && isAmharic ? "በአስተያየት የጸደቀ" : ca.status === "Rejected (Needs repair)" && isAmharic ? "ተቀባይነት አላገኘም" : ca.status}
+                      </span>
                     </div>
                     <div className="space-y-1">
                       <h4 className="text-xs font-black text-slate-900">{ca.task}</h4>
-                      <p className="text-[10px] text-slate-500 font-medium">Submitted: {ca.submitted} | Reviewed by: <span className="font-bold">{ca.consultant}</span></p>
+                      <p className="text-[10px] text-slate-500 font-medium">{isAmharic ? "የቀረበበት ቀን:" : "Submitted:"} {ca.submitted} | {isAmharic ? "የገመገመው:" : "Reviewed by:"} <span className="font-bold">{ca.consultant}</span></p>
                     </div>
                     <p className="text-[11px] font-semibold text-slate-700 font-sans border-l-2 border-slate-300 pl-3">
-                      <span className="font-bold text-slate-500 uppercase text-[9px] block">Consultant Feedback / Comments:</span>
+                      <span className="font-bold text-slate-500 uppercase text-[9px] block">{isAmharic ? "የአማካሪ አስተያየት / ማስታወሻ:" : "Consultant Feedback / Comments:"}</span>
                       "{ca.comments}"
                     </p>
                   </div>
@@ -2923,7 +2974,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <input
                     type="text"
                     required
-                    placeholder="e.g. Columns alignment B1 Floor 4"
+                    placeholder={isAmharic ? "ለምሳሌ፡ የአምዶች አሰላለፍ B1 ፎቅ 4" : "e.g. Columns alignment B1 Floor 4"}
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newClientApproval.task}
                     onChange={(e) => setNewClientApproval({ ...newClientApproval, task: e.target.value })}
@@ -2936,16 +2987,16 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     value={newClientApproval.status}
                     onChange={(e) => setNewClientApproval({ ...newClientApproval, status: e.target.value })}
                   >
-                    <option value="Fully Approved">Fully Approved</option>
-                    <option value="Approved with comments">Approved with comments</option>
-                    <option value="Rejected (Needs repair)">Rejected (Needs repair)</option>
+                    <option value="Fully Approved">{isAmharic ? "ሙሉ በሙሉ የጸደቀ (Fully Approved)" : "Fully Approved"}</option>
+                    <option value="Approved with comments">{isAmharic ? "በአስተያየት የጸደቀ (Approved with comments)" : "Approved with comments"}</option>
+                    <option value="Rejected (Needs repair)">{isAmharic ? "ተቀባይነት አላገኘም (እርማት ያስፈልገዋል)" : "Rejected (Needs repair)"}</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የአስተያየት ዝርዝር" : "Review Notes / Comments"}</label>
                   <textarea 
                     rows={3} 
-                    placeholder="Provide specific directives or tolerances to adjust..." 
+                    placeholder={isAmharic ? "ዝርዝር የአሰራር መመሪያዎችን ወይም መቻቻልን እዚህ ይጻፉ..." : "Provide specific directives or tolerances to adjust..."} 
                     className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
                     value={newClientApproval.comments}
                     onChange={(e) => setNewClientApproval({ ...newClientApproval, comments: e.target.value })}
@@ -3001,25 +3052,39 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <span className="text-[10px] font-black tracking-widest uppercase text-slate-400 flex items-center gap-1">
                     <Activity size={12} className="text-red-500" />
-                    <span>Live 3D Telemetry: Bole Heights Block B1</span>
+                    <span>{isAmharic ? "የቀጥታ 3D ቴሌሜትሪ፡ ቦሌ ሃይትስ ብሎክ B1" : "Live 3D Telemetry: Bole Heights Block B1"}</span>
                   </span>
-                  <span className="px-2 py-0.5 rounded-full bg-red-600 font-bold text-[9px]">AI Twin Render V2.4</span>
+                  <span className="px-2 py-0.5 rounded-full bg-red-600 font-bold text-[9px]">
+                    {isAmharic ? "የአይአይ መንታ እይታ V2.4" : "AI Twin Render V2.4"}
+                  </span>
                 </div>
 
                 <div className="flex items-center justify-center h-40">
                   <div className="w-56 h-36 flex flex-col-reverse gap-1 border-b-2 border-slate-700 pb-1 relative">
-                    <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[9px] font-bold text-slate-500">Foundation (100% Cured)</div>
-                    <div className="bg-green-600/80 h-6 rounded border border-green-500/50 flex items-center justify-center text-[9px] font-mono font-bold">Floor 1: 100% (Stripped)</div>
-                    <div className="bg-green-600/80 h-6 rounded border border-green-500/50 flex items-center justify-center text-[9px] font-mono font-bold">Floor 2: 100% (Stripped)</div>
-                    <div className="bg-green-600/80 h-6 rounded border border-green-500/50 flex items-center justify-center text-[9px] font-mono font-bold">Floor 3: 100% (Stripped)</div>
-                    <div className="bg-amber-600/70 h-6 rounded border border-amber-500/50 flex items-center justify-center text-[9px] font-mono font-bold animate-pulse">Floor 4: 76.5% (Pouring Zone A)</div>
-                    <div className="border border-slate-800 border-dashed h-6 rounded flex items-center justify-center text-[8px] font-mono font-bold text-slate-600">Floor 5: 0% (Slab Prepped)</div>
+                    <div className="absolute -bottom-6 left-1/2 transform -translate-x-1/2 text-[9px] font-bold text-slate-500">
+                      {isAmharic ? "መሰረት (100% የደረቀ)" : "Foundation (100% Cured)"}
+                    </div>
+                    <div className="bg-green-600/80 h-6 rounded border border-green-500/50 flex items-center justify-center text-[9px] font-mono font-bold">
+                      {isAmharic ? "ፎቅ 1: 100% (የተነሳ)" : "Floor 1: 100% (Stripped)"}
+                    </div>
+                    <div className="bg-green-600/80 h-6 rounded border border-green-500/50 flex items-center justify-center text-[9px] font-mono font-bold">
+                      {isAmharic ? "ፎቅ 2: 100% (የተነሳ)" : "Floor 2: 100% (Stripped)"}
+                    </div>
+                    <div className="bg-green-600/80 h-6 rounded border border-green-500/50 flex items-center justify-center text-[9px] font-mono font-bold">
+                      {isAmharic ? "ፎቅ 3: 100% (የተነሳ)" : "Floor 3: 100% (Stripped)"}
+                    </div>
+                    <div className="bg-amber-600/70 h-6 rounded border border-amber-500/50 flex items-center justify-center text-[9px] font-mono font-bold animate-pulse">
+                      {isAmharic ? "ፎቅ 4: 76.5% (ኮንክሪት ሙሌት ዞን A)" : "Floor 4: 76.5% (Pouring Zone A)"}
+                    </div>
+                    <div className="border border-slate-800 border-dashed h-6 rounded flex items-center justify-center text-[8px] font-mono font-bold text-slate-600">
+                      {isAmharic ? "ፎቅ 5: 0% (ስላብ የተዘጋጀ)" : "Floor 5: 0% (Slab Prepped)"}
+                    </div>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between border-t border-slate-900 pt-2 text-[10px] text-slate-400 font-mono">
-                  <span>Drone contours: Verified today 08:15 AM</span>
-                  <span className="text-green-500 font-black">Accuracy Variance: &lt; 1.5mm</span>
+                  <span>{isAmharic ? "የድሮን ልኬት፡ ዛሬ 08:15 ጠዋት የተረጋገጠ" : "Drone contours: Verified today 08:15 AM"}</span>
+                  <span className="text-green-500 font-black">{isAmharic ? "የትክክለኛነት ልዩነት፡ < 1.5mm" : "Accuracy Variance: < 1.5mm"}</span>
                 </div>
               </div>
             </div>
@@ -3028,27 +3093,27 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "ዲጂታል መንታ ቁልፍ መለኪያዎች" : "Integrated Telemetry Values"}</h4>
               <div className="space-y-2 font-mono text-[11px]">
                 <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Total Progress:</span>
-                  <span className="text-slate-900 font-bold">{aiTwinProgress.totalBldgProgress}% Complete</span>
+                  <span className="text-slate-400">{isAmharic ? "አጠቃላይ ሂደት:" : "Total Progress:"}</span>
+                  <span className="text-slate-900 font-bold">{aiTwinProgress.totalBldgProgress}% {isAmharic ? "ተጠናቋል" : "Complete"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Delay Prediction:</span>
+                  <span className="text-slate-400">{isAmharic ? "የመዘግየት ትንበያ:" : "Delay Prediction:"}</span>
                   <span className="text-green-600 font-bold">{aiTwinProgress.delayPrediction}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Concrete status:</span>
+                  <span className="text-slate-400">{isAmharic ? "የኮንክሪት ሁኔታ:" : "Concrete status:"}</span>
                   <span className="text-slate-900 font-bold">{aiTwinProgress.concreteReadiness}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Productivity Score:</span>
-                  <span className="text-red-600 font-bold">{aiTwinProgress.productivityScore}% Index</span>
+                  <span className="text-slate-400">{isAmharic ? "የምርታማነት ውጤት:" : "Productivity Score:"}</span>
+                  <span className="text-red-600 font-bold">{aiTwinProgress.productivityScore}% {isAmharic ? "ኢንዴክስ" : "Index"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-200 pb-1.5">
-                  <span className="text-slate-400">Quality:</span>
+                  <span className="text-slate-400">{isAmharic ? "የጥራት ደረጃ:" : "Quality:"}</span>
                   <span className="text-slate-900 font-bold">{aiTwinProgress.qualityStatus}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Material Forecast:</span>
+                  <span className="text-slate-400">{isAmharic ? "የማቴሪያል ትንበያ:" : "Material Forecast:"}</span>
                   <span className="text-slate-800 font-bold text-right text-[10px] w-1/2 leading-tight">{aiTwinProgress.materialForecast}</span>
                 </div>
               </div>
@@ -3071,18 +3136,28 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                   <span className="text-xs font-black uppercase tracking-wider text-red-500 flex items-center gap-1">
                     <Sparkles size={14} className="animate-pulse" />
-                    <span>AI Autopilot: Generated Plan for Tomorrow (2026-07-10)</span>
+                    <span>{isAmharic ? "አይአይ አውቶፓይለት፡ ለነገ የተዘጋጀ እቅድ (2026-07-10)" : "AI Autopilot: Generated Plan for Tomorrow (2026-07-10)"}</span>
                   </span>
-                  <span className="text-[9px] bg-slate-800 px-2 py-0.5 rounded-md font-mono text-slate-400">Confidence Score: 98.4%</span>
+                  <span className="text-[9px] bg-slate-800 px-2 py-0.5 rounded-md font-mono text-slate-400">
+                    {isAmharic ? "የእርግጠኝነት ደረጃ፡ 98.4%" : "Confidence Score: 98.4%"}
+                  </span>
                 </div>
 
                 <div className="space-y-3 font-sans text-xs">
-                  <p className="text-slate-200 font-bold">Recommended Sequence of Operations:</p>
+                  <p className="text-slate-200 font-bold">{isAmharic ? "የተመከሩ የዕለት የስራ ቅደም ተከተሎች፡" : "Recommended Sequence of Operations:"}</p>
                   <ul className="list-disc list-inside space-y-2 pl-2 text-slate-300">
-                    <li><span className="font-bold text-white">08:00 AM:</span> Complete concrete curing evaluation for Floor 4 Column Cube CUBE-C30-41A. Verify minimum threshold of 24 MPa is maintained.</li>
-                    <li><span className="font-bold text-white">09:15 AM:</span> Begin aluminum formwork panel stripping on Floor 4 Zone A (Assembly Team Alpha). Reposition panels directly to Level 5 slab supports via hoist.</li>
-                    <li><span className="font-bold text-white">11:00 AM:</span> Release agent spraying & scraping for 450 wall panels at Bole site yard warehouse. Update bundle BUN-AL-01 cleaning ledger.</li>
-                    <li><span className="font-bold text-white">02:00 PM:</span> Concrete pour check sign-off for Floor 4 Zone B column bases. (Assigning site engineer Alemayehu Kebede).</li>
+                    <li>
+                      <span className="font-bold text-white">08:00 {isAmharic ? "ጠዋት" : "AM"}:</span> {isAmharic ? "ለፎቅ 4 አምድ ኪዩብ CUBE-C30-41A የኮንክሪት ጥንካሬ ፍተሻ ማጠናቀቅ። አነስተኛው የ 24 MPa ደረጃ መሟላቱን ማረጋገጥ።" : "Complete concrete curing evaluation for Floor 4 Column Cube CUBE-C30-41A. Verify minimum threshold of 24 MPa is maintained."}
+                    </li>
+                    <li>
+                      <span className="font-bold text-white">09:15 {isAmharic ? "ጠዋት" : "AM"}:</span> {isAmharic ? "በፎቅ 4 ዞን A ላይ የአሉሚኒየም ፎርምወርክ ፓነል ማውረድ መጀመር (የመገጣጠሚያ ቡድን አልፋ)። ፓነሎችን በሆይስት በቀጥታ ወደ ደረጃ 5 ስላብ ድጋፎች ማዛወር።" : "Begin aluminum formwork panel stripping on Floor 4 Zone A (Assembly Team Alpha). Reposition panels directly to Level 5 slab supports via hoist."}
+                    </li>
+                    <li>
+                      <span className="font-bold text-white">11:00 {isAmharic ? "ጠዋት" : "AM"}:</span> {isAmharic ? "በቦሌ ሳይት ግቢ መጋዘን ለ 450 የግድግዳ ፓነሎች የቅባት ርጭት እና ማፅዳት። የባንድል BUN-AL-01 የፅዳት መዝገብን ማዘመን።" : "Release agent spraying & scraping for 450 wall panels at Bole site yard warehouse. Update bundle BUN-AL-01 cleaning ledger."}
+                    </li>
+                    <li>
+                      <span className="font-bold text-white">02:00 {isAmharic ? "ከሰዓት" : "PM"}:</span> {isAmharic ? "ለፎቅ 4 ዞን B የአምድ መሰረቶች የኮንክሪት ማፍሰስ ፍተሻ ማጽደቅ (ሳይት መሃንዲስ አለማየሁ ከበደን በመመደብ)።" : "Concrete pour check sign-off for Floor 4 Zone B column bases. (Assigning site engineer Alemayehu Kebede)."}
+                    </li>
                   </ul>
                 </div>
               </div>
@@ -3093,14 +3168,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "የአይአይ ትንበያ ሁኔታዎች" : "AI Predicted Milestones"}</h4>
                 <div className="space-y-2 text-xs font-semibold text-slate-700">
                   <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1.5">
-                    <span className="text-[9px] uppercase font-bold text-slate-400">Predicted Completion Date</span>
+                    <span className="text-[9px] uppercase font-bold text-slate-400">{isAmharic ? "የሚጠናቀቅበት የተገመተ ቀን" : "Predicted Completion Date"}</span>
                     <p className="text-sm font-black text-slate-900">2026-10-15</p>
-                    <p className="text-[10px] text-green-600 font-bold">● 4 days ahead of scheduled timeline</p>
+                    <p className="text-[10px] text-green-600 font-bold">{isAmharic ? "● ከታቀደው የጊዜ ሰሌዳ በ4 ቀናት ፈጥኗል" : "● 4 days ahead of scheduled timeline"}</p>
                   </div>
                   <div className="p-3 bg-white border border-slate-200 rounded-lg space-y-1.5">
-                    <span className="text-[9px] uppercase font-bold text-slate-400">Schedule & Slurry Risks</span>
-                    <p className="text-sm font-black text-red-600">Low Risk Detected</p>
-                    <p className="text-[10px] text-slate-500">Slurry leaks checked and mitigated via tight foam tape application.</p>
+                    <span className="text-[9px] uppercase font-bold text-slate-400">{isAmharic ? "የመርሐግብር እና የስጋቶች ሁኔታ" : "Schedule & Slurry Risks"}</span>
+                    <p className="text-sm font-black text-red-600">{isAmharic ? "ዝቅተኛ ስጋት ተገኝቷል" : "Low Risk Detected"}</p>
+                    <p className="text-[10px] text-slate-500">{isAmharic ? "የኮንክሪት ፈሳሽ ማፍሰስ ተፈትሾ በፎም ቴፕ አጠቃቀም ተስተካክሏል።" : "Slurry leaks checked and mitigated via tight foam tape application."}</p>
                   </div>
                 </div>
               </div>
@@ -3121,24 +3196,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <div className="border border-slate-200 p-4 rounded-xl space-y-3">
               <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1">
                 <Cloud size={14} className="text-red-500" />
-                <span>Backend Replication State</span>
+                <span>{isAmharic ? "የጀርባ ዳታቤዝ ማመሳሰል ሁኔታ" : "Backend Replication State"}</span>
               </h4>
               <div className="space-y-2 font-mono text-[11px] text-slate-700">
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Database Engine:</span>
+                  <span className="text-slate-400">{isAmharic ? "የዳታቤዝ ሞተር:" : "Database Engine:"}</span>
                   <span className="text-slate-900 font-bold">Cloud Firestore</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Auth Engine:</span>
+                  <span className="text-slate-400">{isAmharic ? "የማረጋገጫ ሞተር:" : "Auth Engine:"}</span>
                   <span className="text-slate-900 font-bold">Firebase Auth</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Local Cache:</span>
-                  <span className="text-green-600 font-bold">Offline-Sync Active</span>
+                  <span className="text-slate-400">{isAmharic ? "የአካባቢ መሸጎጫ:" : "Local Cache:"}</span>
+                  <span className="text-green-600 font-bold">{isAmharic ? "ከመስመር ውጭ ማመሳሰል ንቁ ነው" : "Offline-Sync Active"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Push Notification Token:</span>
-                  <span className="text-slate-900 font-bold">In-App Connection Active</span>
+                  <span className="text-slate-400">{isAmharic ? "የማሳወቂያ ቶከን:" : "Push Notification Token:"}</span>
+                  <span className="text-slate-900 font-bold">{isAmharic ? "የመተግበሪያ ግንኙነት ንቁ ነው" : "In-App Connection Active"}</span>
                 </div>
               </div>
             </div>
@@ -3146,24 +3221,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <div className="border border-slate-200 p-4 rounded-xl space-y-3">
               <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1">
                 <HardDrive size={14} className="text-red-500" />
-                <span>Disaster Recovery & Backup</span>
+                <span>{isAmharic ? "የአደጋ ጊዜ ማገገሚያ እና መጠባበቂያ" : "Disaster Recovery & Backup"}</span>
               </h4>
               <div className="space-y-2 font-mono text-[11px] text-slate-700">
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Auto Backup Cycle:</span>
-                  <span className="text-slate-900 font-bold">Hourly Incremental</span>
+                  <span className="text-slate-400">{isAmharic ? "ራስ-ሰር የመጠባበቂያ ዑደት:" : "Auto Backup Cycle:"}</span>
+                  <span className="text-slate-900 font-bold">{isAmharic ? "በየሰዓቱ ጭማሪ" : "Hourly Incremental"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Last Cold Backup:</span>
-                  <span className="text-slate-900 font-bold">Today 03:00 AM</span>
+                  <span className="text-slate-400">{isAmharic ? "የመጨረሻው ቅጂ:" : "Last Cold Backup:"}</span>
+                  <span className="text-slate-900 font-bold">{isAmharic ? "ዛሬ 03:00 ጠዋት" : "Today 03:00 AM"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Backup Quota used:</span>
+                  <span className="text-slate-400">{isAmharic ? "ጥቅም ላይ የዋለ ኮታ:" : "Backup Quota used:"}</span>
                   <span className="text-slate-900 font-bold">14.2 GB of 100 GB</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Recovery SLA:</span>
-                  <span className="text-green-600 font-bold">&lt; 15 Mins</span>
+                  <span className="text-slate-400">{isAmharic ? "የማገገሚያ ጊዜ SLA:" : "Recovery SLA:"}</span>
+                  <span className="text-green-600 font-bold">&lt; 15 {isAmharic ? "ደቂቃዎች" : "Mins"}</span>
                 </div>
               </div>
             </div>
@@ -3171,24 +3246,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <div className="border border-slate-200 p-4 rounded-xl space-y-3">
               <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1">
                 <RefreshCw size={14} className="text-red-500 animate-spin-slow" />
-                <span>Security (RBAC) Audit Logs</span>
+                <span>{isAmharic ? "የደህንነት እና ፍቃዶች (RBAC) ኦዲት" : "Security (RBAC) Audit Logs"}</span>
               </h4>
               <div className="space-y-2 font-mono text-[11px] text-slate-700">
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Primary Role:</span>
-                  <span className="text-slate-900 font-bold">Lead Administrator</span>
+                  <span className="text-slate-400">{isAmharic ? "ዋና የስራ ድርሻ:" : "Primary Role:"}</span>
+                  <span className="text-slate-900 font-bold">{isAmharic ? "ዋና አድሚን (Lead Admin)" : "Lead Administrator"}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Acting User:</span>
+                  <span className="text-slate-400">{isAmharic ? "ተጠቃሚ:" : "Acting User:"}</span>
                   <span className="text-red-600 font-bold">{currentAdminName}</span>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-1.5">
-                  <span className="text-slate-400">Session Limit:</span>
-                  <span className="text-slate-900 font-bold">10 Minutes Idle</span>
+                  <span className="text-slate-400">{isAmharic ? "የክፍለ-ጊዜ ገደብ:" : "Session Limit:"}</span>
+                  <span className="text-slate-900 font-bold">{isAmharic ? "10 ደቂቃ ስራ ሳይሰራ ሲቀር" : "10 Minutes Idle"}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Access Key Level:</span>
-                  <span className="text-green-600 font-bold">Level 4 Top Tier</span>
+                  <span className="text-slate-400">{isAmharic ? "የፍቃድ ቁልፍ ደረጃ:" : "Access Key Level:"}</span>
+                  <span className="text-green-600 font-bold">{isAmharic ? "ደረጃ 4 ከፍተኛ" : "Level 4 Top Tier"}</span>
                 </div>
               </div>
             </div>
@@ -3235,23 +3310,23 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-700">
-                      <div><span className="text-slate-400 font-medium">Weather:</span> <span className="font-bold">{log.weather}</span></div>
-                      <div><span className="text-slate-400 font-medium">Attendance:</span> <span className="font-bold text-emerald-600">{log.attendance}</span></div>
-                      <div className="sm:col-span-2"><span className="text-slate-400 font-medium">Activities:</span> <p className="font-semibold mt-0.5">{log.activities}</p></div>
-                      <div><span className="text-slate-400 font-medium">Survey Results:</span> <span className="font-semibold text-blue-600">{log.surveyResults}</span></div>
-                      <div><span className="text-slate-400 font-medium">Concrete Activities:</span> <span className="font-semibold">{log.concreteActivities}</span></div>
-                      <div><span className="text-slate-400 font-medium font-mono text-[10px]">Photo Attachment:</span> <span className="font-mono text-[10px] bg-white border px-1.5 py-0.5 rounded">{log.photos}</span></div>
-                      <div><span className="text-slate-400 font-medium font-mono text-[10px]">Drone Ortho:</span> <span className="font-mono text-[10px] bg-white border px-1.5 py-0.5 rounded">{log.droneImages}</span></div>
-                      <div className="sm:col-span-2"><span className="text-slate-400 font-medium">Material / Equipment:</span> <p className="mt-0.5 italic text-slate-600">{log.materialUsage} | {log.equipmentUsage}</p></div>
-                      <div className="sm:col-span-2"><span className="text-slate-400 font-medium">Safety:</span> <span className="font-bold text-emerald-600">🛡️ {log.safetyIncidents}</span></div>
-                      <div><span className="text-slate-400 font-medium">Engineer Directives:</span> <p className="italic text-slate-600 mt-0.5">{log.engineerNotes}</p></div>
-                      <div><span className="text-slate-400 font-medium">Supervisor Notes:</span> <p className="italic text-slate-600 mt-0.5">{log.supervisorNotes}</p></div>
+                      <div><span className="text-slate-400 font-medium">{isAmharic ? "አየር ሁኔታ:" : "Weather:"}</span> <span className="font-bold">{log.weather}</span></div>
+                      <div><span className="text-slate-400 font-medium">{isAmharic ? "የሠራተኞች መገኘት:" : "Attendance:"}</span> <span className="font-bold text-emerald-600">{log.attendance}</span></div>
+                      <div className="sm:col-span-2"><span className="text-slate-400 font-medium">{isAmharic ? "ተግባራት:" : "Activities:"}</span> <p className="font-semibold mt-0.5">{log.activities}</p></div>
+                      <div><span className="text-slate-400 font-medium">{isAmharic ? "የሰርቬይ ውጤቶች:" : "Survey Results:"}</span> <span className="font-semibold text-blue-600">{log.surveyResults}</span></div>
+                      <div><span className="text-slate-400 font-medium">{isAmharic ? "የኮንክሪት ስራዎች:" : "Concrete Activities:"}</span> <span className="font-semibold">{log.concreteActivities}</span></div>
+                      <div><span className="text-slate-400 font-medium font-mono text-[10px]">{isAmharic ? "የፎቶ ሰነድ:" : "Photo Attachment:"}</span> <span className="font-mono text-[10px] bg-white border px-1.5 py-0.5 rounded">{log.photos}</span></div>
+                      <div><span className="text-slate-400 font-medium font-mono text-[10px]">{isAmharic ? "የድሮን ምስል:" : "Drone Ortho:"}</span> <span className="font-mono text-[10px] bg-white border px-1.5 py-0.5 rounded">{log.droneImages}</span></div>
+                      <div className="sm:col-span-2"><span className="text-slate-400 font-medium">{isAmharic ? "ማቴሪያል / ማሽነሪ:" : "Material / Equipment:"}</span> <p className="mt-0.5 italic text-slate-600">{log.materialUsage} | {log.equipmentUsage}</p></div>
+                      <div className="sm:col-span-2"><span className="text-slate-400 font-medium">{isAmharic ? "ደህንነት:" : "Safety:"}</span> <span className="font-bold text-emerald-600">🛡️ {log.safetyIncidents}</span></div>
+                      <div><span className="text-slate-400 font-medium">{isAmharic ? "የመሃንዲስ መመሪያ:" : "Engineer Directives:"}</span> <p className="italic text-slate-600 mt-0.5">{log.engineerNotes}</p></div>
+                      <div><span className="text-slate-400 font-medium">{isAmharic ? "የተቆጣጣሪ ማስታወሻ:" : "Supervisor Notes:"}</span> <p className="italic text-slate-600 mt-0.5">{log.supervisorNotes}</p></div>
                     </div>
 
                     <div className="bg-red-50/50 p-3 rounded-lg border border-red-100/60 mt-2">
                       <p className="text-[10px] font-bold text-red-600 uppercase tracking-widest flex items-center gap-1">
                         <Sparkles size={11} className="animate-pulse" />
-                        <span>AI Autopilot Generated Summary:</span>
+                        <span>{isAmharic ? "በአይአይ አውቶፓይለት የተዘጋጀ ማጠቃለያ፡" : "AI Autopilot Generated Summary:"}</span>
                       </p>
                       <p className="text-[11px] text-slate-800 font-medium mt-1 leading-relaxed">{log.aiSummary}</p>
                     </div>
@@ -3303,31 +3378,31 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 alert("Site Diary Entry logged successfully!");
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Weather Summary</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የአየር ሁኔታ ማጠቃለያ" : "Weather Summary"}</label>
                   <input type="text" value={newDiaryEntry.weather} onChange={e => setNewDiaryEntry({...newDiaryEntry, weather: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Activities of the Day</label>
-                  <textarea rows={3} value={newDiaryEntry.activities} onChange={e => setNewDiaryEntry({...newDiaryEntry, activities: e.target.value})} placeholder="Describe concrete pouring, formwork stripping, scaffolding..." className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የዕለቱ የስራ ተግባራት" : "Activities of the Day"}</label>
+                  <textarea rows={3} value={newDiaryEntry.activities} onChange={e => setNewDiaryEntry({...newDiaryEntry, activities: e.target.value})} placeholder={isAmharic ? "የኮንክሪት ሙሌት፣ የፎርምወርክ ማንሳት፣ ስካፎልዲንግ..." : "Describe concrete pouring, formwork stripping, scaffolding..."} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Concrete Pour Activities</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የኮንክሪት ሙሌት ስራዎች" : "Concrete Pour Activities"}</label>
                   <input type="text" value={newDiaryEntry.concreteActivities} onChange={e => setNewDiaryEntry({...newDiaryEntry, concreteActivities: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Materials/Accessories Used</label>
-                  <input type="text" value={newDiaryEntry.materialUsage} onChange={e => setNewDiaryEntry({...newDiaryEntry, materialUsage: e.target.value})} placeholder="e.g. 150 Wall panels, 30 Steel props" className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ጥቅም ላይ የዋሉ ማቴሪያሎች / እቃዎች" : "Materials/Accessories Used"}</label>
+                  <input type="text" value={newDiaryEntry.materialUsage} onChange={e => setNewDiaryEntry({...newDiaryEntry, materialUsage: e.target.value})} placeholder={isAmharic ? "ለምሳሌ፡ 150 የግድግዳ ፓነሎች፣ 30 የብረት ድጋፎች" : "e.g. 150 Wall panels, 30 Steel props"} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Safety Incidents</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የደህንነት ክስተቶች" : "Safety Incidents"}</label>
                   <input type="text" value={newDiaryEntry.safetyIncidents} onChange={e => setNewDiaryEntry({...newDiaryEntry, safetyIncidents: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Engineer Directives</label>
-                  <input type="text" value={newDiaryEntry.engineerNotes} onChange={e => setNewDiaryEntry({...newDiaryEntry, engineerNotes: e.target.value})} placeholder="Slurry tape seal check, alignments..." className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የመሃንዲስ መመሪያዎች" : "Engineer Directives"}</label>
+                  <input type="text" value={newDiaryEntry.engineerNotes} onChange={e => setNewDiaryEntry({...newDiaryEntry, engineerNotes: e.target.value})} placeholder={isAmharic ? "የቴፕ ማጣበቂያ ፍተሻ፣ አሰላለፍ..." : "Slurry tape seal check, alignments..."} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
                 </div>
                 <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white rounded py-2 font-bold cursor-pointer transition-all">
-                  {isAmharic ? "መዝግብ" : "Log Site Diary Entry"}
+                  {isAmharic ? "የሳይት ዳየሪ መዝግብ" : "Log Site Diary Entry"}
                 </button>
               </form>
             </div>
@@ -3354,13 +3429,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-3">ID</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Zone/Area</th>
-                      <th className="p-3">Requested By</th>
-                      <th className="p-3">Expiry Time</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Actions</th>
+                      <th className="p-3">{isAmharic ? "መለያ" : "ID"}</th>
+                      <th className="p-3">{isAmharic ? "የፈቃድ አይነት" : "Type"}</th>
+                      <th className="p-3">{isAmharic ? "ቦታ / ዞን" : "Zone/Area"}</th>
+                      <th className="p-3">{isAmharic ? "ጠያቂ" : "Requested By"}</th>
+                      <th className="p-3">{isAmharic ? "የሚያበቃበት ሰዓት" : "Expiry Time"}</th>
+                      <th className="p-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
+                      <th className="p-3 text-right">{isAmharic ? "እርምጃዎች" : "Actions"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
@@ -3382,7 +3457,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             p.status === "Expired" ? "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse" :
                             "bg-amber-100 text-amber-800 border border-amber-300 animate-pulse"
                           }`}>
-                            {p.status}
+                            {p.status === "Active" && isAmharic ? "ንቁ (Active)" : p.status === "Approved" && isAmharic ? "የጸደቀ (Approved)" : p.status === "Expired" && isAmharic ? "ጊዜው ያለፈበት (Expired)" : p.status === "Pending Approval" && isAmharic ? "ማረጋገጫ በመጠባበቅ ላይ" : p.status}
                           </span>
                           {p.alerts !== "No alerts" && (
                             <p className="text-[9px] text-rose-500 font-bold mt-1 max-w-[150px] leading-tight">⚠️ {p.alerts}</p>
@@ -3404,7 +3479,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               }}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white text-[10px] px-2 py-1 rounded font-bold cursor-pointer mr-1 transition-all"
                             >
-                              Approve
+                              {isAmharic ? "አጽድቅ" : "Approve"}
                             </button>
                           ) : p.status === "Active" ? (
                             <button
@@ -3421,10 +3496,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               }}
                               className="bg-rose-600 hover:bg-rose-700 text-white text-[10px] px-2 py-1 rounded font-bold cursor-pointer transition-all"
                             >
-                              Revoke
+                              {isAmharic ? "ሰርዝ" : "Revoke"}
                             </button>
                           ) : (
-                            <span className="text-slate-400 italic text-[10px]">Archived</span>
+                            <span className="text-slate-400 italic text-[10px]">{isAmharic ? "የተመዘገበ" : "Archived"}</span>
                           )}
                         </td>
                       </tr>
@@ -3459,28 +3534,28 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 alert("Work Permit requested successfully! Lead Admin notified.");
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Permit Category</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የፈቃድ ምድብ" : "Permit Category"}</label>
                   <select value={newPermit.type} onChange={e => setNewPermit({...newPermit, type: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
-                    <option value="Hot Work">Hot Work (Welding, Grinding)</option>
-                    <option value="Height Work">Height Work (Crane Boom, Scaffolding)</option>
-                    <option value="Excavation">Excavation & Foundations</option>
-                    <option value="Crane Lifting">Crane Tandem Lifting</option>
-                    <option value="Electrical Work">Electrical High-Voltage Grid</option>
-                    <option value="Confined Space">Confined Space (Deep Tanks)</option>
-                    <option value="Concrete Pour">Concrete Heavy Structural Pour</option>
-                    <option value="Formwork Removal">Formwork Quick Stripping</option>
+                    <option value="Hot Work">{isAmharic ? "የሙቅ ስራ - ብየዳ / መቁረጥ (Hot Work)" : "Hot Work (Welding, Grinding)"}</option>
+                    <option value="Height Work">{isAmharic ? "ከፍታ ላይ ስራ - ክሬን / ስካፎልድ (Height Work)" : "Height Work (Crane Boom, Scaffolding)"}</option>
+                    <option value="Excavation">{isAmharic ? "ቁፋሮ እና መሰረት ስራ (Excavation)" : "Excavation & Foundations"}</option>
+                    <option value="Crane Lifting">{isAmharic ? "የክሬን ማንሳት ስራ (Crane Lifting)" : "Crane Tandem Lifting"}</option>
+                    <option value="Electrical Work">{isAmharic ? "የከፍተኛ ቮልቴጅ ኤሌክትሪክ ስራ (Electrical)" : "Electrical High-Voltage Grid"}</option>
+                    <option value="Confined Space">{isAmharic ? "የተዘጋ ቦታ ስራ - ታንኮች (Confined Space)" : "Confined Space (Deep Tanks)"}</option>
+                    <option value="Concrete Pour">{isAmharic ? "ከባድ የኮንክሪት ሙሌት ስራ (Concrete Pour)" : "Concrete Heavy Structural Pour"}</option>
+                    <option value="Formwork Removal">{isAmharic ? "የፎርምወርክ ማንሳት ስራ (Formwork Removal)" : "Formwork Quick Stripping"}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Specific Location / Zone</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ትክክለኛ ቦታ / ዞን" : "Specific Location / Zone"}</label>
                   <input type="text" value={newPermit.zone} onChange={e => setNewPermit({...newPermit, zone: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Requested By (Name)</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ጠያቂ (ስም)" : "Requested By (Name)"}</label>
                   <input type="text" value={newPermit.requestedBy} onChange={e => setNewPermit({...newPermit, requestedBy: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Expiration Time</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የሚያበቃበት ሰዓት" : "Expiration Time"}</label>
                   <input type="text" value={newPermit.expiry} onChange={e => setNewPermit({...newPermit, expiry: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white rounded py-2 font-bold cursor-pointer transition-all">
@@ -3506,7 +3581,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             <div className="flex items-center gap-2">
               <input
                 type="text"
-                placeholder={isAmharic ? "ፈልግ..." : "Filter assets by QR code or name..."}
+                placeholder={isAmharic ? "በስም ወይም በባርኮድ ፈልግ..." : "Filter assets by QR code or name..."}
                 value={assetSearch}
                 onChange={e => setAssetSearch(e.target.value)}
                 className="border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none w-52 sm:w-64"
@@ -3522,13 +3597,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-3">Asset Barcode</th>
-                      <th className="p-3">Asset Name</th>
-                      <th className="p-3">Category</th>
-                      <th className="p-3">Current Location</th>
-                      <th className="p-3">Assigned Team</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Scans</th>
+                      <th className="p-3">{isAmharic ? "ባርኮድ" : "Asset Barcode"}</th>
+                      <th className="p-3">{isAmharic ? "የንብረት ስም" : "Asset Name"}</th>
+                      <th className="p-3">{isAmharic ? "ምድብ" : "Category"}</th>
+                      <th className="p-3">{isAmharic ? "ወቅታዊ ቦታ" : "Current Location"}</th>
+                      <th className="p-3">{isAmharic ? "የተመደበለት ቡድን" : "Assigned Team"}</th>
+                      <th className="p-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
+                      <th className="p-3 text-right">{isAmharic ? "ፍተሻ" : "Scans"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
@@ -3550,7 +3625,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             a.status === "Standby" ? "bg-slate-100 text-slate-700 border" :
                             "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse"
                           }`}>
-                            {a.status}
+                            {a.status === "Healthy" && isAmharic ? "ጥሩ ሁኔታ" : a.status === "In Use" && isAmharic ? "ስራ ላይ" : a.status === "Active" && isAmharic ? "ንቁ" : a.status === "Standby" && isAmharic ? "ተጠባባቂ" : a.status}
                           </span>
                         </td>
                         <td className="p-3 text-right">
@@ -3561,7 +3636,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             }}
                             className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
                           >
-                            Scan
+                            {isAmharic ? "ቃኝ" : "Scan"}
                           </button>
                         </td>
                       </tr>
@@ -3605,35 +3680,35 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 });
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Asset Category</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የንብረት ምድብ" : "Asset Category"}</label>
                   <select value={newAsset.category} onChange={e => setNewAsset({...newAsset, category: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
-                    <option value="Aluminum Panels">Aluminum Panels</option>
-                    <option value="Survey Instruments">Survey Instruments</option>
-                    <option value="Cranes">Cranes</option>
-                    <option value="Vehicles">Vehicles</option>
-                    <option value="Generators">Generators</option>
-                    <option value="Power Tools">Power Tools</option>
-                    <option value="Office Equipment">Office Equipment</option>
+                    <option value="Aluminum Panels">{isAmharic ? "የአሉሚኒየም ፓነሎች (Aluminum Panels)" : "Aluminum Panels"}</option>
+                    <option value="Survey Instruments">{isAmharic ? "የሰርቬይ መሣሪያዎች (Survey Instruments)" : "Survey Instruments"}</option>
+                    <option value="Cranes">{isAmharic ? "ክሬኖች (Cranes)" : "Cranes"}</option>
+                    <option value="Vehicles">{isAmharic ? "ተሽከርካሪዎች (Vehicles)" : "Vehicles"}</option>
+                    <option value="Generators">{isAmharic ? "ጄኔሬተሮች (Generators)" : "Generators"}</option>
+                    <option value="Power Tools">{isAmharic ? "የኤሌክትሪክ እቃዎች (Power Tools)" : "Power Tools"}</option>
+                    <option value="Office Equipment">{isAmharic ? "የቢሮ እቃዎች (Office Equipment)" : "Office Equipment"}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Asset / Panel Name</label>
-                  <input type="text" placeholder="e.g. Total Station Leica GS18" value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የንብረት / ፓነል ስም" : "Asset / Panel Name"}</label>
+                  <input type="text" placeholder={isAmharic ? "ለምሳሌ፡ Total Station Leica GS18" : "e.g. Total Station Leica GS18"} value={newAsset.name} onChange={e => setNewAsset({...newAsset, name: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Custom Barcode/RFID (Optional)</label>
-                  <input type="text" placeholder="Auto-generates if blank" value={newAsset.code} onChange={e => setNewAsset({...newAsset, code: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ልዩ ባርኮድ/RFID (አማራጭ)" : "Custom Barcode/RFID (Optional)"}</label>
+                  <input type="text" placeholder={isAmharic ? "ባዶ ከተተወ በራስ-ሰር ያመነጫል" : "Auto-generates if blank"} value={newAsset.code} onChange={e => setNewAsset({...newAsset, code: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Initial Current Location</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የመጀመሪያ ወቅታዊ ቦታ" : "Initial Current Location"}</label>
                   <input type="text" value={newAsset.location} onChange={e => setNewAsset({...newAsset, location: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Assigned User or Team</label>
-                  <input type="text" placeholder="e.g. Surveying Yard" value={newAsset.assignedTo} onChange={e => setNewAsset({...newAsset, assignedTo: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የተመደበለት ሰው ወይም ቡድን" : "Assigned User or Team"}</label>
+                  <input type="text" placeholder={isAmharic ? "ለምሳሌ፡ የሰርቬይ ቡድን" : "e.g. Surveying Yard"} value={newAsset.assignedTo} onChange={e => setNewAsset({...newAsset, assignedTo: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" />
                 </div>
                 <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white rounded py-2 font-bold cursor-pointer transition-all">
-                  {isAmharic ? "ንብረት መዝግብ" : "Register and Generate Barcode"}
+                  {isAmharic ? "ንብረት መዝግብና ባርኮድ አውጣ" : "Register and Generate Barcode"}
                 </button>
               </form>
             </div>
@@ -3660,13 +3735,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-3">ID</th>
-                      <th className="p-3">Asset</th>
-                      <th className="p-3">Maintenance Task Type</th>
-                      <th className="p-3">Due Date</th>
-                      <th className="p-3">Assigned Technician</th>
-                      <th className="p-3">Alert Status</th>
-                      <th className="p-3 text-right">Actions</th>
+                      <th className="p-3">{isAmharic ? "መለያ" : "ID"}</th>
+                      <th className="p-3">{isAmharic ? "ንብረት" : "Asset"}</th>
+                      <th className="p-3">{isAmharic ? "የጥገና ተግባር አይነት" : "Maintenance Task Type"}</th>
+                      <th className="p-3">{isAmharic ? "የሚከናወንበት ቀን" : "Due Date"}</th>
+                      <th className="p-3">{isAmharic ? "የተመደበለት ቴክኒሻን" : "Assigned Technician"}</th>
+                      <th className="p-3">{isAmharic ? "የማንቂያ ሁኔታ" : "Alert Status"}</th>
+                      <th className="p-3 text-right">{isAmharic ? "እርምጃዎች" : "Actions"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
@@ -3684,7 +3759,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             m.status === "Undergoing Repair" ? "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse" :
                             "bg-emerald-100 text-emerald-800 border border-emerald-300"
                           }`}>
-                            {m.status}
+                            {m.status === "Scheduled" && isAmharic ? "ቀጠሮ የተያዘለት" : m.status === "Pending Alert" && isAmharic ? "ማንቂያ በመጠባበቅ ላይ" : m.status === "Undergoing Repair" && isAmharic ? "በጥገና ላይ" : m.status === "Calibrated & Completed" && isAmharic ? "የተስተካከለና የተጠናቀቀ" : m.status}
                           </span>
                           <span className="block text-[8px] text-slate-400 mt-1">{m.alertTime}</span>
                         </td>
@@ -3694,7 +3769,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               const updated = { ...m, status: "Calibrated & Completed", alertTime: "Checked Today" };
                               setMaintenanceSchedule(prev => prev.map(item => item.id === m.id ? updated : item));
                               try {
-                                await DbService.updateMaintenanceSchedule(updated);
+                                  await DbService.updateMaintenanceSchedule(updated);
                               } catch (err) {
                                 console.error("Failed persisting maintenance sign-off:", err);
                               }
@@ -3703,7 +3778,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             }}
                             className="bg-slate-900 hover:bg-slate-800 text-white font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all whitespace-nowrap"
                           >
-                            Sign-off Task
+                            {isAmharic ? "ተግባሩን አጠናቅቅ" : "Sign-off Task"}
                           </button>
                         </td>
                       </tr>
@@ -3744,7 +3819,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 });
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Select Target Asset</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ዒላማ ንብረቱን ይምረጡ" : "Select Target Asset"}</label>
                   <select value={newMaintItem.asset} onChange={e => setNewMaintItem({...newMaintItem, asset: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
                     <option value="Potain Tower Crane MC125">Potain Tower Crane MC125</option>
                     <option value="Leica TS16 Total Station">Leica TS16 Total Station</option>
@@ -3754,19 +3829,19 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Maintenance Task Detail</label>
-                  <input type="text" placeholder="e.g. Calibrate optical prism, swap engine oil" value={newMaintItem.type} onChange={e => setNewMaintItem({...newMaintItem, type: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የጥገና ዝርዝር መረጃ" : "Maintenance Task Detail"}</label>
+                  <input type="text" placeholder={isAmharic ? "ለምሳሌ፡ የኦፕቲካል ፕሪዝም ማስተካከል፣ ዘይት መቀየር" : "e.g. Calibrate optical prism, swap engine oil"} value={newMaintItem.type} onChange={e => setNewMaintItem({...newMaintItem, type: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Scheduled Due Date</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የቀጠሮ ቀን" : "Scheduled Due Date"}</label>
                   <input type="date" value={newMaintItem.dueDate} onChange={e => setNewMaintItem({...newMaintItem, dueDate: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Assigned Technician (Name)</label>
-                  <input type="text" placeholder="e.g. Yohannes B." value={newMaintItem.assignedTo} onChange={e => setNewMaintItem({...newMaintItem, assignedTo: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የተመደበለት ቴክኒሻን (ስም)" : "Assigned Technician (Name)"}</label>
+                  <input type="text" placeholder={isAmharic ? "ለምሳሌ፡ ዮሐንስ በ." : "e.g. Yohannes B."} value={newMaintItem.assignedTo} onChange={e => setNewMaintItem({...newMaintItem, assignedTo: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white rounded py-2 font-bold cursor-pointer transition-all">
-                  {isAmharic ? "እቅድ መዝግብ" : "Schedule Preventive Task"}
+                  {isAmharic ? "የመከላከያ ጥገና ያቅዱ" : "Schedule Preventive Task"}
                 </button>
               </form>
             </div>
@@ -3786,15 +3861,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <p className="text-xs text-slate-500">{isAmharic ? "የሠራተኞች፣ ማቴሪያሎች፣ ነዳጅ እና ማሽነሪዎች ወጪ ከበጀት ጋር ማነጻጸሪያ" : "Real-time cost trackers comparing Planned budget vs Actual expenditure"}</p>
             </div>
             <div className="bg-slate-100 p-2 rounded-lg font-mono text-[10px] flex items-center gap-3">
-              <div><span className="text-slate-400">Total Planned:</span> <span className="font-bold text-slate-900">ETB {costItems.reduce((acc, c) => acc + (Number(c.planned) || 0), 0).toLocaleString()}</span></div>
-              <div><span className="text-slate-400">Total Actual:</span> <span className="font-bold text-red-600">ETB {costItems.reduce((acc, c) => acc + (Number(c.actual) || 0), 0).toLocaleString()}</span></div>
+              <div><span className="text-slate-400">{isAmharic ? "አጠቃላይ የታቀደ:" : "Total Planned:"}</span> <span className="font-bold text-slate-900">ETB {costItems.reduce((acc, c) => acc + (Number(c.planned) || 0), 0).toLocaleString()}</span></div>
+              <div><span className="text-slate-400">{isAmharic ? "አጠቃላይ የወጣ:" : "Total Actual:"}</span> <span className="font-bold text-red-600">ETB {costItems.reduce((acc, c) => acc + (Number(c.actual) || 0), 0).toLocaleString()}</span></div>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Chart Area */}
             <div className="lg:col-span-2 space-y-4 bg-slate-50 p-4 rounded-xl border">
-              <h4 className="text-xs font-black uppercase text-slate-700">Planned vs Actual Cumulative Cost (ETB)</h4>
+              <h4 className="text-xs font-black uppercase text-slate-700">{isAmharic ? "የታቀደ ወጪ ከትክክለኛው ጋር ንጽጽር (ብር)" : "Planned vs Actual Cumulative Cost (ETB)"}</h4>
               <div className="h-[280px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={costItems}>
@@ -3803,8 +3878,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <YAxis stroke="#94a3b8" fontSize={10} fontWeight="bold" />
                     <Tooltip contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
                     <Legend wrapperStyle={{ fontSize: 11, fontWeight: 'bold' }} />
-                    <Bar dataKey="planned" name="Planned Budget (ETB)" fill="#334155" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="actual" name="Actual Spending (ETB)" fill="#dc2626" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="planned" name={isAmharic ? "የታቀደ በጀት (ብር)" : "Planned Budget (ETB)"} fill="#334155" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="actual" name={isAmharic ? "ትክክለኛ ወጪ (ብር)" : "Actual Spending (ETB)"} fill="#dc2626" radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -3845,27 +3920,27 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 });
               }} className="space-y-3">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Cost Allocation Category</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የወጪ ምደባ አይነት" : "Cost Allocation Category"}</label>
                   <select value={newCostRecord.category} onChange={e => setNewCostRecord({...newCostRecord, category: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
-                    <option value="Labor Cost">Labor Cost</option>
-                    <option value="Material Cost">Material Cost</option>
-                    <option value="Equipment Cost">Equipment Cost</option>
-                    <option value="Fuel Cost">Fuel Cost</option>
-                    <option value="Subcontractor Cost">Subcontractor Cost</option>
-                    <option value="Concrete Cost">Concrete Cost</option>
-                    <option value="Overhead Cost">Overhead Cost</option>
+                    <option value="Labor Cost">{isAmharic ? "የሠራተኛ ወጪ (Labor Cost)" : "Labor Cost"}</option>
+                    <option value="Material Cost">{isAmharic ? "የማቴሪያል ወጪ (Material Cost)" : "Material Cost"}</option>
+                    <option value="Equipment Cost">{isAmharic ? "የማሽነሪ ወጪ (Equipment Cost)" : "Equipment Cost"}</option>
+                    <option value="Fuel Cost">{isAmharic ? "የነዳጅ ወጪ (Fuel Cost)" : "Fuel Cost"}</option>
+                    <option value="Subcontractor Cost">{isAmharic ? "የንዑስ ተቋራጭ ወጪ (Subcontractor Cost)" : "Subcontractor Cost"}</option>
+                    <option value="Concrete Cost">{isAmharic ? "የኮንክሪት ወጪ (Concrete Cost)" : "Concrete Cost"}</option>
+                    <option value="Overhead Cost">{isAmharic ? "የአስተዳደር ወጪ (Overhead Cost)" : "Overhead Cost"}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Planned Budget Addition (ETB)</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የታቀደ በጀት መጨመሪያ (ብር)" : "Planned Budget Addition (ETB)"}</label>
                   <input type="number" value={newCostRecord.planned} onChange={e => setNewCostRecord({...newCostRecord, planned: Number(e.target.value)})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Actual Expenditure Addition (ETB)</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ትክክለኛ ወጪ መጨመሪያ (ብር)" : "Actual Expenditure Addition (ETB)"}</label>
                   <input type="number" value={newCostRecord.actual} onChange={e => setNewCostRecord({...newCostRecord, actual: Number(e.target.value)})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded py-2 font-bold cursor-pointer transition-all">
-                  {isAmharic ? "መዝግብ" : "Log Ledger Entry"}
+                  {isAmharic ? "ወጪውን መዝግብ" : "Log Ledger Entry"}
                 </button>
               </form>
             </div>
@@ -3907,7 +3982,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       risk.priority === "Medium" ? "bg-amber-500 text-white" :
                       "bg-emerald-600 text-white"
                     }`}>
-                      {risk.priority} Priority
+                      {risk.priority === "High" && isAmharic ? "ከፍተኛ ደረጃ" : risk.priority === "Medium" && isAmharic ? "መካከለኛ ደረጃ" : risk.priority === "Low" && isAmharic ? "ዝቅተኛ ደረጃ" : `${risk.priority} Priority`}
                     </span>
                   </div>
                   <p className="text-xs text-slate-700 font-semibold">{risk.desc}</p>
@@ -3916,7 +3991,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="bg-red-50 p-3 rounded-lg border border-red-100/60 mt-2">
                   <p className="text-[9px] font-bold text-red-600 uppercase tracking-widest flex items-center gap-1">
                     <Sparkles size={11} />
-                    <span>AI Recommendation:</span>
+                    <span>{isAmharic ? "የአይአይ ምክረ-ሃሳብ:" : "AI Recommendation:"}</span>
                   </p>
                   <p className="text-[11px] text-slate-900 font-bold mt-1 leading-normal">{risk.recommendation}</p>
                 </div>
@@ -3939,49 +4014,49 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
             <div className="bg-slate-50 p-3.5 rounded-xl border space-y-1">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Walkway PM10</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የመተላለፊያ አቧራ PM10" : "Walkway PM10"}</p>
               <h4 className="text-lg font-black text-slate-900">34 µg/m³</h4>
-              <span className="text-[9px] text-emerald-600 font-bold">● Compliant</span>
+              <span className="text-[9px] text-emerald-600 font-bold">{isAmharic ? "● ደረጃውን የጠበቀ" : "● Compliant"}</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border space-y-1">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Average Noise</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "አማካኝ ጫጫታ" : "Average Noise"}</p>
               <h4 className="text-lg font-black text-slate-900">68.2 dB</h4>
-              <span className="text-[9px] text-emerald-600 font-bold">● Limit 85dB</span>
+              <span className="text-[9px] text-emerald-600 font-bold">{isAmharic ? "● ጣሪያው 85dB" : "● Limit 85dB"}</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border space-y-1">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Water Recycled</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የተጣራ ውሃ" : "Water Recycled"}</p>
               <h4 className="text-lg font-black text-slate-900">5,200 L</h4>
-              <span className="text-[9px] text-slate-500 font-semibold">Today volume</span>
+              <span className="text-[9px] text-slate-500 font-semibold">{isAmharic ? "የዛሬው መጠን" : "Today volume"}</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border space-y-1">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Aluminum Recycled</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "እንደገና የዋለ አሉሚኒየም" : "Aluminum Recycled"}</p>
               <h4 className="text-lg font-black text-slate-900">95%</h4>
-              <span className="text-[9px] text-emerald-600 font-bold">● Top Score</span>
+              <span className="text-[9px] text-emerald-600 font-bold">{isAmharic ? "● ከፍተኛ ውጤት" : "● Top Score"}</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border space-y-1">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Carbon Emissions</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የካርቦን ልቀት" : "Carbon Emissions"}</p>
               <h4 className="text-lg font-black text-slate-900">1.92 Tons</h4>
-              <span className="text-[9px] text-slate-500 font-semibold">Daily footprint</span>
+              <span className="text-[9px] text-slate-500 font-semibold">{isAmharic ? "የዕለት ልቀት" : "Daily footprint"}</span>
             </div>
             <div className="bg-slate-50 p-3.5 rounded-xl border space-y-1">
-              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Solar Offsets</p>
+              <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የሶላር ኃይል ቅነሳ" : "Solar Offsets"}</p>
               <h4 className="text-lg font-black text-slate-900">-0.45 Tons</h4>
-              <span className="text-[9px] text-emerald-600 font-bold">● Active PV Array</span>
+              <span className="text-[9px] text-emerald-600 font-bold">{isAmharic ? "● ንቁ የፀሐይ ፓነል" : "● Active PV Array"}</span>
             </div>
           </div>
 
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 text-xs font-semibold text-slate-700 space-y-3">
-            <h4 className="text-xs font-black uppercase text-slate-800">Environmental Compliance Ledger Summary</h4>
+            <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "የአካባቢ ጥበቃ ደንብ ተገዢነት ማጠቃለያ" : "Environmental Compliance Ledger Summary"}</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1.5 font-mono text-[11px]">
-                <div><span className="text-slate-400 font-medium">Waste Disposed details:</span> <span className="font-bold text-slate-900">{environmentalMetrics.wasteDisposed}</span></div>
-                <div><span className="text-slate-400 font-medium">Walkway Dust Suppression:</span> <span className="font-bold text-slate-900">{environmentalMetrics.dustControl}</span></div>
-                <div><span className="text-slate-400 font-medium">Noise Levels Average:</span> <span className="font-bold text-slate-900">{environmentalMetrics.noiseLevels}</span></div>
+                <div><span className="text-slate-400 font-medium">{isAmharic ? "የተወገደ ቆሻሻ ዝርዝር:" : "Waste Disposed details:"}</span> <span className="font-bold text-slate-900">{environmentalMetrics.wasteDisposed}</span></div>
+                <div><span className="text-slate-400 font-medium">{isAmharic ? "የመተላለፊያ አቧራ መቆጣጠሪያ:" : "Walkway Dust Suppression:"}</span> <span className="font-bold text-slate-900">{environmentalMetrics.dustControl}</span></div>
+                <div><span className="text-slate-400 font-medium">{isAmharic ? "አማካይ የድምፅ መጠን:" : "Noise Levels Average:"}</span> <span className="font-bold text-slate-900">{environmentalMetrics.noiseLevels}</span></div>
               </div>
               <div className="space-y-1.5 font-mono text-[11px]">
-                <div><span className="text-slate-400 font-medium">Daily Water Usage:</span> <span className="font-bold text-slate-900">{environmentalMetrics.waterUsage}</span></div>
-                <div><span className="text-slate-400 font-medium">Diesel Fuel Consumption:</span> <span className="font-bold text-slate-900">{environmentalMetrics.fuelConsumption}</span></div>
-                <div><span className="text-slate-400 font-medium">Carbon Emissions Offset:</span> <span className="font-bold text-emerald-600">{environmentalMetrics.carbonEmissions}</span></div>
+                <div><span className="text-slate-400 font-medium">{isAmharic ? "የዕለት የውሃ አጠቃቀም:" : "Daily Water Usage:"}</span> <span className="font-bold text-slate-900">{environmentalMetrics.waterUsage}</span></div>
+                <div><span className="text-slate-400 font-medium">{isAmharic ? "የናፍጣ ነዳጅ ፍጆታ:" : "Diesel Fuel Consumption:"}</span> <span className="font-bold text-slate-900">{environmentalMetrics.fuelConsumption}</span></div>
+                <div><span className="text-slate-400 font-medium">{isAmharic ? "የካርቦን ልቀት ቅነሳ:" : "Carbon Emissions Offset:"}</span> <span className="font-bold text-emerald-600">{environmentalMetrics.carbonEmissions}</span></div>
               </div>
             </div>
             <div className="flex justify-end pt-2">
@@ -3992,7 +4067,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 }}
                 className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-1.5 px-3 rounded text-xs transition-all cursor-pointer"
               >
-                Trigger Walkway Water Sprinklers
+                {isAmharic ? "የመተላለፊያ ውሃ ርጭት አንቃ" : "Trigger Walkway Water Sprinklers"}
               </button>
             </div>
           </div>
@@ -4018,12 +4093,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-3">Employee</th>
-                      <th className="p-3">Safety Course / Certificate</th>
-                      <th className="p-3">Expiry Date</th>
-                      <th className="p-3">Status</th>
-                      <th className="p-3">Task Block Status</th>
-                      <th className="p-3 text-right">Actions</th>
+                      <th className="p-3">{isAmharic ? "ሠራተኛ" : "Employee"}</th>
+                      <th className="p-3">{isAmharic ? "የደህንነት ስልጠና / ሰርተፊኬት" : "Safety Course / Certificate"}</th>
+                      <th className="p-3">{isAmharic ? "የሚያበቃበት ቀን" : "Expiry Date"}</th>
+                      <th className="p-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
+                      <th className="p-3">{isAmharic ? "የስራ እገዳ ሁኔታ" : "Task Block Status"}</th>
+                      <th className="p-3 text-right">{isAmharic ? "እርምጃዎች" : "Actions"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
@@ -4041,7 +4116,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             tr.status === "Valid" ? "bg-emerald-100 text-emerald-800 border border-emerald-300" :
                             "bg-rose-100 text-rose-800 border border-rose-300 animate-pulse"
                           }`}>
-                            {tr.status}
+                            {tr.status === "Valid" && isAmharic ? "ትክክለኛ" : tr.status === "Expired" && isAmharic ? "ጊዜው ያለፈበት" : tr.status}
                           </span>
                         </td>
                         <td className="p-3">
@@ -4049,7 +4124,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             tr.blockStatus === "Clear" ? "bg-slate-100 text-slate-800 border" :
                             "bg-red-600 text-white animate-pulse"
                           }`}>
-                            {tr.blockStatus}
+                            {tr.blockStatus === "Clear" && isAmharic ? "ክፍት (Clear)" : tr.blockStatus === "Blocked" && isAmharic ? "የታገደ (Blocked)" : tr.blockStatus}
                           </span>
                         </td>
                         <td className="p-3 text-right">
@@ -4068,10 +4143,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               }}
                               className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[9px] px-2 py-1 rounded cursor-pointer transition-all"
                             >
-                              Renew & Unblock
+                              {isAmharic ? "አድስና እገዳ አንሳ" : "Renew & Unblock"}
                             </button>
                           ) : (
-                            <span className="text-slate-400 italic text-[10px]">Valid</span>
+                            <span className="text-slate-400 italic text-[10px]">{isAmharic ? "ትክክለኛ" : "Valid"}</span>
                           )}
                         </td>
                       </tr>
@@ -4111,25 +4186,25 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 });
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Employee Name</label>
-                  <input type="text" placeholder="Enter employee full name" value={newTraining.employee} onChange={e => setNewTraining({...newTraining, employee: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የሠራተኛ ስም" : "Employee Name"}</label>
+                  <input type="text" placeholder={isAmharic ? "ሙሉ ስም ያስገቡ" : "Enter employee full name"} value={newTraining.employee} onChange={e => setNewTraining({...newTraining, employee: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Safety Course Category</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የደህንነት ስልጠና ምድብ" : "Safety Course Category"}</label>
                   <select value={newTraining.course} onChange={e => setNewTraining({...newTraining, course: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
-                    <option value="Height Work & Safety Harness Lock">Height Work & Safety Harness Lock</option>
-                    <option value="Tower Crane Operation Level II Certification">Tower Crane Operation Level II Certification</option>
-                    <option value="Survey Instrument Calibration & Leica GS18 T">Survey Instrument Calibration & Leica GS18 T</option>
-                    <option value="Reinforcement Tensile Testing & ASTM Standards">Reinforcement Tensile Testing & ASTM Standards</option>
-                    <option value="Confined Space Entry Safety Marshal Certification">Confined Space Entry Safety Marshal Certification</option>
+                    <option value="Height Work & Safety Harness Lock">{isAmharic ? "ከፍታ ላይ ስራ እና የደህንነት ማሰሪያ (Height Work)" : "Height Work & Safety Harness Lock"}</option>
+                    <option value="Tower Crane Operation Level II Certification">{isAmharic ? "የታወር ክሬን አሰራር ደረጃ II ሰርተፊኬት" : "Tower Crane Operation Level II Certification"}</option>
+                    <option value="Survey Instrument Calibration & Leica GS18 T">{isAmharic ? "የሰርቬይ መሣሪያ ካሊብሬሽን እና ሌይካ GS18 T" : "Survey Instrument Calibration & Leica GS18 T"}</option>
+                    <option value="Reinforcement Tensile Testing & ASTM Standards">{isAmharic ? "የብረት ጥንካሬ ፍተሻና የ ASTM ደረጃዎች" : "Reinforcement Tensile Testing & ASTM Standards"}</option>
+                    <option value="Confined Space Entry Safety Marshal Certification">{isAmharic ? "የተዘጋ ቦታ ስራ ደህንነት ማርሻል ሰርተፊኬት" : "Confined Space Entry Safety Marshal Certification"}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Certification Expiration Date</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የሰርተፊኬት ማብቂያ ቀን" : "Certification Expiration Date"}</label>
                   <input type="date" value={newTraining.expiryDate} onChange={e => setNewTraining({...newTraining, expiryDate: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <button type="submit" className="w-full bg-red-600 hover:bg-red-700 text-white rounded py-2 font-bold cursor-pointer transition-all">
-                  {isAmharic ? "መዝግብ" : "Register Certification"}
+                  {isAmharic ? "ስልጠና መዝግብ" : "Register Certification"}
                 </button>
               </form>
             </div>
@@ -4165,14 +4240,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <h4 className="text-xs font-black text-slate-900 leading-tight">{p.name}</h4>
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600 font-semibold">
-                      <div>Towers: <span className="font-bold text-slate-900">{p.towers}</span></div>
-                      <div>Floors: <span className="font-bold text-slate-900">{p.floors}</span></div>
-                      <div>Budget Limit: <span className="font-bold text-red-600">{p.budget}</span></div>
-                      <div>Status: <span className="font-bold text-emerald-600">{p.status}</span></div>
+                      <div>{isAmharic ? "ታወሮች:" : "Towers:"} <span className="font-bold text-slate-900">{p.towers}</span></div>
+                      <div>{isAmharic ? "ፎቆች:" : "Floors:"} <span className="font-bold text-slate-900">{p.floors}</span></div>
+                      <div>{isAmharic ? "የበጀት ጣሪያ:" : "Budget Limit:"} <span className="font-bold text-red-600">{p.budget}</span></div>
+                      <div>{isAmharic ? "ሁኔታ:" : "Status:"} <span className="font-bold text-emerald-600">{p.status}</span></div>
                     </div>
                     <div className="space-y-1 pt-1">
                       <div className="flex justify-between text-[10px] font-mono font-bold text-slate-500">
-                        <span>Physical Progress:</span>
+                        <span>{isAmharic ? "ተጨባጭ ሂደት:" : "Physical Progress:"}</span>
                         <span>{p.progress}%</span>
                       </div>
                       <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -4218,7 +4293,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 });
               }} className="space-y-3 text-xs font-semibold text-slate-700">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Digital Construction ERP Company Node</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የኩባንያ ቅርንጫፍ" : "Digital Construction ERP Company Node"}</label>
                   <select value={newProject.company} onChange={e => setNewProject({...newProject, company: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium">
                     <option value="Digital Construction ERP PLC">Digital Construction ERP PLC</option>
                     <option value="Digital Construction ERP System">Digital Construction ERP System</option>
@@ -4227,23 +4302,23 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Project Name</label>
-                  <input type="text" placeholder="e.g. Bole Heights Phase II" value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የፕሮጀክት ስም" : "Project Name"}</label>
+                  <input type="text" placeholder={isAmharic ? "ለምሳሌ፡ ቦሌ ሃይትስ ምዕራፍ II" : "e.g. Bole Heights Phase II"} value={newProject.name} onChange={e => setNewProject({...newProject, name: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Towers / Blocks count</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የታወሮች / ብሎኮች ብዛት" : "Towers / Blocks count"}</label>
                   <input type="text" value={newProject.towers} onChange={e => setNewProject({...newProject, towers: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Design Floors count</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የፎቆች ብዛት" : "Design Floors count"}</label>
                   <input type="text" value={newProject.floors} onChange={e => setNewProject({...newProject, floors: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">Initial Budget Limit</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የመጀመሪያ የበጀት ጣሪያ" : "Initial Budget Limit"}</label>
                   <input type="text" placeholder="e.g. ETB 40M" value={newProject.budget} onChange={e => setNewProject({...newProject, budget: e.target.value})} className="w-full mt-1 border rounded p-1.5 bg-white font-medium" required />
                 </div>
                 <button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded py-2 font-bold cursor-pointer transition-all">
-                  {isAmharic ? "ፕሮጀክት መዝግብ" : "Provision and Deploy"}
+                  {isAmharic ? "ፕሮጀክት መዝግብና አስጀምር" : "Provision and Deploy"}
                 </button>
               </form>
             </div>
@@ -4266,30 +4341,30 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-900 p-4 rounded-xl text-white space-y-1">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">OEE index</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የመሳሪያዎች ውጤታማነት OEE" : "OEE index"}</span>
               <p className="text-2xl font-black text-red-500">92.4%</p>
-              <p className="text-[9px] text-slate-400">Equipment effectiveness</p>
+              <p className="text-[9px] text-slate-400">{isAmharic ? "የማሽነሪዎች ብቃት" : "Equipment effectiveness"}</p>
             </div>
             <div className="bg-slate-900 p-4 rounded-xl text-white space-y-1">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Safety index</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የደህንነት ኢንዴክስ" : "Safety index"}</span>
               <p className="text-2xl font-black text-emerald-500">100.0%</p>
-              <p className="text-[9px] text-slate-400">Zero major loss of time</p>
+              <p className="text-[9px] text-slate-400">{isAmharic ? "ዜሮ የጊዜ ብክነት አደጋ" : "Zero major loss of time"}</p>
             </div>
             <div className="bg-slate-900 p-4 rounded-xl text-white space-y-1">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Quality score</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የጥራት ውጤት" : "Quality score"}</span>
               <p className="text-2xl font-black text-blue-400">98.5%</p>
-              <p className="text-[9px] text-slate-400">Cube stress testing avg</p>
+              <p className="text-[9px] text-slate-400">{isAmharic ? "የኮንክሪት ጥንካሬ አማካይ" : "Cube stress testing avg"}</p>
             </div>
             <div className="bg-slate-900 p-4 rounded-xl text-white space-y-1">
-              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Profitability margin</span>
+              <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የትርፍ ህዳግ" : "Profitability margin"}</span>
               <p className="text-2xl font-black text-yellow-500">+14.2%</p>
-              <p className="text-[9px] text-slate-400">Variance below ceiling</p>
+              <p className="text-[9px] text-slate-400">{isAmharic ? "ከበጀት ጣሪያ በታች" : "Variance below ceiling"}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-slate-50 p-4 rounded-xl border space-y-3">
-              <h4 className="text-xs font-black uppercase text-slate-700">Cumulative Progress & Planned S-Curves</h4>
+              <h4 className="text-xs font-black uppercase text-slate-700">{isAmharic ? "አጠቃላይ ሂደት እና የታቀደው የጊዜ ሰሌዳ (S-Curve)" : "Cumulative Progress & Planned S-Curves"}</h4>
               <div className="h-[250px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={[
@@ -4305,19 +4380,19 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <XAxis dataKey="month" stroke="#94a3b8" fontSize={10} fontWeight="bold" />
                     <YAxis stroke="#94a3b8" fontSize={10} fontWeight="bold" />
                     <Tooltip contentStyle={{ fontSize: 11, fontWeight: 'bold' }} />
-                    <Area type="monotone" dataKey="actual" name="Actual Physical progress (%)" stroke="#dc2626" fill="#fca5a5" fillOpacity={0.3} />
-                    <Area type="monotone" dataKey="planned" name="Planned Schedule S-Curve (%)" stroke="#1e293b" fill="#cbd5e1" fillOpacity={0.1} />
+                    <Area type="monotone" dataKey="actual" name={isAmharic ? "ትክክለኛ አካላዊ ሂደት (%)" : "Actual Physical progress (%)"} stroke="#dc2626" fill="#fca5a5" fillOpacity={0.3} />
+                    <Area type="monotone" dataKey="planned" name={isAmharic ? "የታቀደ የጊዜ ሰሌዳ S-Curve (%)" : "Planned Schedule S-Curve (%)"} stroke="#1e293b" fill="#cbd5e1" fillOpacity={0.1} />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
             </div>
 
             <div className="bg-slate-50 p-4 rounded-xl border text-xs font-semibold text-slate-700 space-y-4">
-              <h4 className="text-xs font-black uppercase text-slate-800">Autopilot Financial & Productivity Digest</h4>
+              <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "የአውቶፓይለት ፋይናንስና ምርታማነት ማጠቃለያ" : "Autopilot Financial & Productivity Digest"}</h4>
               <div className="space-y-3 font-mono text-[11px] leading-relaxed">
-                <p>📈 <span className="font-bold text-slate-900">Aluminum Formwork Productivity:</span> Cumulative sequence cycle is resting at 4.2 days, outperforming regional standard by 16%.</p>
-                <p>📉 <span className="font-bold text-slate-900">Asset Deflect Index:</span> Slump variance rests below 1.5%. No micro-sag risk calculated for Block B1 structural concrete.</p>
-                <p>🛢️ <span className="font-bold text-slate-900">Fuel burn-rate efficiency:</span> Mobile crane operators matching target curve. Total fuel saving of ETB 12,500 calculated today.</p>
+                <p>📈 <span className="font-bold text-slate-900">{isAmharic ? "የአሉሚኒየም ፎርምወርክ ምርታማነት፡" : "Aluminum Formwork Productivity:"}</span> {isAmharic ? "አጠቃላይ ዑደት በ4.2 ቀናት ላይ ሲሆን ከክልላዊ ደረጃው በ16% የፈጠነ ነው።" : "Cumulative sequence cycle is resting at 4.2 days, outperforming regional standard by 16%."}</p>
+                <p>📉 <span className="font-bold text-slate-900">{isAmharic ? "የንብረት ልኬት ኢንዴክስ፡" : "Asset Deflect Index:"}</span> {isAmharic ? "የስላምፕ ልዩነት ከ 1.5% በታች ነው። ለብሎክ B1 ኮንክሪት ምንም አይነት የመስመጥ ስጋት የለም።" : "Slump variance rests below 1.5%. No micro-sag risk calculated for Block B1 structural concrete."}</p>
+                <p>🛢️ <span className="font-bold text-slate-900">{isAmharic ? "የነዳጅ ፍጆታ ብቃት፡" : "Fuel burn-rate efficiency:"}</span> {isAmharic ? "የሞባይል ክሬን ኦፕሬተሮች የታቀደውን አሟልተዋል። ዛሬ አጠቃላይ 12,500 ብር የነዳጅ ቁጠባ ተመዝግቧል።" : "Mobile crane operators matching target curve. Total fuel saving of ETB 12,500 calculated today."}</p>
               </div>
               <button
                 onClick={() => {
@@ -4326,7 +4401,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 }}
                 className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded py-2 font-bold cursor-pointer transition-all"
               >
-                Send BI Report to mejennur669@gmail.com
+                {isAmharic ? `የBI ሪፖርት ወደ ${currentAdminName} ላክ` : "Send BI Report to mejennur669@gmail.com"}
               </button>
             </div>
           </div>
@@ -4377,13 +4452,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
-                    <th className="p-3">Log ID</th>
-                    <th className="p-3">Calling Endpoint</th>
-                    <th className="p-3">Method</th>
-                    <th className="p-3">Status</th>
-                    <th className="p-3">Target System</th>
-                    <th className="p-3">Response Payload</th>
-                    <th className="p-3">Timestamp</th>
+                    <th className="p-3">{isAmharic ? "የመዝገብ መለያ" : "Log ID"}</th>
+                    <th className="p-3">{isAmharic ? "የተጠራው ኤንድፖይንት" : "Calling Endpoint"}</th>
+                    <th className="p-3">{isAmharic ? "ዘዴ" : "Method"}</th>
+                    <th className="p-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
+                    <th className="p-3">{isAmharic ? "ዒላማ ሲስተም" : "Target System"}</th>
+                    <th className="p-3">{isAmharic ? "የመልስ ዳታ" : "Response Payload"}</th>
+                    <th className="p-3">{isAmharic ? "ቀንና ሰዓት" : "Timestamp"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
@@ -4461,13 +4536,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-900 text-white text-[10px] font-bold uppercase tracking-wider">
-                      <th className="p-3">Backup ID</th>
-                      <th className="p-3">Timestamp</th>
-                      <th className="p-3">Type</th>
-                      <th className="p-3">Backup Size</th>
-                      <th className="p-3">Integrity Checksum</th>
-                      <th className="p-3">Geographic Node Location</th>
-                      <th className="p-3">Status</th>
+                      <th className="p-3">{isAmharic ? "የመጠባበቂያ መለያ" : "Backup ID"}</th>
+                      <th className="p-3">{isAmharic ? "ቀንና ሰዓት" : "Timestamp"}</th>
+                      <th className="p-3">{isAmharic ? "አይነት" : "Type"}</th>
+                      <th className="p-3">{isAmharic ? "የፋይል መጠን" : "Backup Size"}</th>
+                      <th className="p-3">{isAmharic ? "የደህንነት ፍተሻ (Checksum)" : "Integrity Checksum"}</th>
+                      <th className="p-3">{isAmharic ? "የክላውድ ሰርቨር ቦታ" : "Geographic Node Location"}</th>
+                      <th className="p-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-200 font-semibold text-slate-700">
@@ -4481,7 +4556,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3 font-mono text-[10px] text-slate-500 font-bold">{log.nodes}</td>
                         <td className="p-3">
                           <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full text-[9px] font-bold">
-                            {log.status}
+                            {log.status === "Completed" && isAmharic ? "ተጠናቋል" : log.status}
                           </span>
                         </td>
                       </tr>
@@ -4494,19 +4569,19 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* SLA Info */}
             <div className="space-y-4">
               <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-slate-300 space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-red-500">SLA Compliance Status</h4>
+                <h4 className="text-xs font-black uppercase tracking-wider text-red-500">{isAmharic ? "የSLA ውል ማክበር ሁኔታ" : "SLA Compliance Status"}</h4>
                 <div className="space-y-2 font-mono text-[10px]">
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                    <span>RTO Compliance Limit:</span>
-                    <span className="text-white font-bold">&lt; 15 Minutes (12m actual)</span>
+                    <span>{isAmharic ? "የRTO ማገገሚያ ገደብ:" : "RTO Compliance Limit:"}</span>
+                    <span className="text-white font-bold">&lt; 15 {isAmharic ? "ደቂቃዎች" : "Minutes"} (12m actual)</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                    <span>RPO Data Loss Max:</span>
-                    <span className="text-white font-bold">&lt; 1 Hour (Synced Live)</span>
+                    <span>{isAmharic ? "የRPO ከፍተኛ የዳታ ማጣት:" : "RPO Data Loss Max:"}</span>
+                    <span className="text-white font-bold">&lt; 1 {isAmharic ? "ሰዓት (በቀጥታ የተመሳሰለ)" : "Hour (Synced Live)"}</span>
                   </div>
                   <div className="flex justify-between pb-1.5">
-                    <span>Multi-Region Nodes:</span>
-                    <span className="text-emerald-500 font-bold">Active (3 Synchronized)</span>
+                    <span>{isAmharic ? "የተለያዩ ክልሎች ሰርቨሮች:" : "Multi-Region Nodes:"}</span>
+                    <span className="text-emerald-500 font-bold">{isAmharic ? "ንቁ (3 የተመሳሰሉ)" : "Active (3 Synchronized)"}</span>
                   </div>
                 </div>
               </div>
@@ -4534,7 +4609,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               </p>
             </div>
             <div className="bg-slate-800 p-2.5 rounded-lg border border-slate-700 text-xs text-slate-300 font-semibold font-mono">
-              <span className="text-slate-400">Enforcement Level:</span> <strong className="text-red-400">Strict Level 4 RBAC</strong>
+              <span className="text-slate-400">{isAmharic ? "የማስገደጃ ደረጃ:" : "Enforcement Level:"}</span> <strong className="text-red-400">Strict Level 4 RBAC</strong>
             </div>
           </div>
 
@@ -4557,7 +4632,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                       }`}
                     >
-                      {cat}
+                      {cat === "All" && isAmharic ? "ሁሉም" : cat === "Operations" && isAmharic ? "ኦፕሬሽን" : cat === "Finance" && isAmharic ? "ፋይናንስ" : cat === "Logistics" && isAmharic ? "ሎጅስቲክስ" : cat === "HR" && isAmharic ? "ሰው ሃይል" : cat === "Safety" && isAmharic ? "ደህንነት" : cat === "Quality" && isAmharic ? "ጥራት" : cat}
                     </button>
                   ))}
                 </div>
@@ -4576,14 +4651,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           </span>
                         </div>
                         <p className="text-[10px] font-mono font-bold text-slate-500 leading-snug">
-                          Levels: <span className="text-slate-800 font-black">{w.path}</span>
+                          {isAmharic ? "መስመር:" : "Levels:"} <span className="text-slate-800 font-black">{w.path}</span>
                         </p>
                       </div>
 
                       <div className="flex justify-between items-center mt-3 pt-2.5 border-t border-slate-150/80">
                         <div className="flex items-center gap-1">
-                          <span className="text-[9px] font-bold text-slate-400">Levels:</span>
-                          <span className="text-[10px] font-black text-red-600">{w.levels} Stages</span>
+                          <span className="text-[9px] font-bold text-slate-400">{isAmharic ? "ደረጃዎች:" : "Levels:"}</span>
+                          <span className="text-[10px] font-black text-red-600">{w.levels} {isAmharic ? "ደረጃዎች" : "Stages"}</span>
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="flex items-center gap-1 cursor-pointer">
@@ -4602,7 +4677,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               }}
                               className="rounded border-slate-300 text-red-600 focus:ring-red-500"
                             />
-                            <span className="text-[9px] font-bold text-slate-500 font-sans">AutoNotify</span>
+                            <span className="text-[9px] font-bold text-slate-500 font-sans">{isAmharic ? "ማሳወቂያ ላክ" : "AutoNotify"}</span>
                           </label>
                         </div>
                       </div>
@@ -4616,32 +4691,32 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               <div>
                 <h4 className="text-xs font-black uppercase text-slate-800 flex items-center gap-1">
                   <Play size={14} className="text-red-600" />
-                  <span>Workflow Pipeline Simulator</span>
+                  <span>{isAmharic ? "የስራ ፍሰት መስመር ሲሙሌተር" : "Workflow Pipeline Simulator"}</span>
                 </h4>
-                <p className="text-[10px] text-slate-500 mt-0.5">Submit a real-time request to see the configured multi-level pipeline fire automatically.</p>
+                <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "የተዋቀረውን የባለብዙ ደረጃ ውሳኔ መስመር በእውነተኛ ጊዜ ለመሞከር ጥያቄ ያስገቡ።" : "Submit a real-time request to see the configured multi-level pipeline fire automatically."}</p>
               </div>
 
               {/* Submission Form */}
               <form onSubmit={handleInitiateSimRequest} className="bg-slate-50 p-3.5 rounded-lg border border-slate-200 space-y-3">
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase font-sans">Process to Trigger</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase font-sans">{isAmharic ? "የሚነሳው የስራ ሂደት" : "Process to Trigger"}</label>
                   <select
                     value={simTriggerId}
                     onChange={e => setSimTriggerId(e.target.value)}
                     className="w-full mt-1 border rounded p-1.5 bg-white font-black text-slate-800 text-[11px]"
                   >
                     {approvalWorkflows.map(w => (
-                      <option key={w.id} value={w.id}>{w.name} ({w.levels} Levels)</option>
+                      <option key={w.id} value={w.id}>{w.name} ({w.levels} {isAmharic ? "ደረጃዎች" : "Levels"})</option>
                     ))}
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase font-sans">Request Summary Details</label>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase font-sans">{isAmharic ? "የጥያቄው ማጠቃለያ ዝርዝር" : "Request Summary Details"}</label>
                   <input
                     type="text"
                     value={simTriggerDetails}
                     onChange={e => setSimTriggerDetails(e.target.value)}
-                    placeholder="e.g., Concrete Pour on slab zone C, 40m3"
+                    placeholder={isAmharic ? "ለምሳሌ፡ በስላብ ዞን C ላይ 40m3 ኮንክሪት ሙሌት" : "e.g., Concrete Pour on slab zone C, 40m3"}
                     className="w-full mt-1 border rounded p-1.5 bg-white text-slate-800 text-[11px] font-semibold"
                     required
                   />
@@ -4650,15 +4725,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   type="submit"
                   className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-2 rounded uppercase text-[10px] tracking-wider cursor-pointer"
                 >
-                  Initiate Approval Pipeline
+                  {isAmharic ? "የውሳኔ መስመሩን አስጀምር" : "Initiate Approval Pipeline"}
                 </button>
               </form>
 
               {/* Active Requests List */}
               <div className="space-y-3.5 pt-2">
-                <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-400">Active Verification Pipeline Queue</h5>
+                <h5 className="text-[10px] font-black uppercase tracking-wider text-slate-400">{isAmharic ? "በሂደት ላይ ያሉ የውሳኔ ጥያቄዎች" : "Active Verification Pipeline Queue"}</h5>
                 {simulatedWorkflowRequests.length === 0 ? (
-                  <p className="text-slate-400 italic text-center py-4">No active pipeline requests.</p>
+                  <p className="text-slate-400 italic text-center py-4">{isAmharic ? "ምንም አይነት ንቁ የውሳኔ ጥያቄ የለም።" : "No active pipeline requests."}</p>
                 ) : (
                   <div className="space-y-3">
                     {simulatedWorkflowRequests.map(req => {
@@ -4673,7 +4748,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase ${
                               req.status === "Approved" ? "bg-emerald-600 text-white" : "bg-yellow-500 text-slate-950"
                             }`}>
-                              {req.status}
+                              {req.status === "Approved" && isAmharic ? "የጸደቀ" : req.status === "Pending" && isAmharic ? "በመጠባበቅ ላይ" : req.status}
                             </span>
                           </div>
 
@@ -4681,14 +4756,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                           <div className="space-y-1">
                             <div className="flex justify-between text-[8px] font-bold text-slate-400">
-                              <span>Pipeline Level Progress:</span>
-                              <span>{req.currentLevel} of {req.maxLevel} Approved ({percentage}%)</span>
+                              <span>{isAmharic ? "የውሳኔ መስመር ሂደት:" : "Pipeline Level Progress:"}</span>
+                              <span>{req.currentLevel} of {req.maxLevel} {isAmharic ? "ጸድቋል" : "Approved"} ({percentage}%)</span>
                             </div>
                             <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
                               <div className="bg-red-600 h-full transition-all" style={{ width: `${percentage}%` }} />
                             </div>
                             <p className="text-[8px] font-mono text-red-600 leading-snug font-bold">
-                              Current level path: <span className="text-slate-800 font-black">{req.levels[req.currentLevel] || "Approved & Logged"}</span>
+                              {isAmharic ? "የወቅቱ የውሳኔ ደረጃ:" : "Current level path:"} <span className="text-slate-800 font-black">{req.levels[req.currentLevel] || (isAmharic ? "የጸደቀና የተመዘገበ" : "Approved & Logged")}</span>
                             </p>
                           </div>
 
@@ -4698,13 +4773,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                 onClick={() => handleAdvanceApproval(req.id, true)}
                                 className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1 rounded cursor-pointer text-center text-[9px] uppercase tracking-wider"
                               >
-                                Approve Next Stage
+                                {isAmharic ? "ቀጣዩን ደረጃ አጽድቅ" : "Approve Next Stage"}
                               </button>
                               <button
                                 onClick={() => handleAdvanceApproval(req.id, false)}
                                 className="px-2.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold py-1 rounded cursor-pointer text-center text-[9px] uppercase"
                               >
-                                Reject
+                                {isAmharic ? "ውድቅ አድርግ" : "Reject"}
                               </button>
                             </div>
                           )}
@@ -4719,37 +4794,39 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             {/* System and Developer Info Column */}
             <div className="space-y-4">
               <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 text-slate-300 space-y-3">
-                <h4 className="text-xs font-black uppercase tracking-wider text-red-500">Security Policies (Enforced)</h4>
+                <h4 className="text-xs font-black uppercase tracking-wider text-red-500">
+                  {isAmharic ? "የደህንነት ፖሊሲዎች (የተተገበሩ)" : "Security Policies (Enforced)"}
+                </h4>
                 <div className="space-y-2 font-mono text-[10px]">
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                    <span>Session Idle Timeout:</span>
-                    <span className="text-white font-bold">{systemSettings?.sessionTimeout || "10 Minutes"}</span>
+                    <span>{isAmharic ? "ስራ ፈት የክፍለ-ጊዜ ገደብ:" : "Session Idle Timeout:"}</span>
+                    <span className="text-white font-bold">{systemSettings?.sessionTimeout || (isAmharic ? "10 ደቂቃዎች" : "10 Minutes")}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                    <span>RBAC Validation level:</span>
-                    <span className="text-white font-bold">{systemSettings?.rbacEnforcement || "Strict Level 4"}</span>
+                    <span>{isAmharic ? "የRBAC ማረጋገጫ ደረጃ:" : "RBAC Validation level:"}</span>
+                    <span className="text-white font-bold">{systemSettings?.rbacEnforcement || (isAmharic ? "ደረጃ 4 ጥብቅ" : "Strict Level 4")}</span>
                   </div>
                   <div className="flex justify-between border-b border-slate-800 pb-1.5">
-                    <span>Administrative MFA:</span>
-                    <span className="text-white font-bold">{systemSettings?.mfaAuthentication || "Active (SMS/Email)"}</span>
+                    <span>{isAmharic ? "የአድሚን ባለሁለት-ደረጃ ማረጋገጫ:" : "Administrative MFA:"}</span>
+                    <span className="text-white font-bold">{systemSettings?.mfaAuthentication || (isAmharic ? "ንቁ (በኤስኤምኤስ/ኢሜይል)" : "Active (SMS/Email)")}</span>
                   </div>
                   <div className="flex justify-between pb-1.5">
-                    <span>Firestore Cold Backup:</span>
-                    <span className="text-emerald-500 font-bold">{systemSettings?.automaticDailyCloudBackup || "Every 24 Hours"}</span>
+                    <span>{isAmharic ? "የክላውድ ዕለታዊ መጠባበቂያ:" : "Firestore Cold Backup:"}</span>
+                    <span className="text-emerald-500 font-bold">{systemSettings?.automaticDailyCloudBackup || (isAmharic ? "በየ 24 ሰዓቱ" : "Every 24 Hours")}</span>
                   </div>
                 </div>
               </div>
 
               <div className="bg-gradient-to-br from-red-950 to-slate-950 p-4 rounded-xl border border-red-500/30 text-white space-y-2">
-                <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest">DEVELOPER DETAILS & CREDITS</p>
+                <p className="text-[9px] font-bold text-red-400 uppercase tracking-widest">{isAmharic ? "የአልሚው ዝርዝር መረጃ እና ክሬዲት" : "DEVELOPER DETAILS & CREDITS"}</p>
                 <div className="space-y-1">
                   <h4 className="text-sm font-black tracking-tight">{currentAdminName}</h4>
-                  <p className="text-[11px] text-slate-300 font-medium">Full Stack ERP Architect</p>
+                  <p className="text-[11px] text-slate-300 font-medium">{isAmharic ? "ሙሉ-ስታክ የERP አርክቴክት" : "Full Stack ERP Architect"}</p>
                   <p className="text-[11px] font-mono text-red-400">0910097862 / 0920843843</p>
                   <p className="text-[11px] font-mono text-slate-400 font-semibold">mejennur669@gmail.com</p>
                 </div>
                 <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 italic leading-snug">
-                  Designed explicitly for Digital Construction ERP Aluminum Formwork Systems. Authenticated under high-integrity multi-region cloud servers.
+                  {isAmharic ? "ለ Digital Construction ERP የአሉሚኒየም ፎርምወርክ ሲስተም የተዘጋጀ። በከፍተኛ ጥበቃ ክላውድ ሰርቨር የተረጋገጠ።" : "Designed explicitly for Digital Construction ERP Aluminum Formwork Systems. Authenticated under high-integrity multi-region cloud servers."}
                 </div>
               </div>
             </div>
@@ -4784,15 +4861,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               </div>
               <div className="flex flex-wrap gap-2">
                 <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
-                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Sync Latency</span>
-                  <span className="text-xs font-black text-emerald-400">12ms (Real-time)</span>
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">{isAmharic ? "የማመሳሰል ፍጥነት" : "Sync Latency"}</span>
+                  <span className="text-xs font-black text-emerald-400">12ms ({isAmharic ? "ቀጥታ" : "Real-time"})</span>
                 </div>
                 <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
-                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Active Workers</span>
-                  <span className="text-xs font-black text-red-400">2,450 Registered</span>
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">{isAmharic ? "ንቁ ሰራተኞች" : "Active Workers"}</span>
+                  <span className="text-xs font-black text-red-400">2,450 {isAmharic ? "የተመዘገቡ" : "Registered"}</span>
                 </div>
                 <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
-                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Cloud Encryption</span>
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">{isAmharic ? "የደመና ምስጠራ" : "Cloud Encryption"}</span>
                   <span className="text-xs font-black text-blue-400">AES-256 / SSL</span>
                 </div>
               </div>
@@ -4817,17 +4894,17 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     }}
                     className="w-full bg-slate-950 text-white font-bold text-xs p-3 rounded-xl border border-slate-700 focus:border-red-500 outline-none cursor-pointer"
                   >
-                    <option value="Head Office App">📱 1. Head Office App (Super Admin)</option>
-                    <option value="Section Head App">📱 2. Section Head App</option>
-                    <option value="Project Manager App">📱 3. Project Manager App</option>
-                    <option value="Site Engineer App">📱 4. Site Engineer App</option>
-                    <option value="Surveyor App">📱 5. Surveyor App (Total Station Link)</option>
-                    <option value="Supervisor App">📱 6. Supervisor App</option>
-                    <option value="Team Leader App">📱 7. Team Leader App</option>
-                    <option value="Gang Chief App">📱 8. Gang Chief App</option>
-                    <option value="Time Keeper App">📱 9. Time Keeper App (Enrollment)</option>
-                    <option value="Employee App">📱 10. Employee Self-Service App</option>
-                    <option value="Drone Operator App">📱 11. Drone Flight App</option>
+                    <option value="Head Office App">📱 1. {isAmharic ? "የዋና መስሪያ ቤት አፕ (ሱፐር አድሚን)" : "Head Office App (Super Admin)"}</option>
+                    <option value="Section Head App">📱 2. {isAmharic ? "የክፍል ኃላፊ አፕ" : "Section Head App"}</option>
+                    <option value="Project Manager App">📱 3. {isAmharic ? "የፕሮጀክት ስራ አስኪያጅ አፕ" : "Project Manager App"}</option>
+                    <option value="Site Engineer App">📱 4. {isAmharic ? "የሳይት መሃንዲስ አፕ" : "Site Engineer App"}</option>
+                    <option value="Surveyor App">📱 5. {isAmharic ? "የሰርቬየር አፕ (ቶታል ስቴሽን)" : "Surveyor App (Total Station Link)"}</option>
+                    <option value="Supervisor App">📱 6. {isAmharic ? "የተቆጣጣሪ አፕ" : "Supervisor App"}</option>
+                    <option value="Team Leader App">📱 7. {isAmharic ? "የቡድን መሪ አፕ" : "Team Leader App"}</option>
+                    <option value="Gang Chief App">📱 8. {isAmharic ? "የጋንግ ቺፍ አፕ" : "Gang Chief App"}</option>
+                    <option value="Time Keeper App">📱 9. {isAmharic ? "የሰዓት ተቆጣጣሪ አፕ (ምዝገባ)" : "Time Keeper App (Enrollment)"}</option>
+                    <option value="Employee App">📱 10. {isAmharic ? "የሰራተኛ ግል አገልግሎት አፕ" : "Employee Self-Service App"}</option>
+                    <option value="Drone Operator App">📱 11. {isAmharic ? "የድሮን አብራሪ አፕ" : "Drone Flight App"}</option>
                   </select>
                 </div>
               </div>
@@ -4861,16 +4938,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Head Office App" && (
                     <div className="space-y-3">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 text-[10px] space-y-1">
-                        <p className="text-slate-400 uppercase font-black tracking-widest">Live National Dashboard</p>
-                        <p className="text-white text-xs font-black">All 5 Digital Construction ERP Sites online</p>
+                        <p className="text-slate-400 uppercase font-black tracking-widest">
+                          {isAmharic ? "ቀጥታ ሀገራዊ ዳሽቦርድ" : "Live National Dashboard"}
+                        </p>
+                        <p className="text-white text-xs font-black">
+                          {isAmharic ? "ሁሉም 5 የፕሮጀክት ሳይቶች በመስመር ላይ" : "All 5 Digital Construction ERP Sites online"}
+                        </p>
                         <div className="w-full bg-slate-950 rounded-full h-1 mt-1">
                           <div className="bg-red-500 h-1 rounded-full w-[76%]"></div>
                         </div>
-                        <p className="text-[8px] text-slate-500 mt-1">Weighted progress: 76.5%</p>
+                        <p className="text-[8px] text-slate-500 mt-1">
+                          {isAmharic ? "አማካይ አጠቃላይ ሂደት: 76.5%" : "Weighted progress: 76.5%"}
+                        </p>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-[10px] font-black text-red-400 uppercase">Executive Controls</p>
+                        <p className="text-[10px] font-black text-red-400 uppercase">
+                          {isAmharic ? "የስራ አመራር መቆጣጠሪያ" : "Executive Controls"}
+                        </p>
                         <button
                           onClick={() => {
                             triggerBroadcastAlert(true);
@@ -4878,7 +4963,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[10px] uppercase transition-all shadow-md cursor-pointer"
                         >
-                          Dispatch National Alert
+                          {isAmharic ? "ሀገር አቀፍ የጥንቃቄ ማሳወቂያ ላክ" : "Dispatch National Alert"}
                         </button>
                         <button
                           onClick={() => {
@@ -4888,15 +4973,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-slate-800 hover:bg-slate-700 text-white font-bold py-1.5 rounded text-[10px] uppercase transition-all border border-slate-700 cursor-pointer"
                         >
-                          Lock System / Force MFA
+                          {isAmharic ? "ሲስተሙን ቆልፍ / ባለ 2-ደረጃ ማረጋገጫ አስገድድ" : "Lock System / Force MFA"}
                         </button>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1 font-mono text-[9px] text-slate-300">
-                        <p className="text-slate-400 uppercase font-bold">Cloud Backup Auto-Schedule</p>
-                        <p>Destination: <span className="text-emerald-400">AWS Frankfurt</span></p>
-                        <p>Frequency: <span className="text-white">Daily 03:00 AM</span></p>
-                        <p>Recovery Objective: <span className="text-white">&lt; 15 mins</span></p>
+                        <p className="text-slate-400 uppercase font-bold">{isAmharic ? "ራስ-ሰር የደመና ምትኬ መርሐግብር" : "Cloud Backup Auto-Schedule"}</p>
+                        <p>{isAmharic ? "መድረሻ:" : "Destination:"} <span className="text-emerald-400">AWS Frankfurt</span></p>
+                        <p>{isAmharic ? "ድግግሞሽ:" : "Frequency:"} <span className="text-white">{isAmharic ? "በየቀኑ ከሌሊቱ 9:00" : "Daily 03:00 AM"}</span></p>
+                        <p>{isAmharic ? "የማገገሚያ ጊዜ:" : "Recovery Objective:"} <span className="text-white">&lt; {isAmharic ? "15 ደቂቃ" : "15 mins"}</span></p>
                       </div>
                     </div>
                   )}
@@ -4905,19 +4990,19 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Section Head App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Assigned Sections</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የተመደቡ ክፍሎች" : "Assigned Sections"}</p>
                         <div className="bg-slate-950 p-2 rounded border border-slate-800">
                           <p className="text-white font-bold">Bole Heights Bloc B1 & B2</p>
-                          <p className="text-[8px] text-slate-500">Supervisors: Assigned Field Supervisors</p>
+                          <p className="text-[8px] text-slate-500">{isAmharic ? "ሱፐርቫይዘሮች: የመስክ ሱፐርቫይዘሮች ተመድበዋል" : "Supervisors: Assigned Field Supervisors"}</p>
                         </div>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Awaiting Approvals</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "ውሳኔ የሚጠብቁ ማጽደቂያዎች" : "Awaiting Approvals"}</p>
                         <div className="flex items-center justify-between bg-slate-950 p-2 rounded">
                           <div>
-                            <p className="text-white font-bold">Team Alpha Overtime</p>
-                            <p className="text-[8px] text-slate-500">2.5 Hrs (15 Workers)</p>
+                            <p className="text-white font-bold">{isAmharic ? "የቡድን አልፋ የትርፍ ሰዓት" : "Team Alpha Overtime"}</p>
+                            <p className="text-[8px] text-slate-500">{isAmharic ? "2.5 ሰዓት (15 ሰራተኞች)" : "2.5 Hrs (15 Workers)"}</p>
                           </div>
                           <button
                             onClick={() => {
@@ -4926,13 +5011,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             }}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold px-2 py-1 rounded cursor-pointer"
                           >
-                            Approve
+                            {isAmharic ? "አጽድቅ" : "Approve"}
                           </button>
                         </div>
                         <div className="flex items-center justify-between bg-slate-950 p-2 rounded">
                           <div>
-                            <p className="text-white font-bold">M20 Steel Tie-Rods</p>
-                            <p className="text-[8px] text-slate-500">Qty: 1,500 Pcs</p>
+                            <p className="text-white font-bold">{isAmharic ? "የM20 ብረት ማሰሪያዎች" : "M20 Steel Tie-Rods"}</p>
+                            <p className="text-[8px] text-slate-500">{isAmharic ? "ብዛት: 1,500 ፍሬ" : "Qty: 1,500 Pcs"}</p>
                           </div>
                           <button
                             onClick={() => {
@@ -4941,7 +5026,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             }}
                             className="bg-emerald-600 hover:bg-emerald-700 text-white text-[9px] font-bold px-2 py-1 rounded cursor-pointer"
                           >
-                            Approve
+                            {isAmharic ? "አጽድቅ" : "Approve"}
                           </button>
                         </div>
                       </div>
@@ -4952,15 +5037,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Project Manager App" && (
                     <div className="space-y-3">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5 text-[10px]">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">CAD Drawing Overlay</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የCAD ፕላን ንጽጽር" : "CAD Drawing Overlay"}</p>
                         <div className="border border-slate-700 rounded p-1.5 bg-slate-950 text-center font-mono">
                           <p className="text-red-400 font-bold">FormworkLayout_Floor4_B1.dwg</p>
-                          <p className="text-[8px] text-slate-500 mt-1">Comparison status: 76.5% Synced</p>
+                          <p className="text-[8px] text-slate-500 mt-1">{isAmharic ? "የንጽጽር ሁኔታ: 76.5% ተመሳስሏል" : "Comparison status: 76.5% Synced"}</p>
                         </div>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2 text-[10px]">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Cycle Planner</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የዙር ፕላነር" : "Cycle Planner"}</p>
                         <button
                           onClick={() => {
                             setAiCadWorkforceOutput({
@@ -4973,12 +5058,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white text-[9px] font-bold py-1.5 rounded uppercase cursor-pointer"
                         >
-                          Generate AI Work Program
+                          {isAmharic ? "በአይአይ የስራ መርሐግብር አውጣ" : "Generate AI Work Program"}
                         </button>
                         {aiCadWorkforceOutput && (
                           <div className="p-2 bg-slate-950 rounded border border-slate-800 font-mono text-[9px] space-y-1">
-                            <p className="text-slate-400">Target Workforce: <span className="text-white">{aiCadWorkforceOutput.requiredWorkforce} Men</span></p>
-                            <p className="text-slate-400">Cycle Duration: <span className="text-white">{aiCadWorkforceOutput.estimatedDurationDays} Days</span></p>
+                            <p className="text-slate-400">{isAmharic ? "የታለመው የሰው ኃይል:" : "Target Workforce:"} <span className="text-white">{aiCadWorkforceOutput.requiredWorkforce} {isAmharic ? "ሰራተኞች" : "Men"}</span></p>
+                            <p className="text-slate-400">{isAmharic ? "የዙሩ ቆይታ:" : "Cycle Duration:"} <span className="text-white">{aiCadWorkforceOutput.estimatedDurationDays} {isAmharic ? "ቀናት" : "Days"}</span></p>
                             <p className="text-slate-400">{aiCadWorkforceOutput.zoneAssignments}</p>
                           </div>
                         )}
@@ -4990,23 +5075,23 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Site Engineer App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Technical Checks</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "ቴክኒካዊ ፍተሻዎች" : "Technical Checks"}</p>
                         <div className="flex justify-between text-[9px] border-b border-slate-800 pb-1">
-                          <span>Vertical Slope Deviation:</span>
-                          <span className="text-emerald-400 font-bold">&lt; 1.2mm (Passed)</span>
+                          <span>{isAmharic ? "የቁመት ዝንባሌ ልዩነት:" : "Vertical Slope Deviation:"}</span>
+                          <span className="text-emerald-400 font-bold">&lt; {isAmharic ? "1.2ሚሜ (አልፏል)" : "1.2mm (Passed)"}</span>
                         </div>
                         <div className="flex justify-between text-[9px] border-b border-slate-800 pb-1">
-                          <span>Horizontal Level tolerance:</span>
-                          <span className="text-emerald-400 font-bold">1.5mm (Passed)</span>
+                          <span>{isAmharic ? "የአግድም ልኬት ተቀባይነት:" : "Horizontal Level tolerance:"}</span>
+                          <span className="text-emerald-400 font-bold">{isAmharic ? "1.5ሚሜ (አልፏል)" : "1.5mm (Passed)"}</span>
                         </div>
                         <div className="flex justify-between text-[9px]">
-                          <span>Pre-Pour Concrete checklist:</span>
-                          <span className="text-red-400 font-bold">Awaiting PM Sign-off</span>
+                          <span>{isAmharic ? "ከኮንክሪት በፊት የቼክሊስት ፍተሻ:" : "Pre-Pour Concrete checklist:"}</span>
+                          <span className="text-red-400 font-bold">{isAmharic ? "የፕሮጀክት ስራ አስኪያጅ ፊርማ ይጠብቃል" : "Awaiting PM Sign-off"}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Concrete Pour Readiness</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የኮንክሪት ሙሌት ዝግጁነት" : "Concrete Pour Readiness"}</p>
                         <button
                           onClick={() => {
                             setConcreteReadinessChecked(prev => ({ ...prev, panels: true, alignment: true, engineer: true }));
@@ -5015,7 +5100,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
                         >
-                          Sign-off Technical Pour
+                          {isAmharic ? "ቴክኒካዊ ሙሌት አጽድቅና ፈርም" : "Sign-off Technical Pour"}
                         </button>
                       </div>
                     </div>
@@ -5025,35 +5110,35 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Surveyor App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Total Station Bluetooth Link</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የቶታል ስቴሽን ብሉቱዝ ግንኙነት" : "Total Station Bluetooth Link"}</p>
                         <div className="flex items-center gap-1.5 bg-slate-950 p-2 rounded">
                           <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse"></span>
-                          <span className="font-mono text-[9px] text-emerald-400">Leica TS16 Connected</span>
+                          <span className="font-mono text-[9px] text-emerald-400">{isAmharic ? "Leica TS16 ተገናኝቷል" : "Leica TS16 Connected"}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Survey Coordinates (X, Y, Z)</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የሰርቬይ መጋጠሚያዎች (X, Y, Z)" : "Survey Coordinates (X, Y, Z)"}</p>
                         <div className="grid grid-cols-3 gap-1.5">
                           <input
                             type="text"
                             value={surveyX}
                             onChange={(e) => setSurveyX(e.target.value)}
-                            placeholder="X Coordinate"
+                            placeholder={isAmharic ? "X መጋጠሚያ" : "X Coordinate"}
                             className="bg-slate-950 text-white font-mono text-[9px] p-1 rounded border border-slate-800 outline-none"
                           />
                           <input
                             type="text"
                             value={surveyY}
                             onChange={(e) => setSurveyY(e.target.value)}
-                            placeholder="Y Coordinate"
+                            placeholder={isAmharic ? "Y መጋጠሚያ" : "Y Coordinate"}
                             className="bg-slate-950 text-white font-mono text-[9px] p-1 rounded border border-slate-800 outline-none"
                           />
                           <input
                             type="text"
                             value={surveyZ}
                             onChange={(e) => setSurveyZ(e.target.value)}
-                            placeholder="Z Elevation"
+                            placeholder={isAmharic ? "Z ከፍታ" : "Z Elevation"}
                             className="bg-slate-950 text-white font-mono text-[9px] p-1 rounded border border-slate-800 outline-none"
                           />
                         </div>
@@ -5065,7 +5150,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
                         >
-                          Push Survey coordinates
+                          {isAmharic ? "የሰርቬይ ልኬቶችን ላክ" : "Push Survey coordinates"}
                         </button>
                         {deviationStatus && (
                           <p className="text-[9px] font-mono text-emerald-400 bg-slate-950 p-1.5 rounded border border-slate-800 text-center">
@@ -5080,10 +5165,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Supervisor App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Daily Site Activity Photos</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የዕለቱ ሳይት እንቅስቃሴ ፎቶዎች" : "Daily Site Activity Photos"}</p>
                         <div className="border border-dashed border-slate-700 p-3 rounded bg-slate-950 text-center cursor-pointer hover:bg-slate-900">
-                          <span className="block text-slate-500 font-mono text-[8px] mb-1">Upload Daily photo</span>
-                          <span className="bg-red-700/50 text-[8px] px-1.5 py-0.5 rounded font-black uppercase">Simulate Camera</span>
+                          <span className="block text-slate-500 font-mono text-[8px] mb-1">{isAmharic ? "የዕለቱ ፎቶ ስቀል" : "Upload Daily photo"}</span>
+                          <span className="bg-red-700/50 text-[8px] px-1.5 py-0.5 rounded font-black uppercase">{isAmharic ? "ካሜራ ሞክር" : "Simulate Camera"}</span>
                         </div>
                         <button
                           onClick={() => {
@@ -5093,19 +5178,19 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1 rounded text-[9px] uppercase cursor-pointer"
                         >
-                          Run AI progress verification
+                          {isAmharic ? "የአይአይ እድገት ማረጋገጫ አስጀምር" : "Run AI progress verification"}
                         </button>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Assigned Workers</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የተመደቡ ሰራተኞች" : "Assigned Workers"}</p>
                         <div className="flex justify-between items-center bg-slate-950 p-1.5 rounded">
                           <span>Chala B. (Welder)</span>
-                          <span className="text-emerald-400 font-mono">Present</span>
+                          <span className="text-emerald-400 font-mono">{isAmharic ? "ተገኝቷል" : "Present"}</span>
                         </div>
                         <div className="flex justify-between items-center bg-slate-950 p-1.5 rounded">
                           <span>Chala Chuko (Formwork)</span>
-                          <span className="text-emerald-400 font-mono">Present</span>
+                          <span className="text-emerald-400 font-mono">{isAmharic ? "ተገኝቷል" : "Present"}</span>
                         </div>
                       </div>
                     </div>
@@ -5115,13 +5200,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Team Leader App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1 text-slate-300">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Today's Cycle Program</p>
-                        <p className="text-white font-bold">Level 4 Area C assemblies</p>
-                        <p>Target panels: <span className="text-white font-black">120 panels</span></p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የዛሬው የስራ ዙር መርሐግብር" : "Today's Cycle Program"}</p>
+                        <p className="text-white font-bold">{isAmharic ? "ፎቅ 4 ዞን ሐ የመገጣጠም ስራ" : "Level 4 Area C assemblies"}</p>
+                        <p>{isAmharic ? "የታለሙ ፓነሎች:" : "Target panels:"} <span className="text-white font-black">120 {isAmharic ? "ፓነሎች" : "panels"}</span></p>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Simulate Work Progress</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የስራ አፈጻጸም መዝግብ" : "Simulate Work Progress"}</p>
                         <button
                           onClick={() => {
                             alert("Progress updated! Level 4 Zone C panel assemblies logged: 120/120 panels completed.");
@@ -5129,7 +5214,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
                         >
-                          Submit 100% Assembly Done
+                          {isAmharic ? "100% መገጣጠም መጠናቀቁን አስገባ" : "Submit 100% Assembly Done"}
                         </button>
                       </div>
                     </div>
@@ -5139,8 +5224,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Gang Chief App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Fingerprint Sign Board</p>
-                        <p className="text-[9px] text-slate-400 leading-tight">Gangs crew check-in via localized biometric interface.</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የጣት አሻራ መፈረሚያ ሰሌዳ" : "Fingerprint Sign Board"}</p>
+                        <p className="text-[9px] text-slate-400 leading-tight">
+                          {isAmharic ? "የሰራተኞች ቡድን ባዮሜትሪክ መቆጣጠሪያ።" : "Gangs crew check-in via localized biometric interface."}
+                        </p>
                         <button
                           onClick={() => {
                             alert("Biometric check-in logged! Worker Chala Chuko registered at 07:32 AM on site.");
@@ -5148,7 +5235,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
                         >
-                          Scan Crew Member Fingerprint
+                          {isAmharic ? "የሰራተኛውን የጣት አሻራ ቃኝ" : "Scan Crew Member Fingerprint"}
                         </button>
                       </div>
                     </div>
@@ -5158,13 +5245,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Time Keeper App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Biometric Enrollment</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የባዮሜትሪክ አዲስ ሰራተኛ ምዝገባ" : "Biometric Enrollment"}</p>
                         <div className="space-y-1.5">
                           <input
                             type="text"
                             value={registeredNewEmployeeName}
                             onChange={(e) => setRegisteredNewEmployeeName(e.target.value)}
-                            placeholder="Full Name (eg. Eng. Yohannes)"
+                            placeholder={isAmharic ? "ሙሉ ስም (ለምሳሌ ኢንጅነር ዮሐንስ)" : "Full Name (eg. Eng. Yohannes)"}
                             className="w-full bg-slate-950 text-white p-1.5 rounded border border-slate-800 outline-none font-sans"
                           />
                           <select
@@ -5172,12 +5259,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             onChange={(e) => setRegisteredNewEmployeeRole(e.target.value)}
                             className="w-full bg-slate-950 text-white p-1.5 rounded border border-slate-800 outline-none"
                           >
-                            <option value="Site Engineer">Site Engineer</option>
-                            <option value="Surveyor">Surveyor</option>
-                            <option value="Supervisor">Supervisor</option>
-                            <option value="Team Leader">Team Leader</option>
-                            <option value="Gang Chief">Gang Chief</option>
-                            <option value="Site Worker">Site Worker</option>
+                            <option value="Site Engineer">{isAmharic ? "የሳይት መሃንዲስ" : "Site Engineer"}</option>
+                            <option value="Surveyor">{isAmharic ? "ሰርቬየር" : "Surveyor"}</option>
+                            <option value="Supervisor">{isAmharic ? "ሱፐርቫይዘር" : "Supervisor"}</option>
+                            <option value="Team Leader">{isAmharic ? "የቡድን መሪ" : "Team Leader"}</option>
+                            <option value="Gang Chief">{isAmharic ? "የጋንግ ቺፍ" : "Gang Chief"}</option>
+                            <option value="Site Worker">{isAmharic ? "የሳይት ሰራተኛ" : "Site Worker"}</option>
                           </select>
                         </div>
                         
@@ -5193,7 +5280,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             }}
                             className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-1 rounded text-[8px] uppercase cursor-pointer"
                           >
-                            Scan Face
+                            {isAmharic ? "የፊት ገጽታ ቃኝ" : "Scan Face"}
                           </button>
                           <button
                             onClick={() => {
@@ -5206,7 +5293,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             }}
                             className="flex-1 bg-slate-800 hover:bg-slate-700 text-white font-bold py-1 rounded text-[8px] uppercase cursor-pointer"
                           >
-                            Scan Fingerprint
+                            {isAmharic ? "የጣት አሻራ ቃኝ" : "Scan Fingerprint"}
                           </button>
                         </div>
 
@@ -5255,10 +5342,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer mt-1"
                         >
-                          Sync Profile to Cloud Firestore
+                          {isAmharic ? "መገለጫውን ወደ ክላውድ ፋየርቤዝ አስምር" : "Sync Profile to Cloud Firestore"}
                         </button>
                         <p className="text-[8px] font-mono text-center text-slate-500">
-                          Biometric State: <span className="text-red-400 font-bold">{biometricEnrollmentStatus}</span>
+                          {isAmharic ? "የባዮሜትሪክ ሁኔታ:" : "Biometric State:"} <span className="text-red-400 font-bold">{biometricEnrollmentStatus}</span>
                         </p>
                       </div>
                     </div>
@@ -5268,23 +5355,23 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Employee App" && (
                     <div className="space-y-3 text-[10px] text-slate-300">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">My Self-Service Portal</p>
-                        <p>Employee: <span className="text-white font-bold">Chala B. (Welder)</span></p>
-                        <p>Registered Site: <span className="text-white">Bole Heights B1</span></p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የሰራተኛ ግል አገልግሎት ፖርታል" : "My Self-Service Portal"}</p>
+                        <p>{isAmharic ? "ሰራተኛ:" : "Employee:"} <span className="text-white font-bold">Chala B. (Welder)</span></p>
+                        <p>{isAmharic ? "የተመዘገበበት ሳይት:" : "Registered Site:"} <span className="text-white">Bole Heights B1</span></p>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Payslip (July 2026)</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የደመወዝ ወረቀት (ሐምሌ 2018)" : "Payslip (July 2026)"}</p>
                         <div className="flex justify-between font-mono text-[9px] border-b border-slate-800 py-1">
-                          <span>Basic Salary:</span>
+                          <span>{isAmharic ? "መሰረታዊ ደመወዝ:" : "Basic Salary:"}</span>
                           <span className="text-white">ETB 24,000</span>
                         </div>
                         <div className="flex justify-between font-mono text-[9px] border-b border-slate-800 py-1">
-                          <span>Overtime (14 Hrs):</span>
+                          <span>{isAmharic ? "የትርፍ ሰዓት (14 ሰዓት):" : "Overtime (14 Hrs):"}</span>
                           <span className="text-white">ETB 4,200</span>
                         </div>
                         <div className="flex justify-between font-mono text-[9px] pt-1">
-                          <span className="font-bold">Total Payout:</span>
+                          <span className="font-bold">{isAmharic ? "ጠቅላላ ክፍያ:" : "Total Payout:"}</span>
                           <span className="text-emerald-400 font-black">ETB 28,200</span>
                         </div>
                       </div>
@@ -5295,19 +5382,19 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {selectedMobileApp === "Drone Operator App" && (
                     <div className="space-y-3 text-[10px]">
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-1.5">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">DJI RTK Mission Control</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የDJI RTK ድሮን የበረራ መቆጣጠሪያ" : "DJI RTK Mission Control"}</p>
                         <div className="flex justify-between text-[9px]">
-                          <span>Signal Link:</span>
-                          <span className="text-emerald-400 font-bold">GPS RTK Fix (100%)</span>
+                          <span>{isAmharic ? "የሲግናል ግንኙነት:" : "Signal Link:"}</span>
+                          <span className="text-emerald-400 font-bold">{isAmharic ? "የGPS RTK ግንኙነት (100%)" : "GPS RTK Fix (100%)"}</span>
                         </div>
                         <div className="flex justify-between text-[9px]">
-                          <span>Battery Health:</span>
-                          <span>92% Charged</span>
+                          <span>{isAmharic ? "የባትሪ ሁኔታ:" : "Battery Health:"}</span>
+                          <span>{isAmharic ? "92% ተሞልቷል" : "92% Charged"}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800 space-y-2">
-                        <p className="text-slate-400 uppercase font-black text-[9px]">Simulation Actions</p>
+                        <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የበረራ ትዕዛዞች" : "Simulation Actions"}</p>
                         <button
                           onClick={() => {
                             setDroneFlightSimulating(true);
@@ -5323,10 +5410,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           }}
                           className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-1.5 rounded text-[9px] uppercase cursor-pointer"
                         >
-                          {droneFlightSimulating ? "Flight active..." : "Simulate Auto-Pilot Scan"}
+                          {droneFlightSimulating ? (isAmharic ? "በረራ ላይ ነው..." : "Flight active...") : (isAmharic ? "ራስ-ሰር የበረራ ቅኝት ጀምር" : "Simulate Auto-Pilot Scan")}
                         </button>
                         <p className="text-[8px] font-mono text-center text-slate-500">
-                          Flight Status: <span className="text-emerald-400 font-bold">{droneFlightStep}</span>
+                          {isAmharic ? "የበረራ ሁኔታ:" : "Flight Status:"} <span className="text-emerald-400 font-bold">{droneFlightStep}</span>
                         </p>
                       </div>
                     </div>
@@ -5344,12 +5431,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
               {/* Offline mode & synchronization widget */}
               <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 font-mono text-[10px] text-slate-300">
-                <p className="text-red-400 uppercase font-bold text-[9px]">Offline Auto-Sync Policy</p>
-                <p>Offline Caching: <span className="text-emerald-400">Enabled</span></p>
-                <p>Conflict Resolution: <span className="text-white">LWW (Last Write Wins)</span></p>
+                <p className="text-red-400 uppercase font-bold text-[9px]">{isAmharic ? "ከመስመር ውጭ ራስ-ሰር ማመሳሰል ፖሊሲ" : "Offline Auto-Sync Policy"}</p>
+                <p>{isAmharic ? "ከመስመር ውጭ ማከማቸት:" : "Offline Caching:"} <span className="text-emerald-400">{isAmharic ? "በርቷል" : "Enabled"}</span></p>
+                <p>{isAmharic ? "ግጭት አፈታት:" : "Conflict Resolution:"} <span className="text-white">LWW (Last Write Wins)</span></p>
                 <div className="flex items-center gap-1.5 mt-1 bg-slate-900 p-1.5 rounded">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
-                  <span className="text-[9px] text-slate-400">Database Engine synced on cloud</span>
+                  <span className="text-[9px] text-slate-400">{isAmharic ? "የመረጃ ቋት ሞተር በደመና ተመሳስሏል" : "Database Engine synced on cloud"}</span>
                 </div>
               </div>
             </div>
@@ -5367,36 +5454,36 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Computer Vision Progress Check */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Computer Vision Formwork Check</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isAmharic ? "የፎርምወርክ የኮምፒውተር እይታ ፍተሻ" : "Computer Vision Formwork Check"}</p>
                     <div className="h-28 flex items-center justify-center bg-slate-950 rounded-lg text-center p-2 relative overflow-hidden">
                       {/* Grid effect inside scan */}
                       <div className="absolute inset-0 bg-[linear-gradient(rgba(18,24,38,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(18,24,38,0.2)_1px,transparent_1px)] bg-[size:10px_10px] opacity-20"></div>
                       <div className="absolute top-0 left-0 w-full h-0.5 bg-red-500 animate-scan"></div>
                       <p className="text-xs font-mono text-emerald-400 font-bold z-10 leading-snug">
-                        {aiAnalysisResult || "Awaiting scan trigger from Mobile App emulator (Drone Flight / Supervisor Photo)..."}
+                        {aiAnalysisResult || (isAmharic ? "ከሞባይል አፕሊኬሽን የስካን ጥያቄ በመጠበቅ ላይ (የድሮን በረራ / የሱፐርቫይዘር ፎቶ)..." : "Awaiting scan trigger from Mobile App emulator (Drone Flight / Supervisor Photo)...")}
                       </p>
                     </div>
                   </div>
 
                   {/* CAD Intelligent Alignment Check */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 space-y-2 text-xs font-semibold">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Design deviation analytics</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{isAmharic ? "የንድፍ ልዩነት ትንተና" : "Design deviation analytics"}</p>
                     <div className="space-y-1.5 font-mono text-[10px] pt-1">
                       <div className="flex justify-between border-b pb-1">
-                        <span className="text-slate-400">Design Thickness:</span>
+                        <span className="text-slate-400">{isAmharic ? "የታቀደ ውፍረት:" : "Design Thickness:"}</span>
                         <span className="text-slate-900 font-bold">120mm</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="text-slate-400">Measured Slope variance:</span>
+                        <span className="text-slate-400">{isAmharic ? "የተለካ የዝንባሌ ልዩነት:" : "Measured Slope variance:"}</span>
                         <span className="text-emerald-600 font-bold">-0.8mm</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span className="text-slate-400">Total Station Elevation:</span>
+                        <span className="text-slate-400">{isAmharic ? "የቶታል ስቴሽን ከፍታ:" : "Total Station Elevation:"}</span>
                         <span className="text-slate-950 font-bold">241.15m</span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-slate-400">Pour Readiness Status:</span>
-                        <span className="text-red-500 font-bold uppercase tracking-wider">Awaiting PM Sign-off</span>
+                        <span className="text-slate-400">{isAmharic ? "የሙሌት ዝግጁነት ሁኔታ:" : "Pour Readiness Status:"}</span>
+                        <span className="text-red-500 font-bold uppercase tracking-wider">{isAmharic ? "የፕሮጀክት ስራ አስኪያጅ ፊርማ ይጠብቃል" : "Awaiting PM Sign-off"}</span>
                       </div>
                     </div>
                   </div>
@@ -5405,15 +5492,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 {/* Smart Concrete Readiness Checklist (Req 28) */}
                 <div className="bg-red-50/50 p-4 rounded-xl border border-red-500/10 space-y-3">
                   <div className="flex justify-between items-center">
-                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">Smart Concrete Readiness Checklist (Req 28)</p>
+                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">{isAmharic ? "ብልህ የኮንክሪት ሙሌት ዝግጁነት ቼክሊስት" : "Smart Concrete Readiness Checklist (Req 28)"}</p>
                     <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
                       concreteReadinessChecked.engineer && concreteReadinessChecked.panels && concreteReadinessChecked.alignment
                         ? "bg-emerald-100 text-emerald-800 border border-emerald-300 animate-none"
                         : "bg-amber-100 text-amber-800 border border-amber-300 animate-pulse"
                     }`}>
                       {concreteReadinessChecked.engineer && concreteReadinessChecked.panels && concreteReadinessChecked.alignment
-                        ? "🟢 READY FOR CONCRETE POUR"
-                        : "🔴 POUR BLOCKED: RESOLVE PENDING"}
+                        ? (isAmharic ? "🟢 ለኮንክሪት ሙሌት ዝግጁ ነው" : "🟢 READY FOR CONCRETE POUR")
+                        : (isAmharic ? "🔴 ሙሌት ታግዷል: ያልተጠናቀቁትን ይፍቱ" : "🔴 POUR BLOCKED: RESOLVE PENDING")}
                     </span>
                   </div>
                   
@@ -5424,7 +5511,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.survey}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, survey: e.target.checked })}
                       />
-                      <span>Survey Approved</span>
+                      <span>{isAmharic ? "ሰርቬይ ጸድቋል" : "Survey Approved"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5432,7 +5519,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.quality}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, quality: e.target.checked })}
                       />
-                      <span>Quality Audited</span>
+                      <span>{isAmharic ? "ጥራት ተፈትሿል" : "Quality Audited"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5440,7 +5527,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.panels}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, panels: e.target.checked })}
                       />
-                      <span>Panels Approved</span>
+                      <span>{isAmharic ? "ፓነሎች ጸድቀዋል" : "Panels Approved"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5448,7 +5535,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.alignment}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, alignment: e.target.checked })}
                       />
-                      <span>Alignment Ok</span>
+                      <span>{isAmharic ? "አሰላለፍ ትክክል ነው" : "Alignment Ok"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5456,7 +5543,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.safety}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, safety: e.target.checked })}
                       />
-                      <span>Safety Signed</span>
+                      <span>{isAmharic ? "ደህንነት ተፈርሟል" : "Safety Signed"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5464,7 +5551,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.materials}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, materials: e.target.checked })}
                       />
-                      <span>Materials Ready</span>
+                      <span>{isAmharic ? "ጥሬ ዕቃዎች ዝግጁ ናቸው" : "Materials Ready"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5472,7 +5559,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.equipment}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, equipment: e.target.checked })}
                       />
-                      <span>Equipment Ready</span>
+                      <span>{isAmharic ? "መሳሪያዎች ዝግጁ ናቸው" : "Equipment Ready"}</span>
                     </label>
                     <label className="flex items-center gap-1.5 bg-white p-2 rounded border border-slate-200 cursor-pointer hover:bg-slate-50">
                       <input
@@ -5480,7 +5567,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         checked={concreteReadinessChecked.engineer}
                         onChange={(e) => setConcreteReadinessChecked({ ...concreteReadinessChecked, engineer: e.target.checked })}
                       />
-                      <span>Engineer Sign-off</span>
+                      <span>{isAmharic ? "የመሃንዲስ ፊርማ" : "Engineer Sign-off"}</span>
                     </label>
                   </div>
                 </div>
@@ -5500,22 +5587,22 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                 <div className="flex flex-wrap gap-2 text-[10px] font-bold">
                   <button
-                    onClick={() => setVoiceQuery("Today's attendance status")}
+                    onClick={() => setVoiceQuery(isAmharic ? "የዛሬ የሰራተኞች መገኘት ሁኔታ" : "Today's attendance status")}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-1 px-2.5 rounded-full border cursor-pointer"
                   >
-                    "Today's attendance status"
+                    "{isAmharic ? "የዛሬ የሰራተኞች መገኘት ሁኔታ" : "Today's attendance status"}"
                   </button>
                   <button
-                    onClick={() => setVoiceQuery("Is the concrete pour approved for Floor 4?")}
+                    onClick={() => setVoiceQuery(isAmharic ? "የፎቅ 4 ኮንክሪት ዝግጁ ነው?" : "Is the concrete pour approved for Floor 4?")}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-1 px-2.5 rounded-full border cursor-pointer"
                   >
-                    "Concrete readiness status?"
+                    "{isAmharic ? "የኮንክሪት ዝግጁነት ሁኔታ?" : "Concrete readiness status?"}"
                   </button>
                   <button
-                    onClick={() => setVoiceQuery("Are there any material shortages?")}
+                    onClick={() => setVoiceQuery(isAmharic ? "የዕቃ እጥረት አለ?" : "Are there any material shortages?")}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-800 py-1 px-2.5 rounded-full border cursor-pointer"
                   >
-                    "Any material shortages?"
+                    "{isAmharic ? "የዕቃ እጥረት አለ?" : "Any material shortages?"}"
                   </button>
                 </div>
 
@@ -5524,24 +5611,33 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     type="text"
                     value={voiceQuery}
                     onChange={(e) => setVoiceQuery(e.target.value)}
-                    placeholder="Enter voice query or click quick buttons..."
+                    placeholder={isAmharic ? "የድምፅ ጥያቄ ያስገቡ ወይም ፈጣን አማራጮችን ይጫኑ..." : "Enter voice query or click quick buttons..."}
                     className="flex-1 bg-slate-50 text-slate-900 text-xs p-3 rounded-xl border border-slate-300 outline-none font-sans font-semibold"
                   />
                   <button
                     onClick={() => {
                       if (!voiceQuery.trim()) return;
                       setIsVoiceActive(true);
-                      setVoiceResponse("Processing voice token query...");
+                      setVoiceResponse(isAmharic ? "የድምፅ ጥያቄውን በማስኬድ ላይ..." : "Processing voice token query...");
                       setTimeout(() => {
                         setIsVoiceActive(false);
-                        if (voiceQuery.toLowerCase().includes("attendance")) {
-                          setVoiceResponse("AI VOICE RESPONSE: Today, 65 workers are present on the Bole Heights site. 2 arrived late. No missing key time keeper records.");
-                        } else if (voiceQuery.toLowerCase().includes("concrete") || voiceQuery.toLowerCase().includes("readiness")) {
-                          setVoiceResponse("AI VOICE RESPONSE: Concrete readiness for Block B1 Floor 4 is at 98%. Approved by Surveyor and Safety Marshal. Awaiting Site Engineer final checkbox.");
-                        } else if (voiceQuery.toLowerCase().includes("shortage") || voiceQuery.toLowerCase().includes("material")) {
-                          setVoiceResponse("AI VOICE RESPONSE: Alert. Locking wedge pins are at 16,900 pieces, close to the safety threshold of 15,000. Recommend approving the pending PR-301 procurement request.");
+                        const qLower = voiceQuery.toLowerCase();
+                        if (qLower.includes("attendance") || qLower.includes("መገኘት")) {
+                          setVoiceResponse(isAmharic
+                            ? "የአይአይ ድምፅ መልስ: ዛሬ በቦሌ ሳይት ላይ 65 ሰራተኞች ተገኝተዋል። 2 ሰራተኞች ዘግይተው ደርሰዋል። የሰዓት ተቆጣጣሪ መዝገቦች ሙሉ በሙሉ ተመሳስለዋል።"
+                            : "AI VOICE RESPONSE: Today, 65 workers are present on the Bole Heights site. 2 arrived late. No missing key time keeper records.");
+                        } else if (qLower.includes("concrete") || qLower.includes("readiness") || qLower.includes("ኮንክሪት") || qLower.includes("ዝግጁ")) {
+                          setVoiceResponse(isAmharic
+                            ? "የአይአይ ድምፅ መልስ: ለብሎክ ቢ1 ፎቅ 4 የኮንክሪት ዝግጁነት 98% ላይ ደርሷል። በሰርቬየርና በደህንነት መኮንን ጸድቋል። የሳይት መሃንዲሱ የመጨረሻ ፊርማ ብቻ ይቀራል።"
+                            : "AI VOICE RESPONSE: Concrete readiness for Block B1 Floor 4 is at 98%. Approved by Surveyor and Safety Marshal. Awaiting Site Engineer final checkbox.");
+                        } else if (qLower.includes("shortage") || qLower.includes("material") || qLower.includes("እጥረት") || qLower.includes("ዕቃ")) {
+                          setVoiceResponse(isAmharic
+                            ? "የአይአይ ድምፅ መልስ: ማስጠንቀቂያ። የመቆለፊያ ፒኖች 16,900 ፍሬ ብቻ ቀርተዋል፤ ከደህንነት ወሰን 15,000 ቅርብ ነው። በግዢ ጥያቄ PR-301 የቀረበውን ማጽደቅ ይመከራል።"
+                            : "AI VOICE RESPONSE: Alert. Locking wedge pins are at 16,900 pieces, close to the safety threshold of 15,000. Recommend approving the pending PR-301 procurement request.");
                         } else {
-                          setVoiceResponse(`AI VOICE RESPONSE: Here is the customized summary for your query '${voiceQuery}'. All sites are syncing perfectly. Weighted progress: 76.5%.`);
+                          setVoiceResponse(isAmharic
+                            ? `የአይአይ ድምፅ መልስ: ለጥያቄዎ '${voiceQuery}' የተዘጋጀ ማጠቃለያ። ሁሉም ሳይቶች በጥሩ ሁኔታ እየተመሳሰሉ ነው፤ አጠቃላይ ሂደት 76.5%።`
+                            : `AI VOICE RESPONSE: Here is the customized summary for your query '${voiceQuery}'. All sites are syncing perfectly. Weighted progress: 76.5%.`);
                         }
                         onLogAction("Voice Assistant Consulted", `Query: ${voiceQuery}`);
                       }, 1000);
@@ -5549,7 +5645,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 rounded-xl flex items-center gap-1.5 transition-all shadow-md cursor-pointer"
                   >
                     <Mic size={13} className={isVoiceActive ? "animate-bounce" : ""} />
-                    <span>Ask Assistant</span>
+                    <span>{isAmharic ? "ረዳቱን ጠይቅ" : "Ask Assistant"}</span>
                   </button>
                 </div>
 
@@ -5678,42 +5774,44 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                   {/* Schema details and live status */}
                   <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/60 font-mono text-[10px] space-y-1">
-                    <p className="text-slate-400 font-bold">Metadata Telemetry</p>
-                    <p>Encryption: <span className="text-slate-900 font-bold">AES-256 On-disk</span></p>
-                    <p>Indexing: <span className="text-emerald-600 font-bold">Composite Index Enabled</span></p>
-                    <p>Rules: <span className="text-red-500 font-bold">Role-Based Restrictions Active</span></p>
+                    <p className="text-slate-400 font-bold">{isAmharic ? "የሜታዳታ ቴሌሜትሪ" : "Metadata Telemetry"}</p>
+                    <p>{isAmharic ? "ምስጠራ:" : "Encryption:"} <span className="text-slate-900 font-bold">{isAmharic ? "AES-256 በዲስክ ላይ" : "AES-256 On-disk"}</span></p>
+                    <p>{isAmharic ? "ኢንዴክስ:" : "Indexing:"} <span className="text-emerald-600 font-bold">{isAmharic ? "የተቀናጀ ኢንዴክስ በርቷል" : "Composite Index Enabled"}</span></p>
+                    <p>{isAmharic ? "ህጎች:" : "Rules:"} <span className="text-red-500 font-bold">{isAmharic ? "በተጠቃሚ ሚና የተገደበ ንቁ ነው" : "Role-Based Restrictions Active"}</span></p>
                   </div>
                 </div>
 
                 {/* Firestore Schema Fields list */}
                 <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 text-[10px] font-mono text-slate-300">
-                  <p className="text-red-400 font-bold mb-1.5 uppercase">Schema Structure for collection: {selectedDbCollection}</p>
+                  <p className="text-red-400 font-bold mb-1.5 uppercase">
+                    {isAmharic ? "የስኬማ መዋቅር ለስብስቡ:" : "Schema Structure for collection:"} {selectedDbCollection}
+                  </p>
                   
                   {/* Dynamic Fields definition map */}
                   {selectedDbCollection === "companies" && (
                     <ul className="space-y-1 list-disc list-inside">
-                      <li>companyId: <span className="text-blue-400">string (Primary Key)</span></li>
+                      <li>companyId: <span className="text-blue-400">string ({isAmharic ? "ዋና ቁልፍ" : "Primary Key"})</span></li>
                       <li>companyName: <span className="text-blue-400">string (eg. Digital Construction ERP System)</span></li>
                       <li>logo: <span className="text-blue-400">string (Firebase Storage URI)</span></li>
                       <li>address: <span className="text-blue-400">string</span></li>
                       <li>status: <span className="text-emerald-400">string ("Active")</span></li>
                       <li>createdAt: <span className="text-blue-400">timestamp</span></li>
-                      <li>createdBy: <span className="text-blue-400">string (Head Office Admin ID)</span></li>
+                      <li>createdBy: <span className="text-blue-400">string ({isAmharic ? "የዋና መስሪያ ቤት አድሚን መለያ" : "Head Office Admin ID"})</span></li>
                     </ul>
                   )}
                   {selectedDbCollection === "projects" && (
                     <ul className="space-y-1 list-disc list-inside">
-                      <li>projectId: <span className="text-blue-400">string (Primary Key)</span></li>
-                      <li>companyId: <span className="text-blue-400">string (Foreign Key reference)</span></li>
+                      <li>projectId: <span className="text-blue-400">string ({isAmharic ? "ዋና ቁልፍ" : "Primary Key"})</span></li>
+                      <li>companyId: <span className="text-blue-400">string ({isAmharic ? "የኩባንያ መለያ ዋቢ" : "Foreign Key reference"})</span></li>
                       <li>projectName: <span className="text-blue-400">string (eg. Bole Heights Phase 1)</span></li>
-                      <li>location: <span className="text-blue-400">string (GPS coordinates / geofence)</span></li>
+                      <li>location: <span className="text-blue-400">string ({isAmharic ? "የGPS መጋጠሚያዎች" : "GPS coordinates / geofence"})</span></li>
                       <li>status: <span className="text-blue-400">string ("Active")</span></li>
                       <li>startDate / endDate: <span className="text-blue-400">timestamp</span></li>
                     </ul>
                   )}
                   {selectedDbCollection === "employees" && (
                     <ul className="space-y-1 list-disc list-inside">
-                      <li>employeeId: <span className="text-blue-400">string (Primary Key)</span></li>
+                      <li>employeeId: <span className="text-blue-400">string ({isAmharic ? "ዋና ቁልፍ" : "Primary Key"})</span></li>
                       <li>fullName: <span className="text-blue-400">string</span></li>
                       <li>role: <span className="text-blue-400">string (Enum UserRole)</span></li>
                       <li>fingerprintRegistered: <span className="text-emerald-400">boolean</span></li>
@@ -5724,8 +5822,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   )}
                   {selectedDbCollection === "attendance" && (
                     <ul className="space-y-1 list-disc list-inside">
-                      <li>attendanceId: <span className="text-blue-400">string (Primary Key)</span></li>
-                      <li>employeeId: <span className="text-blue-400">string (Foreign Key)</span></li>
+                      <li>attendanceId: <span className="text-blue-400">string ({isAmharic ? "ዋና ቁልፍ" : "Primary Key"})</span></li>
+                      <li>employeeId: <span className="text-blue-400">string ({isAmharic ? "የሰራተኛ መለያ" : "Foreign Key"})</span></li>
                       <li>date: <span className="text-blue-400">string (YYYY-MM-DD)</span></li>
                       <li>checkInTime / checkOutTime: <span className="text-blue-400">timestamp</span></li>
                       <li>gpsVerified / biometricVerified: <span className="text-emerald-400">boolean</span></li>
@@ -5735,7 +5833,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   {/* General Schema fallback for other collections */}
                   {!["companies", "projects", "employees", "attendance"].includes(selectedDbCollection) && (
                     <div className="space-y-1">
-                      <p className="text-slate-400 italic">Continuous Enterprise Structure Schema keys loaded:</p>
+                      <p className="text-slate-400 italic">
+                        {isAmharic ? "የድርጅቱ አጠቃላይ ስኬማ ቁልፎች ተጭነዋል:" : "Continuous Enterprise Structure Schema keys loaded:"}
+                      </p>
                       <ul className="space-y-1 list-disc list-inside text-slate-300">
                         <li>createdBy: <span className="text-blue-400">string (User UID)</span></li>
                         <li>updatedBy: <span className="text-blue-400">string (User UID)</span></li>
@@ -5751,7 +5851,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="bg-slate-900 p-4 rounded-xl border border-slate-800 text-xs font-mono text-slate-200 space-y-2">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <span className="text-emerald-400 font-bold uppercase">
-                      LIVE FIRESTORE DOCUMENTS: /{selectedDbCollection}
+                      {isAmharic ? "ቀጥታ የፋየርቤዝ መዝገቦች:" : "LIVE FIRESTORE DOCUMENTS:"} /{selectedDbCollection}
                     </span>
                     <span className="bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
                       {liveCollectionDocs.length} {isAmharic ? "መዝገቦች" : "Documents Live"}
@@ -5819,24 +5919,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                       <span>Android (Google Play)</span>
-                      <span className="text-emerald-600 font-bold">Signed Build</span>
+                      <span className="text-emerald-600 font-bold">{isAmharic ? "የተፈረመበት ግንባታ" : "Signed Build"}</span>
                     </p>
                     <div className="space-y-1.5 font-mono text-[9px]">
                       <div className="flex justify-between border-b pb-1">
-                        <span>AAB Package:</span>
+                        <span>AAB {isAmharic ? "ፓኬጅ:" : "Package:"}</span>
                         <span className="text-slate-900 font-bold">Digital Construction ERP_ERP_v2.4.aab</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span>APK Signed:</span>
+                        <span>APK {isAmharic ? "የተፈረመበት:" : "Signed:"}</span>
                         <span className="text-slate-900 font-bold">Digital Construction ERP_ERP_Production_Release.apk</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span>Keystore Alias:</span>
+                        <span>Keystore {isAmharic ? "ስም:" : "Alias:"}</span>
                         <span className="text-slate-950 font-bold">digital-construction-release-key</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Splash Screen:</span>
-                        <span className="text-emerald-600 font-bold">Ready (G+12 Render Logo)</span>
+                        <span>{isAmharic ? "የመግቢያ ስክሪን:" : "Splash Screen:"}</span>
+                        <span className="text-emerald-600 font-bold">{isAmharic ? "ዝግጁ (G+12 ሬንደር ሎጎ)" : "Ready (G+12 Render Logo)"}</span>
                       </div>
                     </div>
                   </div>
@@ -5845,24 +5945,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-3">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center justify-between">
                       <span>iOS (Apple App Store)</span>
-                      <span className="text-emerald-600 font-bold">Signed Build</span>
+                      <span className="text-emerald-600 font-bold">{isAmharic ? "የተፈረመበት ግንባታ" : "Signed Build"}</span>
                     </p>
                     <div className="space-y-1.5 font-mono text-[9px]">
                       <div className="flex justify-between border-b pb-1">
-                        <span>IPA Package:</span>
+                        <span>IPA {isAmharic ? "ፓኬጅ:" : "Package:"}</span>
                         <span className="text-slate-900 font-bold">Digital Construction ERP_ERP_Release_signed.ipa</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span>Certificates:</span>
+                        <span>{isAmharic ? "ሰርተፊኬቶች:" : "Certificates:"}</span>
                         <span className="text-slate-900 font-bold">Apple Distribution (July 2026)</span>
                       </div>
                       <div className="flex justify-between border-b pb-1">
-                        <span>App Store Review:</span>
-                        <span className="text-slate-950 font-bold">Pre-pour verified test account demo</span>
+                        <span>{isAmharic ? "የአፕ ስቶር ግምገማ:" : "App Store Review:"}</span>
+                        <span className="text-slate-950 font-bold">{isAmharic ? "የሙከራ አካውንት ማሳያ ተዘጋጅቷል" : "Pre-pour verified test account demo"}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Store Screenshots:</span>
-                        <span className="text-emerald-600 font-bold">Uploaded (All 11 App Roles)</span>
+                        <span>{isAmharic ? "የስክሪን ፎቶዎች:" : "Store Screenshots:"}</span>
+                        <span className="text-emerald-600 font-bold">{isAmharic ? "ተጭነዋል (ለሁሉም 11 አፖች)" : "Uploaded (All 11 App Roles)"}</span>
                       </div>
                     </div>
                   </div>
@@ -5902,18 +6002,18 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               </div>
               <div className="flex flex-wrap gap-2">
                 <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
-                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Average Rating</span>
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">{isAmharic ? "አማካይ ደረጃ" : "Average Rating"}</span>
                   <span className="text-xs font-black text-emerald-400">4.4 / 5.0 ⭐</span>
                 </div>
                 <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
-                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Open Tickets</span>
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">{isAmharic ? "ክፍት ጥያቄዎች" : "Open Tickets"}</span>
                   <span className="text-xs font-black text-red-400">
-                    {feedbacks.filter(f => f.status !== "Closed").length} Active
+                    {feedbacks.filter(f => f.status !== "Closed").length} {isAmharic ? "ንቁ" : "Active"}
                   </span>
                 </div>
                 <div className="bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-center font-mono">
-                  <span className="block text-[8px] text-slate-500 uppercase font-bold">Sentiment Health</span>
-                  <span className="text-xs font-black text-blue-400">82% Positive</span>
+                  <span className="block text-[8px] text-slate-500 uppercase font-bold">{isAmharic ? "የስሜት ትንተና ጤናማነት" : "Sentiment Health"}</span>
+                  <span className="text-xs font-black text-blue-400">{isAmharic ? "82% አዎንታዊ" : "82% Positive"}</span>
                 </div>
               </div>
             </div>
@@ -6428,17 +6528,17 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="space-y-2">
                   <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-[10px] space-y-1">
                     <div className="flex justify-between items-center text-slate-400">
-                      <span className="font-bold">📨 Head Office SMS Alert</span>
-                      <span>Now</span>
+                      <span className="font-bold">📨 {isAmharic ? "የዋና መስሪያ ቤት አጭር የጽሁፍ መልዕክት (SMS)" : "Head Office SMS Alert"}</span>
+                      <span>{isAmharic ? "አሁን" : "Now"}</span>
                     </div>
-                    <p className="text-white font-semibold">New Critical Safety Ticket created from Bole Heights B2 (Anonymous)</p>
+                    <p className="text-white font-semibold">{isAmharic ? "አዲስ ወሳኝ የደህንነት ቅሬታ ከቦሌ ሳይት B2 ገብቷል (ስም-አልባ)" : "New Critical Safety Ticket created from Bole Heights B2 (Anonymous)"}</p>
                   </div>
                   <div className="p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-[10px] space-y-1">
                     <div className="flex justify-between items-center text-slate-400">
-                      <span className="font-bold">🔔 System Push Notification</span>
-                      <span>15m ago</span>
+                      <span className="font-bold">🔔 {isAmharic ? "የሲስተም የግፊት ማሳወቂያ" : "System Push Notification"}</span>
+                      <span>{isAmharic ? "ከ15 ደቂቃ በፊት" : "15m ago"}</span>
                     </div>
-                    <p className="text-white font-semibold">System Admin replied to Leica TS16 Bluetooth latency ticket FB-001</p>
+                    <p className="text-white font-semibold">{isAmharic ? "የሲስተም አድሚን ለLeica TS16 የብሉቱዝ መዘግየት ቲኬት FB-001 ምላሽ ሰጥቷል" : "System Admin replied to Leica TS16 Bluetooth latency ticket FB-001"}</p>
                   </div>
                 </div>
               </div>
@@ -6496,10 +6596,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         className="bg-slate-50 text-slate-900 text-xs p-2 rounded-xl border border-slate-200 outline-none cursor-pointer font-bold"
                       >
                         <option value="All">{isAmharic ? "ሁሉም ምድብ" : "All Categories"}</option>
-                        <option value="Technical">Technical</option>
-                        <option value="Safety">Safety</option>
-                        <option value="Materials">Materials</option>
-                        <option value="Management">Management</option>
+                        <option value="Technical">{isAmharic ? "ቴክኒካል" : "Technical"}</option>
+                        <option value="Safety">{isAmharic ? "ደህንነት" : "Safety"}</option>
+                        <option value="Materials">{isAmharic ? "ማቴሪያል" : "Materials"}</option>
+                        <option value="Management">{isAmharic ? "አመራር" : "Management"}</option>
                       </select>
                       
                       <select
@@ -6508,10 +6608,10 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         className="bg-slate-50 text-slate-900 text-xs p-2 rounded-xl border border-slate-200 outline-none cursor-pointer font-bold"
                       >
                         <option value="All">{isAmharic ? "ሁሉም ቅድሚያ" : "All Priorities"}</option>
-                        <option value="Critical">🔴 Critical</option>
-                        <option value="High">🟠 High</option>
-                        <option value="Medium">🟡 Medium</option>
-                        <option value="Low">🟢 Low</option>
+                        <option value="Critical">🔴 {isAmharic ? "ወሳኝ" : "Critical"}</option>
+                        <option value="High">🟠 {isAmharic ? "ከፍተኛ" : "High"}</option>
+                        <option value="Medium">🟡 {isAmharic ? "መካከለኛ" : "Medium"}</option>
+                        <option value="Low">🟢 {isAmharic ? "ዝቅተኛ" : "Low"}</option>
                       </select>
 
                       <button
@@ -6615,7 +6715,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               ticket.status === "In Review" ? "bg-amber-100 text-amber-800 animate-pulse" :
                               ticket.status === "Action Taken" ? "bg-emerald-100 text-emerald-800" : "bg-emerald-200 text-emerald-900"
                             }`}>
-                              {ticket.status}
+                              {ticket.status === "Open" ? (isAmharic ? "ክፍት" : "Open") :
+                               ticket.status === "Assigned" ? (isAmharic ? "የተመደበ" : "Assigned") :
+                               ticket.status === "In Review" ? (isAmharic ? "በግምገማ ላይ" : "In Review") :
+                               ticket.status === "Action Taken" ? (isAmharic ? "እርምጃ የተወሰደ" : "Action Taken") :
+                               (isAmharic ? "የተዘጋ" : "Closed")}
                             </span>
                           </div>
 
@@ -6629,13 +6733,15 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                               <span>{ticket.userName} ({ticket.userRole})</span>
                             </div>
                             <div className="flex items-center gap-2">
-                              {ticket.hasAudio && <span className="text-red-500 font-black">🎙️ Audio Attached</span>}
+                              {ticket.hasAudio && <span className="text-red-500 font-black">{isAmharic ? "🎙️ የድምፅ መልዕክት ተያይዟል" : "🎙️ Audio Attached"}</span>}
                               {ticket.attachment && <span className="text-slate-400 font-mono text-[9px]">📎 {ticket.attachment}</span>}
                               <span className={`px-1.5 py-0.5 rounded text-[8px] font-black ${
                                 ticket.sentiment === "Positive" ? "bg-emerald-100 text-emerald-700" :
                                 ticket.sentiment === "Negative" ? "bg-red-100 text-red-700" : "bg-slate-100 text-slate-600"
                               }`}>
-                                {ticket.sentiment} ({Math.round(ticket.sentimentScore * 100)}%)
+                                {ticket.sentiment === "Positive" ? (isAmharic ? "አዎንታዊ" : "Positive") :
+                                 ticket.sentiment === "Negative" ? (isAmharic ? "አሉታዊ" : "Negative") :
+                                 (isAmharic ? "መካከለኛ" : "Neutral")} ({Math.round(ticket.sentimentScore * 100)}%)
                               </span>
                             </div>
                           </div>
@@ -6643,7 +6749,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       ))}
 
                     {feedbacks.length === 0 && (
-                      <p className="text-slate-400 text-xs italic text-center py-6">No feedback records found matching filters.</p>
+                      <p className="text-slate-400 text-xs italic text-center py-6">
+                        {isAmharic ? "ማጣሪያውን የሚያሟላ ምንም ግብረመልስ አልተገኘም።" : "No feedback records found matching filters."}
+                      </p>
                     )}
                   </div>
 
@@ -6662,7 +6770,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           onClick={() => setSelectedFeedbackForDetails(null)}
                           className="text-xs text-slate-400 hover:text-slate-900 font-black cursor-pointer"
                         >
-                          ✕ Close Detail
+                          {isAmharic ? "✕ ዝርዝሩን ዝጋ" : "✕ Close Detail"}
                         </button>
                       </div>
 
@@ -6679,30 +6787,30 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             {selectedFeedbackForDetails.type === "System" ? (
                               <>
                                 <div className="bg-slate-50 p-1.5 rounded text-center">
-                                  <span className="block text-slate-400 text-[8px] uppercase">Ease of use</span>
+                                  <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "የአጠቃቀም ቀላልነት" : "Ease of use"}</span>
                                   <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.easeOfUse} / 5</span>
                                 </div>
                                 <div className="bg-slate-50 p-1.5 rounded text-center">
-                                  <span className="block text-slate-400 text-[8px] uppercase">App speed</span>
+                                  <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "የአፕ ፍጥነት" : "App speed"}</span>
                                   <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.speed} / 5</span>
                                 </div>
                                 <div className="bg-slate-50 p-1.5 rounded text-center">
-                                  <span className="block text-slate-400 text-[8px] uppercase">Reliability</span>
+                                  <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "አስተማማኝነት" : "Reliability"}</span>
                                   <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.reliability} / 5</span>
                                 </div>
                               </>
                             ) : (
                               <>
                                 <div className="bg-slate-50 p-1.5 rounded text-center">
-                                  <span className="block text-slate-400 text-[8px] uppercase">Management</span>
+                                  <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "አመራር" : "Management"}</span>
                                   <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.management} / 5</span>
                                 </div>
                                 <div className="bg-slate-50 p-1.5 rounded text-center">
-                                  <span className="block text-slate-400 text-[8px] uppercase">Communication</span>
+                                  <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ግንኙነት" : "Communication"}</span>
                                   <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.communication} / 5</span>
                                 </div>
                                 <div className="bg-slate-50 p-1.5 rounded text-center">
-                                  <span className="block text-slate-400 text-[8px] uppercase">Support</span>
+                                  <span className="block text-slate-400 text-[8px] uppercase">{isAmharic ? "ድጋፍ" : "Support"}</span>
                                   <span className="text-amber-600">⭐ {selectedFeedbackForDetails.ratings.support} / 5</span>
                                 </div>
                               </>
@@ -6739,21 +6847,21 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                             <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-slate-500 uppercase">Responsible Department</label>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">{isAmharic ? "ኃላፊነት የተሰጠው ክፍል" : "Responsible Department"}</label>
                               <select
                                 value={adminAssignedDept}
                                 onChange={(e) => setAdminAssignedDept(e.target.value)}
                                 className="w-full bg-white text-slate-900 text-[10px] p-2 rounded-lg border outline-none font-bold cursor-pointer"
                               >
-                                <option value="IT & Digital Infrastructure">IT & Digital Infrastructure</option>
-                                <option value="HSE Safety Department">HSE Safety Department</option>
-                                <option value="Procurement & Materials Supply">Procurement & Materials Supply</option>
-                                <option value="Project Management Office">Project Management Office</option>
-                                <option value="Human Resources & Payroll">Human Resources & Payroll</option>
+                                <option value="IT & Digital Infrastructure">{isAmharic ? "የአይቲ እና ዲጂታል መሠረተ-ልማት" : "IT & Digital Infrastructure"}</option>
+                                <option value="HSE Safety Department">{isAmharic ? "የደህንነትና ጤና (HSE) ክፍል" : "HSE Safety Department"}</option>
+                                <option value="Procurement & Materials Supply">{isAmharic ? "የግዢና ማቴሪያል አቅርቦት" : "Procurement & Materials Supply"}</option>
+                                <option value="Project Management Office">{isAmharic ? "የፕሮጀክት አስተዳደር ቢሮ" : "Project Management Office"}</option>
+                                <option value="Human Resources & Payroll">{isAmharic ? "የሰው ኃይልና ደመወዝ ክፍል" : "Human Resources & Payroll"}</option>
                               </select>
                             </div>
                             <div className="space-y-1">
-                              <label className="text-[9px] font-bold text-slate-500 uppercase">Update Ticket Status</label>
+                              <label className="text-[9px] font-bold text-slate-500 uppercase">{isAmharic ? "የቲኬቱን ሁኔታ ቀይር" : "Update Ticket Status"}</label>
                               <div className="flex gap-1.5">
                                 {["Open", "Assigned", "In Review", "Action Taken", "Closed"].map((st) => (
                                   <button
@@ -6775,7 +6883,11 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                         : "bg-white text-slate-600 hover:bg-slate-100 border"
                                     }`}
                                   >
-                                    {st}
+                                    {st === "Open" ? (isAmharic ? "ክፍት" : "Open") :
+                                     st === "Assigned" ? (isAmharic ? "ተመድቧል" : "Assigned") :
+                                     st === "In Review" ? (isAmharic ? "በግምገማ" : "In Review") :
+                                     st === "Action Taken" ? (isAmharic ? "እርምጃ" : "Action Taken") :
+                                     (isAmharic ? "ዝጋ" : "Closed")}
                                   </button>
                                 ))}
                               </div>
@@ -6784,13 +6896,13 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                           {/* Write Comment / Response */}
                           <div className="space-y-1">
-                            <label className="text-[9px] font-bold text-slate-500 uppercase">Add Response / Resolution Message</label>
+                            <label className="text-[9px] font-bold text-slate-500 uppercase">{isAmharic ? "የመፍትሄ መልዕክት ወይም ማብራሪያ ጨምር" : "Add Response / Resolution Message"}</label>
                             <div className="flex gap-2">
                               <input
                                 type="text"
                                 value={adminCommentText}
                                 onChange={(e) => setAdminCommentText(e.target.value)}
-                                placeholder="Type resolution or update description..."
+                                placeholder={isAmharic ? "የተወሰደውን እርምጃ ወይም ማብራሪያ እዚህ ይጻፉ..." : "Type resolution or update description..."}
                                 className="flex-1 bg-white text-slate-900 text-xs p-2 rounded-lg border outline-none"
                               />
                               <button
@@ -6819,7 +6931,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                 }}
                                 className="bg-red-600 hover:bg-red-700 text-white font-black px-3 rounded-lg text-xs cursor-pointer"
                               >
-                                Send Reply
+                                {isAmharic ? "ምላሽ ላክ" : "Send Reply"}
                               </button>
                             </div>
                           </div>
@@ -6848,21 +6960,21 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="bg-green-50 border border-green-200 p-3 rounded-xl space-y-1 text-center">
                       <ThumbsUp size={16} className="text-green-600 mx-auto fill-current" />
-                      <span className="block text-[9px] text-green-700 font-bold uppercase">Positive Sentiment</span>
+                      <span className="block text-[9px] text-green-700 font-bold uppercase">{isAmharic ? "አዎንታዊ አስተያየት" : "Positive Sentiment"}</span>
                       <span className="text-lg font-black text-green-900">
                         {Math.round((feedbacks.filter(f => f.sentiment === "Positive").length / feedbacks.length) * 100)}%
                       </span>
                     </div>
                     <div className="bg-slate-100 border border-slate-200 p-3 rounded-xl space-y-1 text-center">
                       <Sparkles size={16} className="text-slate-600 mx-auto" />
-                      <span className="block text-[9px] text-slate-500 font-bold uppercase">Neutral / Informative</span>
+                      <span className="block text-[9px] text-slate-500 font-bold uppercase">{isAmharic ? "መካከለኛ / መረጃ ሰጪ" : "Neutral / Informative"}</span>
                       <span className="text-lg font-black text-slate-800">
                         {Math.round((feedbacks.filter(f => f.sentiment === "Neutral").length / feedbacks.length) * 100)}%
                       </span>
                     </div>
                     <div className="bg-red-50 border border-red-200 p-3 rounded-xl space-y-1 text-center">
                       <AlertTriangle size={16} className="text-red-600 mx-auto animate-pulse" />
-                      <span className="block text-[9px] text-red-700 font-bold uppercase">Negative Urgent Risk</span>
+                      <span className="block text-[9px] text-red-700 font-bold uppercase">{isAmharic ? "አሉታዊ / አፋጣኝ አደጋ" : "Negative Urgent Risk"}</span>
                       <span className="text-lg font-black text-red-900">
                         {Math.round((feedbacks.filter(f => f.sentiment === "Negative").length / feedbacks.length) * 100)}%
                       </span>
@@ -6874,7 +6986,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <div className="flex justify-between items-center border-b border-slate-800 pb-2">
                       <p className="text-[10px] font-black text-red-400 uppercase tracking-wider flex items-center gap-1.5">
                         <Sparkles size={14} />
-                        <span>AI System Improvement Recommendations (Req 11, 14)</span>
+                        <span>{isAmharic ? "የአይአይ ሲስተም ማሻሻያ ምክረ-ሀሳቦች (Req 11, 14)" : "AI System Improvement Recommendations (Req 11, 14)"}</span>
                       </p>
                       <span className="text-[8px] font-mono text-slate-400">Model: Gemini 3.5 Flash</span>
                     </div>
@@ -6882,45 +6994,45 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                     <div className="space-y-3 text-xs leading-relaxed text-slate-200">
                       <div className="p-2.5 bg-slate-950/60 rounded border border-slate-800 space-y-1">
                         <div className="flex justify-between items-center text-[9px]">
-                          <span className="text-red-400 font-black">HIGH RISK DETECTED: HSE SAFETY</span>
-                          <span className="bg-red-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">Active Urgent</span>
+                          <span className="text-red-400 font-black">{isAmharic ? "ከፍተኛ ስጋት ተገኝቷል: የሳይት ደህንነት" : "HIGH RISK DETECTED: HSE SAFETY"}</span>
+                          <span className="bg-red-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">{isAmharic ? "አፋጣኝ ንቁ" : "Active Urgent"}</span>
                         </div>
-                        <p className="font-semibold text-[11px] text-slate-100">Resolve Scaffolding Anchor points in Zone C immediately.</p>
-                        <p className="text-[9px] text-slate-400">AI Logic detected keyword 'loose Scaffold' with negative score (0.12). Recommended action: Immediate halt of the local slab area until HSE Inspector validates anchor tension.</p>
+                        <p className="font-semibold text-[11px] text-slate-100">{isAmharic ? "በዞን ሐ ያለውን የስካፎልዲንግ ማሰሪያ በአስቸኳይ አስተካክሉ።" : "Resolve Scaffolding Anchor points in Zone C immediately."}</p>
+                        <p className="text-[9px] text-slate-400">{isAmharic ? "አይአይ 'የላላ ስካፎልድ' የሚል አሉታዊ ውጤት (0.12) አግኝቷል። የሚመከር እርምጃ፡ የደህንነት መኮንን ፍተሻ እስኪያደርግ ስራው ለጊዜው ይቁም።" : "AI Logic detected keyword 'loose Scaffold' with negative score (0.12). Recommended action: Immediate halt of the local slab area until HSE Inspector validates anchor tension."}</p>
                       </div>
 
                       <div className="p-2.5 bg-slate-950/60 rounded border border-slate-800 space-y-1">
                         <div className="flex justify-between items-center text-[9px]">
-                          <span className="text-amber-400 font-black">TECHNICAL WORKFLOW OPTIMIZATION</span>
-                          <span className="bg-amber-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">Review Suggested</span>
+                          <span className="text-amber-400 font-black">{isAmharic ? "የስራ ሂደት ማሻሻያ" : "TECHNICAL WORKFLOW OPTIMIZATION"}</span>
+                          <span className="bg-amber-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">{isAmharic ? "ግምገማ ያስፈልጋል" : "Review Suggested"}</span>
                         </div>
-                        <p className="font-semibold text-[11px] text-slate-100">Implement Local Caching buffer in Surveyor Leica total station sync module.</p>
-                        <p className="text-[9px] text-slate-400">AI extracted issue 'Bluetooth latency Floor 4' causing replication delays. Corrective action: Deploy SQLite storage buffer in Flutter app to allow localized coordinate comparison prior to background cloud push.</p>
+                        <p className="font-semibold text-[11px] text-slate-100">{isAmharic ? "በሰርቬየር Leica ቶታል ስቴሽን ሞጁል ላይ አካባቢያዊ መሸጎጫ (Cache) ጫን።" : "Implement Local Caching buffer in Surveyor Leica total station sync module."}</p>
+                        <p className="text-[9px] text-slate-400">{isAmharic ? "አይአይ 'የፎቅ 4 የብሉቱዝ መዘግየት' የሚል ችግር አግኝቷል። የመፍትሄ እርምጃ፡ በሞባይል አፑ ላይ የአካባቢ ዳታቤዝ መሸጎጫ ማዘጋጀት።" : "AI extracted issue 'Bluetooth latency Floor 4' causing replication delays. Corrective action: Deploy SQLite storage buffer in Flutter app to allow localized coordinate comparison prior to background cloud push."}</p>
                       </div>
 
                       <div className="p-2.5 bg-slate-950/60 rounded border border-slate-800 space-y-1">
                         <div className="flex justify-between items-center text-[9px]">
-                          <span className="text-emerald-400 font-black">POSITIVE WORKPLACE SYNERGY DETECTED</span>
-                          <span className="bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">Trend Normal</span>
+                          <span className="text-emerald-400 font-black">{isAmharic ? "ጥሩ የስራ ቅንጅት ታይቷል" : "POSITIVE WORKPLACE SYNERGY DETECTED"}</span>
+                          <span className="bg-emerald-600 text-white font-black px-1.5 py-0.5 rounded text-[8px] uppercase">{isAmharic ? "መደበኛ ሁኔታ" : "Trend Normal"}</span>
                         </div>
-                        <p className="font-semibold text-[11px] text-slate-100">Maintain current coordination cycle on pre-pour checklists.</p>
-                        <p className="text-[9px] text-slate-400">Excellent synergy recorded between drone photogrammetry and site engineering checks. Share Bole Heights pre-pour layout protocol with G+12 Bole Airport site as regional standard.</p>
+                        <p className="font-semibold text-[11px] text-slate-100">{isAmharic ? "ከኮንክሪት በፊት ባለው የቼክሊስት ቅንጅት ላይ ያለውን መልካም አካሄድ አስቀጥሉ።" : "Maintain current coordination cycle on pre-pour checklists."}</p>
+                        <p className="text-[9px] text-slate-400">{isAmharic ? "በድሮን ቅኝት እና በሳይት መሃንዲስ ፍተሻ መካከል ከፍተኛ ቅንጅት ተመዝግቧል። ይህንን ልምድ ለሌሎች ሳይቶችም ማካፈል።" : "Excellent synergy recorded between drone photogrammetry and site engineering checks. Share Bole Heights pre-pour layout protocol with G+12 Bole Airport site as regional standard."}</p>
                       </div>
                     </div>
                   </div>
 
                   {/* AI sentiment analysis table of recent issues */}
                   <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Cognitive Processing Pipeline (NLP Logs)</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የተፈጥሯዊ ቋንቋ ትንተና (NLP) ምዝግብ ማስታወሻ" : "Cognitive Processing Pipeline (NLP Logs)"}</p>
                     <div className="overflow-x-auto border rounded-xl">
                       <table className="w-full text-[10px] text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 border-b text-slate-500 font-black uppercase">
                             <th className="p-2.5">ID</th>
-                            <th className="p-2.5">Issue Topic</th>
-                            <th className="p-2.5">AI Sentiment</th>
-                            <th className="p-2.5">NLP Trigger Words</th>
-                            <th className="p-2.5">Auto Action</th>
+                            <th className="p-2.5">{isAmharic ? "የጉዳዩ ርዕስ" : "Issue Topic"}</th>
+                            <th className="p-2.5">{isAmharic ? "የአይአይ ስሜት" : "AI Sentiment"}</th>
+                            <th className="p-2.5">{isAmharic ? "የተቀሰቀሱ ቃላት" : "NLP Trigger Words"}</th>
+                            <th className="p-2.5">{isAmharic ? "ራስ-ሰር እርምጃ" : "Auto Action"}</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y text-slate-700 font-medium">
@@ -6933,7 +7045,9 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                                   f.sentiment === "Positive" ? "bg-emerald-100 text-emerald-800" :
                                   f.sentiment === "Negative" ? "bg-red-100 text-red-800" : "bg-slate-100 text-slate-700"
                                 }`}>
-                                  {f.sentiment} ({Math.round(f.sentimentScore * 100)}%)
+                                  {f.sentiment === "Positive" ? (isAmharic ? "አዎንታዊ" : "Positive") :
+                                   f.sentiment === "Negative" ? (isAmharic ? "አሉታዊ" : "Negative") :
+                                   (isAmharic ? "መካከለኛ" : "Neutral")} ({Math.round(f.sentimentScore * 100)}%)
                                 </span>
                               </td>
                               <td className="p-2.5 font-mono text-slate-500 text-[9px]">
@@ -7528,12 +7642,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-slate-700 font-semibold text-[11px]">
                     {[
-                      { name: "Chala Chuko", role: "Gang Chief", att: 98, punc: 96, prod: 94, qual: 95, safe: 98, team: 97, skill: 95, rating: 96.1, project: "Bole Heights", zone: "Zone A", floor: "Floor 4" },
-                      { name: "Mulugeta Shiferaw", role: "Lead Assembler", att: 100, punc: 98, prod: 95, qual: 96, safe: 99, team: 98, skill: 92, rating: 97.1, project: "Bole Heights", zone: "Zone A", floor: "Floor 4" },
-                      { name: "Alemayehu Kebede", role: "Site Engineer", att: 95, punc: 92, prod: 90, qual: 94, safe: 96, team: 92, skill: 94, rating: 93.3, project: "Bole Heights", zone: "Zone B", floor: "Floor 5" },
-                      { name: "Zewdu Ayele", role: "Equipment Operator", att: 92, punc: 95, prod: 91, qual: 92, safe: 95, team: 88, skill: 96, rating: 92.7, project: "CMC High-Rise", zone: "Zone A", floor: "Ground" },
-                      { name: "Kassahun Tsegaye", role: "Supervisor", att: 90, punc: 88, prod: 85, qual: 89, safe: 92, team: 90, skill: 89, rating: 88.7, project: "Gotera Condos", zone: "Zone C", floor: "Floor 3" },
-                      { name: "Yohannes B.", role: "Lead Surveyor", att: 94, punc: 94, prod: 92, qual: 95, safe: 95, team: 91, skill: 95, rating: 93.9, project: "Bole Heights", zone: "Zone B", floor: "Floor 4" }
+                      { name: "Chala Chuko", role: isAmharic ? "ጋንግ ቺፍ" : "Gang Chief", att: 98, punc: 96, prod: 94, qual: 95, safe: 98, team: 97, skill: 95, rating: 96.1, project: "Bole Heights", zone: "Zone A", floor: "Floor 4" },
+                      { name: "Mulugeta Shiferaw", role: isAmharic ? "ዋና አሰባሳቢ" : "Lead Assembler", att: 100, punc: 98, prod: 95, qual: 96, safe: 99, team: 98, skill: 92, rating: 97.1, project: "Bole Heights", zone: "Zone A", floor: "Floor 4" },
+                      { name: "Alemayehu Kebede", role: isAmharic ? "የሳይት መሃንዲስ" : "Site Engineer", att: 95, punc: 92, prod: 90, qual: 94, safe: 96, team: 92, skill: 94, rating: 93.3, project: "Bole Heights", zone: "Zone B", floor: "Floor 5" },
+                      { name: "Zewdu Ayele", role: isAmharic ? "የመሳሪያ ኦፕሬተር" : "Equipment Operator", att: 92, punc: 95, prod: 91, qual: 92, safe: 95, team: 88, skill: 96, rating: 92.7, project: "CMC High-Rise", zone: "Zone A", floor: "Ground" },
+                      { name: "Kassahun Tsegaye", role: isAmharic ? "ሱፐርቫይዘር" : "Supervisor", att: 90, punc: 88, prod: 85, qual: 89, safe: 92, team: 90, skill: 89, rating: 88.7, project: "Gotera Condos", zone: "Zone C", floor: "Floor 3" },
+                      { name: "Yohannes B.", role: isAmharic ? "ዋና ሰርቬየር" : "Lead Surveyor", att: 94, punc: 94, prod: 92, qual: 95, safe: 95, team: 91, skill: 95, rating: 93.9, project: "Bole Heights", zone: "Zone B", floor: "Floor 4" }
                     ].map(emp => {
                       let periodAtt = emp.att;
                       let periodProd = emp.prod;
@@ -7624,24 +7738,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ቡድን" : "RANK 1 TEAM"}</p>
-                          <h4 className="text-xs font-black text-slate-900 mt-1">Assembly Team Alpha (Slab Setup)</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Gang Chief: <strong>Chala Chuko</strong> | 8 Assemblers</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{isAmharic ? "የመገጣጠም ቡድን አልፋ (የስላብ ስራ)" : "Assembly Team Alpha (Slab Setup)"}</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "ጋንግ ቺፍ: " : "Gang Chief: "}<strong>Chala Chuko</strong> | 8 {isAmharic ? "አሰባሳቢዎች" : "Assemblers"}</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-emerald-700 font-mono block">96.6% Avg</span>
-                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">102% Goal</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">102% {isAmharic ? "ግብ" : "Goal"}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ቡድን" : "RANK 2 TEAM"}</p>
-                          <h4 className="text-xs font-black text-slate-900 mt-1">Assembly Team Beta (Shoring & Props)</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Supervisor: <strong>Site Formwork Lead</strong> | 10 Assemblers</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{isAmharic ? "የመገጣጠም ቡድን ቤታ (የሾሪንግና ፕሮፕስ ስራ)" : "Assembly Team Beta (Shoring & Props)"}</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "ሱፐርቫይዘር: " : "Supervisor: "}<strong>Site Formwork Lead</strong> | 10 {isAmharic ? "አሰባሳቢዎች" : "Assemblers"}</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-slate-700 font-mono block">91.2% Avg</span>
-                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">95% Goal</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">95% {isAmharic ? "ግብ" : "Goal"}</span>
                         </div>
                       </div>
                     </div>
@@ -7652,24 +7766,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ፎቅ" : "RANK 1 FLOOR"}</p>
-                          <h4 className="text-xs font-black text-slate-900 mt-1">Floor 4 - Cycle #6</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Project: <strong>Bole Heights</strong> | Shutter cycle 4 days</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{isAmharic ? "ፎቅ 4 - ዙር #6" : "Floor 4 - Cycle #6"}</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "ፕሮጀክት: " : "Project: "}<strong>Bole Heights</strong> | {isAmharic ? "የሻተሪንግ ዙር 4 ቀናት" : "Shutter cycle 4 days"}</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-emerald-700 font-mono block">94.8% Avg</span>
-                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">Slab Casted</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">{isAmharic ? "ስላብ ተሞልቷል" : "Slab Casted"}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ፎቅ" : "RANK 2 FLOOR"}</p>
-                          <h4 className="text-xs font-black text-slate-900 mt-1">Floor 5 - Cycle #1</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Project: <strong>Bole Heights</strong> | Props reinforcement active</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{isAmharic ? "ፎቅ 5 - ዙር #1" : "Floor 5 - Cycle #1"}</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "ፕሮጀክት: " : "Project: "}<strong>Bole Heights</strong> | {isAmharic ? "የፕሮፕስ ማጠናከሪያ ስራ" : "Props reinforcement active"}</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-slate-700 font-mono block">89.4% Avg</span>
-                          <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">On Schedule</span>
+                          <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">{isAmharic ? "በመርሐግብሩ መሠረት" : "On Schedule"}</span>
                         </div>
                       </div>
                     </div>
@@ -7680,24 +7794,24 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <div className="bg-emerald-50/50 p-4 rounded-xl border border-emerald-200/50 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase text-emerald-800">{isAmharic ? "ቁጥር 1 ምርጥ ቀጠና" : "RANK 1 ZONE"}</p>
-                          <h4 className="text-xs font-black text-slate-900 mt-1">Zone A - Main Shutter Zone</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">High-volume modular panels | Bole Heights</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{isAmharic ? "ዞን ሀ - ዋና የሻተሪንግ ቀጠና" : "Zone A - Main Shutter Zone"}</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "ከፍተኛ የሞጁላር ፓነሎች ስራ" : "High-volume modular panels"} | Bole Heights</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-emerald-700 font-mono block">95.4% Avg</span>
-                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">Zero Defects</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">{isAmharic ? "እንከን አልባ" : "Zero Defects"}</span>
                         </div>
                       </div>
 
                       <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/50 flex items-center justify-between">
                         <div>
                           <p className="text-[10px] font-black uppercase text-slate-500">{isAmharic ? "ቁጥር 2 ምርጥ ቀጠና" : "RANK 2 ZONE"}</p>
-                          <h4 className="text-xs font-black text-slate-900 mt-1">Zone B - Elevator Core Wall</h4>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Complex heavy framing | Bole Heights</p>
+                          <h4 className="text-xs font-black text-slate-900 mt-1">{isAmharic ? "ዞን ለ - የሊፍት ኮር ግንብ" : "Zone B - Elevator Core Wall"}</h4>
+                          <p className="text-[10px] text-slate-500 mt-0.5">{isAmharic ? "ውስብስብ የከባድ ፍሬም ስራ" : "Complex heavy framing"} | Bole Heights</p>
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-slate-700 font-mono block">91.8% Avg</span>
-                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">Passed QC</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">{isAmharic ? "ጥራት አልፏል" : "Passed QC"}</span>
                         </div>
                       </div>
                     </div>
@@ -7713,7 +7827,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-emerald-700 font-mono block">94.2% Avg</span>
-                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">98.5% Safe</span>
+                          <span className="text-[9px] bg-emerald-600 text-white font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">{isAmharic ? "98.5% ደህንነቱ የተጠበቀ" : "98.5% Safe"}</span>
                         </div>
                       </div>
 
@@ -7725,7 +7839,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         </div>
                         <div className="text-right">
                           <span className="text-xs font-black text-slate-700 font-mono block">90.5% Avg</span>
-                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">92% Safe</span>
+                          <span className="text-[9px] bg-slate-200 text-slate-700 font-bold px-1.5 py-0.5 rounded-full uppercase mt-1 inline-block">{isAmharic ? "92% ደህንነቱ የተጠበቀ" : "92% Safe"}</span>
                         </div>
                       </div>
                     </div>
@@ -7750,8 +7864,8 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 {perfDigestActive && (
                   <div className="bg-slate-950 p-3.5 rounded-lg border border-slate-800 text-[11px] font-mono text-slate-300 leading-relaxed space-y-2">
                     <div className="flex justify-between items-center text-xs text-red-400 font-bold font-sans border-b border-slate-800 pb-1">
-                      <span>⚡ GENERATED ACTION PLAN</span>
-                      <span className="text-[9px] text-slate-500">CONFIDENCE: 98%</span>
+                      <span>⚡ {isAmharic ? "የተዘጋጀ የድርጊት መርሃግብር" : "GENERATED ACTION PLAN"}</span>
+                      <span className="text-[9px] text-slate-500">{isAmharic ? "እርግጠኝነት: 98%" : "CONFIDENCE: 98%"}</span>
                     </div>
                     <p className="text-slate-100">{perfDigestContent}</p>
                   </div>

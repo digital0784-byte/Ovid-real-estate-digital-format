@@ -266,15 +266,14 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       ? regPassword.trim().padEnd(6, "0")
       : regPassword.trim();
 
-    const isSoleSuperAdminReg =
-      effectiveEmail === "mejennur669@gmail.com" ||
-      regPhone.includes("910097862") ||
-      regPhone.includes("920843843");
+    // STRICT OWNER RESTRICTION: Only mejennur669@gmail.com is Super Admin (Nuriye Ahmed Adem)
+    // Any self-registration must ALWAYS go through approval wait ('Pending') and can NEVER self-claim Super Admin!
+    const isSoleSuperAdminReg = effectiveEmail === "mejennur669@gmail.com";
 
-    // Prevent non-owner from self-registering as Super Admin
-    let sanitizedRegRole = isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : (regRole || UserRole.WORKER);
-    if (!isSoleSuperAdminReg && sanitizedRegRole === UserRole.SUPER_ADMIN) {
-      sanitizedRegRole = UserRole.PROJECT_MANAGER;
+    // Non-owners can NEVER select or receive Super Admin
+    let sanitizedRegRole = (regRole || UserRole.WORKER);
+    if (sanitizedRegRole === UserRole.SUPER_ADMIN) {
+      sanitizedRegRole = UserRole.WORKER;
     }
 
     try {
@@ -284,18 +283,19 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       const fullEmpId = `Digital Construction ERP-${generatedId}`;
       const nowIso = new Date().toISOString();
 
+      // All new self-registrants MUST enter Pending status and await Super Admin approval
       const pendingRegData = {
         employeeId: fullEmpId,
         displayName: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
         name: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
         email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : effectiveEmail,
-        phoneNumber: isSoleSuperAdminReg ? "0910097862/0920843843" : regPhone.trim(),
-        role: isSoleSuperAdminReg ? UserRole.SUPER_ADMIN : "Pending",
+        phoneNumber: regPhone.trim(),
+        role: "Pending",
         requestedRole: sanitizedRegRole,
         department: regDept || sanitizedRegRole,
         trade: regTrade || sanitizedRegRole,
         position: sanitizedRegRole,
-        status: isSoleSuperAdminReg ? "Active" : "Pending",
+        status: "Pending",
         createdAt: nowIso
       };
 
@@ -444,12 +444,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       };
 
       setTimeout(() => {
-        const isOwner =
-          regEmail.trim().toLowerCase() === "mejennur669@gmail.com" ||
-          regPhone.includes("910097862") ||
-          regPhone.includes("920843843");
         onLoginSuccess(
-          isOwner ? UserRole.SUPER_ADMIN : ("Pending" as UserRole),
+          "Pending" as UserRole,
           `Registered User ID (${fullEmpId})`,
           simulatedLog,
           userDocPayload
@@ -856,9 +852,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           setPhoneLoading(false);
         }
 
-        // Smart Auto-detection of the only Super Admin (Nuriye Ahmed Adem) based on phone (0910097862 / 0920843843)
-        const cleanPhone = formattedPhone;
-        if (cleanPhone.includes("910097862") || cleanPhone.includes("920843843")) {
+        // Exact phone verification for Super Admin (Nuriye Ahmed Adem) based on official phone numbers (+251910097862 / +251920843843)
+        const cleanPhone = formattedPhone.replace(/\s+/g, "");
+        if (cleanPhone === "+251910097862" || cleanPhone === "+251920843843") {
           targetRole = UserRole.SUPER_ADMIN;
           if (auth?.currentUser?.uid && db) {
             await setDoc(doc(db, "users", auth.currentUser.uid), {
@@ -1655,7 +1651,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       type="text"
                       value={regPhone}
                       onChange={(e) => setRegPhone(e.target.value)}
-                      placeholder="e.g. +251 910 097 862"
+                      placeholder="e.g. 0911223344 or +251 911 223 344"
                       className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
                     />
                   </div>
@@ -1672,7 +1668,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       type="email"
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="e.g. mejennur669@gmail.com"
+                      placeholder="e.g. employee@company.com"
                       className="w-full pl-9 pr-3 py-2 text-xs bg-slate-950 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 transition-all font-mono"
                     />
                   </div>

@@ -118,7 +118,10 @@ import {
   PlusCircle,
   ArrowRightLeft,
   Package,
-  QrCode
+  QrCode,
+  ArrowLeft,
+  ZoomIn,
+  ZoomOut
 } from "lucide-react";
 
 export interface UserProfile {
@@ -160,16 +163,139 @@ export default function App() {
   const [currentUserRole, setCurrentUserRole] = useState<UserRole>(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("erp_current_user_role");
-      if (saved) return saved as UserRole;
+      if (saved && saved !== UserRole.SUPER_ADMIN && saved !== "Super Admin") return saved as UserRole;
     }
-    return UserRole.HEAD_OFFICE;
+    return UserRole.WORKER;
   });
   const [selectedProject, setSelectedProject] = useState<string>("Addis Ababa Tower Block A");
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
   const [showModulesMenu, setShowModulesMenu] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth >= 1280;
+    }
+    return false;
+  });
+
+  // User interactive zoom & font scale control (defaults to 90% on mobile for clean fit)
+  const [zoomLevel, setZoomLevel] = useState<number>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("erp_user_zoom_level");
+      if (saved) {
+        const parsed = parseInt(saved, 10);
+        if (!isNaN(parsed) && parsed >= 65 && parsed <= 150) return parsed;
+      }
+      return window.innerWidth < 768 ? 90 : 100;
+    }
+    return 95;
+  });
+
+  const handleZoomIn = () => {
+    setZoomLevel(prev => {
+      const next = Math.min(140, prev + 5);
+      localStorage.setItem("erp_user_zoom_level", next.toString());
+      return next;
+    });
+  };
+
+  const handleZoomOut = () => {
+    setZoomLevel(prev => {
+      const next = Math.max(65, prev - 5);
+      localStorage.setItem("erp_user_zoom_level", next.toString());
+      return next;
+    });
+  };
+
+  const handleResetZoom = () => {
+    const def = typeof window !== "undefined" && window.innerWidth < 768 ? 90 : 100;
+    setZoomLevel(def);
+    localStorage.setItem("erp_user_zoom_level", def.toString());
+  };
+
+  // Dynamically sync root html font-size with zoomLevel to scale all Tailwind typography
+  useEffect(() => {
+    const basePx = (16 * (zoomLevel / 100)).toFixed(2);
+    document.documentElement.style.fontSize = `${basePx}px`;
+  }, [zoomLevel]);
+
+  // Navigate to tab with history tracking & auto-close drawer on mobile
+  const navigateToTab = (newTab: string) => {
+    if (newTab === activeTab) return;
+    setNavigationHistory(prev => {
+      if (prev.length > 0 && prev[prev.length - 1] === activeTab) return prev;
+      return [...prev.slice(-25), activeTab];
+    });
+    setActiveTab(newTab);
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Back Arrow handler: returns to previous section in history or dashboard
+  const handleGoBack = () => {
+    if (navigationHistory.length > 0) {
+      const updated = [...navigationHistory];
+      const previousTab = updated.pop()!;
+      setNavigationHistory(updated);
+      setActiveTab(previousTab);
+    } else {
+      setActiveTab("dashboard");
+    }
+    if (typeof window !== "undefined" && window.innerWidth < 1024) {
+      setIsSidebarOpen(false);
+    }
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  // Helper to get tab human-readable title in Amharic & English
+  const getTabTitle = (tabKey: string, amharic: boolean) => {
+    const titles: Record<string, { am: string; en: string }> = {
+      dashboard: { am: "ዳሽቦርድ", en: "Dashboard" },
+      taskManagement: { am: "ተግባራት & ፍለጋ", en: "Task Management" },
+      firestoreExplorer: { am: "ዳታቤዝ መርማሪ", en: "Data Explorer" },
+      workerProfiles: { am: "የሰራተኞች መገለጫዎች", en: "Worker Profiles" },
+      customInputHub: { am: "የመረጃ ግብአት ማዕከል", en: "Data Input Hub" },
+      notificationCenter: { am: "የማስታወቂያዎች ማዕከል", en: "Notifications Center" },
+      admin: { am: "የአድሚን ማፅደቂያ ቦርድ", en: "Admin Role Approval" },
+      securitySettings: { am: "ደህንነት እና ምርጫዎች", en: "Security & Settings" },
+      warehouseManagerApp: { am: "የመጋዘን አስተዳዳሪ", en: "Warehouse Manager App" },
+      storeOwnerApp: { am: "የሳይት ስቶር አቃቤ", en: "Store Owner App" },
+      enterpriseErp: { am: "ኢንተርፕራይዝ ERP Suite", en: "Enterprise ERP Suite" },
+      financeErp: { am: "የፋይናንስ ERP Hub", en: "Finance ERP Hub" },
+      headOfficeSync: { am: "የደመና መረጃ ሲንክ", en: "Real-Time Cloud Sync" },
+      auditLog: { am: "ኦዲት መዝገብ", en: "Audit Log" },
+      formworkManagement: { am: "አሉሚኒየም ፎርምወርክ", en: "Formwork Management" },
+      panelTraceability: { am: "የፓነል ዱካ መከታተያ", en: "Panel Traceability" },
+      projectDocs: { am: "የፕሮጀክት ሰነዶች & CAD", en: "Project Docs & CAD" },
+      cadDrawing: { am: "የካድ ንድፎች እና ፎቶዎች", en: "CAD Drawings & Photos" },
+      siteLayout: { am: "የሳይት ሌይአውት", en: "Site Layout" },
+      surveying: { am: "ሰርቬይንግ እና ኮንክሪት", en: "Surveying & Concrete" },
+      subcontractorPortal: { am: "ንዑስ ተቋራጭ ፖርታል", en: "Subcontractor Portal" },
+      attendance: { am: "የመገኘት መዝገብ", en: "Attendance & Clock-In" },
+      biometricKiosk: { am: "ባዮሜትሪክ ኪዮስክ", en: "Biometric Kiosk" },
+      fingerprintBoard: { am: "የስልክ እና ባዮሜትሪክ መገኘት ጣቢያ", en: "Mobile & Biometric Attendance" },
+      biometricBoard: { am: "ባዮሜትሪክ ቦርድ", en: "Biometric Board" },
+      planning: { am: "የግንባታ እቅድ & Gantt", en: "Planning & Gantt" },
+      progress: { am: "ዕለታዊ የዕድገት መዝገብ", en: "Daily Progress Logs" },
+      aiInspection: { am: "አይአይ ፎቶ ቁጥጥር", en: "AI Photo Inspection" },
+      predictions: { am: "አይአይ ትንበያዎች", en: "AI Predictions" },
+      performance: { am: "የሰራተኞች ግምገማ", en: "Performance Evaluation" },
+      safetyQuality: { am: "ደህንነት እና ጥራት", en: "Safety & Quality" },
+      mobileApps: { am: "የሞባይል መተግበሪያዎች", en: "Mobile Apps Suite" },
+      launchReadiness: { am: "ማስጀመሪያ ዝግጁነት", en: "Launch Readiness" }
+    };
+    const item = titles[tabKey];
+    if (!item) return tabKey;
+    return amharic ? item.am : item.en;
+  };
   const [projectDocsSubTab, setProjectDocsSubTab] = useState<"newModule" | "vault">("newModule");
 
   // Toast notifications for cross-app data transmissions
@@ -294,17 +420,12 @@ export default function App() {
                   }
                 }
 
-                let effectiveRole = (data.role as UserRole) || UserRole.WORKER;
+                let effectiveRole = (data.role as UserRole) || ("Pending" as any);
                 let effectiveStatus = data.status || "Pending";
 
-                // Enforce Super Admin strictly for the only Super Admin:
-                // Name: Nuriye Ahmed Adem | Phone: 0910097862/0920843843 | Email: mejennur669@gmail.com
+                // Enforce Super Admin strictly for the ONLY Super Admin (Nuriye Ahmed Adem - mejennur669@gmail.com)
                 const userEmailLower = (data.email || firebaseUser.email || "").toLowerCase().trim();
-                const userPhoneRaw = (data.phoneNumber || firebaseUser.phoneNumber || "").trim();
-                const isSoleSuperAdmin =
-                  userEmailLower === "mejennur669@gmail.com" ||
-                  userPhoneRaw.includes("910097862") ||
-                  userPhoneRaw.includes("920843843");
+                const isSoleSuperAdmin = userEmailLower === "mejennur669@gmail.com";
 
                 if (isSoleSuperAdmin) {
                   effectiveRole = UserRole.SUPER_ADMIN;
@@ -312,8 +433,7 @@ export default function App() {
                   if (
                     data.role !== UserRole.SUPER_ADMIN ||
                     data.status !== "Active" ||
-                    data.displayName !== "Nuriye Ahmed Adem" ||
-                    data.phoneNumber !== "0910097862/0920843843"
+                    data.displayName !== "Nuriye Ahmed Adem"
                   ) {
                     setDoc(
                       userDocRef,
@@ -328,13 +448,29 @@ export default function App() {
                       { merge: true }
                     ).catch(() => {});
                   }
-                } else if (effectiveRole === UserRole.SUPER_ADMIN) {
-                  effectiveRole = UserRole.HEAD_OFFICE;
+                } else {
+                  // Non-owner CAN NEVER be Super Admin. If found with Super Admin, demote immediately!
+                  if (effectiveRole === UserRole.SUPER_ADMIN || data.role === UserRole.SUPER_ADMIN) {
+                    effectiveRole = (data.requestedRole && data.requestedRole !== UserRole.SUPER_ADMIN)
+                      ? (data.requestedRole as UserRole)
+                      : UserRole.WORKER;
+                    if (data.status !== "Active") {
+                      effectiveRole = "Pending" as any;
+                      effectiveStatus = "Pending";
+                    }
+                    setDoc(userDocRef, { role: effectiveRole, status: effectiveStatus }, { merge: true }).catch(() => {});
+                  }
+
+                  // If account is not approved by Super Admin, enforce Pending status and Pending role
+                  if (effectiveStatus !== "Active") {
+                    effectiveRole = "Pending" as any;
+                    effectiveStatus = "Pending";
+                  }
                 }
 
                 if (effectiveStatus === "Active" && (effectiveRole === ("Pending" as any) || !effectiveRole) && data.requestedRole) {
                   effectiveRole = (data.requestedRole === UserRole.SUPER_ADMIN && !isSoleSuperAdmin)
-                    ? UserRole.HEAD_OFFICE
+                    ? UserRole.WORKER
                     : (data.requestedRole as UserRole);
                 }
 
@@ -349,7 +485,7 @@ export default function App() {
                     if (appReq) {
                       const approvedRole = (appReq.assignedRole || appReq.requestedRole) as UserRole;
                       if (approvedRole && approvedRole !== ("Pending" as any)) {
-                        effectiveRole = approvedRole === UserRole.SUPER_ADMIN ? UserRole.HEAD_OFFICE : approvedRole;
+                        effectiveRole = approvedRole === UserRole.SUPER_ADMIN ? UserRole.WORKER : approvedRole;
                         effectiveStatus = "Active";
                         setDoc(userDocRef, { role: effectiveRole, status: "Active" }, { merge: true }).catch(err => console.error("Syncing approved role to Firestore failed:", err));
                       }
@@ -365,7 +501,7 @@ export default function App() {
                     ? "Nuriye Ahmed Adem"
                     : (data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User"),
                   role: effectiveRole,
-                  requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || ""),
+                  requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || pendingReg?.requestedRole || "Worker"),
                   status: effectiveStatus,
                   email: isSoleSuperAdmin ? "mejennur669@gmail.com" : (data.email || firebaseUser.email || ""),
                   phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : (data.phoneNumber || firebaseUser.phoneNumber || ""),
@@ -377,25 +513,30 @@ export default function App() {
                   if (typeof window !== "undefined") {
                     localStorage.setItem("erp_current_user_role", effectiveRole);
                   }
+                } else {
+                  setCurrentUserRole("Pending" as any);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("erp_current_user_role", "Pending");
+                  }
                 }
               } else {
                 const userEmailLower = (firebaseUser.email || "").toLowerCase().trim();
-                const userPhoneRaw = (firebaseUser.phoneNumber || "").trim();
-                const isOwner =
-                  userEmailLower === "mejennur669@gmail.com" ||
-                  userPhoneRaw.includes("910097862") ||
-                  userPhoneRaw.includes("920843843");
+                const isOwner = userEmailLower === "mejennur669@gmail.com";
                 
                 let pendingReg: any = null;
                 if (typeof window !== "undefined") {
                   try {
-                    const raw = sessionStorage.getItem("erp_pending_registration_profile");
+                    const raw = sessionStorage.getItem("erp_pending_registration_profile") || localStorage.getItem("erp_pending_registration_profile");
                     if (raw) pendingReg = JSON.parse(raw);
                   } catch {}
                 }
 
                 let initialRole: UserRole = isOwner ? UserRole.SUPER_ADMIN : ("Pending" as any);
                 let initialStatus = isOwner ? "Active" : "Pending";
+                let targetRequestedRole = isOwner ? UserRole.SUPER_ADMIN : (pendingReg?.requestedRole || pendingReg?.position || "Worker");
+                if (!isOwner && targetRequestedRole === UserRole.SUPER_ADMIN) {
+                  targetRequestedRole = UserRole.WORKER;
+                }
 
                 const newUserProfileData = {
                   id: firebaseUser.uid,
@@ -410,10 +551,10 @@ export default function App() {
                   email: isOwner ? "mejennur669@gmail.com" : (pendingReg?.email || firebaseUser.email || ""),
                   phoneNumber: isOwner ? "0910097862/0920843843" : (pendingReg?.phoneNumber || firebaseUser.phoneNumber || ""),
                   role: initialRole,
-                  requestedRole: isOwner ? UserRole.SUPER_ADMIN : (pendingReg?.requestedRole || "Worker"),
+                  requestedRole: targetRequestedRole,
                   department: pendingReg?.department || "",
                   trade: pendingReg?.trade || "",
-                  position: pendingReg?.position || pendingReg?.requestedRole || "Worker",
+                  position: targetRequestedRole,
                   status: initialStatus,
                   createdAt: pendingReg?.createdAt || new Date().toISOString()
                 };
@@ -434,6 +575,14 @@ export default function App() {
                 setCurrentUserProfile(profile);
                 if (initialRole && initialRole !== ("Pending" as any)) {
                   setCurrentUserRole(initialRole);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("erp_current_user_role", initialRole);
+                  }
+                } else {
+                  setCurrentUserRole("Pending" as any);
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem("erp_current_user_role", "Pending");
+                  }
                 }
               }
               setIsAuthLoading(false);
@@ -496,22 +645,22 @@ export default function App() {
         if (snap.exists()) {
           const data = snap.data();
           const userEmailLower = (data.email || auth.currentUser.email || "").toLowerCase().trim();
-          const userPhoneRaw = (data.phoneNumber || auth.currentUser.phoneNumber || "").trim();
-          const isSoleSuperAdmin =
-            userEmailLower === "mejennur669@gmail.com" ||
-            userPhoneRaw.includes("910097862") ||
-            userPhoneRaw.includes("920843843");
-          const resolvedRole = isSoleSuperAdmin
+          const isSoleSuperAdmin = userEmailLower === "mejennur669@gmail.com";
+          let resolvedRole: UserRole = isSoleSuperAdmin
             ? UserRole.SUPER_ADMIN
-            : (data.role === UserRole.SUPER_ADMIN ? UserRole.HEAD_OFFICE : ((data.role as UserRole) || UserRole.WORKER));
+            : (data.role === UserRole.SUPER_ADMIN ? (data.requestedRole as UserRole || UserRole.WORKER) : ((data.role as UserRole) || ("Pending" as any)));
+          let resolvedStatus = isSoleSuperAdmin ? "Active" : (data.status || "Pending");
+          if (!isSoleSuperAdmin && resolvedStatus !== "Active") {
+            resolvedRole = "Pending" as any;
+          }
           const profile: UserProfile = {
             uid: auth.currentUser.uid,
             displayName: isSoleSuperAdmin
               ? "Nuriye Ahmed Adem"
               : (data.displayName || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Authenticated User"),
             role: resolvedRole,
-            requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || ""),
-            status: isSoleSuperAdmin ? "Active" : (data.status || "Pending"),
+            requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || "Worker"),
+            status: resolvedStatus,
             email: isSoleSuperAdmin ? "mejennur669@gmail.com" : (data.email || auth.currentUser.email || ""),
             phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : (data.phoneNumber || auth.currentUser.phoneNumber || ""),
             createdAt: data.createdAt
@@ -519,6 +668,14 @@ export default function App() {
           setCurrentUserProfile(profile);
           if (resolvedRole && resolvedRole !== ("Pending" as any)) {
             setCurrentUserRole(resolvedRole);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("erp_current_user_role", resolvedRole);
+            }
+          } else {
+            setCurrentUserRole("Pending" as any);
+            if (typeof window !== "undefined") {
+              localStorage.setItem("erp_current_user_role", "Pending");
+            }
           }
         }
       } catch (err) {
@@ -678,10 +835,10 @@ export default function App() {
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
-    [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "biometricBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.TIME_KEEPER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
-    [UserRole.TEAM_LEADER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.GANG_CHIEF]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.TEAM_LEADER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.GANG_CHIEF]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.ASSEMBLER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseManagerApp", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.STORE_OWNER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
@@ -776,10 +933,9 @@ export default function App() {
   const isPendingUser = isAuthenticated && (
     currentUserProfile?.status === "Pending" || 
     currentUserProfile?.role === ("Pending" as any) || 
-    currentUserRole === ("Pending" as any)
-  ) && currentUserProfile?.email?.toLowerCase() !== "mejennur669@gmail.com"
-    && !currentUserProfile?.phoneNumber?.includes("910097862")
-    && !currentUserProfile?.phoneNumber?.includes("920843843");
+    currentUserRole === ("Pending" as any) ||
+    (currentUserProfile != null && currentUserProfile.status !== "Active" && currentUserProfile.role !== UserRole.SUPER_ADMIN)
+  ) && (currentUserProfile?.email?.toLowerCase() !== "mejennur669@gmail.com" && auth?.currentUser?.email?.toLowerCase() !== "mejennur669@gmail.com");
 
   // Load master datasets from the real database service ONLY when user is authenticated & authorized
   React.useEffect(() => {
@@ -1654,6 +1810,14 @@ export default function App() {
             activeRole = currentUserProfile.role as UserRole;
           }
 
+          // STRICT ENFORCEMENT: ONLY mejennur669@gmail.com can ever receive activeRole = UserRole.SUPER_ADMIN
+          const authedEmail = (registeredProfile?.email || currentUserProfile?.email || auth?.currentUser?.email || "").toLowerCase().trim();
+          const isOwnerUser = authedEmail === "mejennur669@gmail.com";
+
+          if (!isOwnerUser && (activeRole === UserRole.SUPER_ADMIN || String(activeRole) === "Super Admin")) {
+            activeRole = ("Pending" as any);
+          }
+
           setCurrentUserRole(activeRole);
           setIsAuthenticated(true);
           setLoginMetadata(loginLog);
@@ -1667,7 +1831,7 @@ export default function App() {
             setActiveTab("storeOwnerApp");
           }
 
-          if (activeRole === UserRole.SUPER_ADMIN) {
+          if (isOwnerUser && activeRole === UserRole.SUPER_ADMIN) {
             setCurrentUserProfile({
               uid: auth?.currentUser?.uid || "super-admin-nuriye",
               displayName: "Nuriye Ahmed Adem",
@@ -1745,7 +1909,7 @@ export default function App() {
             </div>
             <div className="flex justify-between border-b border-slate-800 pb-2">
               <span className="text-slate-500">{isAmharic ? "የተጠየቀው የስራ ድርሻ:" : "Requested Role:"}</span>
-              <span className="font-bold text-amber-400 font-mono">{currentUserProfile?.requestedRole || "Super Admin"}</span>
+              <span className="font-bold text-amber-400 font-mono">{currentUserProfile?.requestedRole || "Worker"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-slate-500">{isAmharic ? "የስርዓት ሁኔታ:" : "System Status:"}</span>
@@ -1755,8 +1919,7 @@ export default function App() {
 
           {/* Account Approval Status Panel */}
           {currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com" ||
-           currentUserProfile?.phoneNumber?.includes("910097862") ||
-           currentUserProfile?.phoneNumber?.includes("920843843") ? (
+           auth?.currentUser?.email?.toLowerCase() === "mejennur669@gmail.com" ? (
             <div className="bg-slate-800/80 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
               <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
                 <ShieldCheck size={16} />
@@ -1800,12 +1963,12 @@ export default function App() {
             <div className="bg-amber-950/40 p-4 rounded-xl border border-amber-500/30 text-left space-y-2">
               <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
                 <Clock size={16} />
-                <span>{isAmharic ? "የማጽደቅ ሂደት በማካሄድ ላይ (Awaiting Approval)" : "Awaiting Manager Approval"}</span>
+                <span>{isAmharic ? "የማጽደቅ ሂደት በማካሄድ ላይ (Awaiting Approval)" : "Awaiting Super Admin Approval"}</span>
               </div>
               <p className="text-[11px] text-slate-300 leading-relaxed">
                 {isAmharic
-                  ? "መለያዎ በአድሚን (Super Admin)፣ በዋና መሥሪያ ቤት ሥራ አስኪያጅ (Head Office Manager) ወይም በሰው ኃይል ኃላፊ (HR Manager) እስከሚፀድቅ ድረስ 'Pending' ደረጃ ላይ ይቆያል።"
-                  : "Your account will remain in 'Pending' state until it is approved by a Super Admin, Head Office Manager, or HR Manager."}
+                  ? "መለያዎ በሱፐር አድሚን (Super Admin: Nuriye Ahmed Adem) እስከሚፀድቅ ድረስ 'Pending' ደረጃ ላይ ይቆያል።"
+                  : "Your account will remain in 'Pending' state until it is approved by the Super Admin (Nuriye Ahmed Adem)."}
               </p>
             </div>
           )}
@@ -1861,85 +2024,117 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col antialiased">
+    <div 
+      className="min-h-screen bg-slate-50 flex flex-col antialiased transition-[zoom] duration-150"
+      style={{ zoom: `${zoomLevel}%` }}
+    >
       {/* Live Floating Notification Toast */}
       <LiveNotificationToast onNavigateToTab={(tab) => setActiveTab(tab)} isAmharic={isAmharic} />
       
       {/* HEADER SECTION (No-print for tidy PDF generation) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-red-600 text-white rounded-lg flex items-center justify-center">
-              <Building2 size={22} />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2 min-h-14 flex items-center justify-between gap-2">
+          
+          {/* Left Side: Back Arrow + Logo & Responsive Titles */}
+          <div className="flex items-center space-x-2 sm:space-x-3 shrink-0">
+            {/* Quick Back Arrow Button in Header */}
+            <button
+              onClick={handleGoBack}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border flex items-center space-x-1 transition-all cursor-pointer text-xs font-black shadow-xs ${
+                navigationHistory.length > 0 || activeTab !== "dashboard"
+                  ? "bg-red-600 hover:bg-red-500 text-white border-red-600 shadow-red-600/20 active:scale-95"
+                  : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200"
+              }`}
+              title={isAmharic ? "ወደ ቀዳሚው ክፍል ተመለስ (Back)" : "Go Back to Previous Section (Back)"}
+            >
+              <ArrowLeft size={16} />
+              <span className="hidden sm:inline">{isAmharic ? "ተመለስ" : "Back"}</span>
+            </button>
+
+            <div className="p-1.5 sm:p-2 bg-red-600 text-white rounded-xl flex items-center justify-center shrink-0 shadow-xs">
+              <Building2 size={18} className="sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <span className="text-xs uppercase tracking-widest font-black text-red-600">
-                {isAmharic ? "ዲጂታል ኮንስትራክሽን ERP ሲስተም" : "DIGITAL CONSTRUCTION ERP SYSTEM"}
+
+            <div className="leading-tight">
+              <span className="text-[10px] sm:text-xs uppercase tracking-wider font-black text-red-600 block">
+                {isAmharic ? "ኮንስትራክሽን ERP" : "DIGITAL ERP"}
               </span>
-              <h1 className="text-sm font-extrabold text-slate-900 tracking-tight leading-none">
+              <h1 className="text-xs sm:text-sm font-extrabold text-slate-900 tracking-tight hidden sm:block truncate max-w-[220px] md:max-w-none">
                 Digital Construction ERP System
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center space-x-3">
-            {/* Settings ⚙️ Quick Access Button for Every User */}
+          {/* Right Side: Zoom Controls + Profile + Settings + Notifications + Sync + Logout */}
+          <div className="flex items-center space-x-1.5 sm:space-x-2.5 shrink-0">
+            
+            {/* Interactive Zoom Controls (A- / A+) */}
+            <div className="flex items-center space-x-0.5 sm:space-x-1 bg-slate-100 border border-slate-200 rounded-xl p-0.5 sm:p-1 text-slate-700 shadow-2xs">
+              <button
+                onClick={handleZoomOut}
+                className="px-1.5 py-1 hover:bg-white rounded-lg text-slate-700 hover:text-red-600 transition-colors cursor-pointer text-[10px] font-black flex items-center gap-0.5 active:scale-95"
+                title={isAmharic ? "የፅሁፍ መጠን ቀንስ (Zoom Out)" : "Decrease Text Size (Zoom Out)"}
+              >
+                <ZoomOut size={12} />
+                <span className="font-mono">A-</span>
+              </button>
+              
+              <button
+                onClick={handleResetZoom}
+                className="px-1.5 py-0.5 text-[9px] sm:text-[10px] font-mono font-black bg-white rounded shadow-2xs hover:bg-slate-50 border border-slate-200 text-slate-800"
+                title={isAmharic ? "ወደ 100% መልስ (Reset)" : "Reset Zoom"}
+              >
+                {zoomLevel}%
+              </button>
+
+              <button
+                onClick={handleZoomIn}
+                className="px-1.5 py-1 hover:bg-white rounded-lg text-slate-700 hover:text-emerald-600 transition-colors cursor-pointer text-[10px] font-black flex items-center gap-0.5 active:scale-95"
+                title={isAmharic ? "የፅሁፍ መጠን ጨምር (Zoom In)" : "Increase Text Size (Zoom In)"}
+              >
+                <ZoomIn size={12} />
+                <span className="font-mono">A+</span>
+              </button>
+            </div>
+
+            {/* Settings ⚙️ Quick Access Button */}
             <button
-              onClick={() => setActiveTab("securitySettings")}
-              className={`px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors flex items-center space-x-1.5 cursor-pointer ${
+              onClick={() => navigateToTab("securitySettings")}
+              className={`p-1.5 sm:px-2.5 sm:py-1.5 rounded-xl border text-xs font-bold transition-colors flex items-center space-x-1 cursor-pointer ${
                 activeTab === "securitySettings"
                   ? "bg-slate-900 text-white border-slate-900"
                   : "bg-slate-100 hover:bg-slate-200 text-slate-800 border-slate-200"
               }`}
-              title={isAmharic ? "ቅንጅቶች፣ ግላዊነት እና ደህንነት (Settings ⚙️)" : "App Settings, Privacy & Security (Settings ⚙️)"}
+              title={isAmharic ? "ቅንጅቶች (Settings ⚙️)" : "Settings ⚙️"}
             >
               <Settings size={14} className={activeTab === "securitySettings" ? "text-red-400" : "text-slate-700"} />
-              <span>{isAmharic ? "Settings ⚙️" : "Settings ⚙️"}</span>
+              <span className="hidden md:inline">{isAmharic ? "Settings ⚙️" : "Settings ⚙️"}</span>
             </button>
 
-            {/* Locked Duty Profile Badge */}
-            <div className="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
-              <div className="relative">
-                <UserCheck size={14} className="text-red-600 ml-1 shrink-0" />
-                <div className="absolute -bottom-1 -right-1 bg-red-600 text-white rounded-full p-[2px] border border-white">
+            {/* Locked Duty Profile Badge (Responsive) */}
+            <div className="flex items-center space-x-1.5 bg-slate-100 p-1 sm:p-1.5 rounded-xl border border-slate-200 max-w-[140px] sm:max-w-[220px]">
+              <div className="relative shrink-0">
+                <UserCheck size={14} className="text-red-600 ml-0.5" />
+                <div className="absolute -bottom-1 -right-1 bg-red-600 text-white rounded-full p-[1px] border border-white">
                   <Lock size={6} />
                 </div>
               </div>
-              <div className="text-left leading-none pr-2">
-                <span className="text-[9px] text-slate-400 block uppercase font-bold tracking-wider flex items-center gap-1">
-                  {isAmharic ? "የተጠቃሚ መለያ" : "Active Profile"}
+              <div className="text-left leading-none truncate pr-1">
+                <span className="text-[8px] text-slate-400 uppercase font-bold tracking-wider hidden sm:block">
+                  {isAmharic ? "መለያ" : "Profile"}
                 </span>
-                <div className="text-xs font-bold font-sans text-slate-700 mt-0.5">
+                <div className="text-[10px] sm:text-xs font-bold text-slate-700 truncate">
                   {currentUserProfile?.displayName || (
-                    <>
-                      {currentUserRole === UserRole.HEAD_OFFICE && (isAmharic ? "ዋና መስሪያ ቤት" : "Head Office Admin")}
-                      {currentUserRole === UserRole.PROJECT_MANAGER && (isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ" : "Project Manager")}
-                      {currentUserRole === UserRole.SECTION_HEAD && (isAmharic ? "የክፍል ኃላፊ" : "Section Head")}
-                      {currentUserRole === UserRole.SUPERVISOR && (isAmharic ? "ሱፐርቫይዘር" : "Supervisor")}
-                      {currentUserRole === UserRole.SITE_ENGINEER && (isAmharic ? "ሳይት መሃንዲስ" : "Site Engineer")}
-                      {currentUserRole === UserRole.SURVEYOR && (isAmharic ? "ሰርቬየር" : "Surveyor")}
-                      {currentUserRole === UserRole.TEAM_LEADER && (isAmharic ? "የስራ ቡድን መሪ" : "Team Leader")}
-                      {currentUserRole === UserRole.GANG_CHIEF && (isAmharic ? "ጋንግ ቺፍ / ፎርማን" : "Gang Chief")}
-                      {currentUserRole === UserRole.TIME_KEEPER && (isAmharic ? "የመገኘት ተቆጣጣሪ" : "Time Keeper")}
-                      {currentUserRole === UserRole.WORKER && (isAmharic ? "ሳይት ሰራተኛ" : "Worker")}
-                      {currentUserRole === UserRole.SUPER_ADMIN && "Nuriye Ahmed Adem (Super Admin)"}
-                      {currentUserRole === UserRole.WAREHOUSE_MANAGER && (isAmharic ? "የመጋዘን ሥራ አስኪያጅ" : "Warehouse Manager")}
-                      {currentUserRole === UserRole.STORE_MANAGER && (isAmharic ? "የሳይት ስቶር አቃቤ" : "Store Manager")}
-                      {currentUserRole === UserRole.HR_MANAGER && (isAmharic ? "የሰው ኃይል ኃላፊ" : "HR Manager")}
-                      {currentUserRole === UserRole.FINANCE_MANAGER && (isAmharic ? "የፋይናንስ ኃላፊ" : "Finance Manager")}
-                    </>
-                  )}
-                  {currentUserProfile?.role && (
-                    <span className="text-[10px] text-slate-500 font-normal ml-1">
-                      ({currentUserProfile.role})
-                    </span>
+                    currentUserRole === UserRole.SUPER_ADMIN && (currentUserProfile?.email === "mejennur669@gmail.com" || auth?.currentUser?.email === "mejennur669@gmail.com")
+                      ? "Nuriye (Admin)" 
+                      : (currentUserRole === UserRole.SUPER_ADMIN ? UserRole.WORKER : currentUserRole)
                   )}
                 </div>
               </div>
             </div>
 
             {/* Enhanced Connection & Durable Sync Status Badge */}
-            <div className={`flex items-center space-x-2 px-2.5 py-1.5 rounded-xl border text-[11px] font-bold transition-all shadow-sm ${
+            <div className={`flex items-center space-x-1 sm:space-x-1.5 px-2 py-1 sm:py-1.5 rounded-xl border text-[10px] sm:text-[11px] font-bold transition-all shadow-xs ${
               !isOnline
                 ? "bg-amber-50 text-amber-800 border-amber-300 animate-pulse"
                 : syncStats.isSyncing
@@ -1948,7 +2143,7 @@ export default function App() {
                 ? "bg-orange-50 text-orange-700 border-orange-200"
                 : "bg-emerald-50 text-emerald-700 border-emerald-100"
             }`}>
-              <span className={`w-2 h-2 rounded-full ${
+              <span className={`w-2 h-2 rounded-full shrink-0 ${
                 !isOnline 
                   ? "bg-amber-500 animate-ping" 
                   : syncStats.isSyncing 
@@ -1958,22 +2153,20 @@ export default function App() {
                   : "bg-emerald-500"
               }`}></span>
               
-              <div className="flex items-center space-x-1.5">
-                <span>
-                  {!isOnline 
-                    ? (isAmharic ? "ከመስመር ውጭ (Local Queue)" : "Offline Mode (Local)") 
-                    : syncStats.isSyncing
-                    ? (isAmharic ? "በማመሳሰል ላይ..." : "Syncing...")
-                    : (isAmharic ? "መስመር ላይ" : "Online")
-                  }
-                </span>
+              <span className="hidden lg:inline">
+                {!isOnline 
+                  ? (isAmharic ? "ከመስመር ውጭ" : "Offline") 
+                  : syncStats.isSyncing
+                  ? (isAmharic ? "በማመሳሰል ላይ..." : "Syncing...")
+                  : (isAmharic ? "መስመር ላይ" : "Online")
+                }
+              </span>
 
-                {syncStats.pendingCount > 0 && (
-                  <span className="bg-orange-200/80 text-orange-900 px-1.5 py-0.2 rounded-full text-[10px] font-black font-mono">
-                    {syncStats.pendingCount} {isAmharic ? "መዝገቦች በወረፋ" : "pending"}
-                  </span>
-                )}
-              </div>
+              {syncStats.pendingCount > 0 && (
+                <span className="bg-orange-200/80 text-orange-900 px-1 py-0.2 rounded-full text-[9px] font-black font-mono">
+                  {syncStats.pendingCount}
+                </span>
+              )}
 
               {isOnline && syncStats.pendingCount > 0 && (
                 <button
@@ -1985,7 +2178,7 @@ export default function App() {
                   className="ml-1 p-0.5 hover:bg-orange-200 rounded text-orange-800 transition-colors cursor-pointer"
                   title={isAmharic ? "አሁን አመሳስል" : "Sync Now"}
                 >
-                  <RefreshCw size={11} className={syncStats.isSyncing ? "animate-spin" : ""} />
+                  <RefreshCw size={10} className={syncStats.isSyncing ? "animate-spin" : ""} />
                 </button>
               )}
             </div>
@@ -1994,8 +2187,8 @@ export default function App() {
             <NotificationBellDropdown
               currentUserRole={currentUserRole}
               selectedProject={selectedProject || "ALL"}
-              onNavigateToHub={() => setActiveTab("notificationCenter")}
-              onNavigateToTab={(tabName) => setActiveTab(tabName)}
+              onNavigateToHub={() => navigateToTab("notificationCenter")}
+              onNavigateToTab={(tabName) => navigateToTab(tabName)}
               systemNotifications={notifications}
               onMarkAsRead={handleMarkAsReadNotification}
               onMarkAllAsRead={handleMarkAllAsReadNotifications}
@@ -2005,21 +2198,21 @@ export default function App() {
             {/* Language toggle widget */}
             <button
               onClick={() => setIsAmharic(!isAmharic)}
-              className="p-2 hover:bg-slate-100 rounded-full text-slate-600 flex items-center space-x-1 transition-colors cursor-pointer"
+              className="p-1.5 sm:p-2 hover:bg-slate-100 rounded-full text-slate-600 flex items-center space-x-1 transition-colors cursor-pointer shrink-0"
               title="Toggle Language / ቋንቋ ቀይር"
             >
-              <Languages size={18} />
-              <span className="text-xs font-bold font-mono">{isAmharic ? "EN" : "አማ"}</span>
+              <Languages size={16} />
+              <span className="text-[10px] sm:text-xs font-bold font-mono">{isAmharic ? "EN" : "አማ"}</span>
             </button>
 
             {/* Manual Logout Button */}
             <button
               onClick={handleLogout}
-              className="px-3 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 text-xs font-black transition-all flex items-center space-x-1 cursor-pointer"
-              title="End Secure Token"
+              className="px-2 sm:px-2.5 py-1.5 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 border border-red-100 text-[10px] sm:text-xs font-black transition-all flex items-center space-x-1 cursor-pointer shrink-0"
+              title="Logout"
             >
-              <Lock size={12} />
-              <span>{isAmharic ? "ውጣ" : "Logout"}</span>
+              <Lock size={11} />
+              <span className="hidden sm:inline">{isAmharic ? "ውጣ" : "Logout"}</span>
             </button>
           </div>
         </div>
@@ -2027,36 +2220,50 @@ export default function App() {
 
       {/* CORE NAVIGATION BAR (No-print) */}
       <div className="bg-slate-900 text-slate-300 no-print shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-2 sm:px-6 lg:px-8">
           <div className="flex items-center space-x-1 overflow-x-auto py-1 scrollbar-none whitespace-nowrap text-xs font-semibold">
             
+            {/* Primary Back Arrow in Navigation Bar */}
+            <button
+              onClick={handleGoBack}
+              className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-black shrink-0 my-1 border ${
+                navigationHistory.length > 0 || activeTab !== "dashboard"
+                  ? "bg-red-600 hover:bg-red-500 text-white border-red-500 shadow-md shadow-red-950/40"
+                  : "bg-slate-800 text-slate-300 border-slate-700 hover:bg-slate-750"
+              }`}
+              title={isAmharic ? "ወደ ቀዳሚው ክፍል ተመለስ (Back)" : "Go Back to Previous Section (Back)"}
+            >
+              <ArrowLeft size={14} className="text-white" />
+              <span>{isAmharic ? "⬅️ ተመለስ" : "⬅️ Back"}</span>
+            </button>
+
             {/* Left Sidebar Toggle Button */}
             <button
               onClick={() => setIsSidebarOpen(prev => !prev)}
-              className={`px-3 py-2 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-extrabold shrink-0 my-1 border ${
+              className={`px-3 py-1.5 rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-bold shrink-0 my-1 border ${
                 isSidebarOpen 
                   ? "bg-slate-800 text-red-400 border-slate-700 hover:bg-slate-750" 
                   : "bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
               }`}
               title={isAmharic ? "የግራ ሳይድባር ማውጫ ክፈት/ዝጋ" : "Toggle Left Navigation Sidebar"}
             >
-              <Grid size={15} className="text-red-400" />
-              <span>{isAmharic ? (isSidebarOpen ? "ሳይድባር ደብቅ" : "የግራ ማውጫ (1-30)") : (isSidebarOpen ? "Hide Sidebar" : "Left Menu (1-30)")}</span>
+              <Grid size={14} className="text-red-400" />
+              <span>{isAmharic ? (isSidebarOpen ? "ሳይድባር ደብቅ" : "ማውጫ (1-30)") : (isSidebarOpen ? "Hide Menu" : "Menu (1-30)")}</span>
             </button>
 
             {/* Quick Modules Menu Modal Launcher */}
             <button
               onClick={() => setShowModulesMenu(true)}
-              className="px-3 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-black shrink-0 my-1 shadow-md shadow-red-600/30 border border-red-400/40"
+              className="px-3 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center space-x-1.5 transition-all cursor-pointer font-black shrink-0 my-1 shadow-sm shadow-red-600/30 border border-red-400/40"
             >
-              <Grid size={16} className="animate-pulse" />
-              <span>{isAmharic ? "ሁሉንም ክፍሎች ክፈት (All Modules)" : "All Modules Menu"}</span>
+              <Grid size={14} className="animate-pulse" />
+              <span>{isAmharic ? "ሁሉንም ክፍሎች (All Modules)" : "All Modules"}</span>
             </button>
 
             {/* Dashboard Tab */}
             {tabPermissions[currentUserRole]?.includes("dashboard") && (
               <button
-                onClick={() => setActiveTab("dashboard")}
+                onClick={() => navigateToTab("dashboard")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "dashboard" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2069,7 +2276,7 @@ export default function App() {
             {/* Task Management & Multi-Field Search Tab */}
             {tabPermissions[currentUserRole]?.includes("taskManagement") && (
               <button
-                onClick={() => setActiveTab("taskManagement")}
+                onClick={() => navigateToTab("taskManagement")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "taskManagement" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2082,7 +2289,7 @@ export default function App() {
             {/* Firestore Data Explorer Tab (Admin/Authorized Only) */}
             {tabPermissions[currentUserRole]?.includes("firestoreExplorer") && (
               <button
-                onClick={() => setActiveTab("firestoreExplorer")}
+                onClick={() => navigateToTab("firestoreExplorer")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "firestoreExplorer" ? "text-white border-emerald-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2096,7 +2303,7 @@ export default function App() {
             {tabPermissions[currentUserRole]?.includes("notificationCenter") && (
               <button
                 id="tab-btn-notification-center"
-                onClick={() => setActiveTab("notificationCenter")}
+                onClick={() => navigateToTab("notificationCenter")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "notificationCenter" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2114,7 +2321,7 @@ export default function App() {
             {/* Custom Data Input Hub Tab */}
             {tabPermissions[currentUserRole]?.includes("customInputHub") && (
               <button
-                onClick={() => setActiveTab("customInputHub")}
+                onClick={() => navigateToTab("customInputHub")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "customInputHub" ? "text-white border-emerald-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2127,7 +2334,7 @@ export default function App() {
             {/* Worker Profiles Tab */}
             {tabPermissions[currentUserRole]?.includes("workerProfiles") && (
               <button
-                onClick={() => setActiveTab("workerProfiles")}
+                onClick={() => navigateToTab("workerProfiles")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "workerProfiles" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2140,7 +2347,7 @@ export default function App() {
             {/* Enterprise ERP Suite Tab */}
             {tabPermissions[currentUserRole]?.includes("enterpriseErp") && (
               <button
-                onClick={() => setActiveTab("enterpriseErp")}
+                onClick={() => navigateToTab("enterpriseErp")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "enterpriseErp" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2156,7 +2363,7 @@ export default function App() {
             {/* Finance ERP Hub Tab */}
             {tabPermissions[currentUserRole]?.includes("financeErp") && (
               <button
-                onClick={() => setActiveTab("financeErp")}
+                onClick={() => navigateToTab("financeErp")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "financeErp" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2172,7 +2379,7 @@ export default function App() {
             {/* Projects & Documents Tab */}
             {tabPermissions[currentUserRole]?.includes("projectDocs") && (
               <button
-                onClick={() => setActiveTab("projectDocs")}
+                onClick={() => navigateToTab("projectDocs")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "projectDocs" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2185,7 +2392,7 @@ export default function App() {
             {/* Site Layout Tab */}
             {tabPermissions[currentUserRole]?.includes("siteLayout") && (
               <button
-                onClick={() => setActiveTab("siteLayout")}
+                onClick={() => navigateToTab("siteLayout")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "siteLayout" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2198,7 +2405,7 @@ export default function App() {
             {/* CAD Drawings & Photos Tab */}
             {tabPermissions[currentUserRole]?.includes("cadDrawing") && (
               <button
-                onClick={() => setActiveTab("cadDrawing")}
+                onClick={() => navigateToTab("cadDrawing")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "cadDrawing" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2211,7 +2418,7 @@ export default function App() {
             {/* Surveying & Concrete Tab */}
             {tabPermissions[currentUserRole]?.includes("surveying") && (
               <button
-                onClick={() => setActiveTab("surveying")}
+                onClick={() => navigateToTab("surveying")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "surveying" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2224,7 +2431,7 @@ export default function App() {
             {/* Attendance Tab */}
             {tabPermissions[currentUserRole]?.includes("attendance") && (
               <button
-                onClick={() => setActiveTab("attendance")}
+                onClick={() => navigateToTab("attendance")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "attendance" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2237,7 +2444,7 @@ export default function App() {
             {/* Biometric Attendance Board Tab */}
             {tabPermissions[currentUserRole]?.includes("biometricBoard") && (
               <button
-                onClick={() => setActiveTab("biometricBoard")}
+                onClick={() => navigateToTab("biometricBoard")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "biometricBoard" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2250,20 +2457,20 @@ export default function App() {
             {/* Fingerprint Attendance Board Tab */}
             {tabPermissions[currentUserRole]?.includes("fingerprintBoard") && (
               <button
-                onClick={() => setActiveTab("fingerprintBoard")}
+                onClick={() => navigateToTab("fingerprintBoard")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "fingerprintBoard" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
               >
                 <Fingerprint size={15} className="text-red-500 animate-pulse" />
-                <span>{t("Fingerprint Board")}</span>
+                <span>{isAmharic ? "የስልክ እና ባዮሜትሪክ መገኘት ጣቢያ" : "Mobile & Biometric Station"}</span>
               </button>
             )}
 
             {/* Real-Time Cloud Sync Tab */}
             {tabPermissions[currentUserRole]?.includes("headOfficeSync") && (
               <button
-                onClick={() => setActiveTab("headOfficeSync")}
+                onClick={() => navigateToTab("headOfficeSync")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "headOfficeSync" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2276,7 +2483,7 @@ export default function App() {
             {/* Biometric Kiosk Tab */}
             {tabPermissions[currentUserRole]?.includes("biometricKiosk") && (
               <button
-                onClick={() => setActiveTab("biometricKiosk")}
+                onClick={() => navigateToTab("biometricKiosk")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "biometricKiosk" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2289,7 +2496,7 @@ export default function App() {
             {/* Planning & Gantt Scheduler */}
             {tabPermissions[currentUserRole]?.includes("planning") && (
               <button
-                onClick={() => setActiveTab("planning")}
+                onClick={() => navigateToTab("planning")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "planning" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2302,7 +2509,7 @@ export default function App() {
             {/* Daily progress logging */}
             {tabPermissions[currentUserRole]?.includes("progress") && (
               <button
-                onClick={() => setActiveTab("progress")}
+                onClick={() => navigateToTab("progress")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "progress" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2315,7 +2522,7 @@ export default function App() {
             {/* Aluminum Formwork Management Tab */}
             {tabPermissions[currentUserRole]?.includes("formworkManagement") && (
               <button
-                onClick={() => setActiveTab("formworkManagement")}
+                onClick={() => navigateToTab("formworkManagement")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "formworkManagement" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2328,7 +2535,7 @@ export default function App() {
             {/* Performance Rankings Tab */}
             {tabPermissions[currentUserRole]?.includes("performance") && (
               <button
-                onClick={() => setActiveTab("performance")}
+                onClick={() => navigateToTab("performance")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "performance" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2341,7 +2548,7 @@ export default function App() {
             {/* Safety and Quality Checks */}
             {tabPermissions[currentUserRole]?.includes("safetyQuality") && (
               <button
-                onClick={() => setActiveTab("safetyQuality")}
+                onClick={() => navigateToTab("safetyQuality")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "safetyQuality" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2354,7 +2561,7 @@ export default function App() {
             {/* AI Site Photo & Concrete Readiness Inspection Tab */}
             {tabPermissions[currentUserRole]?.includes("aiInspection") && (
               <button
-                onClick={() => setActiveTab("aiInspection")}
+                onClick={() => navigateToTab("aiInspection")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-red-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "aiInspection" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2367,7 +2574,7 @@ export default function App() {
             {/* AI Predictive Analytics */}
             {tabPermissions[currentUserRole]?.includes("predictions") && (
               <button
-                onClick={() => setActiveTab("predictions")}
+                onClick={() => navigateToTab("predictions")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-rose-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "predictions" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2380,7 +2587,7 @@ export default function App() {
             {/* Admin Setup Tab */}
             {tabPermissions[currentUserRole]?.includes("admin") && (
               <button
-                onClick={() => setActiveTab("admin")}
+                onClick={() => navigateToTab("admin")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "admin" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2393,7 +2600,7 @@ export default function App() {
             {/* Audit Log Tab */}
             {tabPermissions[currentUserRole]?.includes("auditLog") && (
               <button
-                onClick={() => setActiveTab("auditLog")}
+                onClick={() => navigateToTab("auditLog")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-emerald-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "auditLog" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2406,7 +2613,7 @@ export default function App() {
             {/* Mobile Apps Tab */}
             {tabPermissions[currentUserRole]?.includes("mobileApps") && (
               <button
-                onClick={() => setActiveTab("mobileApps")}
+                onClick={() => navigateToTab("mobileApps")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-indigo-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "mobileApps" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2419,7 +2626,7 @@ export default function App() {
             {/* Launch Readiness Tab */}
             {tabPermissions[currentUserRole]?.includes("launchReadiness") && (
               <button
-                onClick={() => setActiveTab("launchReadiness")}
+                onClick={() => navigateToTab("launchReadiness")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-orange-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "launchReadiness" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2432,7 +2639,7 @@ export default function App() {
             {/* Subcontractor Portal Tab */}
             {tabPermissions[currentUserRole]?.includes("subcontractorPortal") && (
               <button
-                onClick={() => setActiveTab("subcontractorPortal")}
+                onClick={() => navigateToTab("subcontractorPortal")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-amber-500 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "subcontractorPortal" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2445,7 +2652,7 @@ export default function App() {
             {/* Warehouse Manager App Tab */}
             {tabPermissions[currentUserRole]?.includes("warehouseManagerApp") && (
               <button
-                onClick={() => setActiveTab("warehouseManagerApp")}
+                onClick={() => navigateToTab("warehouseManagerApp")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-amber-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "warehouseManagerApp" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2458,7 +2665,7 @@ export default function App() {
             {/* Store Owner App Tab */}
             {tabPermissions[currentUserRole]?.includes("storeOwnerApp") && (
               <button
-                onClick={() => setActiveTab("storeOwnerApp")}
+                onClick={() => navigateToTab("storeOwnerApp")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-amber-500 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "storeOwnerApp" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2471,7 +2678,7 @@ export default function App() {
             {/* Site Store Material Movement & Requisitions Hub */}
             {tabPermissions[currentUserRole]?.includes("siteStoreMovement") && (
               <button
-                onClick={() => setActiveTab("siteStoreMovement")}
+                onClick={() => navigateToTab("siteStoreMovement")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-cyan-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "siteStoreMovement" ? "text-white border-cyan-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2484,7 +2691,7 @@ export default function App() {
             {/* Panel Traceability Module Tab */}
             {tabPermissions[currentUserRole]?.includes("panelTraceability") && (
               <button
-                onClick={() => setActiveTab("panelTraceability")}
+                onClick={() => navigateToTab("panelTraceability")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-red-400 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "panelTraceability" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2497,7 +2704,7 @@ export default function App() {
             {/* Security & Settings Tab */}
             {tabPermissions[currentUserRole]?.includes("securitySettings") && (
               <button
-                onClick={() => setActiveTab("securitySettings")}
+                onClick={() => navigateToTab("securitySettings")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-red-500 transition-colors cursor-pointer border-b-2 ${
                   activeTab === "securitySettings" ? "text-white border-red-500 bg-slate-800" : "border-transparent hover:text-white hover:bg-slate-800"
                 }`}
@@ -2516,236 +2723,270 @@ export default function App() {
         
         {/* LEFT NAVIGATION SIDEBAR (Lists all 30 Modules clearly in Amharic & English) */}
         {isSidebarOpen && (
-          <aside className="w-72 bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 flex flex-col no-print shadow-xl sticky top-0 max-h-screen overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
-            {/* Sidebar Header */}
-            <div className="p-3.5 border-b border-slate-800 flex items-center justify-between bg-slate-950/80 sticky top-0 z-10 backdrop-blur-md">
-              <div className="flex items-center space-x-2">
-                <Grid size={18} className="text-red-500 animate-pulse" />
-                <span className="font-extrabold text-xs text-white uppercase tracking-wider">
-                  {isAmharic ? "የሲስተም ክፍሎች (30 ERP Modules)" : "ERP Modules (1-30)"}
-                </span>
-              </div>
-              <button
-                onClick={() => setIsSidebarOpen(false)}
-                className="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer text-xs border border-slate-700"
-                title={isAmharic ? "ሳይድባሩን ደብቅ" : "Collapse Sidebar"}
-              >
-                <X size={14} />
-              </button>
-            </div>
-
-            {/* Sidebar Content: 5 Sections containing all 30 Modules */}
-            <div className="p-3 space-y-5 text-xs">
-              
-              {/* Section 1: Core Administration & HR (1-6) */}
-              <div>
-                <h4 className="text-[11px] font-black uppercase tracking-wider text-red-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                  <ShieldCheck size={13} />
-                  <span>{isAmharic ? "1. ዋና አስተዳደር፣ የሰው ኃይል እና ደህንነት (ክፍል 1-6)" : "Core Admin & HR (1-6)"}</span>
-                </h4>
-                <div className="space-y-1">
-                  {[
-                    { id: "dashboard", num: 1, nameEn: "Dashboard", nameAm: "1. ዳሽቦርድ (Dashboard)", icon: Activity },
-                    { id: "taskManagement", num: "1T", nameEn: "Task Management & Search", nameAm: "1.1 የስራ ትዕዛዞች ፍለጋ (Task Search & Hub)", icon: CheckCircle2 },
-                    { id: "firestoreExplorer", num: "1D", nameEn: "Firestore Data Explorer", nameAm: "1.2 ዳታቤዝ መርማሪ (Data Explorer)", icon: Database },
-                    { id: "workerProfiles", num: 2, nameEn: "Worker Profiles", nameAm: "2. የሰራተኞች መገለጫዎች (Worker Profiles)", icon: Users },
-                    { id: "customInputHub", num: 3, nameEn: "Data Input Hub", nameAm: "3. የመረጃ ግብአት ማዕከል (Data Input Hub)", icon: PlusCircle },
-                    { id: "notificationCenter", num: 4, nameEn: "Notifications Center", nameAm: "4. የማስታወቂያዎች ማዕከል (Notifications Center)", icon: Bell },
-                    { id: "admin", num: 5, nameEn: "Admin Role Approval", nameAm: "5. የአድሚን ማፅደቂያ ቦርድ (Admin Role Approval)", icon: Settings },
-                    { id: "securitySettings", num: 6, nameEn: "Security & Settings", nameAm: "6. ደህንነት እና ምርጫዎች (Security & Settings)", icon: Shield },
-                  ].filter(item => hasAccess(item.id)).map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
-                          isActive 
-                            ? "bg-red-600 text-white shadow-md shadow-red-950/50" 
-                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
-                        }`}
-                      >
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
-                          isActive ? "bg-red-700 text-white" : "bg-slate-800 text-slate-400"
-                        }`}>
-                          #{item.num}
-                        </span>
-                        <Icon size={14} className={isActive ? "text-white" : "text-red-400"} />
-                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
-                      </button>
-                    );
-                  })}
+          <>
+            {/* Mobile backdrop */}
+            <div 
+              className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-xs transition-opacity"
+              onClick={() => setIsSidebarOpen(false)}
+            />
+            <aside className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] lg:relative lg:z-auto bg-slate-900 border-r border-slate-800 text-slate-200 shrink-0 flex flex-col no-print shadow-2xl lg:shadow-xl max-h-screen overflow-y-auto scrollbar-thin scrollbar-thumb-slate-700">
+              {/* Sidebar Header */}
+              <div className="p-3 border-b border-slate-800 flex items-center justify-between bg-slate-950/80 sticky top-0 z-10 backdrop-blur-md">
+                <div className="flex items-center space-x-2">
+                  <Grid size={16} className="text-red-500 animate-pulse" />
+                  <span className="font-extrabold text-xs text-white uppercase tracking-wider">
+                    {isAmharic ? "የሲስተም ክፍሎች (30 ERP Modules)" : "ERP Modules (1-30)"}
+                  </span>
                 </div>
+                <button
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors cursor-pointer text-xs border border-slate-700"
+                  title={isAmharic ? "ሳይድባሩን ደብቅ" : "Collapse Sidebar"}
+                >
+                  <X size={14} />
+                </button>
               </div>
 
-              {/* Section 2: Warehouse, Store & Enterprise ERP (7-12) */}
-              <div>
-                <h4 className="text-[11px] font-black uppercase tracking-wider text-amber-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                  <Store size={13} />
-                  <span>{isAmharic ? "2. መጋዘን፣ ስቶር እና የኢንተርፕራይዝ ERP (ክፍል 7-12)" : "Warehouse & ERP (7-12)"}</span>
-                </h4>
-                <div className="space-y-1">
-                  {[
-                    { id: "warehouseManagerApp", num: 7, nameEn: "Warehouse Manager App", nameAm: "7. የመጋዘን አስተዳዳሪ (Warehouse Manager App)", icon: Building2 },
-                    { id: "storeOwnerApp", num: 8, nameEn: "Store Owner App", nameAm: "8. የሳይት ስቶር አቃቤ (Store Owner App)", icon: Store },
-                    { id: "enterpriseErp", num: 9, nameEn: "Enterprise ERP Suite", nameAm: "9. ኢንተርፕራይዝ ERP Suite (Enterprise ERP Suite)", icon: Cpu },
-                    { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP Hub (Finance ERP Hub)", icon: DollarSign },
-                    { id: "headOfficeSync", num: 11, nameEn: "Real-Time Cloud Sync", nameAm: "11. የደመና መረጃ ሲንክ (Real-Time Cloud Sync)", icon: Database },
-                    { id: "auditLog", num: 12, nameEn: "Audit Log", nameAm: "12. ኦዲት መዝገብ (Audit Log)", icon: ShieldCheck },
-                  ].filter(item => hasAccess(item.id)).map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
-                          isActive 
-                            ? "bg-amber-600 text-white shadow-md shadow-amber-950/50" 
-                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
-                        }`}
-                      >
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
-                          isActive ? "bg-amber-700 text-white" : "bg-slate-800 text-slate-400"
-                        }`}>
-                          #{item.num}
-                        </span>
-                        <Icon size={14} className={isActive ? "text-white" : "text-amber-400"} />
-                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
-                      </button>
-                    );
-                  })}
+              {/* Sidebar Content: 5 Sections containing all 30 Modules */}
+              <div className="p-2.5 space-y-4 text-xs">
+                
+                {/* Section 1: Core Administration & HR (1-6) */}
+                <div>
+                  <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-red-400 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                    <ShieldCheck size={12} />
+                    <span>{isAmharic ? "1. ዋና አስተዳደር & HR (ክፍል 1-6)" : "Core Admin & HR (1-6)"}</span>
+                  </h4>
+                  <div className="space-y-0.5">
+                    {[
+                      { id: "dashboard", num: 1, nameEn: "Dashboard", nameAm: "1. ዳሽቦርድ (Dashboard)", icon: Activity },
+                      { id: "taskManagement", num: "1T", nameEn: "Task Management & Search", nameAm: "1.1 የስራ ትዕዛዞች ፍለጋ (Task Search)", icon: CheckCircle2 },
+                      { id: "firestoreExplorer", num: "1D", nameEn: "Firestore Data Explorer", nameAm: "1.2 ዳታቤዝ መርማሪ (Data Explorer)", icon: Database },
+                      { id: "workerProfiles", num: 2, nameEn: "Worker Profiles", nameAm: "2. የሰራተኞች መገለጫዎች (Worker Profiles)", icon: Users },
+                      { id: "customInputHub", num: 3, nameEn: "Data Input Hub", nameAm: "3. የመረጃ ግብአት ማዕከል (Data Input Hub)", icon: PlusCircle },
+                      { id: "notificationCenter", num: 4, nameEn: "Notifications Center", nameAm: "4. የማስታወቂያዎች ማዕከል (Notifications)", icon: Bell },
+                      { id: "admin", num: 5, nameEn: "Admin Role Approval", nameAm: "5. የአድሚን ማፅደቂያ (Admin Approval)", icon: Settings },
+                      { id: "securitySettings", num: 6, nameEn: "Security & Settings", nameAm: "6. ደህንነት እና ምርጫዎች (Security)", icon: Shield },
+                    ].filter(item => hasAccess(item.id)).map(item => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => navigateToTab(item.id)}
+                          className={`w-full text-left px-2 py-1.5 rounded-lg transition-all flex items-center space-x-2 cursor-pointer font-semibold ${
+                            isActive 
+                              ? "bg-red-600 text-white shadow-md shadow-red-950/50" 
+                              : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-mono shrink-0 ${
+                            isActive ? "bg-red-700 text-white" : "bg-slate-800 text-slate-400"
+                          }`}>
+                            #{item.num}
+                          </span>
+                          <Icon size={13} className={isActive ? "text-white" : "text-red-400"} />
+                          <span className="truncate text-[11px] sm:text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              {/* Section 3: Site Operations & Engineering (13-18) */}
-              <div>
-                <h4 className="text-[11px] font-black uppercase tracking-wider text-blue-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                  <Building2 size={13} />
-                  <span>{isAmharic ? "3. የግንባታ፣ ፎርምወርክ እና ንድፎች (ክፍል 13-18)" : "Engineering & Site (13-18)"}</span>
-                </h4>
-                <div className="space-y-1">
-                  {[
-                    { id: "formworkManagement", num: 13, nameEn: "Formwork Management", nameAm: "13. አሉሚኒየም ፎርምወርክ (Formwork Management)", icon: Grid },
-                    { id: "panelTraceability", num: "13T", nameEn: "Panel Traceability", nameAm: "13.1 የፓነል ዱካ መከታተያ (Panel Traceability)", icon: QrCode },
-                    { id: "projectDocs", num: 14, nameEn: "Project Docs & CAD", nameAm: "14. የፕሮጀክት ሰነዶች & CAD (Project Docs & CAD)", icon: FileText },
-                    { id: "cadDrawing", num: 15, nameEn: "CAD Drawings & Photos", nameAm: "15. የካድ ንድፎች እና ፎቶዎች (CAD Drawings & Photos)", icon: FileText },
-                    { id: "siteLayout", num: 16, nameEn: "Site Layout", nameAm: "16. የሳይት ሌይአውት (Site Layout)", icon: Compass },
-                    { id: "surveying", num: 17, nameEn: "Surveying & Concrete", nameAm: "17. ሰርቬይንግ እና ኮንክሪት (Surveying & Concrete)", icon: Compass },
-                    { id: "subcontractorPortal", num: 18, nameEn: "Subcontractor Portal", nameAm: "18. ንዑስ ተቋራጭ ፖርታል (Subcontractor Portal)", icon: Briefcase },
-                  ].filter(item => hasAccess(item.id)).map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
-                          isActive 
-                            ? "bg-blue-600 text-white shadow-md shadow-blue-950/50" 
-                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
-                        }`}
-                      >
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
-                          isActive ? "bg-blue-700 text-white" : "bg-slate-800 text-slate-400"
-                        }`}>
-                          #{item.num}
-                        </span>
-                        <Icon size={14} className={isActive ? "text-white" : "text-blue-400"} />
-                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
-                      </button>
-                    );
-                  })}
+                {/* Section 2: Warehouse, Store & Enterprise ERP (7-12) */}
+                <div>
+                  <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-amber-400 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                    <Store size={12} />
+                    <span>{isAmharic ? "2. መጋዘን & ERP (ክፍል 7-12)" : "Warehouse & ERP (7-12)"}</span>
+                  </h4>
+                  <div className="space-y-0.5">
+                    {[
+                      { id: "warehouseManagerApp", num: 7, nameEn: "Warehouse Manager App", nameAm: "7. የመጋዘን አስተዳዳሪ (Warehouse Manager)", icon: Building2 },
+                      { id: "storeOwnerApp", num: 8, nameEn: "Store Owner App", nameAm: "8. የሳይት ስቶር አቃቤ (Store Owner App)", icon: Store },
+                      { id: "enterpriseErp", num: 9, nameEn: "Enterprise ERP Suite", nameAm: "9. ኢንተርፕራይዝ ERP (Enterprise ERP)", icon: Cpu },
+                      { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP (Finance ERP Hub)", icon: DollarSign },
+                      { id: "headOfficeSync", num: 11, nameEn: "Real-Time Cloud Sync", nameAm: "11. የደመና መረጃ ሲንክ (Cloud Sync)", icon: Database },
+                      { id: "auditLog", num: 12, nameEn: "Audit Log", nameAm: "12. ኦዲት መዝገብ (Audit Log)", icon: ShieldCheck },
+                    ].filter(item => hasAccess(item.id)).map(item => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => navigateToTab(item.id)}
+                          className={`w-full text-left px-2 py-1.5 rounded-lg transition-all flex items-center space-x-2 cursor-pointer font-semibold ${
+                            isActive 
+                              ? "bg-amber-600 text-white shadow-md shadow-amber-950/50" 
+                              : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-mono shrink-0 ${
+                            isActive ? "bg-amber-700 text-white" : "bg-slate-800 text-slate-400"
+                          }`}>
+                            #{item.num}
+                          </span>
+                          <Icon size={13} className={isActive ? "text-white" : "text-amber-400"} />
+                          <span className="truncate text-[11px] sm:text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              {/* Section 4: Field Operations & Attendance (19-24) */}
-              <div>
-                <h4 className="text-[11px] font-black uppercase tracking-wider text-purple-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                  <Fingerprint size={13} />
-                  <span>{isAmharic ? "4. የመገኘት፣ ባዮሜትሪክስ እና እቅድ (ክፍል 19-24)" : "Attendance & Field (19-24)"}</span>
-                </h4>
-                <div className="space-y-1">
-                  {[
-                    { id: "attendance", num: 19, nameEn: "Attendance & Clock-In", nameAm: "19. የመገኘት መዝገብ (Attendance & Clock-In)", icon: Fingerprint },
-                    { id: "biometricKiosk", num: 20, nameEn: "Biometric Kiosk Scanner", nameAm: "20. ባዮሜትሪክ ኪዮስክ (Biometric Kiosk Scanner)", icon: ScanLine },
-                    { id: "fingerprintBoard", num: 21, nameEn: "Fingerprint Board", nameAm: "21. የጣት አሻራ ቦርድ (Fingerprint Board)", icon: Fingerprint },
-                    { id: "biometricBoard", num: 22, nameEn: "Biometric Board", nameAm: "22. ባዮሜትሪክ ቦርድ (Biometric Board)", icon: Fingerprint },
-                    { id: "planning", num: 23, nameEn: "Planning & Gantt", nameAm: "23. የግንባታ እቅድ & Gantt (Planning & Gantt)", icon: Calendar },
-                    { id: "progress", num: 24, nameEn: "Daily Progress Logs", nameAm: "24. ዕለታዊ የዕድገት መዝገብ (Daily Progress Logs)", icon: Layers },
-                  ].filter(item => hasAccess(item.id)).map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
-                          isActive 
-                            ? "bg-purple-600 text-white shadow-md shadow-purple-950/50" 
-                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
-                        }`}
-                      >
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
-                          isActive ? "bg-purple-700 text-white" : "bg-slate-800 text-slate-400"
-                        }`}>
-                          #{item.num}
-                        </span>
-                        <Icon size={14} className={isActive ? "text-white" : "text-purple-400"} />
-                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
-                      </button>
-                    );
-                  })}
+                {/* Section 3: Site Operations & Engineering (13-18) */}
+                <div>
+                  <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-blue-400 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                    <Building2 size={12} />
+                    <span>{isAmharic ? "3. የግንባታ & ንድፎች (ክፍል 13-18)" : "Engineering & Site (13-18)"}</span>
+                  </h4>
+                  <div className="space-y-0.5">
+                    {[
+                      { id: "formworkManagement", num: 13, nameEn: "Formwork Management", nameAm: "13. አሉሚኒየም ፎርምወርክ (Formwork)", icon: Grid },
+                      { id: "panelTraceability", num: "13T", nameEn: "Panel Traceability", nameAm: "13.1 የፓነል ዱካ መከታተያ (Traceability)", icon: QrCode },
+                      { id: "projectDocs", num: 14, nameEn: "Project Docs & CAD", nameAm: "14. የፕሮጀክት ሰነዶች & CAD (Docs & CAD)", icon: FileText },
+                      { id: "cadDrawing", num: 15, nameEn: "CAD Drawings & Photos", nameAm: "15. የካድ ንድፎች (CAD Drawings)", icon: FileText },
+                      { id: "siteLayout", num: 16, nameEn: "Site Layout", nameAm: "16. የሳይት ሌይአውት (Site Layout)", icon: Compass },
+                      { id: "surveying", num: 17, nameEn: "Surveying & Concrete", nameAm: "17. ሰርቬይንግ & ኮንክሪት (Surveying)", icon: Compass },
+                      { id: "subcontractorPortal", num: 18, nameEn: "Subcontractor Portal", nameAm: "18. ንዑስ ተቋራጭ ፖርታል (Subcontractor)", icon: Briefcase },
+                    ].filter(item => hasAccess(item.id)).map(item => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => navigateToTab(item.id)}
+                          className={`w-full text-left px-2 py-1.5 rounded-lg transition-all flex items-center space-x-2 cursor-pointer font-semibold ${
+                            isActive 
+                              ? "bg-blue-600 text-white shadow-md shadow-blue-950/50" 
+                              : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-mono shrink-0 ${
+                            isActive ? "bg-blue-700 text-white" : "bg-slate-800 text-slate-400"
+                          }`}>
+                            #{item.num}
+                          </span>
+                          <Icon size={13} className={isActive ? "text-white" : "text-blue-400"} />
+                          <span className="truncate text-[11px] sm:text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-              {/* Section 5: AI Inspection, Analytics & Mobile Apps (25-30) */}
-              <div>
-                <h4 className="text-[11px] font-black uppercase tracking-wider text-rose-400 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1.5">
-                  <Sparkles size={13} />
-                  <span>{isAmharic ? "5. አይአይ ቁጥጥር፣ ትንበያ እና ሞባይል (ክፍል 25-30)" : "AI & Mobile Apps (25-30)"}</span>
-                </h4>
-                <div className="space-y-1">
-                  {[
-                    { id: "aiInspection", num: 25, nameEn: "AI Photo Inspection", nameAm: "25. አይአይ ፎቶ ቁጥጥር (AI Photo Inspection)", icon: Camera },
-                    { id: "predictions", num: 26, nameEn: "AI Predictive Analytics", nameAm: "26. አይአይ ትንበያዎች (AI Predictive Analytics)", icon: Sparkles },
-                    { id: "performance", num: 27, nameEn: "Performance Evaluation", nameAm: "27. የሰራተኞች ግምገማ (Performance Evaluation)", icon: UserCheck },
-                    { id: "safetyQuality", num: 28, nameEn: "Safety & Quality", nameAm: "28. ደህንነት እና ጥራት (Safety & Quality)", icon: ShieldAlert },
-                    { id: "mobileApps", num: 29, nameEn: "Mobile Apps Suite", nameAm: "29. የሞባይል መተግበሪያዎች (Mobile Apps Suite)", icon: Smartphone },
-                    { id: "launchReadiness", num: 30, nameEn: "Launch Readiness", nameAm: "30. ማስጀመሪያ ዝግጁነት (Launch Readiness)", icon: Rocket },
-                  ].filter(item => hasAccess(item.id)).map(item => {
-                    const Icon = item.icon;
-                    const isActive = activeTab === item.id;
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`w-full text-left px-2.5 py-2 rounded-xl transition-all flex items-center space-x-2 cursor-pointer font-bold ${
-                          isActive 
-                            ? "bg-rose-600 text-white shadow-md shadow-rose-950/50" 
-                            : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
-                        }`}
-                      >
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono shrink-0 ${
-                          isActive ? "bg-rose-700 text-white" : "bg-slate-800 text-slate-400"
-                        }`}>
-                          #{item.num}
-                        </span>
-                        <Icon size={14} className={isActive ? "text-white" : "text-rose-400"} />
-                        <span className="truncate text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
-                      </button>
-                    );
-                  })}
+                {/* Section 4: Field Operations & Attendance (19-24) */}
+                <div>
+                  <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-purple-400 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                    <Fingerprint size={12} />
+                    <span>{isAmharic ? "4. የመገኘት & ባዮሜትሪክስ (ክፍል 19-24)" : "Attendance & Field (19-24)"}</span>
+                  </h4>
+                  <div className="space-y-0.5">
+                    {[
+                      { id: "attendance", num: 19, nameEn: "Attendance & Clock-In", nameAm: "19. የመገኘት መዝገብ (Attendance)", icon: Fingerprint },
+                      { id: "biometricKiosk", num: 20, nameEn: "Biometric Kiosk Scanner", nameAm: "20. ባዮሜትሪክ ኪዮስክ (Biometric Kiosk)", icon: ScanLine },
+                      { id: "fingerprintBoard", num: 21, nameEn: "Mobile & Biometric Attendance Station", nameAm: "21. የስልክ & ባዮሜትሪክ ጣቢያ (Biometric Station)", icon: Smartphone },
+                      { id: "biometricBoard", num: 22, nameEn: "Biometric Board", nameAm: "22. ባዮሜትሪክ ቦርድ (Biometric Board)", icon: Fingerprint },
+                      { id: "planning", num: 23, nameEn: "Planning & Gantt", nameAm: "23. የግንባታ እቅድ & Gantt (Planning)", icon: Calendar },
+                      { id: "progress", num: 24, nameEn: "Daily Progress Logs", nameAm: "24. ዕለታዊ የዕድገት መዝገብ (Progress)", icon: Layers },
+                    ].filter(item => hasAccess(item.id)).map(item => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => navigateToTab(item.id)}
+                          className={`w-full text-left px-2 py-1.5 rounded-lg transition-all flex items-center space-x-2 cursor-pointer font-semibold ${
+                            isActive 
+                              ? "bg-purple-600 text-white shadow-md shadow-purple-950/50" 
+                              : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-mono shrink-0 ${
+                            isActive ? "bg-purple-700 text-white" : "bg-slate-800 text-slate-400"
+                          }`}>
+                            #{item.num}
+                          </span>
+                          <Icon size={13} className={isActive ? "text-white" : "text-purple-400"} />
+                          <span className="truncate text-[11px] sm:text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
 
-            </div>
-          </aside>
+                {/* Section 5: AI Inspection, Analytics & Mobile Apps (25-30) */}
+                <div>
+                  <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-rose-400 mb-1.5 flex items-center gap-1.5 border-b border-slate-800 pb-1">
+                    <Sparkles size={12} />
+                    <span>{isAmharic ? "5. አይአይ & ሞባይል (ክፍል 25-30)" : "AI & Mobile Apps (25-30)"}</span>
+                  </h4>
+                  <div className="space-y-0.5">
+                    {[
+                      { id: "aiInspection", num: 25, nameEn: "AI Photo Inspection", nameAm: "25. አይአይ ፎቶ ቁጥጥር (AI Inspection)", icon: Camera },
+                      { id: "predictions", num: 26, nameEn: "AI Predictive Analytics", nameAm: "26. አይአይ ትንበያዎች (AI Predictions)", icon: Sparkles },
+                      { id: "performance", num: 27, nameEn: "Performance Evaluation", nameAm: "27. የሰራተኞች ግምገማ (Evaluation)", icon: UserCheck },
+                      { id: "safetyQuality", num: 28, nameEn: "Safety & Quality", nameAm: "28. ደህንነት & ጥራት (Safety & Quality)", icon: ShieldAlert },
+                      { id: "mobileApps", num: 29, nameEn: "Mobile Apps Suite", nameAm: "29. የሞባይል መተግበሪያዎች (Mobile Apps)", icon: Smartphone },
+                      { id: "launchReadiness", num: 30, nameEn: "Launch Readiness", nameAm: "30. ማስጀመሪያ ዝግጁነት (Launch Ready)", icon: Rocket },
+                    ].filter(item => hasAccess(item.id)).map(item => {
+                      const Icon = item.icon;
+                      const isActive = activeTab === item.id;
+                      return (
+                        <button
+                          key={item.id}
+                          onClick={() => navigateToTab(item.id)}
+                          className={`w-full text-left px-2 py-1.5 rounded-lg transition-all flex items-center space-x-2 cursor-pointer font-semibold ${
+                            isActive 
+                              ? "bg-rose-600 text-white shadow-md shadow-rose-950/50" 
+                              : "hover:bg-slate-800/80 text-slate-300 hover:text-white"
+                          }`}
+                        >
+                          <span className={`px-1 py-0.2 rounded text-[9px] font-mono shrink-0 ${
+                            isActive ? "bg-rose-700 text-white" : "bg-slate-800 text-slate-400"
+                          }`}>
+                            #{item.num}
+                          </span>
+                          <Icon size={13} className={isActive ? "text-white" : "text-rose-400"} />
+                          <span className="truncate text-[11px] sm:text-xs">{isAmharic ? item.nameAm : `${item.num}. ${item.nameEn}`}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+              </div>
+            </aside>
+          </>
         )}
 
         {/* MAIN VIEW CONTENT CONTAINER */}
-        <main className="px-4 sm:px-6 lg:px-8 py-8 flex-grow w-full overflow-x-hidden">
+        <main className="px-2.5 sm:px-6 lg:px-8 py-4 sm:py-6 flex-grow w-full overflow-x-hidden">
+          
+          {/* Top Back Arrow & Module Breadcrumb Bar */}
+          {activeTab !== "dashboard" && (
+            <div className="mb-4 flex items-center justify-between bg-white border border-slate-200 rounded-2xl p-2 sm:px-4 shadow-xs">
+              <button
+                onClick={handleGoBack}
+                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl text-xs font-black flex items-center space-x-1.5 transition-all cursor-pointer border border-red-200 active:scale-95 shadow-2xs"
+                title={isAmharic ? "ወደ ቀዳሚው ክፍል ተመለስ (Back)" : "Back to previous section (Back)"}
+              >
+                <ArrowLeft size={15} className="text-red-600" />
+                <span>{isAmharic ? "⬅️ ተመለስ (Back)" : "⬅️ Back"}</span>
+              </button>
+
+              <div className="flex items-center space-x-1.5 text-xs font-mono text-slate-500">
+                <button 
+                  onClick={() => navigateToTab("dashboard")} 
+                  className="hover:text-red-600 cursor-pointer font-bold transition-colors"
+                >
+                  {isAmharic ? "ዳሽቦርድ" : "Dashboard"}
+                </button>
+                <span>/</span>
+                <span className="text-slate-900 font-extrabold truncate max-w-[140px] sm:max-w-none">
+                  {getTabTitle(activeTab, isAmharic)}
+                </span>
+              </div>
+            </div>
+          )}
         {deniedRouteBanner && (
           <div className="mb-6 bg-rose-950 border-2 border-rose-500 text-white rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="space-y-1">
@@ -3369,7 +3610,7 @@ export default function App() {
                     
                     {hasAccess("dashboard") && (
                       <button
-                        onClick={() => { setActiveTab("dashboard"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("dashboard"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "dashboard" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3388,7 +3629,7 @@ export default function App() {
 
                     {hasAccess("taskManagement") && (
                       <button
-                        onClick={() => { setActiveTab("taskManagement"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("taskManagement"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "taskManagement" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3407,7 +3648,7 @@ export default function App() {
 
                     {hasAccess("firestoreExplorer") && (
                       <button
-                        onClick={() => { setActiveTab("firestoreExplorer"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("firestoreExplorer"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "firestoreExplorer" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3426,7 +3667,7 @@ export default function App() {
 
                     {hasAccess("workerProfiles") && (
                       <button
-                        onClick={() => { setActiveTab("workerProfiles"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("workerProfiles"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "workerProfiles" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3445,7 +3686,7 @@ export default function App() {
 
                     {hasAccess("customInputHub") && (
                       <button
-                        onClick={() => { setActiveTab("customInputHub"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("customInputHub"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "customInputHub" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3464,7 +3705,7 @@ export default function App() {
 
                     {hasAccess("notificationCenter") && (
                       <button
-                        onClick={() => { setActiveTab("notificationCenter"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("notificationCenter"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "notificationCenter" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3483,7 +3724,7 @@ export default function App() {
 
                     {hasAccess("admin") && (
                       <button
-                        onClick={() => { setActiveTab("admin"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("admin"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "admin" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3502,7 +3743,7 @@ export default function App() {
 
                     {hasAccess("securitySettings") && (
                       <button
-                        onClick={() => { setActiveTab("securitySettings"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("securitySettings"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "securitySettings" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3532,7 +3773,7 @@ export default function App() {
                     
                     {hasAccess("warehouseManagerApp") && (
                       <button
-                        onClick={() => { setActiveTab("warehouseManagerApp"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("warehouseManagerApp"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "warehouseManagerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3551,7 +3792,7 @@ export default function App() {
 
                     {hasAccess("storeOwnerApp") && (
                       <button
-                        onClick={() => { setActiveTab("storeOwnerApp"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("storeOwnerApp"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "storeOwnerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3570,7 +3811,7 @@ export default function App() {
 
                     {hasAccess("siteStoreMovement") && (
                       <button
-                        onClick={() => { setActiveTab("siteStoreMovement"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("siteStoreMovement"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "siteStoreMovement" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3589,7 +3830,7 @@ export default function App() {
 
                     {hasAccess("enterpriseErp") && (
                       <button
-                        onClick={() => { setActiveTab("enterpriseErp"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("enterpriseErp"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "enterpriseErp" ? "bg-red-950/40 border-red-500 shadow-md shadow-red-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3608,7 +3849,7 @@ export default function App() {
 
                     {hasAccess("financeErp") && (
                       <button
-                        onClick={() => { setActiveTab("financeErp"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("financeErp"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "financeErp" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3627,7 +3868,7 @@ export default function App() {
 
                     {hasAccess("headOfficeSync") && (
                       <button
-                        onClick={() => { setActiveTab("headOfficeSync"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("headOfficeSync"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "headOfficeSync" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3646,7 +3887,7 @@ export default function App() {
 
                     {hasAccess("auditLog") && (
                       <button
-                        onClick={() => { setActiveTab("auditLog"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("auditLog"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "auditLog" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3676,7 +3917,7 @@ export default function App() {
                     
                     {hasAccess("formworkManagement") && (
                       <button
-                        onClick={() => { setActiveTab("formworkManagement"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("formworkManagement"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "formworkManagement" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3695,7 +3936,7 @@ export default function App() {
 
                     {hasAccess("projectDocs") && (
                       <button
-                        onClick={() => { setActiveTab("projectDocs"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("projectDocs"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "projectDocs" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3714,7 +3955,7 @@ export default function App() {
 
                     {hasAccess("cadDrawing") && (
                       <button
-                        onClick={() => { setActiveTab("cadDrawing"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("cadDrawing"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "cadDrawing" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3733,7 +3974,7 @@ export default function App() {
 
                     {hasAccess("siteLayout") && (
                       <button
-                        onClick={() => { setActiveTab("siteLayout"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("siteLayout"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "siteLayout" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3752,7 +3993,7 @@ export default function App() {
 
                     {hasAccess("surveying") && (
                       <button
-                        onClick={() => { setActiveTab("surveying"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("surveying"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "surveying" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3771,7 +4012,7 @@ export default function App() {
 
                     {hasAccess("subcontractorPortal") && (
                       <button
-                        onClick={() => { setActiveTab("subcontractorPortal"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("subcontractorPortal"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "subcontractorPortal" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3801,7 +4042,7 @@ export default function App() {
                     
                     {hasAccess("attendance") && (
                       <button
-                        onClick={() => { setActiveTab("attendance"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("attendance"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "attendance" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3820,7 +4061,7 @@ export default function App() {
 
                     {hasAccess("biometricKiosk") && (
                       <button
-                        onClick={() => { setActiveTab("biometricKiosk"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("biometricKiosk"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "biometricKiosk" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3839,26 +4080,26 @@ export default function App() {
 
                     {hasAccess("fingerprintBoard") && (
                       <button
-                        onClick={() => { setActiveTab("fingerprintBoard"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("fingerprintBoard"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "fingerprintBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
                       >
                         <div className="flex items-center space-x-3 mb-2">
                           <div className="p-2 bg-purple-500/10 text-purple-400 rounded-lg group-hover:scale-110 transition-transform">
-                            <Fingerprint size={18} />
+                            <Smartphone size={18} />
                           </div>
-                          <span className="font-extrabold text-sm text-white">{isAmharic ? "21. የጣት አሻራ ቦርድ" : "21. Fingerprint Attendance Board"}</span>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "21. የስልክ እና ባዮሜትሪክ መገኘት ጣቢያ" : "21. Mobile & Biometric Attendance Station"}</span>
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
-                          {isAmharic ? "የአካባቢና የሃርድዌር የጣት አሻራ መሳሪያዎች ማገናኛ" : "Hardware scanner integration & live fingerprint board"}
+                          {isAmharic ? "በስልክ ካሜራ ፊት መለያ፣ በQR ባጅ እና በግል ስልክ መገኘት መቆጣጠሪያ" : "Camera Face Recognition, QR Badge Geofencing & Personal Mobile Self Check-in"}
                         </p>
                       </button>
                     )}
 
                     {hasAccess("biometricBoard") && (
                       <button
-                        onClick={() => { setActiveTab("biometricBoard"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("biometricBoard"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "biometricBoard" ? "bg-purple-950/40 border-purple-500 shadow-md shadow-purple-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3877,7 +4118,7 @@ export default function App() {
 
                     {hasAccess("planning") && (
                       <button
-                        onClick={() => { setActiveTab("planning"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("planning"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "planning" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3896,7 +4137,7 @@ export default function App() {
 
                     {hasAccess("progress") && (
                       <button
-                        onClick={() => { setActiveTab("progress"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("progress"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "progress" ? "bg-blue-950/40 border-blue-500 shadow-md shadow-blue-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3926,7 +4167,7 @@ export default function App() {
                     
                     {hasAccess("aiInspection") && (
                       <button
-                        onClick={() => { setActiveTab("aiInspection"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("aiInspection"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "aiInspection" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3945,7 +4186,7 @@ export default function App() {
 
                     {hasAccess("predictions") && (
                       <button
-                        onClick={() => { setActiveTab("predictions"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("predictions"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "predictions" ? "bg-rose-950/40 border-rose-500 shadow-md shadow-rose-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3964,7 +4205,7 @@ export default function App() {
 
                     {hasAccess("performance") && (
                       <button
-                        onClick={() => { setActiveTab("performance"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("performance"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "performance" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -3983,7 +4224,7 @@ export default function App() {
 
                     {hasAccess("safetyQuality") && (
                       <button
-                        onClick={() => { setActiveTab("safetyQuality"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("safetyQuality"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "safetyQuality" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -4002,7 +4243,7 @@ export default function App() {
 
                     {hasAccess("mobileApps") && (
                       <button
-                        onClick={() => { setActiveTab("mobileApps"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("mobileApps"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "mobileApps" ? "bg-indigo-950/40 border-indigo-500 shadow-md shadow-indigo-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}
@@ -4021,7 +4262,7 @@ export default function App() {
 
                     {hasAccess("launchReadiness") && (
                       <button
-                        onClick={() => { setActiveTab("launchReadiness"); setShowModulesMenu(false); }}
+                        onClick={() => { navigateToTab("launchReadiness"); setShowModulesMenu(false); }}
                         className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
                           activeTab === "launchReadiness" ? "bg-orange-950/40 border-orange-500 shadow-md shadow-orange-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
                         }`}

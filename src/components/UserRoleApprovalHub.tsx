@@ -310,13 +310,17 @@ export function UserRoleApprovalHub({
   const confirmApprove = () => {
     if (!approvingReq) return;
 
-    const approvedRole = overrideRole || approvingReq.requestedRole;
+    let approvedRole = overrideRole || approvingReq.requestedRole;
+    // Strict restriction: Only mejennur669@gmail.com can be Super Admin
+    if (approvedRole === UserRole.SUPER_ADMIN && approvingReq.userEmail?.toLowerCase() !== "mejennur669@gmail.com") {
+      approvedRole = UserRole.WORKER;
+    }
 
     const res = RoleChangeApprovalService.approveRequest({
       requestId: approvingReq.id,
       approverName: currentUserName,
       approverRole: currentUserRole,
-      assignedRoleOverride: overrideRole || undefined
+      assignedRoleOverride: approvedRole
     });
 
     if (res.success) {

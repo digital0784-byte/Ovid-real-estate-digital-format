@@ -868,8 +868,8 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <span>Warehouse Manager (Materials & Formwork Assets Only)</span>
             </div>
             <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="font-bold text-amber-400 block mb-1">🏗 Limited Project Scope:</span>
-              <span>Project Manager (Assigned Project Budget & Cost Only)</span>
+              <span className="font-bold text-amber-400 block mb-1">🏗 {isAmharic ? "የተወሰነ የፕሮጀክት ወሰን:" : "Limited Project Scope:"}</span>
+              <span>{isAmharic ? "የፕሮጀክት ስራ አስኪያጅ (የተመደበ በጀት እና ወጪ ብቻ)" : "Project Manager (Assigned Project Budget & Cost Only)"}</span>
             </div>
           </div>
         </div>
@@ -877,14 +877,16 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         {/* Role Switcher Tester for Interactive Review */}
         {onSwitchRole && (
           <div className="pt-4 border-t border-slate-800 space-y-3">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">Quick Switch Role for Testing Permission Views:</span>
+            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
+              {isAmharic ? "የፍቃድ እይታዎችን ለመፈተሽ ሚና በፍጥነት ይቀይሩ:" : "Quick Switch Role for Testing Permission Views:"}
+            </span>
             <div className="flex flex-wrap justify-center gap-2">
               <button
                 onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)}
                 className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
               >
                 <ShieldCheck size={14} />
-                <span>Switch to Finance Manager (Full Access)</span>
+                <span>{isAmharic ? "ወደ ፋይናንስ ስራ አስኪያጅ (ሙሉ ፈቃድ) ቀይር" : "Switch to Finance Manager (Full Access)"}</span>
               </button>
 
               <button
@@ -892,7 +894,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
               >
                 <Eye size={14} />
-                <span>Switch to Head Office (Read-Only)</span>
+                <span>{isAmharic ? "ወደ ዋና መስሪያ ቤት (ንባብ ብቻ) ቀይር" : "Switch to Head Office (Read-Only)"}</span>
               </button>
 
               <button
@@ -900,7 +902,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
               >
                 <Package size={14} />
-                <span>Switch to Warehouse Manager</span>
+                <span>{isAmharic ? "ወደ መጋዘን አስተዳዳሪ ቀይር" : "Switch to Warehouse Manager"}</span>
               </button>
 
               <button
@@ -908,7 +910,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
               >
                 <Briefcase size={14} />
-                <span>Switch to Project Manager</span>
+                <span>{isAmharic ? "ወደ ፕሮጀክት ስራ አስኪያጅ ቀይር" : "Switch to Project Manager"}</span>
               </button>
             </div>
           </div>
@@ -948,7 +950,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           {isExecutiveReadOnly && (
             <div className="bg-blue-950 px-3 py-1.5 rounded-xl border border-blue-800 flex items-center space-x-2 text-blue-300 text-xs font-bold">
               <Eye size={14} />
-              <span>Executive Read-Only Mode</span>
+              <span>{isAmharic ? "የአመራር ንባብ ብቻ ሁነታ" : "Executive Read-Only Mode"}</span>
             </div>
           )}
 
@@ -956,7 +958,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           {isWarehouseManager && (
             <div className="bg-purple-950 px-3 py-1.5 rounded-xl border border-purple-800 flex items-center space-x-2 text-purple-300 text-xs font-bold">
               <Package size={14} />
-              <span>Warehouse Material & Asset Scope</span>
+              <span>{isAmharic ? "የመጋዘን ማቴሪያል እና ንብረት ወሰን" : "Warehouse Material & Asset Scope"}</span>
             </div>
           )}
 
@@ -964,7 +966,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           {isProjectManager && (
             <div className="bg-amber-950 px-3 py-1.5 rounded-xl border border-amber-800 flex items-center space-x-2 text-amber-300 text-xs font-bold">
               <Briefcase size={14} />
-              <span>Project Budget Scope</span>
+              <span>{isAmharic ? "የፕሮጀክት በጀት ወሰን" : "Project Budget Scope"}</span>
             </div>
           )}
 
@@ -983,14 +985,14 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div className="relative group">
               <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer">
                 <ArrowRightLeft size={14} />
-                <span>Switch Role</span>
+                <span>{isAmharic ? "ሚና ቀይር" : "Switch Role"}</span>
               </button>
               <div className="absolute right-0 top-full mt-2 w-56 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-2 hidden group-hover:block z-50 space-y-1 text-xs">
-                <button onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-emerald-400">Finance Manager</button>
-                <button onClick={() => onSwitchRole(UserRole.HEAD_OFFICE)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-blue-400">Head Office</button>
-                <button onClick={() => onSwitchRole(UserRole.WAREHOUSE_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-purple-400">Warehouse Manager</button>
-                <button onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-amber-400">Project Manager</button>
-                <button onClick={() => onSwitchRole(UserRole.WORKER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-red-400">Site Worker (Blocked)</button>
+                <button onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-emerald-400">{isAmharic ? "የፋይናንስ ስራ አስኪያጅ" : "Finance Manager"}</button>
+                <button onClick={() => onSwitchRole(UserRole.HEAD_OFFICE)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-blue-400">{isAmharic ? "ዋና መስሪያ ቤት" : "Head Office"}</button>
+                <button onClick={() => onSwitchRole(UserRole.WAREHOUSE_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-purple-400">{isAmharic ? "የመጋዘን አስተዳዳሪ" : "Warehouse Manager"}</button>
+                <button onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-amber-400">{isAmharic ? "የፕሮጀክት ስራ አስኪያጅ" : "Project Manager"}</button>
+                <button onClick={() => onSwitchRole(UserRole.WORKER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-red-400">{isAmharic ? "የሳይት ሰራተኛ (የተከለከለ)" : "Site Worker (Blocked)"}</button>
               </div>
             </div>
           )}
@@ -1053,7 +1055,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      {isProjectManager ? "Assigned Project Budget" : t("projectBudget")}
+                      {isProjectManager ? (isAmharic ? "የተመደበ የፕሮጀክት በጀት" : "Assigned Project Budget") : t("projectBudget")}
                     </span>
                     <span className="text-xl sm:text-2xl font-black text-white mt-1 block">
                       ETB {(totalProjectBudget / 1000000).toFixed(1)}M
@@ -1067,7 +1069,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                  <span className="text-slate-400">Utilization:</span>
+                  <span className="text-slate-400">{isAmharic ? "አጠቃቀም:" : "Utilization:"}</span>
                   <span className="font-bold text-emerald-400">{budgetUtilization.toFixed(1)}%</span>
                 </div>
               </div>
@@ -1081,7 +1083,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                       ETB {(companyExpenses / 1000000).toFixed(1)}M
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      Actual Field Incurred
+                      {isAmharic ? "ትክክለኛ የወጣ ወጪ" : "Actual Field Incurred"}
                     </span>
                   </div>
                   <div className="p-2.5 bg-red-950/80 border border-red-800 rounded-xl text-red-400">
@@ -1089,7 +1091,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                  <span className="text-slate-400">Material Share:</span>
+                  <span className="text-slate-400">{isAmharic ? "የማቴሪያል ድርሻ:" : "Material Share:"}</span>
                   <span className="font-bold text-slate-200">54%</span>
                 </div>
               </div>
@@ -1104,7 +1106,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                         ETB {(companyRevenue / 1000000).toFixed(1)}M
                       </span>
                       <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                        Milestone Valuations
+                        {isAmharic ? "የስራ ምዕራፍ ግምት" : "Milestone Valuations"}
                       </span>
                     </div>
                     <div className="p-2.5 bg-emerald-950/80 border border-emerald-800 rounded-xl text-emerald-400">
@@ -1112,7 +1114,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                    <span className="text-slate-400">Receivable:</span>
+                    <span className="text-slate-400">{isAmharic ? "የሚሰበሰብ:" : "Receivable:"}</span>
                     <span className="font-bold text-amber-400">ETB {(accountsReceivable/1000000).toFixed(1)}M</span>
                   </div>
                 </div>
@@ -1120,12 +1122,12 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Material Purchase Value</span>
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{isAmharic ? "የማቴሪያል ግዢ ዋጋ" : "Material Purchase Value"}</span>
                       <span className="text-xl sm:text-2xl font-black text-purple-400 mt-1 block">
                         ETB {(procurementCost / 1000000).toFixed(1)}M
                       </span>
                       <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                        Warehouse Goods Inward
+                        {isAmharic ? "የመጋዘን ገቢ ዕቃዎች" : "Warehouse Goods Inward"}
                       </span>
                     </div>
                     <div className="p-2.5 bg-purple-950/80 border border-purple-800 rounded-xl text-purple-400">
@@ -1133,7 +1135,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     </div>
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                    <span className="text-slate-400">Pending Goods:</span>
+                    <span className="text-slate-400">{isAmharic ? "በመጠባበቅ ላይ ያለ:" : "Pending Goods:"}</span>
                     <span className="font-bold text-amber-400">ETB {(accountsPayable/1000000).toFixed(1)}M</span>
                   </div>
                 </div>
@@ -1148,7 +1150,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                       ETB {(formworkAssetVal / 1000000).toFixed(1)}M
                     </span>
                     <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      {formworkPanelsList.length || 1250} Active Panels
+                      {formworkPanelsList.length || 1250} {isAmharic ? "ንቁ ፓነሎች" : "Active Panels"}
                     </span>
                   </div>
                   <div className="p-2.5 bg-amber-950/80 border border-amber-800 rounded-xl text-amber-400">
@@ -1156,7 +1158,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                  <span className="text-slate-400">Warehouse Valuation:</span>
+                  <span className="text-slate-400">{isAmharic ? "የመጋዘን ዋጋ ግምት:" : "Warehouse Valuation:"}</span>
                   <span className="font-bold text-slate-200">ETB {(warehouseAssetVal/1000000).toFixed(1)}M</span>
                 </div>
               </div>
@@ -1174,16 +1176,18 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                       <BarChart3 size={18} className="text-red-500" />
                       <span>{isAmharic ? "የገቢና ወጪ ወርሃዊ ንፅፅር" : "Corporate Revenue vs Expense Performance"}</span>
                     </h3>
-                    <p className="text-xs text-slate-400">Real-time financial movement across construction cycles</p>
+                    <p className="text-xs text-slate-400">
+                      {isAmharic ? "በግንባታ ዑደት ውስጥ ያለው የቀጥታ የገንዘብ እንቅስቃሴ" : "Real-time financial movement across construction cycles"}
+                    </p>
                   </div>
                   <div className="flex items-center space-x-2 text-xs">
                     <span className="flex items-center space-x-1 text-emerald-400 font-bold">
                       <span className="w-3 h-3 bg-emerald-500 rounded-full inline-block"></span>
-                      <span>Revenue</span>
+                      <span>{isAmharic ? "ገቢ" : "Revenue"}</span>
                     </span>
                     <span className="flex items-center space-x-1 text-red-400 font-bold">
                       <span className="w-3 h-3 bg-red-500 rounded-full inline-block"></span>
-                      <span>Expense</span>
+                      <span>{isAmharic ? "ወጪ" : "Expense"}</span>
                     </span>
                   </div>
                 </div>
@@ -1191,20 +1195,20 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="h-64">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={[
-                      { month: "Jan", Revenue: 28, Expense: 18 },
-                      { month: "Feb", Revenue: 32, Expense: 21 },
-                      { month: "Mar", Revenue: 35, Expense: 24 },
-                      { month: "Apr", Revenue: 40, Expense: 26 },
-                      { month: "May", Revenue: 35, Expense: 22 },
-                      { month: "Jun", Revenue: 42, Expense: 28 },
-                      { month: "Jul", Revenue: 38, Expense: 25 }
+                      { month: isAmharic ? "ጥር" : "Jan", Revenue: 28, Expense: 18 },
+                      { month: isAmharic ? "የካ" : "Feb", Revenue: 32, Expense: 21 },
+                      { month: isAmharic ? "መጋ" : "Mar", Revenue: 35, Expense: 24 },
+                      { month: isAmharic ? "ሚያ" : "Apr", Revenue: 40, Expense: 26 },
+                      { month: isAmharic ? "ግን" : "May", Revenue: 35, Expense: 22 },
+                      { month: isAmharic ? "ሰኔ" : "Jun", Revenue: 42, Expense: 28 },
+                      { month: isAmharic ? "ሐም" : "Jul", Revenue: 38, Expense: 25 }
                     ]}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                       <XAxis dataKey="month" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
                       <YAxis stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} unit="M" />
                       <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px" }} />
-                      <Bar dataKey="Revenue" fill="#10b981" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="Expense" fill="#ef4444" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="Revenue" name={isAmharic ? "ገቢ" : "Revenue"} fill="#10b981" radius={[6, 6, 0, 0]} />
+                      <Bar dataKey="Expense" name={isAmharic ? "ወጪ" : "Expense"} fill="#ef4444" radius={[6, 6, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1214,7 +1218,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
                 <h3 className="text-base font-bold text-white flex items-center space-x-2">
                   <PieIcon size={18} className="text-amber-500" />
-                  <span>Cost Center Allocation</span>
+                  <span>{isAmharic ? "የወጪ ማዕከላት ድልድል" : "Cost Center Allocation"}</span>
                 </h3>
 
                 <div className="h-48">
@@ -1222,10 +1226,10 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     <PieChart>
                       <Pie
                         data={[
-                          { name: "Material", value: 48, color: "#ef4444" },
-                          { name: "Labor Payroll", value: 28, color: "#3b82f6" },
-                          { name: "Equipment", value: 18, color: "#f59e0b" },
-                          { name: "Overhead", value: 8, color: "#10b981" }
+                          { name: isAmharic ? "ማቴሪያል" : "Material", value: 48, color: "#ef4444" },
+                          { name: isAmharic ? "የሰራተኛ ደሞዝ" : "Labor Payroll", value: 28, color: "#3b82f6" },
+                          { name: isAmharic ? "ማሽነሪ" : "Equipment", value: 18, color: "#f59e0b" },
+                          { name: isAmharic ? "አስተዳደራዊ" : "Overhead", value: 8, color: "#10b981" }
                         ]}
                         cx="50%"
                         cy="50%"
@@ -1251,19 +1255,19 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-900 pt-3">
                   <div className="flex items-center space-x-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                    <span className="text-slate-300">Material (48%)</span>
+                    <span className="text-slate-300">{isAmharic ? "ማቴሪያል (48%)" : "Material (48%)"}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                    <span className="text-slate-300">Labor (28%)</span>
+                    <span className="text-slate-300">{isAmharic ? "ደሞዝ (28%)" : "Labor (28%)"}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    <span className="text-slate-300">Equipment (18%)</span>
+                    <span className="text-slate-300">{isAmharic ? "ማሽነሪ (18%)" : "Equipment (18%)"}</span>
                   </div>
                   <div className="flex items-center space-x-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    <span className="text-slate-300">Overhead (8%)</span>
+                    <span className="text-slate-300">{isAmharic ? "አስተዳደራዊ (8%)" : "Overhead (8%)"}</span>
                   </div>
                 </div>
               </div>
@@ -1275,7 +1279,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div className="flex justify-between items-center">
                 <h3 className="text-base font-bold text-white flex items-center space-x-2">
                   <DollarSign size={18} className="text-emerald-500" />
-                  <span>Recent Financial Transactions Ledger</span>
+                  <span>{isAmharic ? "የቅርብ ጊዜ የፋይናንስ እንቅስቃሴዎች መዝገብ" : "Recent Financial Transactions Ledger"}</span>
                 </h3>
                 {isFullAccess && (
                   <button
@@ -1283,7 +1287,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
                   >
                     <Plus size={14} />
-                    <span>Log Expense</span>
+                    <span>{isAmharic ? "ወጪ መዝግብ" : "Log Expense"}</span>
                   </button>
                 )}
               </div>
@@ -1292,13 +1296,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Transaction ID</th>
-                      <th className="py-3 px-3">Category</th>
-                      <th className="py-3 px-3">Vendor / Payee</th>
-                      <th className="py-3 px-3">Amount (ETB)</th>
-                      <th className="py-3 px-3">Project</th>
-                      <th className="py-3 px-3">Date</th>
-                      <th className="py-3 px-3">Approved By</th>
+                      <th className="py-3 px-3">{isAmharic ? "የግብይት መለያ" : "Transaction ID"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ዘርፍ" : "Category"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "አቅራቢ / ተከፋይ" : "Vendor / Payee"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "መጠን (ብር)" : "Amount (ETB)"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ፕሮጀክት" : "Project"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ቀን" : "Date"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ያፀደቀው" : "Approved By"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1322,6 +1326,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               </div>
             </div>
 
+
           </div>
         )}
 
@@ -1332,9 +1337,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                   <Briefcase size={20} className="text-blue-500" />
-                  <span>Earned Value Management (EVM) & Project Budget Control</span>
+                  <span>{isAmharic ? "የተገኘ ዋጋ አስተዳደር (EVM) እና የበጀት ቁጥጥር" : "Earned Value Management (EVM) & Project Budget Control"}</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">Cost Performance Index (CPI) and Schedule Performance Index (SPI) tracking</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic ? "የወጪ አፈፃፀም (CPI) እና የጊዜ ሰሌዳ አፈፃፀም (SPI) ክትትል" : "Cost Performance Index (CPI) and Schedule Performance Index (SPI) tracking"}
+                </p>
               </div>
 
               {isFullAccess && (
@@ -1343,7 +1350,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
                 >
                   <Plus size={14} />
-                  <span>Add Budget Allocation</span>
+                  <span>{isAmharic ? "አዲስ የበጀት ድልድል መዝግብ" : "Add Budget Allocation"}</span>
                 </button>
               )}
             </div>
@@ -1361,36 +1368,36 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                         <h3 className="font-bold text-white text-sm">{prj.name}</h3>
                       </div>
                       <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">
-                        EVM Healthy
+                        {isAmharic ? "EVM ጤናማ" : "EVM Healthy"}
                       </span>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3 text-xs">
                       <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
-                        <span className="text-[10px] text-slate-400 block">CPI (Cost)</span>
+                        <span className="text-[10px] text-slate-400 block">{isAmharic ? "CPI (የወጪ መለኪያ)" : "CPI (Cost)"}</span>
                         <span className={`text-base font-mono font-bold ${cpiStatus}`}>{prj.cpi.toFixed(2)}</span>
                       </div>
                       <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
-                        <span className="text-[10px] text-slate-400 block">SPI (Schedule)</span>
+                        <span className="text-[10px] text-slate-400 block">{isAmharic ? "SPI (የጊዜ መለኪያ)" : "SPI (Schedule)"}</span>
                         <span className={`text-base font-mono font-bold ${spiStatus}`}>{prj.spi.toFixed(2)}</span>
                       </div>
                     </div>
 
                     <div className="space-y-2 text-xs border-t border-slate-900 pt-3">
                       <div className="flex justify-between text-slate-400">
-                        <span>Approved Budget:</span>
+                        <span>{isAmharic ? "የተፈቀደ በጀት:" : "Approved Budget:"}</span>
                         <span className="font-mono text-slate-200">ETB {(prj.approvedBudget/1000000).toFixed(1)}M</span>
                       </div>
                       <div className="flex justify-between text-slate-400">
-                        <span>Actual Cost (AC):</span>
+                        <span>{isAmharic ? "ትክክለኛ የወጣ ወጪ (AC):" : "Actual Cost (AC):"}</span>
                         <span className="font-mono text-red-400">ETB {(prj.actualCost/1000000).toFixed(1)}M</span>
                       </div>
                       <div className="flex justify-between text-slate-400">
-                        <span>Earned Value (EV):</span>
+                        <span>{isAmharic ? "የተገኘ ዋጋ (EV):" : "Earned Value (EV):"}</span>
                         <span className="font-mono text-emerald-400">ETB {(prj.earnedValue/1000000).toFixed(1)}M</span>
                       </div>
                       <div className="flex justify-between text-slate-400 font-bold">
-                        <span>Forecast Completion (EAC):</span>
+                        <span>{isAmharic ? "በማጠናቀቂያ የሚጠበቅ ወጪ (EAC):" : "Forecast Completion (EAC):"}</span>
                         <span className="font-mono text-amber-400">ETB {(prj.forecastCost/1000000).toFixed(1)}M</span>
                       </div>
                     </div>
@@ -1401,18 +1408,20 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
 
             {/* Budget Categories Table */}
             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white">Cost Center Budget vs Committed vs Actual</h3>
+              <h3 className="text-sm font-bold text-white">
+                {isAmharic ? "የወጪ ማዕከላት በጀት፣ የታቀደ እና የወጣ ወጪ ንፅፅር" : "Cost Center Budget vs Committed vs Actual"}
+              </h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Category</th>
-                      <th className="py-3 px-3">Description</th>
-                      <th className="py-3 px-3">Allocated Budget</th>
-                      <th className="py-3 px-3">Committed Cost</th>
-                      <th className="py-3 px-3">Actual Incurred</th>
-                      <th className="py-3 px-3">Remaining</th>
-                      <th className="py-3 px-3">Variance</th>
+                      <th className="py-3 px-3">{isAmharic ? "ዘርፍ" : "Category"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ዝርዝር መግለጫ" : "Description"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የተመደበ በጀት" : "Allocated Budget"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የተያዘ ወጪ" : "Committed Cost"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ትክክለኛ ወጪ" : "Actual Incurred"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የቀረ በጀት" : "Remaining"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ልዩነት" : "Variance"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1449,21 +1458,25 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                   <Users size={20} className="text-emerald-500" />
-                  <span>Automated Attendance-Driven Payroll Processing System</span>
+                  <span>{isAmharic ? "በአውቶማቲክ መገኘት የሚሰላ የደሞዝ ማኔጅመንት ሲስተም" : "Automated Attendance-Driven Payroll Processing System"}</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">Calculates Basic, Overtime, Under time, Deductions, Income Tax & Pension automatically from Site Biometrics</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "መሰረታዊ ደሞዝ፣ የትርፍ ሰዓት፣ ቅናሾች፣ የገቢ ግብርና ፔንሽን ከባዮሜትሪክ መረጃ በቀጥታ ያሰላል" 
+                    : "Calculates Basic, Overtime, Under time, Deductions, Income Tax & Pension automatically from Site Biometrics"}
+                </p>
               </div>
 
               <div className="flex flex-wrap items-center gap-3">
                 <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
                   <Calendar size={14} className="text-emerald-400" />
-                  <span className="text-slate-400 font-medium">Pay Period:</span>
+                  <span className="text-slate-400 font-medium">{isAmharic ? "የክፍያ ወቅት:" : "Pay Period:"}</span>
                   <select
                     value={selectedPayPeriod}
                     onChange={(e) => setSelectedPayPeriod(e.target.value)}
                     className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
                   >
-                    <option value="all" className="bg-slate-900 text-white">All Pay Periods (All Records)</option>
+                    <option value="all" className="bg-slate-900 text-white">{isAmharic ? "ሁሉም የክፍያ ወቅቶች (ሙሉ መዝገብ)" : "All Pay Periods (All Records)"}</option>
                     {availablePeriods.map(p => (
                       <option key={p} value={p} className="bg-slate-900 text-white">{p}</option>
                     ))}
@@ -1476,7 +1489,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-40"
                 >
                   <FileSpreadsheet size={14} className="text-emerald-400" />
-                  <span>Export Bank Disbursement (Excel/CSV)</span>
+                  <span>{isAmharic ? "የባንክ ክፍያ ፋይል አውርድ (Excel/CSV)" : "Export Bank Disbursement (Excel/CSV)"}</span>
                 </button>
 
                 {isFullAccess && (
@@ -1486,7 +1499,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
                   >
                     <CheckCircle2 size={14} />
-                    <span>{isSavingPayroll ? "Saving to Firestore..." : "Approve & Save Payroll to Firestore"}</span>
+                    <span>{isSavingPayroll ? (isAmharic ? "ወደ Firestore በመመዝገብ ላይ..." : "Saving to Firestore...") : (isAmharic ? "ደሞዝ አጽድቅና ወደ Firestore መዝግብ" : "Approve & Save Payroll to Firestore")}</span>
                   </button>
                 )}
               </div>
@@ -1505,20 +1518,20 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             {/* Payroll Summary Header */}
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-950 p-5 rounded-2xl border border-slate-800 text-xs">
               <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">Active Workforce</span>
-                <span className="text-xl font-black text-white">{generatedPayroll.length} {generatedPayroll.length === 1 ? "Worker" : "Workers"}</span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">{workersList.length} Total Enrolled in DB</span>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ተሳታፊ ሰራተኞች" : "Active Workforce"}</span>
+                <span className="text-xl font-black text-white">{generatedPayroll.length} {isAmharic ? "ሰራተኛ" : (generatedPayroll.length === 1 ? "Worker" : "Workers")}</span>
+                <span className="text-[10px] text-slate-500 block mt-0.5">{workersList.length} {isAmharic ? "በዳታቤዝ የተመዘገቡ ጠቅላላ" : "Total Enrolled in DB"}</span>
               </div>
               <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">Total Gross Basic Salary</span>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ መሰረታዊ ደሞዝ" : "Total Gross Basic Salary"}</span>
                 <span className="text-xl font-black text-blue-400">ETB {generatedPayroll.reduce((sum, p) => sum + p.basicSalary, 0).toLocaleString()}</span>
               </div>
               <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">Total Overtime Cost</span>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ የትርፍ ሰዓት ወጪ" : "Total Overtime Cost"}</span>
                 <span className="text-xl font-black text-amber-400">ETB {generatedPayroll.reduce((sum, p) => sum + p.overtimePay, 0).toLocaleString()}</span>
               </div>
               <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">Total Net Payroll Disbursement</span>
+                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ የተጣራ የደሞዝ ክፍያ" : "Total Net Payroll Disbursement"}</span>
                 <span className="text-xl font-black text-emerald-400">ETB {generatedPayroll.reduce((sum, p) => sum + p.netSalary, 0).toLocaleString()}</span>
               </div>
             </div>
@@ -1529,17 +1542,17 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Worker ID / Name</th>
-                      <th className="py-3 px-3">Trade</th>
-                      <th className="py-3 px-3">Basic (ETB)</th>
-                      <th className="py-3 px-3">OT Hours</th>
-                      <th className="py-3 px-3">OT Pay</th>
-                      <th className="py-3 px-3">Allowances</th>
-                      <th className="py-3 px-3">Deductions</th>
-                      <th className="py-3 px-3">Tax (15%)</th>
-                      <th className="py-3 px-3">Pension (7%)</th>
-                      <th className="py-3 px-3">Net Salary</th>
-                      <th className="py-3 px-3">Action</th>
+                      <th className="py-3 px-3">{isAmharic ? "የሰራተኛ መለያ / ስም" : "Worker ID / Name"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የሙያ ዘርፍ" : "Trade"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "መሰረታዊ (ብር)" : "Basic (ETB)"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የትርፍ ሰዓት" : "OT Hours"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የትርፍ ሰዓት ክፍያ" : "OT Pay"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "አበል" : "Allowances"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ቅናሾች" : "Deductions"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ግብር (15%)" : "Tax (15%)"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ጡረታ (7%)" : "Pension (7%)"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የተጣራ ደሞዝ" : "Net Salary"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "እርምጃ" : "Action"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1565,7 +1578,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                               className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold flex items-center space-x-1 cursor-pointer transition"
                             >
                               <FileText size={12} />
-                              <span>Payslip</span>
+                              <span>{isAmharic ? "ፔይስሊፕ" : "Payslip"}</span>
                             </button>
                           </td>
                         </tr>
@@ -1574,11 +1587,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                       <tr>
                         <td colSpan={11} className="py-12 text-center text-slate-500">
                           <Users className="mx-auto mb-2 opacity-40 text-slate-400" size={32} />
-                          <p className="font-bold text-slate-300 text-sm">No Active Workers with Attendance Records Found</p>
+                          <p className="font-bold text-slate-300 text-sm">{isAmharic ? "ምንም የመገኘት መዝገብ ያለው ሰራተኛ አልተገኘም" : "No Active Workers with Attendance Records Found"}</p>
                           <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
                             {selectedPayPeriod === "all"
-                              ? "Clock in workers at the Biometric Kiosk or register attendance to automatically compute payroll disbursements."
-                              : `No attendance records logged for period "${selectedPayPeriod}". Switch the filter to "All Pay Periods" or record attendance.`}
+                              ? (isAmharic ? "ሰራተኞችን በባዮሜትሪክ ኪዮስክ መገኘት ያስመዝግቡ ወይም አዲስ የመገኘት መዝገብ ያስገቡ።" : "Clock in workers at the Biometric Kiosk or register attendance to automatically compute payroll disbursements.")
+                              : (isAmharic ? `ለተመረጠው ወቅት "${selectedPayPeriod}" ምንም መዝገብ የለም። "ሁሉም የክፍያ ወቅቶች" የሚለውን ይምረጡ።` : `No attendance records logged for period "${selectedPayPeriod}". Switch the filter to "All Pay Periods" or record attendance.`)}
                           </p>
                         </td>
                       </tr>
@@ -1594,7 +1607,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-6 shadow-2xl text-slate-100">
                   <div className="flex justify-between items-start border-b border-slate-800 pb-4">
                     <div>
-                      <span className="text-[10px] font-mono font-bold text-red-500 uppercase">BuildSync ERP Official Payslip</span>
+                      <span className="text-[10px] font-mono font-bold text-red-500 uppercase">{isAmharic ? "የቢልድሲንክ ERP ይፋዊ የደሞዝ ወረቀት" : "BuildSync ERP Official Payslip"}</span>
                       <h3 className="text-xl font-black text-white">{selectedPayslip.workerName}</h3>
                       <p className="text-xs text-slate-400">{selectedPayslip.trade} | ID: {selectedPayslip.workerId}</p>
                     </div>
@@ -1608,31 +1621,31 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
 
                   <div className="space-y-3 text-xs">
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">Days Worked:</span>
-                      <span className="font-bold text-slate-200">{selectedPayslip.daysWorked} Days</span>
+                      <span className="text-slate-400">{isAmharic ? "የተሰራባቸው ቀናት:" : "Days Worked:"}</span>
+                      <span className="font-bold text-slate-200">{selectedPayslip.daysWorked} {isAmharic ? "ቀናት" : "Days"}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">Basic Monthly Wage:</span>
+                      <span className="text-slate-400">{isAmharic ? "መሰረታዊ ወርሃዊ ደሞዝ:" : "Basic Monthly Wage:"}</span>
                       <span className="font-mono text-slate-200">ETB {selectedPayslip.basicSalary.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">Overtime Pay ({selectedPayslip.overtimeHours} hours):</span>
+                      <span className="text-slate-400">{isAmharic ? `የትርፍ ሰዓት ክፍያ (${selectedPayslip.overtimeHours} ሰዓት):` : `Overtime Pay (${selectedPayslip.overtimeHours} hours):`}</span>
                       <span className="font-mono text-amber-400">+ETB {selectedPayslip.overtimePay.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">Site & Transport Allowance:</span>
+                      <span className="text-slate-400">{isAmharic ? "የሳይት እና የትራንስፖርት አበል:" : "Site & Transport Allowance:"}</span>
                       <span className="font-mono text-emerald-400">+ETB {selectedPayslip.allowances.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">Income Tax (15%):</span>
+                      <span className="text-slate-400">{isAmharic ? "የገቢ ግብር (15%):" : "Income Tax (15%):"}</span>
                       <span className="font-mono text-red-400">-ETB {selectedPayslip.tax.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">Employee Pension (7%):</span>
+                      <span className="text-slate-400">{isAmharic ? "የሰራተኛ ጡረታ (7%):" : "Employee Pension (7%):"}</span>
                       <span className="font-mono text-red-400">-ETB {selectedPayslip.pension.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between pt-2 text-base font-black">
-                      <span className="text-white">Net Salary Disbursed:</span>
+                      <span className="text-white">{isAmharic ? "የተጣራ የሚከፈል ደሞዝ:" : "Net Salary Disbursed:"}</span>
                       <span className="font-mono text-emerald-400">ETB {selectedPayslip.netSalary.toLocaleString()}</span>
                     </div>
                   </div>
@@ -1646,7 +1659,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                       className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl flex items-center space-x-1.5 cursor-pointer"
                     >
                       <Printer size={14} />
-                      <span>Print Official Payslip</span>
+                      <span>{isAmharic ? "ይፋዊ ፔይስሊፕ አትም" : "Print Official Payslip"}</span>
                     </button>
                   </div>
                 </div>
@@ -1662,46 +1675,56 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                 <Package size={20} className="text-amber-500" />
-                <span>Aluminum Formwork Panel Valuation & Asset Depreciation Accounting</span>
+                <span>{isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነል ሀብት ግምትና የእርጅና ቅናሽ ሂሳብ" : "Aluminum Formwork Panel Valuation & Asset Depreciation Accounting"}</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">Real-time financial tracking of aluminum panels, props, tie rods, replacement values, and maintenance costs</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {isAmharic 
+                  ? "የአሉሚኒየም ፓነሎች፣ ፕሮፖች፣ ታይ ሮድ እና የጥገና ወጪዎች የቀጥታ የፋይናንስ ክትትል" 
+                  : "Real-time financial tracking of aluminum panels, props, tie rods, replacement values, and maintenance costs"}
+              </p>
             </div>
 
             {/* Asset Valuation Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Formwork Asset Net Value</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የፎርምወርክ የተጣራ ሀብት ዋጋ" : "Formwork Asset Net Value"}</span>
                 <span className="text-2xl font-black text-amber-400 block">ETB {(formworkAssetVal/1000000).toFixed(1)}M</span>
-                <p className="text-xs text-slate-400">Valuation calculated across 1,250 6061-T6 aluminum panels in circulation</p>
+                <p className="text-xs text-slate-400">
+                  {isAmharic ? "በስራ ላይ ባሉ 1,250 6061-T6 የአሉሚኒየም ፓነሎች ላይ የተሰላ ግምት" : "Valuation calculated across 1,250 6061-T6 aluminum panels in circulation"}
+                </p>
               </div>
 
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Cumulative Panel Depreciation</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "አጠቃላይ የፓነል እርጅና ቅናሽ" : "Cumulative Panel Depreciation"}</span>
                 <span className="text-2xl font-black text-red-400 block">ETB 6.5M</span>
-                <p className="text-xs text-slate-400">Straight-line 5-year depreciation model (20% annual amortization)</p>
+                <p className="text-xs text-slate-400">
+                  {isAmharic ? "ቀጥተኛ የ5 ዓመት የእርጅና ቅናሽ ሞዴል (በዓመት 20%)" : "Straight-line 5-year depreciation model (20% annual amortization)"}
+                </p>
               </div>
 
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Maintenance & Welding Repairs</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የጥገና እና የብየዳ ወጪዎች" : "Maintenance & Welding Repairs"}</span>
                 <span className="text-2xl font-black text-blue-400 block">ETB {(maintenanceCost/1000000).toFixed(2)}M</span>
-                <p className="text-xs text-slate-400">Panel face polishing, corner straightening & pin slot welding</p>
+                <p className="text-xs text-slate-400">
+                  {isAmharic ? "የፓነል ፊት ጽዳት፣ የማዕዘን ማስተካከል እና የፒን ቀዳዳ ብየዳ" : "Panel face polishing, corner straightening & pin slot welding"}
+                </p>
               </div>
             </div>
 
             {/* Asset Table */}
             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white">Formwork Asset Ledger</h3>
+              <h3 className="text-sm font-bold text-white">{isAmharic ? "የፎርምወርክ ሀብት መዝገብ" : "Formwork Asset Ledger"}</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Asset Code</th>
-                      <th className="py-3 px-3">Formwork Item</th>
-                      <th className="py-3 px-3">Purchase Value</th>
-                      <th className="py-3 px-3">Current Value</th>
-                      <th className="py-3 px-3">Depreciation</th>
-                      <th className="py-3 px-3">Repair Cost</th>
-                      <th className="py-3 px-3">Replacement Cost</th>
+                      <th className="py-3 px-3">{isAmharic ? "የንብረት ኮድ" : "Asset Code"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የፎርምወርክ እቃ" : "Formwork Item"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የተገዛበት ዋጋ" : "Purchase Value"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የአሁኑ ዋጋ" : "Current Value"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የእርጅና ቅናሽ" : "Depreciation"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የጥገና ወጪ" : "Repair Cost"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የምትክ ዋጋ" : "Replacement Cost"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1729,28 +1752,30 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                 <Building2 size={20} className="text-purple-500" />
-                <span>Warehouse Inventory Valuation & Transfer Cost Accounting</span>
+                <span>{isAmharic ? "የመጋዘን ክምችት ግምት እና የዝውውር ወጪ ሂሳብ" : "Warehouse Inventory Valuation & Transfer Cost Accounting"}</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">Synchronized with Warehouse Manager App & Store Owner App</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {isAmharic ? "ከመጋዘን እና ሳይት ስቶር አቃቤ መተግበሪያ ጋር የተመሳሰለ" : "Synchronized with Warehouse Manager App & Store Owner App"}
+              </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Warehouse Material Inventory Value</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የመጋዘን ማቴሪያል ክምችት ዋጋ" : "Warehouse Material Inventory Value"}</span>
                 <span className="text-2xl font-black text-purple-400">ETB 42.5M</span>
-                <p className="text-xs text-slate-400">Cement bags, rebar, chemical additives, prop jacks</p>
+                <p className="text-xs text-slate-400">{isAmharic ? "የሲሚንቶ ቦርሳዎች፣ ብረት፣ ኬሚካሎች፣ ፕሮፕ ጃኮች" : "Cement bags, rebar, chemical additives, prop jacks"}</p>
               </div>
 
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Inter-Site Transfer Cost</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የሳይቶች መካከል ዝውውር ወጪ" : "Inter-Site Transfer Cost"}</span>
                 <span className="text-2xl font-black text-blue-400">ETB 1.2M</span>
-                <p className="text-xs text-slate-400">Trucking and logistics between Bole Heights and Yeka Hills</p>
+                <p className="text-xs text-slate-400">{isAmharic ? "በቦሌ ሃይትስ እና በየካ ሂልስ መካከል የትራንስፖርት እና የሎጅስቲክስ ወጪ" : "Trucking and logistics between Bole Heights and Yeka Hills"}</p>
               </div>
 
               <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">Material Wastage & Loss Cost</span>
+                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የማቴሪያል ብክነትና ጉዳት ወጪ" : "Material Wastage & Loss Cost"}</span>
                 <span className="text-2xl font-black text-red-400">ETB 530,000</span>
-                <p className="text-xs text-slate-400">Damaged cement bags and scrap rebar cut-offs</p>
+                <p className="text-xs text-slate-400">{isAmharic ? "የተጎዱ የሲሚንቶ ቦርሳዎች እና የተቆረጡ የብረት ፍርፋሪዎች" : "Damaged cement bags and scrap rebar cut-offs"}</p>
               </div>
             </div>
           </div>
@@ -1762,9 +1787,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                 <CreditCard size={20} className="text-blue-500" />
-                <span>Procurement, Purchase Orders & Customs Duty Cost Center</span>
+                <span>{isAmharic ? "የግዢ፣ የትዕዛዝ እና የጉምሩክ ቀረጥ ወጪ ማዕከል" : "Procurement, Purchase Orders & Customs Duty Cost Center"}</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">Tracks international aluminum imports, customs clearance, freight, and domestic supplier invoices</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {isAmharic 
+                  ? "ዓለም አቀፍ የአሉሚኒየም ግዢ፣ የጉምሩክ ክሊራንስ፣ ጭነት እና የአገር ውስጥ አቅራቢዎች ሂሳብ" 
+                  : "Tracks international aluminum imports, customs clearance, freight, and domestic supplier invoices"}
+              </p>
             </div>
 
             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
@@ -1772,14 +1801,14 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">PO Number</th>
-                      <th className="py-3 px-3">Supplier</th>
-                      <th className="py-3 px-3">Material Item</th>
-                      <th className="py-3 px-3">PO Amount</th>
-                      <th className="py-3 px-3">Customs Tax</th>
-                      <th className="py-3 px-3">Freight Cost</th>
-                      <th className="py-3 px-3">Status</th>
-                      <th className="py-3 px-3">Date</th>
+                      <th className="py-3 px-3">{isAmharic ? "የትዕዛዝ ቁጥር (PO)" : "PO Number"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "አቅራቢ ድርጅት" : "Supplier"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የማቴሪያል አይነት" : "Material Item"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የትዕዛዝ መጠን (ብር)" : "PO Amount"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የጉምሩክ ቀረጥ" : "Customs Tax"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የትራንስፖርት ወጪ" : "Freight Cost"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ቀን" : "Date"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1814,9 +1843,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                 <Truck size={20} className="text-amber-500" />
-                <span>Heavy Machinery, Tower Cranes & Diesel Fuel Expense Control</span>
+                <span>{isAmharic ? "የከባድ ማሽነሪዎች፣ የታወር ክሬኖች እና የናፍጣ ነዳጅ ወጪ ቁጥጥር" : "Heavy Machinery, Tower Cranes & Diesel Fuel Expense Control"}</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">Tracks operating hours, diesel fuel consumption in liters, maintenance, and rental costs</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {isAmharic 
+                  ? "የስራ ሰዓታት፣ የናፍጣ ነዳጅ ፍጆታ በሊትር፣ የጥገና እና የኪራይ ወጪዎች" 
+                  : "Tracks operating hours, diesel fuel consumption in liters, maintenance, and rental costs"}
+              </p>
             </div>
 
             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
@@ -1824,13 +1857,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Asset Code</th>
-                      <th className="py-3 px-3">Equipment Name</th>
-                      <th className="py-3 px-3">Operating Hours</th>
-                      <th className="py-3 px-3">Fuel (Liters)</th>
-                      <th className="py-3 px-3">Fuel Cost</th>
-                      <th className="py-3 px-3">Maintenance</th>
-                      <th className="py-3 px-3">Lease Rental</th>
+                      <th className="py-3 px-3">{isAmharic ? "የማሽነሪ መለያ ኮድ" : "Asset Code"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የማሽነሪው ስም" : "Equipment Name"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የሰራበት ሰዓት" : "Operating Hours"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ነዳጅ (ሊትር)" : "Fuel (Liters)"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የነዳጅ ወጪ" : "Fuel Cost"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የጥገና ወጪ" : "Maintenance"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የኪራይ ወጪ" : "Lease Rental"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -1859,9 +1892,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                   <BarChart3 size={20} className="text-red-500" />
-                  <span>Executive Financial Statements & Report Generation Center</span>
+                  <span>{isAmharic ? "የአመራር የፋይናንስ መግለጫዎች እና ሪፖርት ማውጫ ማዕከል" : "Executive Financial Statements & Report Generation Center"}</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">Export high-resolution PDF statements and Excel CSV datasets for auditors and Head Office</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "ከፍተኛ ጥራት ያላቸው የPDF መግለጫዎች እና የExcel CSV መረጃዎች ለኦዲተሮችና ዋና መ/ቤት" 
+                    : "Export high-resolution PDF statements and Excel CSV datasets for auditors and Head Office"}
+                </p>
               </div>
 
               <div className="flex space-x-2">
@@ -1870,7 +1907,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
                 >
                   <FileSpreadsheet size={14} className="text-emerald-400" />
-                  <span>Export to Excel / CSV</span>
+                  <span>{isAmharic ? "ወደ Excel / CSV አውርድ" : "Export to Excel / CSV"}</span>
                 </button>
 
                 <button
@@ -1881,7 +1918,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
                 >
                   <Printer size={14} />
-                  <span>Print Formatted PDF Report</span>
+                  <span>{isAmharic ? "የተዘጋጀ የPDF ሪፖርት አትም" : "Print Formatted PDF Report"}</span>
                 </button>
               </div>
             </div>
@@ -1889,11 +1926,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             {/* Report Selector Tabs */}
             <div className="flex space-x-2 border-b border-slate-800 pb-2">
               {[
-                { id: "income", label: "Profit & Loss Statement" },
-                { id: "balance", label: "Balance Sheet & Asset Valuation" },
-                { id: "cashflow", label: "Operating Cash Flow Statement" },
-                { id: "payroll", label: "Payroll & Salary Summary" },
-                { id: "procurement", label: "Procurement & Cost Center Report" }
+                { id: "income", label: isAmharic ? "የትርፍና ኪሳራ መግለጫ" : "Profit & Loss Statement" },
+                { id: "balance", label: isAmharic ? "የሀብትና እዳ ሚዛን መግለጫ" : "Balance Sheet & Asset Valuation" },
+                { id: "cashflow", label: isAmharic ? "የገንዘብ ፍሰት መግለጫ" : "Operating Cash Flow Statement" },
+                { id: "payroll", label: isAmharic ? "የደሞዝ እና አበል ማጠቃለያ" : "Payroll & Salary Summary" },
+                { id: "procurement", label: isAmharic ? "የግዢና የወጪ ማዕከላት ሪፖርት" : "Procurement & Cost Center Report" }
               ].map(rep => (
                 <button
                   key={rep.id}
@@ -1914,12 +1951,16 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
                 <div>
                   <h2 className="text-2xl font-black text-slate-900 tracking-tight">BUILDsync SMART CONSTRUCTION ERP</h2>
-                  <p className="text-xs font-bold text-slate-600 uppercase">Corporate Finance Division & Asset Accounting</p>
+                  <p className="text-xs font-bold text-slate-600 uppercase">
+                    {isAmharic ? "የድርጅቱ ፋይናንስ እና የሀብት ሂሳብ ክፍል" : "Corporate Finance Division & Asset Accounting"}
+                  </p>
                   <p className="text-[11px] text-slate-500">Bole Heights Tower Site B1 | P.O. Box 9021, Addis Ababa, Ethiopia</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs font-black uppercase text-red-600 block">CONFIDENTIAL AUDIT REPORT</span>
-                  <span className="text-xs text-slate-600 block">Date: {new Date().toLocaleDateString("en-US", { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  <span className="text-xs font-black uppercase text-red-600 block">
+                    {isAmharic ? "ምስጢራዊ የኦዲት ሪፖርት" : "CONFIDENTIAL AUDIT REPORT"}
+                  </span>
+                  <span className="text-xs text-slate-600 block">{isAmharic ? "ቀን: " : "Date: "}{new Date().toLocaleDateString(isAmharic ? "am-ET" : "en-US", { year: 'numeric', month: 'long', day: 'numeric' })}</span>
                   <span className="text-[10px] font-mono text-slate-400 block">Report Ref: FIN-REP-2026-0722</span>
                 </div>
               </div>
@@ -1927,20 +1968,20 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               {/* Dynamic Statement Body */}
               <div className="space-y-4">
                 <h3 className="text-base font-black text-slate-900 uppercase tracking-wide border-b border-slate-300 pb-1">
-                  {selectedReportType === "income" && "Profit & Loss Statement (Q3 2026)"}
-                  {selectedReportType === "balance" && "Statement of Asset Valuation & Liabilities"}
-                  {selectedReportType === "cashflow" && "Statement of Operating Cash Flows"}
-                  {selectedReportType === "payroll" && "Master Payroll & Workforce Compensation Report"}
-                  {selectedReportType === "procurement" && "Procurement, Customs & Material Cost Audit"}
+                  {selectedReportType === "income" && (isAmharic ? "የትርፍና ኪሳራ መግለጫ (Q3 2026)" : "Profit & Loss Statement (Q3 2026)")}
+                  {selectedReportType === "balance" && (isAmharic ? "የሀብት ግምት እና እዳዎች መግለጫ" : "Statement of Asset Valuation & Liabilities")}
+                  {selectedReportType === "cashflow" && (isAmharic ? "የስራ ማስኬጃ የገንዘብ ፍሰት መግለጫ" : "Statement of Operating Cash Flows")}
+                  {selectedReportType === "payroll" && (isAmharic ? "የሰራተኞች ዋና የደሞዝ እና ካሳ ሪፖርት" : "Master Payroll & Workforce Compensation Report")}
+                  {selectedReportType === "procurement" && (isAmharic ? "የግዢ፣ የጉምሩክ እና ማቴሪያል ወጪ ኦዲት" : "Procurement, Customs & Material Cost Audit")}
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
                   <div>
-                    <span className="block text-slate-400 text-[10px] uppercase font-bold">Gross Contracting Revenue</span>
+                    <span className="block text-slate-400 text-[10px] uppercase font-bold">{isAmharic ? "ጠቅላላ የኮንትራት ገቢ" : "Gross Contracting Revenue"}</span>
                     <span className="text-lg font-mono font-black text-slate-900">ETB {companyRevenue.toLocaleString()}</span>
                   </div>
                   <div>
-                    <span className="block text-slate-400 text-[10px] uppercase font-bold">Total Incurred Direct Expenses</span>
+                    <span className="block text-slate-400 text-[10px] uppercase font-bold">{isAmharic ? "ጠቅላላ የወጣ ቀጥተኛ ወጪ" : "Total Incurred Direct Expenses"}</span>
                     <span className="text-lg font-mono font-black text-red-600">ETB {companyExpenses.toLocaleString()}</span>
                   </div>
                 </div>
@@ -1949,16 +1990,16 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <table className="w-full text-left text-xs border-collapse">
                     <thead className="bg-slate-100 text-slate-800 font-bold uppercase border-b border-slate-300">
                       <tr>
-                        <th className="py-2 px-3">Item / Cost Center</th>
-                        <th className="py-2 px-3">Allocated Budget</th>
-                        <th className="py-2 px-3">Actual Incurred</th>
-                        <th className="py-2 px-3">Variance (ETB)</th>
+                        <th className="py-2 px-3">{isAmharic ? "ዝርዝር / የወጪ ማዕከል" : "Item / Cost Center"}</th>
+                        <th className="py-2 px-3">{isAmharic ? "የተመደበ በጀት" : "Allocated Budget"}</th>
+                        <th className="py-2 px-3">{isAmharic ? "ትክክለኛ የወጣ" : "Actual Incurred"}</th>
+                        <th className="py-2 px-3">{isAmharic ? "ልዩነት (ብር)" : "Variance (ETB)"}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200">
                       {budgets.map(b => (
                         <tr key={b.id}>
-                          <td className="py-2.5 px-3 font-bold">{b.category} - {b.description}</td>
+                          <td className="py-2.5 px-3 font-bold">{b.category} - {isAmharic ? b.descriptionAm : b.description}</td>
                           <td className="py-2.5 px-3 font-mono">ETB {b.allocated.toLocaleString()}</td>
                           <td className="py-2.5 px-3 font-mono font-bold text-red-600">ETB {b.actual.toLocaleString()}</td>
                           <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">ETB {(b.allocated - b.actual).toLocaleString()}</td>
@@ -1969,23 +2010,27 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 </div>
 
                 <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase">Chief Financial Officer Audit Summary</h4>
+                  <h4 className="text-xs font-bold text-slate-900 uppercase">
+                    {isAmharic ? "የዋና የፋይናንስ ኦፊሰር የኦዲት ማጠቃለያ" : "Chief Financial Officer Audit Summary"}
+                  </h4>
                   <p className="text-xs text-slate-600 leading-relaxed">
-                    All financial statements presented herein have been calculated directly from authenticated Firestore cloud ledgers and biometric attendance logs. Financial controls, accounts payable, and asset depreciation schedules comply fully with Ethiopian Financial Reporting Standards (EFRS).
+                    {isAmharic 
+                      ? "በዚህ ሪፖርት የቀረቡት ሁሉም የፋይናንስ መግለጫዎች በቀጥታ ከተረጋገጡ የFirestore ደመና መዝገቦች እና የባዮሜትሪክ መገኘት ዳታ የተሰሉ ናቸው። የፋይናንስ ቁጥጥሮች፣ የሚከፈሉ ሂሳቦች እና የንብረት እርጅና ቅናሾች ከኢትዮጵያ የፋይናንስ ሪፖርት አቀራረብ ደረጃዎች (EFRS) ጋር ሙሉ በሙሉ የሚጣጣሙ ናቸው።"
+                      : "All financial statements presented herein have been calculated directly from authenticated Firestore cloud ledgers and biometric attendance logs. Financial controls, accounts payable, and asset depreciation schedules comply fully with Ethiopian Financial Reporting Standards (EFRS)."}
                   </p>
                 </div>
 
                 {/* Signature & Stamp Footer */}
                 <div className="pt-8 grid grid-cols-2 gap-8 text-xs font-bold border-t border-slate-300">
                   <div>
-                    <p className="text-slate-500 text-[10px] uppercase">Prepared By:</p>
+                    <p className="text-slate-500 text-[10px] uppercase">{isAmharic ? "ያዘጋጀው:" : "Prepared By:"}</p>
                     <p className="text-slate-900 mt-4">{currentUserName}</p>
-                    <p className="text-slate-500 font-normal">Finance Manager, BuildSync ERP</p>
+                    <p className="text-slate-500 font-normal">{isAmharic ? "የፋይናንስ ስራ አስኪያጅ፣ BuildSync ERP" : "Finance Manager, BuildSync ERP"}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-slate-500 text-[10px] uppercase">Approved & Sealed By:</p>
-                    <p className="text-slate-900 mt-4">Head Office Managing Director</p>
-                    <p className="text-slate-500 font-normal">BuildSync Smart Construction</p>
+                    <p className="text-slate-500 text-[10px] uppercase">{isAmharic ? "ያፀደቀውና ማህተም ያረገው:" : "Approved & Sealed By:"}</p>
+                    <p className="text-slate-900 mt-4">{isAmharic ? "የዋና መስሪያ ቤት ማኔጂንግ ዳይሬክተር" : "Head Office Managing Director"}</p>
+                    <p className="text-slate-500 font-normal">{isAmharic ? "BuildSync ስማርት ኮንስትራክሽን" : "BuildSync Smart Construction"}</p>
                   </div>
                 </div>
               </div>
@@ -2001,9 +2046,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               <div>
                 <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                   <Cpu size={20} className="text-amber-500 animate-pulse" />
-                  <span>AI Financial Forecast, Anomaly Detection & Fraud Intelligence Engine</span>
+                  <span>{isAmharic ? "የአርቴፊሻል ኢንተለጀንስ (AI) የፋይናንስ ትንበያ፣ አጠራጣሪ ወጪ እና ማጭበርበር መለያ ሞተር" : "AI Financial Forecast, Anomaly Detection & Fraud Intelligence Engine"}</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">Powered by Gemini 2.5 Flash API for expense prediction, cash flow forecasting & payroll anomaly alerts</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  {isAmharic 
+                    ? "በGemini 2.5 Flash API የሚሰራ የወጪ ትንበያ፣ የገንዘብ ፍሰት እና የደሞዝ አጠራጣሪ እንቅስቃሴ መቆጣጠሪያ" 
+                    : "Powered by Gemini 2.5 Flash API for expense prediction, cash flow forecasting & payroll anomaly alerts"}
+                </p>
               </div>
 
               <button
@@ -2012,7 +2061,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-red-600 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider flex items-center space-x-2 shadow-lg hover:opacity-95 transition cursor-pointer disabled:opacity-50"
               >
                 <Sparkles size={16} />
-                <span>{aiLoading ? "Running AI Audit..." : "Run AI Audit Engine"}</span>
+                <span>{aiLoading ? (isAmharic ? "AI በመተንተን ላይ ነው..." : "Running AI Audit...") : (isAmharic ? "የAI ኦዲት ሞተር አስጀምር" : "Run AI Audit Engine")}</span>
               </button>
             </div>
 
@@ -2024,7 +2073,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="bg-amber-950/40 border border-amber-800/80 p-6 rounded-2xl space-y-3">
                   <div className="flex items-center space-x-2 text-amber-400">
                     <Sparkles size={18} />
-                    <span className="font-bold text-sm uppercase tracking-wider">AI Executive Intelligence Report</span>
+                    <span className="font-bold text-sm uppercase tracking-wider">{isAmharic ? "የAI የአመራር ኢንተለጀንስ ሪፖርት" : "AI Executive Intelligence Report"}</span>
                   </div>
                   <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line font-sans">
                     {aiData.executiveSummaryMarkdown}
@@ -2038,7 +2087,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
                     <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                       <AlertTriangle size={16} className="text-red-400" />
-                      <span>Unusual Spending & Cost Center Anomalies</span>
+                      <span>{isAmharic ? "ያልተለመዱ ወጪዎች እና የወጪ ማዕከል አጠራጣሪ ሁኔታዎች" : "Unusual Spending & Cost Center Anomalies"}</span>
                     </h3>
                     <div className="space-y-2">
                       {aiData.unusualSpendingAlerts?.map((a: any) => (
@@ -2046,7 +2095,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                           <div className="flex justify-between text-xs">
                             <span className="font-bold text-white">{a.category}</span>
                             <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">
-                              {a.riskLevel} Risk
+                              {a.riskLevel} {isAmharic ? "አደጋ" : "Risk"}
                             </span>
                           </div>
                           <p className="text-[11px] text-slate-400">{a.reason}</p>
@@ -2059,7 +2108,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
                     <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                       <Users size={16} className="text-amber-400" />
-                      <span>Biometric Payroll Anomaly Alerts</span>
+                      <span>{isAmharic ? "የባዮሜትሪክ ደሞዝ አጠራጣሪ ሁኔታዎች ማስጠንቀቂያ" : "Biometric Payroll Anomaly Alerts"}</span>
                     </h3>
                     <div className="space-y-2">
                       {aiData.payrollAnomalies?.map((p: any, idx: number) => (
@@ -2083,9 +2132,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <Sparkles size={32} />
                 </div>
                 <div className="max-w-md mx-auto space-y-2">
-                  <h3 className="text-base font-bold text-white">AI Financial Intelligence Standby</h3>
+                  <h3 className="text-base font-bold text-white">{isAmharic ? "የAI ፋይናንስ ኢንተለጀንስ ዝግጁ ነው" : "AI Financial Intelligence Standby"}</h3>
                   <p className="text-xs text-slate-400">
-                    Click "Run AI Audit Engine" to launch predictive expense curves, 3-month cash flow forecasting, and biometric fraud detection analysis.
+                    {isAmharic 
+                      ? "የወጪ ትንበያዎችን፣ የ3 ወራት የጥሬ ገንዘብ ፍሰት እና የባዮሜትሪክ ማጭበርበር ምርመራን ለማስጀመር 'የAI ኦዲት ሞተር አስጀምር' የሚለውን ይጫኑ።" 
+                      : "Click \"Run AI Audit Engine\" to launch predictive expense curves, 3-month cash flow forecasting, and biometric fraud detection analysis."}
                   </p>
                 </div>
               </div>
@@ -2099,23 +2150,27 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div>
               <h2 className="text-lg font-bold text-white flex items-center space-x-2">
                 <RefreshCw size={20} className="text-blue-500" />
-                <span>Enterprise ERP Module Synchronization & Security Audit Ledger</span>
+                <span>{isAmharic ? "የኢንተርፕራይዝ ERP ሞጁሎች ማመሳሰያ እና የደህንነት ኦዲት መዝገብ" : "Enterprise ERP Module Synchronization & Security Audit Ledger"}</span>
               </h2>
-              <p className="text-xs text-slate-400 mt-1">Real-time cross-app data synchronization and encrypted transaction audit trail</p>
+              <p className="text-xs text-slate-400 mt-1">
+                {isAmharic 
+                  ? "የቀጥታ የመተግበሪያዎች መረጃ ማመሳሰል እና የተመሰጠረ የግብይቶች ኦዲት ዱካ" 
+                  : "Real-time cross-app data synchronization and encrypted transaction audit trail"}
+              </p>
             </div>
 
             {/* Sync Matrix Modules Grid */}
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {[
-                { name: "Admin App", status: "Synced", icon: ShieldCheck },
-                { name: "Head Office App", status: "Synced", icon: Building2 },
-                { name: "Attendance System", status: "Synced", icon: Users },
-                { name: "Warehouse App", status: "Synced", icon: Package },
-                { name: "Store Owner App", status: "Synced", icon: Package },
-                { name: "Procurement App", status: "Synced", icon: CreditCard },
-                { name: "Payroll System", status: "Synced", icon: FileText },
-                { name: "Project Manager App", status: "Synced", icon: Briefcase },
-                { name: "Asset Management", status: "Synced", icon: Wrench }
+                { name: isAmharic ? "የአድሚን መተግበሪያ" : "Admin App", status: "Synced", icon: ShieldCheck },
+                { name: isAmharic ? "የዋና መስሪያ ቤት መተግበሪያ" : "Head Office App", status: "Synced", icon: Building2 },
+                { name: isAmharic ? "የመገኘት ሲስተም" : "Attendance System", status: "Synced", icon: Users },
+                { name: isAmharic ? "የመጋዘን መተግበሪያ" : "Warehouse App", status: "Synced", icon: Package },
+                { name: isAmharic ? "የስቶር አቃቤ መተግበሪያ" : "Store Owner App", status: "Synced", icon: Package },
+                { name: isAmharic ? "የግዢ መተግበሪያ" : "Procurement App", status: "Synced", icon: CreditCard },
+                { name: isAmharic ? "የደሞዝ ሲስተም" : "Payroll System", status: "Synced", icon: FileText },
+                { name: isAmharic ? "የፕሮጀክት ማናጀር መተግበሪያ" : "Project Manager App", status: "Synced", icon: Briefcase },
+                { name: isAmharic ? "የንብረት አስተዳደር" : "Asset Management", status: "Synced", icon: Wrench }
               ].map((mod, idx) => {
                 const Icon = mod.icon;
                 return (
@@ -2134,20 +2189,20 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
               <h3 className="text-sm font-bold text-white flex items-center space-x-2">
                 <Shield size={16} className="text-emerald-400" />
-                <span>AES-256 Encrypted Financial Action Audit Trail</span>
+                <span>{isAmharic ? "በAES-256 የተመሰጠረ የፋይናንስ ተግባራት የኦዲት ዱካ" : "AES-256 Encrypted Financial Action Audit Trail"}</span>
               </h3>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Audit ID</th>
-                      <th className="py-3 px-3">User Name</th>
-                      <th className="py-3 px-3">Role</th>
-                      <th className="py-3 px-3">Timestamp</th>
-                      <th className="py-3 px-3">Device / Client</th>
-                      <th className="py-3 px-3">Action Performed</th>
-                      <th className="py-3 px-3">Financial Impact</th>
+                      <th className="py-3 px-3">{isAmharic ? "የኦዲት መለያ" : "Audit ID"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የተጠቃሚ ስም" : "User Name"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ሚና" : "Role"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "ጊዜ" : "Timestamp"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "መሳሪያ / ክላይንት" : "Device / Client"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የተከናወነ ተግባር" : "Action Performed"}</th>
+                      <th className="py-3 px-3">{isAmharic ? "የፋይናንስ ተፅዕኖ" : "Financial Impact"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
@@ -2180,25 +2235,25 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       {showBudgetForm && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">Allocate Cost Center Budget</h3>
+            <h3 className="text-lg font-bold text-white">{isAmharic ? "የወጪ ማዕከል በጀት መመደቢያ" : "Allocate Cost Center Budget"}</h3>
             <form onSubmit={handleAddBudget} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1 font-bold">Cost Category</label>
+                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "የወጪ ዘርፍ" : "Cost Category"}</label>
                 <select
                   value={budgetForm.category}
                   onChange={(e) => setBudgetForm(prev => ({ ...prev, category: e.target.value as any }))}
                   className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-bold"
                 >
-                  <option value="Material">Material</option>
-                  <option value="Labor">Labor Payroll</option>
-                  <option value="Equipment">Equipment & Machinery</option>
-                  <option value="Overhead">Overhead & Administration</option>
-                  <option value="Subcontractor">Subcontractor</option>
+                  <option value="Material">{isAmharic ? "ማቴሪያል" : "Material"}</option>
+                  <option value="Labor">{isAmharic ? "የሰራተኛ ደሞዝ" : "Labor Payroll"}</option>
+                  <option value="Equipment">{isAmharic ? "ማሽነሪ እና መሣሪያዎች" : "Equipment & Machinery"}</option>
+                  <option value="Overhead">{isAmharic ? "አስተዳደራዊ እና ቁጥጥር" : "Overhead & Administration"}</option>
+                  <option value="Subcontractor">{isAmharic ? "ንዑስ ተቋራጭ" : "Subcontractor"}</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-bold">Allocated Amount (ETB)</label>
+                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "የተመደበ መጠን (ብር)" : "Allocated Amount (ETB)"}</label>
                 <input
                   type="number"
                   required
@@ -2210,11 +2265,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-bold">Description (English)</label>
+                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "መግለጫ / ማብራሪያ" : "Description (English)"}</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. C30 Concrete & Rebar Stock"
+                  placeholder={isAmharic ? "ለምሳሌ: የሲ30 ኮንክሪት እና የብረት ክምችት" : "e.g. C30 Concrete & Rebar Stock"}
                   value={budgetForm.description}
                   onChange={(e) => setBudgetForm(prev => ({ ...prev, description: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-medium"
@@ -2227,13 +2282,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   onClick={() => setShowBudgetForm(false)}
                   className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
-                  Cancel
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl cursor-pointer hover:bg-blue-500"
                 >
-                  Save Budget Allocation
+                  {isAmharic ? "የበጀት ድልድል መዝግብ" : "Save Budget Allocation"}
                 </button>
               </div>
             </form>
@@ -2245,14 +2300,14 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       {showExpenseForm && (
         <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">Log Field Expense Transaction</h3>
+            <h3 className="text-lg font-bold text-white">{isAmharic ? "የሳይት ወጪ ግብይት መመዝገቢያ" : "Log Field Expense Transaction"}</h3>
             <form onSubmit={handleAddExpense} className="space-y-3 text-xs">
               <div>
-                <label className="block text-slate-400 mb-1 font-bold">Vendor / Payee</label>
+                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "አቅራቢ / ተከፋይ" : "Vendor / Payee"}</label>
                 <input
                   type="text"
                   required
-                  placeholder="e.g. Mugher Cement PLC"
+                  placeholder={isAmharic ? "ለምሳሌ: ሙገር ሲሚንቶ ፋብሪካ" : "e.g. Mugher Cement PLC"}
                   value={expenseForm.vendor}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, vendor: e.target.value }))}
                   className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-medium"
@@ -2260,7 +2315,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-bold">Amount (ETB)</label>
+                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "መጠን (ብር)" : "Amount (ETB)"}</label>
                 <input
                   type="number"
                   required
@@ -2272,17 +2327,17 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               </div>
 
               <div>
-                <label className="block text-slate-400 mb-1 font-bold">Category</label>
+                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "ዘርፍ" : "Category"}</label>
                 <select
                   value={expenseForm.category}
                   onChange={(e) => setExpenseForm(prev => ({ ...prev, category: e.target.value as any }))}
                   className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-bold"
                 >
-                  <option value="Material">Material</option>
-                  <option value="Labor">Labor</option>
-                  <option value="Equipment">Equipment</option>
-                  <option value="Overhead">Overhead</option>
-                  <option value="Subcontractor">Subcontractor</option>
+                  <option value="Material">{isAmharic ? "ማቴሪያል" : "Material"}</option>
+                  <option value="Labor">{isAmharic ? "ደሞዝ" : "Labor"}</option>
+                  <option value="Equipment">{isAmharic ? "ማሽነሪ" : "Equipment"}</option>
+                  <option value="Overhead">{isAmharic ? "አስተዳደራዊ" : "Overhead"}</option>
+                  <option value="Subcontractor">{isAmharic ? "ንዑስ ተቋራጭ" : "Subcontractor"}</option>
                 </select>
               </div>
 
@@ -2292,13 +2347,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   onClick={() => setShowExpenseForm(false)}
                   className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl cursor-pointer"
                 >
-                  Cancel
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl cursor-pointer hover:bg-red-500"
                 >
-                  Record Expense
+                  {isAmharic ? "ወጪ መዝግብ" : "Record Expense"}
                 </button>
               </div>
             </form>

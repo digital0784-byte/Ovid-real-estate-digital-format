@@ -224,9 +224,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
   const handleApproveRegistrant = async (userRec: any) => {
     const uid = userRec.uid || userRec.id;
     if (!uid) return;
-    const targetRole =
+    let targetRole =
       roleSelections[uid] ||
       (userRec.requestedRole && userRec.requestedRole !== "Pending" ? userRec.requestedRole : UserRole.WORKER);
+
+    // Only mejennur669@gmail.com can be Super Admin
+    if (targetRole === UserRole.SUPER_ADMIN && userRec.email?.toLowerCase() !== "mejennur669@gmail.com") {
+      targetRole = UserRole.WORKER;
+    }
 
     const updatedUser = {
       ...userRec,

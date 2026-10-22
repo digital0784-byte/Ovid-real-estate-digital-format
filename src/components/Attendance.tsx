@@ -648,6 +648,34 @@ export const Attendance: React.FC<AttendanceProps> = ({
         return;
       }
 
+      // User policy: "ሱፐርቫይዘር ሳይሆን ከtime keeper በተጨማሪ attendance የመመዝገብ መብት ለteam leaders and Gang chief የተሰጠ ነው"
+      if (currentUserRole === UserRole.SUPERVISOR) {
+        alert(isAmharic 
+          ? "የፈቃድ ገደብ፦ ሱፐርቫይዘር አቴንዳንስ የመመዝገብ መብት የለውም። የመመዝገብ ፈቃድ የተሰጠው ለTime Keeper፣ Team Leader እና Gang Chief ብቻ ነው!"
+          : "Permission Denied: Supervisors are restricted from recording attendance. Rights are granted exclusively to Time Keepers, Team Leaders, and Gang Chiefs."
+        );
+        return;
+      }
+
+      const isBatchAuthorized = 
+        currentUserRole === UserRole.TIME_KEEPER || 
+        currentUserRole === UserRole.TEAM_LEADER ||
+        currentUserRole === UserRole.GANG_CHIEF || 
+        currentUserRole === UserRole.SUPER_ADMIN;
+
+      if (!isBatchAuthorized) {
+        const boundWorkerId = localStorage.getItem(`erp_device_bound_worker_${todayDate}`);
+        if (boundWorkerId && boundWorkerId !== worker.id) {
+          const boundWorker = workers.find(w => w.id === boundWorkerId);
+          const boundName = boundWorker ? boundWorker.name : boundWorkerId;
+          alert(isAmharic 
+            ? `የደህንነት ጥሰት ተከልክሏል (Anti-Buddy Punching)፦ ይህ ስልክ ለዛሬው ዕለት የ${boundName} (${boundWorkerId}) መገኘት አስመዝግቧል። ከTime Keeper፣ Team Leader እና Gang Chief ስልክ ውጭ ማንኛውም ስልክ ከአንድ ሰው በላይ ማስመዝገብ በጥብቅ የተከለከለ ነው!` 
+            : `Device Security Violation: This phone is locked to worker ${boundName} (${boundWorkerId}) today. Only Time Keepers, Team Leaders, and Gang Chiefs can record multi-worker attendance.`
+          );
+          return;
+        }
+      }
+
       // Late arrival calculation based on shift policies
       const [simH, simM] = simulatedTime.split(":").map(Number);
       const [shiftH, shiftM] = shiftStart.split(":").map(Number);
@@ -709,6 +737,9 @@ export const Attendance: React.FC<AttendanceProps> = ({
         return [...filtered, { type: "In", record: newRecord }];
       });
       onAddAttendance(newRecord);
+      if (!isBatchAuthorized) {
+        localStorage.setItem(`erp_device_bound_worker_${todayDate}`, worker.id);
+      }
 
       if (isOffline) {
         alert(isAmharic 
