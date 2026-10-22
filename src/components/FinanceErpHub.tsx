@@ -352,8 +352,8 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           DbService.getProjectBudgets(budgets),
           DbService.getInvoices(invoices),
           DbService.getPaymentRecords(payments),
-          DbService.getProcurements(procurements),
-          DbService.getEquipmentLogs(equipments),
+          DbService.getFinanceProcurements(procurements),
+          DbService.getFinanceEquipments(equipments),
           DbService.getAuditLogs(),
           DbService.getProjects(),
           DbService.getProgressLogs()
@@ -369,8 +369,58 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           if (dbBudgets && dbBudgets.length > 0) setBudgets(dbBudgets);
           if (dbInvoices && dbInvoices.length > 0) setInvoices(dbInvoices);
           if (dbPayments && dbPayments.length > 0) setPayments(dbPayments);
-          if (dbProcurements && dbProcurements.length > 0) setProcurements(dbProcurements);
-          if (dbEquipments && dbEquipments.length > 0) setEquipments(dbEquipments);
+          if (dbProcurements && dbProcurements.length > 0) {
+            const mappedProcurements: ProcurementRecord[] = dbProcurements.map((p: any, idx: number) => {
+              const rawCostNum = typeof p.poAmount === "number"
+                ? p.poAmount
+                : typeof p.cost === "number"
+                  ? p.cost
+                  : (parseInt(String(p.cost || p.amount || "").replace(/[^0-9]/g, ""), 10) || 500000);
+              return {
+                id: p.id || `PROC-${idx + 1}`,
+                poNumber: p.poNumber || p.id || `PO-2026-00${idx + 1}`,
+                supplier: p.supplier || "Supplier Partner",
+                materialItem: p.materialItem || p.item || "Construction Material",
+                poAmount: rawCostNum,
+                consumptionCost: typeof p.consumptionCost === "number" ? p.consumptionCost : Math.round(rawCostNum * 0.8),
+                transferCost: typeof p.transferCost === "number" ? p.transferCost : 50000,
+                lossCost: typeof p.lossCost === "number" ? p.lossCost : 10000,
+                damageCost: typeof p.damageCost === "number" ? p.damageCost : 5000,
+                importCost: typeof p.importCost === "number" ? p.importCost : 0,
+                customsTax: typeof p.customsTax === "number" ? p.customsTax : 0,
+                deliveryCost: typeof p.deliveryCost === "number" ? p.deliveryCost : 25000,
+                status: (p.status === "Paid" || p.status === "Payment Completed" || p.status === "Goods Received") ? "Paid" : (p.status || "In Transit"),
+                date: p.date || new Date().toISOString().split("T")[0]
+              };
+            });
+            setProcurements(mappedProcurements);
+          }
+          if (dbEquipments && dbEquipments.length > 0) {
+            const mappedEquipments: EquipmentCostRecord[] = dbEquipments.map((e: any, idx: number) => {
+              const defaultPurchase = typeof e.purchaseValue === "number"
+                ? e.purchaseValue
+                : (parseInt(String(e.cost || "").replace(/[^0-9]/g, ""), 10) || 20000000);
+              const defaultCurrent = typeof e.currentValue === "number" ? e.currentValue : Math.round(defaultPurchase * 0.85);
+              const fuelLitersNum = typeof e.fuelLiters === "number" ? e.fuelLiters : (parseInt(String(e.fuel || "").replace(/[^0-9]/g, ""), 10) || 150);
+              return {
+                id: e.id || `EQ-${idx + 1}`,
+                equipmentName: e.equipmentName || e.name || "Equipment Asset",
+                assetCode: e.assetCode || e.id || `EQ-0${idx + 1}`,
+                category: e.category || (e.name?.includes("Panel") ? "Aluminum Formwork" : "Heavy Equipment"),
+                purchaseValue: defaultPurchase,
+                currentValue: defaultCurrent,
+                depreciation: typeof e.depreciation === "number" ? e.depreciation : (defaultPurchase - defaultCurrent),
+                repairCost: typeof e.repairCost === "number" ? e.repairCost : 250000,
+                replacementCost: typeof e.replacementCost === "number" ? e.replacementCost : defaultPurchase * 1.1,
+                fuelLiters: fuelLitersNum,
+                fuelCost: typeof e.fuelCost === "number" ? e.fuelCost : (fuelLitersNum * 100),
+                maintenanceCost: typeof e.maintenanceCost === "number" ? e.maintenanceCost : 300000,
+                rentalCost: typeof e.rentalCost === "number" ? e.rentalCost : 500000,
+                operatingHours: typeof e.operatingHours === "number" ? e.operatingHours : (parseFloat(String(e.usage || "").replace(/[^0-9.]/g, "")) || 40)
+              };
+            });
+            setEquipments(mappedEquipments);
+          }
           if (dbAuditLogs && dbAuditLogs.length > 0) {
             const mappedLogs: SecurityAuditItem[] = dbAuditLogs.map(l => ({
               id: l.id,
@@ -681,7 +731,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   }, [companyRevenue, payments]);
 
   const accountsPayable = useMemo(() => {
-    return procurements.filter(p => p.status !== "Paid").reduce((sum, p) => sum + p.poAmount + p.customsTax + p.deliveryCost, 0);
+    return procurements.filter(p => p.status !== "Paid").reduce((sum, p) => sum + (p.poAmount || 0) + (p.customsTax || 0) + (p.deliveryCost || 0), 0);
   }, [procurements]);
 
   // Asset Values
@@ -690,15 +740,15 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     const totalPanels = formworkPanelsList.length || 1250;
     return totalPanels * 12500; // 12,500 ETB average replacement value per panel
   }, [formworkPanelsList]);
-  const equipmentAssetVal = useMemo(() => equipments.reduce((sum, e) => sum + e.currentValue, 0), [equipments]);
+  const equipmentAssetVal = useMemo(() => equipments.reduce((sum, e) => sum + (e.currentValue || 0), 0), [equipments]);
 
   // Total Payroll Cost
-  const totalPayrollCost = useMemo(() => generatedPayroll.reduce((sum, p) => sum + p.netSalary + p.tax + p.pension, 0), [generatedPayroll]);
+  const totalPayrollCost = useMemo(() => generatedPayroll.reduce((sum, p) => sum + (p.netSalary || 0) + (p.tax || 0) + (p.pension || 0), 0), [generatedPayroll]);
 
   // Breakdown Costs
-  const procurementCost = useMemo(() => procurements.reduce((sum, p) => sum + p.poAmount + p.importCost + p.customsTax + p.deliveryCost, 0), [procurements]);
-  const maintenanceCost = useMemo(() => equipments.reduce((sum, e) => sum + e.maintenanceCost + e.repairCost, 0) + repairRecordsList.reduce((sum, r) => sum + (r.cost || 0), 0), [equipments, repairRecordsList]);
-  const fuelCost = useMemo(() => equipments.reduce((sum, e) => sum + e.fuelCost, 0), [equipments]);
+  const procurementCost = useMemo(() => procurements.reduce((sum, p) => sum + (p.poAmount || 0) + (p.importCost || 0) + (p.customsTax || 0) + (p.deliveryCost || 0), 0), [procurements]);
+  const maintenanceCost = useMemo(() => equipments.reduce((sum, e) => sum + (e.maintenanceCost || 0) + (e.repairCost || 0), 0) + repairRecordsList.reduce((sum, r) => sum + (r.cost || 0), 0), [equipments, repairRecordsList]);
+  const fuelCost = useMemo(() => equipments.reduce((sum, e) => sum + (e.fuelCost || 0), 0), [equipments]);
 
   const netProfitVal = companyRevenue - companyExpenses;
 
@@ -1315,7 +1365,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                           </span>
                         </td>
                         <td className="py-3 px-3 font-medium text-white">{exp.vendor}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-red-400">ETB {exp.amount.toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-red-400">ETB {(exp.amount ?? 0).toLocaleString()}</td>
                         <td className="py-3 px-3 text-slate-400">{exp.project}</td>
                         <td className="py-3 px-3 text-slate-400">{exp.date}</td>
                         <td className="py-3 px-3 text-emerald-400 font-medium">{exp.approvedBy}</td>
@@ -1432,10 +1482,10 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                         <tr key={b.id} className="hover:bg-slate-900/50 transition">
                           <td className="py-3 px-3 font-bold text-white">{b.category}</td>
                           <td className="py-3 px-3 text-slate-400">{isAmharic ? b.descriptionAm : b.description}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-blue-400">ETB {b.allocated.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-amber-400">ETB {b.committed.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-red-400">ETB {b.actual.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {remaining.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-blue-400">ETB {(b.allocated ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-amber-400">ETB {(b.committed ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-red-400">ETB {(b.actual ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {(remaining ?? 0).toLocaleString()}</td>
                           <td className="py-3 px-3 font-mono font-bold">
                             <span className={variancePct <= 0 ? "text-emerald-400" : "text-red-400"}>
                               {variancePct.toFixed(1)}%
@@ -1524,15 +1574,15 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               </div>
               <div>
                 <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ መሰረታዊ ደሞዝ" : "Total Gross Basic Salary"}</span>
-                <span className="text-xl font-black text-blue-400">ETB {generatedPayroll.reduce((sum, p) => sum + p.basicSalary, 0).toLocaleString()}</span>
+                <span className="text-xl font-black text-blue-400">ETB {generatedPayroll.reduce((sum, p) => sum + (p.basicSalary || 0), 0).toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ የትርፍ ሰዓት ወጪ" : "Total Overtime Cost"}</span>
-                <span className="text-xl font-black text-amber-400">ETB {generatedPayroll.reduce((sum, p) => sum + p.overtimePay, 0).toLocaleString()}</span>
+                <span className="text-xl font-black text-amber-400">ETB {generatedPayroll.reduce((sum, p) => sum + (p.overtimePay || 0), 0).toLocaleString()}</span>
               </div>
               <div>
                 <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ የተጣራ የደሞዝ ክፍያ" : "Total Net Payroll Disbursement"}</span>
-                <span className="text-xl font-black text-emerald-400">ETB {generatedPayroll.reduce((sum, p) => sum + p.netSalary, 0).toLocaleString()}</span>
+                <span className="text-xl font-black text-emerald-400">ETB {generatedPayroll.reduce((sum, p) => sum + (p.netSalary || 0), 0).toLocaleString()}</span>
               </div>
             </div>
 
@@ -1564,14 +1614,14 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                             <span className="font-bold text-white">{p.workerName}</span>
                           </td>
                           <td className="py-3 px-3 text-slate-400">{p.trade}</td>
-                          <td className="py-3 px-3 font-mono text-slate-200">ETB {p.basicSalary.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-amber-400">+{p.overtimeHours}h</td>
-                          <td className="py-3 px-3 font-mono text-amber-400">ETB {p.overtimePay.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-emerald-400">ETB {p.allowances.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-red-400">ETB {(p.attendanceDeductions + p.underTimeDeduction).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-slate-400">ETB {p.tax.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-slate-400">ETB {p.pension.toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-black text-emerald-400 text-sm">ETB {p.netSalary.toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-slate-200">ETB {(p.basicSalary ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono font-bold text-amber-400">+{p.overtimeHours ?? 0}h</td>
+                          <td className="py-3 px-3 font-mono text-amber-400">ETB {(p.overtimePay ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-emerald-400">ETB {(p.allowances ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-red-400">ETB {((p.attendanceDeductions ?? 0) + (p.underTimeDeduction ?? 0)).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-slate-400">ETB {(p.tax ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono text-slate-400">ETB {(p.pension ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono font-black text-emerald-400 text-sm">ETB {(p.netSalary ?? 0).toLocaleString()}</td>
                           <td className="py-3 px-3">
                             <button
                               onClick={() => setSelectedPayslip(p)}
@@ -1626,27 +1676,27 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
                       <span className="text-slate-400">{isAmharic ? "መሰረታዊ ወርሃዊ ደሞዝ:" : "Basic Monthly Wage:"}</span>
-                      <span className="font-mono text-slate-200">ETB {selectedPayslip.basicSalary.toLocaleString()}</span>
+                      <span className="font-mono text-slate-200">ETB {(selectedPayslip.basicSalary ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? `የትርፍ ሰዓት ክፍያ (${selectedPayslip.overtimeHours} ሰዓት):` : `Overtime Pay (${selectedPayslip.overtimeHours} hours):`}</span>
-                      <span className="font-mono text-amber-400">+ETB {selectedPayslip.overtimePay.toLocaleString()}</span>
+                      <span className="text-slate-400">{isAmharic ? `የትርፍ ሰዓት ክፍያ (${selectedPayslip.overtimeHours ?? 0} ሰዓት):` : `Overtime Pay (${selectedPayslip.overtimeHours ?? 0} hours):`}</span>
+                      <span className="font-mono text-amber-400">+ETB {(selectedPayslip.overtimePay ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
                       <span className="text-slate-400">{isAmharic ? "የሳይት እና የትራንስፖርት አበል:" : "Site & Transport Allowance:"}</span>
-                      <span className="font-mono text-emerald-400">+ETB {selectedPayslip.allowances.toLocaleString()}</span>
+                      <span className="font-mono text-emerald-400">+ETB {(selectedPayslip.allowances ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
                       <span className="text-slate-400">{isAmharic ? "የገቢ ግብር (15%):" : "Income Tax (15%):"}</span>
-                      <span className="font-mono text-red-400">-ETB {selectedPayslip.tax.toLocaleString()}</span>
+                      <span className="font-mono text-red-400">-ETB {(selectedPayslip.tax ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between border-b border-slate-800/80 pb-2">
                       <span className="text-slate-400">{isAmharic ? "የሰራተኛ ጡረታ (7%):" : "Employee Pension (7%):"}</span>
-                      <span className="font-mono text-red-400">-ETB {selectedPayslip.pension.toLocaleString()}</span>
+                      <span className="font-mono text-red-400">-ETB {(selectedPayslip.pension ?? 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between pt-2 text-base font-black">
                       <span className="text-white">{isAmharic ? "የተጣራ የሚከፈል ደሞዝ:" : "Net Salary Disbursed:"}</span>
-                      <span className="font-mono text-emerald-400">ETB {selectedPayslip.netSalary.toLocaleString()}</span>
+                      <span className="font-mono text-emerald-400">ETB {(selectedPayslip.netSalary ?? 0).toLocaleString()}</span>
                     </div>
                   </div>
 
@@ -1730,13 +1780,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <tbody className="divide-y divide-slate-900 text-slate-300">
                     {equipments.filter(e => e.category === "Aluminum Formwork").map(eq => (
                       <tr key={eq.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{eq.assetCode}</td>
-                        <td className="py-3 px-3 font-bold text-white">{eq.equipmentName}</td>
-                        <td className="py-3 px-3 font-mono text-slate-200">ETB {eq.purchaseValue.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {eq.currentValue.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {eq.depreciation.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-blue-400">ETB {eq.repairCost.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-slate-400">ETB {eq.replacementCost.toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{eq.assetCode || eq.id}</td>
+                        <td className="py-3 px-3 font-bold text-white">{eq.equipmentName || (eq as any).name}</td>
+                        <td className="py-3 px-3 font-mono text-slate-200">ETB {(eq.purchaseValue ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {(eq.currentValue ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-red-400">ETB {(eq.depreciation ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-blue-400">ETB {(eq.repairCost ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-slate-400">ETB {(eq.replacementCost ?? 0).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1814,12 +1864,12 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <tbody className="divide-y divide-slate-900 text-slate-300">
                     {procurements.map(p => (
                       <tr key={p.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-blue-400">{p.poNumber}</td>
-                        <td className="py-3 px-3 font-bold text-white">{p.supplier}</td>
-                        <td className="py-3 px-3 text-slate-300">{p.materialItem}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {p.poAmount.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {p.customsTax.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-amber-400">ETB {p.deliveryCost.toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-blue-400">{p.poNumber || p.id}</td>
+                        <td className="py-3 px-3 font-bold text-white">{p.supplier || "-"}</td>
+                        <td className="py-3 px-3 text-slate-300">{p.materialItem || (p as any).item || "-"}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {(p.poAmount ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-red-400">ETB {(p.customsTax ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-amber-400">ETB {(p.deliveryCost ?? 0).toLocaleString()}</td>
                         <td className="py-3 px-3">
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                             p.status === "Paid" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-amber-950 text-amber-400 border border-amber-800"
@@ -1869,13 +1919,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                   <tbody className="divide-y divide-slate-900 text-slate-300">
                     {equipments.filter(e => e.category !== "Aluminum Formwork" && e.category !== "Warehouse Asset").map(eq => (
                       <tr key={eq.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{eq.assetCode}</td>
-                        <td className="py-3 px-3 font-bold text-white">{eq.equipmentName}</td>
-                        <td className="py-3 px-3 font-mono text-slate-200">{eq.operatingHours} hrs</td>
-                        <td className="py-3 px-3 font-mono text-amber-400">{eq.fuelLiters} L</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {eq.fuelCost.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-blue-400">ETB {eq.maintenanceCost.toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-slate-300">ETB {eq.rentalCost.toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{eq.assetCode || eq.id}</td>
+                        <td className="py-3 px-3 font-bold text-white">{eq.equipmentName || (eq as any).name}</td>
+                        <td className="py-3 px-3 font-mono text-slate-200">{eq.operatingHours ?? 0} hrs</td>
+                        <td className="py-3 px-3 font-mono text-amber-400">{eq.fuelLiters ?? 0} L</td>
+                        <td className="py-3 px-3 font-mono text-red-400">ETB {(eq.fuelCost ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-blue-400">ETB {(eq.maintenanceCost ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono text-slate-300">ETB {(eq.rentalCost ?? 0).toLocaleString()}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1978,11 +2028,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
                   <div>
                     <span className="block text-slate-400 text-[10px] uppercase font-bold">{isAmharic ? "ጠቅላላ የኮንትራት ገቢ" : "Gross Contracting Revenue"}</span>
-                    <span className="text-lg font-mono font-black text-slate-900">ETB {companyRevenue.toLocaleString()}</span>
+                    <span className="text-lg font-mono font-black text-slate-900">ETB {(companyRevenue ?? 0).toLocaleString()}</span>
                   </div>
                   <div>
                     <span className="block text-slate-400 text-[10px] uppercase font-bold">{isAmharic ? "ጠቅላላ የወጣ ቀጥተኛ ወጪ" : "Total Incurred Direct Expenses"}</span>
-                    <span className="text-lg font-mono font-black text-red-600">ETB {companyExpenses.toLocaleString()}</span>
+                    <span className="text-lg font-mono font-black text-red-600">ETB {(companyExpenses ?? 0).toLocaleString()}</span>
                   </div>
                 </div>
 
@@ -2000,9 +2050,9 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                       {budgets.map(b => (
                         <tr key={b.id}>
                           <td className="py-2.5 px-3 font-bold">{b.category} - {isAmharic ? b.descriptionAm : b.description}</td>
-                          <td className="py-2.5 px-3 font-mono">ETB {b.allocated.toLocaleString()}</td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-red-600">ETB {b.actual.toLocaleString()}</td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">ETB {(b.allocated - b.actual).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 font-mono">ETB {(b.allocated ?? 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-red-600">ETB {(b.actual ?? 0).toLocaleString()}</td>
+                          <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">ETB {((b.allocated ?? 0) - (b.actual ?? 0)).toLocaleString()}</td>
                         </tr>
                       ))}
                     </tbody>

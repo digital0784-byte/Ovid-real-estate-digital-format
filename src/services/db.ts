@@ -1245,6 +1245,12 @@ export const DbService = {
   async addProcurement(item: any): Promise<void> {
     await writeDocument<any>("procurements", item, []);
   },
+  async getFinanceProcurements(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("financeProcurements", defaultItems);
+  },
+  async addFinanceProcurement(item: any): Promise<void> {
+    await writeDocument<any>("financeProcurements", item, []);
+  },
 
   // 18. equipment
   async getEquipmentLogs(defaultItems: any[] = []): Promise<any[]> {
@@ -1252,6 +1258,12 @@ export const DbService = {
   },
   async addEquipmentLog(item: any): Promise<void> {
     await writeDocument<any>("equipment", item, []);
+  },
+  async getFinanceEquipments(defaultItems: any[] = []): Promise<any[]> {
+    return fetchCollection<any>("financeEquipment", defaultItems);
+  },
+  async addFinanceEquipment(item: any): Promise<void> {
+    await writeDocument<any>("financeEquipment", item, []);
   },
 
   // 19. employeeFeedbacks

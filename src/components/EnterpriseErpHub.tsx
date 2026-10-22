@@ -1674,7 +1674,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ጠቅላላ ማቴሪያል" : "Material Inventory"}</p>
-              <h3 className="text-2xl font-black text-slate-900 mt-1">{totalWls.toLocaleString()} <span className="text-xs font-normal text-slate-500">{isAmharic ? "ፍሬ" : "Pcs"}</span></h3>
+              <h3 className="text-2xl font-black text-slate-900 mt-1">{(totalWls ?? 0).toLocaleString()} <span className="text-xs font-normal text-slate-500">{isAmharic ? "ፍሬ" : "Pcs"}</span></h3>
               <p className="text-[10px] text-red-500 font-semibold mt-1">⚠️ {lowStockItems.length} {isAmharic ? "አነስተኛ ክምችት ማስጠንቀቂያ" : "Low Stock Alert Items"}</p>
             </div>
             <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
@@ -1808,7 +1808,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                           </td>
                           <td className="p-3 font-mono text-[10px] text-slate-400">{mat.code}</td>
                           <td className="p-3 font-mono text-[10px] text-slate-500">{mat.bundleId}</td>
-                          <td className="p-3 text-right font-mono font-bold text-slate-900">{mat.qty.toLocaleString()}</td>
+                          <td className="p-3 text-right font-mono font-bold text-slate-900">{(Number(mat.qty) || 0).toLocaleString()}</td>
                           <td className="p-3">
                             <span className={`px-2 py-0.5 rounded-full text-[9px] ${
                               mat.cleaning === "Clean" ? "bg-green-50 text-green-700 border border-green-200/50" : "bg-amber-50 text-amber-700 border border-amber-200/50"
@@ -1953,7 +1953,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                             <span className="text-[9px] text-slate-500 font-mono">{comp.code}</span>
                           </div>
                           <div className="text-slate-300 font-bold">{req} {isAmharic ? "ፍሬ" : "pcs"}</div>
-                          <div className="text-slate-400">{stock.toLocaleString()} {isAmharic ? "ፍሬ" : "pcs"}</div>
+                          <div className="text-slate-400">{(Number(stock) || 0).toLocaleString()} {isAmharic ? "ፍሬ" : "pcs"}</div>
                           <div>
                             {isDeficit ? (
                               <span className="text-red-400 font-bold bg-red-950/50 border border-red-900/30 px-1.5 py-0.5 rounded text-[10px]">
