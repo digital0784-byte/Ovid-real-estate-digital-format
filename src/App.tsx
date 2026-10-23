@@ -3388,6 +3388,7 @@ export default function App() {
             systemNotifications={notifications}
             onMarkAsRead={handleMarkAsReadNotification}
             onMarkAllAsRead={handleMarkAllAsReadNotifications}
+            isAmharic={isAmharic}
           />
         )}
 

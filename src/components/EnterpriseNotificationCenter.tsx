@@ -55,7 +55,44 @@ interface EnterpriseNotificationCenterProps {
   systemNotifications?: any[];
   onMarkAsRead?: (id: string) => void;
   onMarkAllAsRead?: () => void;
+  isAmharic?: boolean;
 }
+
+export const CATEGORY_LABELS_AM: Record<string, string> = {
+  "Attendance Notifications": "የመገኘት ማስታወቂያዎች",
+  "Warehouse Notifications": "የመጋዘን ማስታወቂያዎች",
+  "Site Store Notifications": "የሳይት ስቶር ማስታወቂያዎች",
+  "Inventory & Material Dispatch": "የዕቃ ክምችትና ስርጭት",
+  "Material Request Notifications": "የቁሳቁስ ጥያቄዎች",
+  "Material Approval Notifications": "የቁሳቁስ ማፅደቂያዎች",
+  "Material Transfer Notifications": "የዕቃዎች ዝውውር",
+  "Material Return Notifications": "የዕቃዎች መመለሻ",
+  "Material Requisition Notifications": "የዕለት ፍጆታ ጥያቄዎች",
+  "Aluminum Formwork Panel Tracking Notifications": "የአሉሚኒየም ፎርምወርክ ፓነል ዱካ",
+  "Procurement Notifications": "የግዢ ማስታወቂያዎች",
+  "Purchase Order Notifications": "የግዢ ትዕዛዞች (PO)",
+  "Delivery Notifications": "የዕቃዎች ርክክብ",
+  "Finance Notifications": "የፋይናንስ ማስታወቂያዎች",
+  "Payroll Notifications": "የደመወዝ ክፍያ",
+  "Budget Notifications": "የበጀት ማስታወቂያዎች",
+  "Project Progress Notifications": "የፕሮጀክት ዕድገት",
+  "Daily Report Notifications": "ዕለታዊ ሪፖርቶች",
+  "QA/QC Notifications": "የጥራት ቁጥጥር (QA/QC)",
+  "NCR Notifications": "የተዛነፉ ስራዎች (NCR)",
+  "HSE Notifications": "የጤናና ደህንነት (HSE)",
+  "Toolbox Meeting Notifications": "የጠዋት ደህንነት ስብሰባዎች",
+  "PPE Inspection Notifications": "የደህንነት አልባሳት ፍተሻ",
+  "Hazard Notifications": "የአደጋ ማስጠንቀቂያዎች",
+  "Near Miss Notifications": "ጥቃቅን አደጋዎች",
+  "Equipment Notifications": "የማሽነሪ ማስታወቂያዎች",
+  "Vehicle Notifications": "የተሽከርካሪ ማስታወቂያዎች",
+  "Asset Notifications": "የቋሚ ንብረት ማስታወቂያዎች",
+  "AI Alerts": "የአይአይ ማንቂያዎች",
+  "Maintenance Notifications": "የጥገና ማስታወቂያዎች",
+  "Document Approval Notifications": "የሰነድ ማፅደቂያዎች",
+  "User Approval Notifications": "የተጠቃሚዎች ማፅደቂያ",
+  "System Update Notifications": "የሲስተም ዝመናዎች"
+};
 
 const ALL_CATEGORIES: NotificationCategory[] = [
   "Attendance Notifications",
@@ -100,7 +137,8 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   onLogAudit,
   systemNotifications,
   onMarkAsRead,
-  onMarkAllAsRead
+  onMarkAllAsRead,
+  isAmharic = true
 }) => {
   const [notifications, setNotifications] = useState<EnterpriseNotification[]>([]);
   const [selectedNotif, setSelectedNotif] = useState<EnterpriseNotification | null>(null);
@@ -108,9 +146,15 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   const [showChannelSettingsModal, setShowChannelSettingsModal] = useState(false);
   const [showCreateCustomModal, setShowCreateCustomModal] = useState(false);
   const [selectedCategoryTab, setSelectedCategoryTab] = useState<string>("ALL");
-  const [langDisplayMode, setLangDisplayMode] = useState<"both" | "en" | "am">("both");
+  const [langDisplayMode, setLangDisplayMode] = useState<"both" | "en" | "am">(() => isAmharic ? "am" : "both");
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(() => NotificationService.getBrowserPermission());
   const [isSoundOn, setIsSoundOn] = useState<boolean>(() => NotificationService.isSoundActive());
+
+  useEffect(() => {
+    if (isAmharic) {
+      setLangDisplayMode("am");
+    }
+  }, [isAmharic]);
 
   const handleRequestPermission = async () => {
     const perm = await NotificationService.requestBrowserPermission();
@@ -543,15 +587,16 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               <div>
                 <div className="flex items-center space-x-2">
                   <h1 className="text-2xl font-black tracking-tight text-white">
-                    Enterprise Notification Center
+                    {isAmharic ? "የማስታወቂያዎች ማዕከል (Notification Center)" : "Enterprise Notification Center"}
                   </h1>
                   <span className="px-2.5 py-0.5 text-xs font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-full flex items-center space-x-1">
                     <Radio className="w-3 h-3 text-emerald-400 animate-pulse" />
-                    <span>In-App Notifications (Real-Time)</span>
+                    <span>{isAmharic ? "የቀጥታ ማስታወቂያዎች (Real-Time)" : "In-App Notifications (Real-Time)"}</span>
                   </span>
                 </div>
                 <p className="text-xs text-slate-300 mt-0.5">
-                  BuildSync Smart Construction ERP • RBAC Context: <span className="text-amber-400 font-semibold">{currentUserRole}</span>
+                  {isAmharic ? "የኮንስትራክሽን ኢአርፒ ማሳወቂያዎች • የስራ ድርሻ: " : "BuildSync Smart Construction ERP • RBAC Context: "}
+                  <span className="text-amber-400 font-semibold">{currentUserRole}</span>
                 </p>
               </div>
             </div>
@@ -603,7 +648,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               className="px-3.5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-slate-950 font-black text-xs rounded-xl shadow-lg transition-all flex items-center space-x-2"
             >
               <Sparkles className="w-4 h-4 text-slate-950" />
-              <span>የኤአይ ማስጠንቀቂያዎች (AI Alert Sim)</span>
+              <span>{isAmharic ? "የኤአይ ማስጠንቀቂያ ሙከራ" : "የኤአይ ማስጠንቀቂያዎች (AI Alert Sim)"}</span>
             </button>
 
             <button
@@ -612,7 +657,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-2"
             >
               <Smartphone className="w-4 h-4 text-amber-400" />
-              <span>የመቀበያ መንገዶች (Channels)</span>
+              <span>{isAmharic ? "የመቀበያ መንገዶች" : "የመቀበያ መንገዶች (Channels)"}</span>
             </button>
 
             <button
@@ -621,7 +666,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               className="px-3.5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-2"
             >
               <Download className="w-4 h-4 text-blue-400" />
-              <span>Export CSV</span>
+              <span>{isAmharic ? "በCSV አውርድ" : "Export CSV"}</span>
             </button>
 
             {stats.unread > 0 && (
@@ -631,7 +676,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                 className="px-3.5 py-2.5 bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 rounded-xl text-xs font-bold transition-all flex items-center space-x-2"
               >
                 <CheckCheck className="w-4 h-4 text-emerald-400" />
-                <span>ሁሉንም አንብብ (Mark Read)</span>
+                <span>{isAmharic ? "ሁሉንም አንብብ" : "ሁሉንም አንብብ (Mark Read)"}</span>
               </button>
             )}
           </div>
@@ -642,7 +687,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
         <div className="bg-slate-800/80 border border-slate-700/80 rounded-2xl p-4 flex items-center justify-between shadow-md">
           <div>
-            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">Total Active</p>
+            <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider">
+              {isAmharic ? "ጠቅላላ ንቁ" : "Total Active"}
+            </p>
             <p className="text-2xl font-black text-white mt-1">{stats.total}</p>
           </div>
           <div className="p-3 bg-slate-700/50 rounded-xl text-slate-300">
@@ -652,7 +699,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
         <div className="bg-amber-950/30 border border-amber-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md">
           <div>
-            <p className="text-xs text-amber-300 font-semibold uppercase tracking-wider">Unread Alerts</p>
+            <p className="text-xs text-amber-300 font-semibold uppercase tracking-wider">
+              {isAmharic ? "ያልተነበቡ ማንቂያዎች" : "Unread Alerts"}
+            </p>
             <p className="text-2xl font-black text-amber-400 mt-1">{stats.unread}</p>
           </div>
           <div className="p-3 bg-amber-500/20 rounded-xl text-amber-400">
@@ -662,7 +711,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
         <div className="bg-red-950/30 border border-red-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md">
           <div>
-            <p className="text-xs text-red-300 font-semibold uppercase tracking-wider">Critical Priority</p>
+            <p className="text-xs text-red-300 font-semibold uppercase tracking-wider">
+              {isAmharic ? "አስቸኳይ ደረጃ" : "Critical Priority"}
+            </p>
             <p className="text-2xl font-black text-red-400 mt-1">{stats.critical}</p>
           </div>
           <div className="p-3 bg-red-500/20 rounded-xl text-red-400">
@@ -672,7 +723,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
         <div className="bg-indigo-950/30 border border-indigo-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md">
           <div>
-            <p className="text-xs text-indigo-300 font-semibold uppercase tracking-wider">AI Generated</p>
+            <p className="text-xs text-indigo-300 font-semibold uppercase tracking-wider">
+              {isAmharic ? "በአይአይ የተፈጠሩ" : "AI Generated"}
+            </p>
             <p className="text-2xl font-black text-indigo-400 mt-1">{stats.aiGenerated}</p>
           </div>
           <div className="p-3 bg-indigo-500/20 rounded-xl text-indigo-400">
@@ -682,7 +735,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
         <div className="bg-emerald-950/30 border border-emerald-500/30 rounded-2xl p-4 flex items-center justify-between shadow-md col-span-2 sm:col-span-1">
           <div>
-            <p className="text-xs text-emerald-300 font-semibold uppercase tracking-wider">Acknowledged</p>
+            <p className="text-xs text-emerald-300 font-semibold uppercase tracking-wider">
+              {isAmharic ? "የተረጋገጡ / የተጠናቀቁ" : "Acknowledged"}
+            </p>
             <p className="text-2xl font-black text-emerald-400 mt-1">{stats.acknowledged}</p>
           </div>
           <div className="p-3 bg-emerald-500/20 rounded-xl text-emerald-400">
@@ -799,15 +854,15 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
         <div className="flex items-center justify-between mb-2 px-1">
           <span className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
             <Layers className="w-4 h-4 text-amber-400" />
-            <span>Filter by Category ({ALL_CATEGORIES.length} Categories)</span>
+            <span>{isAmharic ? `በምድብ አጣራ (${ALL_CATEGORIES.length} ምድቦች)` : `Filter by Category (${ALL_CATEGORIES.length} Categories)`}</span>
           </span>
 
           {selectedCategoryTab !== "ALL" && (
             <button
               onClick={() => setSelectedCategoryTab("ALL")}
-              className="text-xs text-amber-400 hover:underline font-semibold"
+              className="text-xs text-amber-400 hover:underline font-semibold cursor-pointer"
             >
-              Reset Category Filter
+              {isAmharic ? "ሁሉንም ምድቦች አሳይ" : "Reset Category Filter"}
             </button>
           )}
         </div>
@@ -815,13 +870,13 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-slate-700">
           <button
             onClick={() => setSelectedCategoryTab("ALL")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer ${
               selectedCategoryTab === "ALL"
                 ? "bg-amber-500 text-slate-950 shadow-md"
                 : "bg-slate-700/60 text-slate-300 hover:bg-slate-700"
             }`}
           >
-            All Categories ({notifications.filter(n => !n.isArchived).length})
+            {isAmharic ? `ሁሉም ምድቦች (${notifications.filter(n => !n.isArchived).length})` : `All Categories (${notifications.filter(n => !n.isArchived).length})`}
           </button>
 
           {ALL_CATEGORIES.map((cat) => {
@@ -830,7 +885,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               <button
                 key={cat}
                 onClick={() => setSelectedCategoryTab(cat)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center space-x-1.5 ${
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex items-center space-x-1.5 cursor-pointer ${
                   selectedCategoryTab === cat
                     ? "bg-amber-500 text-slate-950 font-bold shadow-md"
                     : count > 0
@@ -838,7 +893,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                     : "bg-slate-900/40 text-slate-400 hover:bg-slate-800 border border-slate-800"
                 }`}
               >
-                <span>{cat.replace(" Notifications", "")}</span>
+                <span>{isAmharic ? (CATEGORY_LABELS_AM[cat] || cat) : cat.replace(" Notifications", "")}</span>
                 {count > 0 && (
                   <span className={`px-1.5 py-0.2 text-[10px] rounded-full font-bold ${
                     selectedCategoryTab === cat ? "bg-slate-950 text-amber-400" : "bg-amber-500/20 text-amber-300"
@@ -860,7 +915,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
             <input
               type="text"
-              placeholder="Search notifications by title, sender, project, location..."
+              placeholder={isAmharic ? "ማስታወቂያዎችን በርዕስ፣ ላኪ፣ ፕሮጀክት ወይም ቦታ ይፈልጉ..." : "Search notifications by title, sender, project, location..."}
               value={filters.searchQuery}
               onChange={(e) => setFilters(prev => ({ ...prev, searchQuery: e.target.value }))}
               className="w-full bg-slate-900/90 text-slate-100 placeholder-slate-400 text-xs pl-10 pr-4 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
@@ -882,11 +937,11 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value as any }))}
               className="w-full bg-slate-900/90 text-slate-100 text-xs px-3 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
             >
-              <option value="ALL">All Priorities</option>
-              <option value="Critical">🔴 Critical Only</option>
-              <option value="High">🟠 High Only</option>
-              <option value="Medium">🔵 Medium Only</option>
-              <option value="Low">⚪ Low Only</option>
+              <option value="ALL">{isAmharic ? "ሁሉም ደረጃዎች" : "All Priorities"}</option>
+              <option value="Critical">{isAmharic ? "🔴 ወሳኝ / አስቸኳይ" : "🔴 Critical Only"}</option>
+              <option value="High">{isAmharic ? "🟠 ከፍተኛ" : "🟠 High Only"}</option>
+              <option value="Medium">{isAmharic ? "🔵 መካከለኛ" : "🔵 Medium Only"}</option>
+              <option value="Low">{isAmharic ? "⚪ ዝቅተኛ" : "⚪ Low Only"}</option>
             </select>
           </div>
 
@@ -897,12 +952,12 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value as any }))}
               className="w-full bg-slate-900/90 text-slate-100 text-xs px-3 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
             >
-              <option value="ALL">All Statuses</option>
-              <option value="Unread">Unread</option>
-              <option value="Read">Read</option>
-              <option value="Acknowledged">Acknowledged</option>
-              <option value="Completed">Completed</option>
-              <option value="Archived">📂 Archived</option>
+              <option value="ALL">{isAmharic ? "ሁሉም ሁኔታዎች" : "All Statuses"}</option>
+              <option value="Unread">{isAmharic ? "ያልተነበቡ" : "Unread"}</option>
+              <option value="Read">{isAmharic ? "የተነበቡ" : "Read"}</option>
+              <option value="Acknowledged">{isAmharic ? "የተረጋገጡ" : "Acknowledged"}</option>
+              <option value="Completed">{isAmharic ? "የተጠናቀቁ" : "Completed"}</option>
+              <option value="Archived">{isAmharic ? "📂 ማህደር የገቡ" : "📂 Archived"}</option>
             </select>
           </div>
 
@@ -913,23 +968,23 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
               onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value as any }))}
               className="w-full bg-slate-900/90 text-slate-100 text-xs px-3 py-2.5 rounded-xl border border-slate-700 focus:outline-none focus:ring-2 focus:ring-amber-500/50"
             >
-              <option value="all">All Dates</option>
-              <option value="today">Today Only</option>
-              <option value="week">Past 7 Days</option>
-              <option value="month">Past 30 Days</option>
+              <option value="all">{isAmharic ? "ሁሉም ቀናት" : "All Dates"}</option>
+              <option value="today">{isAmharic ? "የዛሬ ብቻ" : "Today Only"}</option>
+              <option value="week">{isAmharic ? "ያለፉት 7 ቀናት" : "Past 7 Days"}</option>
+              <option value="month">{isAmharic ? "ያለፉት 30 ቀናት" : "Past 30 Days"}</option>
             </select>
 
             {/* AI Only Toggle Button */}
             <button
               onClick={() => setFilters(prev => ({ ...prev, onlyAiAlerts: !prev.onlyAiAlerts }))}
-              className={`px-3 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 whitespace-nowrap transition-all border ${
+              className={`px-3 py-2.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 whitespace-nowrap transition-all border cursor-pointer ${
                 filters.onlyAiAlerts
                   ? "bg-indigo-600 text-white border-indigo-400 shadow-md"
                   : "bg-slate-900/80 text-slate-300 border-slate-700 hover:bg-slate-800"
               }`}
             >
               <Sparkles className={`w-3.5 h-3.5 ${filters.onlyAiAlerts ? "text-amber-300" : "text-indigo-400"}`} />
-              <span>AI Only</span>
+              <span>{isAmharic ? "አይአይ ብቻ" : "AI Only"}</span>
             </button>
           </div>
         </div>
@@ -939,20 +994,20 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1 text-xs text-slate-400">
           <span>
-            Showing <strong className="text-slate-200">{filteredNotifications.length}</strong> notifications
+            {isAmharic ? "የሚታዩት " : "Showing "}<strong className="text-slate-200">{filteredNotifications.length}</strong>{isAmharic ? " ማስታወቂያዎች" : " notifications"}
           </span>
 
           <div className="flex items-center space-x-2">
-            <span className="text-[11px] text-slate-400">Sort: Newest First</span>
+            <span className="text-[11px] text-slate-400">{isAmharic ? "ቅደም ተከተል፡ አዲስ መጀመሪያ" : "Sort: Newest First"}</span>
           </div>
         </div>
 
         {filteredNotifications.length === 0 ? (
           <div className="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-12 text-center text-slate-400 space-y-3">
             <CheckCheck className="w-12 h-12 text-emerald-400/50 mx-auto" />
-            <h3 className="text-lg font-bold text-slate-200">No Notifications Match Filters</h3>
+            <h3 className="text-lg font-bold text-slate-200">{isAmharic ? "ምንም ማስታወቂያ አልተገኘም" : "No Notifications Match Filters"}</h3>
             <p className="text-xs text-slate-400 max-w-md mx-auto">
-              Try adjusting search terms, resetting category filters, or switching project contexts.
+              {isAmharic ? "የፍለጋ ቃላትን ወይም የማጣሪያ አማራጮችን በማስተካከል እንደገና ይሞክሩ።" : "Try adjusting search terms, resetting category filters, or switching project contexts."}
             </p>
             <button
               onClick={() => {
@@ -967,9 +1022,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                 });
                 setSelectedCategoryTab("ALL");
               }}
-              className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-amber-600 transition-colors"
+              className="px-4 py-2 bg-amber-500 text-slate-950 font-bold text-xs rounded-xl hover:bg-amber-600 transition-colors cursor-pointer"
             >
-              Clear All Filters
+              {isAmharic ? "ሁሉንም ማጣሪያዎች አጽዳ" : "Clear All Filters"}
             </button>
           </div>
         ) : (
@@ -991,11 +1046,11 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                     {/* Header Chips */}
                     <div className="flex flex-wrap items-center gap-2 text-xs">
                       <span className={`px-2.5 py-0.5 rounded-full border text-[10px] uppercase font-bold tracking-wider ${style.badge}`}>
-                        {notif.priority}
+                        {isAmharic ? (notif.priority === "Critical" ? "ወሳኝ" : notif.priority === "High" ? "ከፍተኛ" : notif.priority === "Medium" ? "መካከለኛ" : "ዝቅተኛ") : notif.priority}
                       </span>
 
                       <span className="px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 text-[10px] font-semibold">
-                        {notif.category}
+                        {isAmharic ? (CATEGORY_LABELS_AM[notif.category] || notif.category) : notif.category}
                       </span>
 
                       {notif.isAiGenerated && (
@@ -1014,7 +1069,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                           ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/40"
                           : "bg-slate-700/60 text-slate-400"
                       }`}>
-                        {isItemUnread(notif) ? "Unread" : notif.status === "Unread" ? "Read" : notif.status}
+                        {isItemUnread(notif) ? (isAmharic ? "ያልተነበበ" : "Unread") : notif.status === "Unread" ? (isAmharic ? "የተነበበ" : "Read") : notif.status === "Acknowledged" ? (isAmharic ? "የተረጋገጠ" : "Acknowledged") : notif.status === "Completed" ? (isAmharic ? "የተጠናቀቀ" : "Completed") : notif.status}
                       </span>
 
                       <span className="text-[11px] text-slate-400 ml-auto flex items-center space-x-1">
@@ -1030,9 +1085,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                           <span>{notif.title}</span>
                         </h3>
                       )}
-                      {(langDisplayMode === "both" || langDisplayMode === "am") && notif.titleAm && (
+                      {(langDisplayMode === "both" || langDisplayMode === "am") && (notif.titleAm || notif.title) && (
                         <p className={`font-semibold text-amber-200/90 ${langDisplayMode === "am" ? "text-sm sm:text-base text-white font-bold" : "text-xs mt-0.5"}`}>
-                          {notif.titleAm}
+                          {notif.titleAm || notif.title}
                         </p>
                       )}
                     </div>
@@ -1043,9 +1098,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                         {notif.description}
                       </p>
                     )}
-                    {(langDisplayMode === "both" || langDisplayMode === "am") && notif.descriptionAm && (
+                    {(langDisplayMode === "both" || langDisplayMode === "am") && (notif.descriptionAm || notif.description) && (
                       <p className={`text-xs text-slate-300 leading-relaxed ${langDisplayMode === "both" ? "text-slate-400 italic" : ""}`}>
-                        {notif.descriptionAm}
+                        {notif.descriptionAm || notif.description}
                       </p>
                     )}
 
@@ -1074,7 +1129,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
                       <span className="flex items-center space-x-1 text-slate-400">
                         <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Sender: <strong>{notif.sender}</strong> ({notif.senderRole || "System"})</span>
+                        <span>{isAmharic ? "ላኪ: " : "Sender: "}<strong>{notif.sender}</strong> ({notif.senderRole || (isAmharic ? "ሲስተም" : "System")})</span>
                       </span>
                     </div>
                   </div>
@@ -1085,11 +1140,11 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                       {isItemUnread(notif) ? (
                         <button
                           onClick={() => handleActionClick(notif, "read")}
-                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow transition-all flex items-center space-x-1"
-                          title="Mark as Read"
+                          className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow transition-all flex items-center space-x-1 cursor-pointer"
+                          title={isAmharic ? "እንደተነበበ ምልክት አድርግ" : "Mark as Read"}
                         >
                           <Check className="w-3.5 h-3.5" />
-                          <span>{langDisplayMode === "am" ? "አንብብ" : "Read"}</span>
+                          <span>{isAmharic || langDisplayMode === "am" ? "አንብብ" : "Read"}</span>
                         </button>
                       ) : (
                         <div
@@ -1097,17 +1152,17 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                           title="Already Read / የተነበበ"
                         >
                           <CheckCheck className="w-3.5 h-3.5 text-emerald-400" />
-                          <span>{langDisplayMode === "am" ? "የተነበበ" : "Read"}</span>
+                          <span>{isAmharic || langDisplayMode === "am" ? "የተነበበ" : "Read"}</span>
                         </div>
                       )}
 
                       {notif.status !== "Acknowledged" && notif.status !== "Completed" && (
                         <button
                           onClick={() => handleActionClick(notif, "ack")}
-                          className="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 text-xs font-bold rounded-xl transition-all flex items-center space-x-1"
+                          className="px-3 py-1.5 bg-blue-600/30 hover:bg-blue-600/50 text-blue-300 border border-blue-500/40 text-xs font-bold rounded-xl transition-all flex items-center space-x-1 cursor-pointer"
                         >
                           <CheckCircle2 className="w-3.5 h-3.5" />
-                          <span>Acknowledge</span>
+                          <span>{isAmharic ? "አረጋግጥ" : "Acknowledge"}</span>
                         </button>
                       )}
 
@@ -1152,9 +1207,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                     {notif.actionTab && onNavigateToTab && (
                       <button
                         onClick={() => onNavigateToTab(notif.actionTab!)}
-                        className="w-full px-3 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 font-bold border border-amber-500/40 rounded-xl text-xs transition-all flex items-center justify-center space-x-1.5"
+                        className="w-full px-3 py-1.5 bg-slate-800 hover:bg-amber-500 hover:text-slate-950 text-amber-400 font-bold border border-amber-500/40 rounded-xl text-xs transition-all flex items-center justify-center space-x-1.5 cursor-pointer"
                       >
-                        <span>Open Module</span>
+                        <span>{isAmharic || langDisplayMode === "am" ? "ወደ ክፍሉ ሂድ" : "Open Module"}</span>
                         <ExternalLink className="w-3 h-3" />
                       </button>
                     )}
@@ -1174,43 +1229,47 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center space-x-2 text-amber-400">
                 <Sparkles className="w-5 h-5" />
-                <h3 className="font-black text-lg text-white">Send Test Notification (Admin Only)</h3>
+                <h3 className="font-black text-lg text-white">
+                  {isAmharic ? "የሙከራ ማስታወቂያ መላኪያ (Test Alert)" : "Send Test Notification (Admin Only)"}
+                </h3>
               </div>
               <button
                 onClick={() => setShowAiGeneratorModal(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <p className="text-xs text-slate-300">
-              Select an automated alert type below to send a test notification across all authorized user views in real-time:
+              {isAmharic 
+                ? "ከታች ካሉት የማስጠንቀቂያ አይነቶች አንዱን በመምረጥ የቀጥታ ማሳወቂያ ሙከራ በሲስተሙ ላይ ይላኩ፦" 
+                : "Select an automated alert type below to send a test notification across all authorized user views in real-time:"}
             </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-h-[360px] overflow-y-auto pr-1">
               {[
-                { type: "lowStock", label: "📦 Low Warehouse Stock", desc: "Chemical & rebar depletion alert" },
-                { type: "missingPanels", label: "🏗️ Missing Panels", desc: "Aluminum formwork missing deck panels" },
-                { type: "delayedDelivery", label: "🚚 Delayed Delivery", desc: "Transit truck GPS delay alert" },
-                { type: "budgetOverrun", label: "💰 Budget Overrun", desc: "EVM variance cost overrun spike" },
-                { type: "attendanceAnomaly", label: "👥 Attendance Anomaly", desc: "Duplicate face/GPS scan fraud check" },
-                { type: "safetyRisk", label: "⚠️ Safety Risk", desc: "Unsecured perimeter cable vision detection" },
-                { type: "materialShortage", label: "📋 Material Shortage", desc: "Tie rod supply forecast shortage" },
-                { type: "equipmentMaintenance", label: "⚙️ Maintenance Due", desc: "Tower crane cable strain telemetry" },
-                { type: "projectDelay", label: "⏱️ Project Delay", desc: "Concrete cure climate SLA extension" },
-                { type: "unusualActivity", label: "🔒 Security Patrol", desc: "Late night unauthorized movement" }
+                { type: "lowStock", labelEn: "📦 Low Warehouse Stock", labelAm: "📦 ዝቅተኛ የስቶክ ክምችት", descEn: "Chemical & rebar depletion alert", descAm: "የኬሚካል እና የብረት እቃዎች ክምችት ማነስ" },
+                { type: "missingPanels", labelEn: "🏗️ Missing Panels", labelAm: "🏗️ የጎደሉ ፓነሎች", descEn: "Aluminum formwork missing deck panels", descAm: "የተሰረቁ ወይም የጠፉ የአሉሚኒየም ዴክ ፓነሎች" },
+                { type: "delayedDelivery", labelEn: "🚚 Delayed Delivery", labelAm: "🚚 የዘገየ የትራንስፖርት ርክክብ", descEn: "Transit truck GPS delay alert", descAm: "በመንገድ ላይ የቆየ የጭነት መኪና" },
+                { type: "budgetOverrun", labelEn: "💰 Budget Overrun", labelAm: "💰 የበጀት ማለፍ ማስጠንቀቂያ", descEn: "EVM variance cost overrun spike", descAm: "ከተያዘው በጀት በላይ የወጣ ወጪ ማንቂያ" },
+                { type: "attendanceAnomaly", labelEn: "👥 Attendance Anomaly", labelAm: "👥 ያልተለመደ የመገኘት ምልክት", descEn: "Duplicate face/GPS scan fraud check", descAm: "ተደጋጋሚ ወይም አጠራጣሪ የመገኘት ምዝገባ" },
+                { type: "safetyRisk", labelEn: "⚠️ Safety Risk", labelAm: "⚠️ የደህንነት ስጋት", descEn: "Unsecured perimeter cable vision detection", descAm: "ያልታሰሩ ገመዶች እና ከፍታ ላይ ያሉ አደጋዎች" },
+                { type: "materialShortage", labelEn: "📋 Material Shortage", labelAm: "📋 የቁሳቁስ እጥረት ትንበያ", descEn: "Tie rod supply forecast shortage", descAm: "የታይሮድ እና ፒን እጥረት ሊያጋጥም ይችላል" },
+                { type: "equipmentMaintenance", labelEn: "⚙️ Maintenance Due", labelAm: "⚙️ የማሽነሪ ጥገና ጊዜ", descEn: "Tower crane cable strain telemetry", descAm: "የክሬን እና ማሽነሪዎች የዘይትና ኬብል ጥገና" },
+                { type: "projectDelay", labelEn: "⏱️ Project Delay", labelAm: "⏱️ የግንባታ መዘግየት", descEn: "Concrete cure climate SLA extension", descAm: "የኮንክሪት ማድረቂያ እና የጊዜ መርሃ-ግብር ማራዘሚያ" },
+                { type: "unusualActivity", labelEn: "🔒 Security Patrol", labelAm: "🔒 የጥበቃ እና ደህንነት ማንቂያ", descEn: "Late night unauthorized movement", descAm: "በምሽት ያልተፈቀደ የሰው እንቅስቃሴ በሳይት ላይ" }
               ].map(item => (
                 <button
                   key={item.type}
                   onClick={() => handleTriggerAiAlert(item.type as any)}
-                  className="p-3 bg-slate-800/90 hover:bg-amber-500/20 hover:border-amber-500/50 border border-slate-700/80 rounded-xl text-left transition-all group"
+                  className="p-3 bg-slate-800/90 hover:bg-amber-500/20 hover:border-amber-500/50 border border-slate-700/80 rounded-xl text-left transition-all group cursor-pointer"
                 >
                   <p className="text-xs font-bold text-white group-hover:text-amber-300">
-                    {item.label}
+                    {isAmharic ? item.labelAm : item.labelEn}
                   </p>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    {item.desc}
+                    {isAmharic ? item.descAm : item.descEn}
                   </p>
                 </button>
               ))}
@@ -1219,9 +1278,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <div className="flex justify-end pt-2 border-t border-slate-800">
               <button
                 onClick={() => setShowAiGeneratorModal(false)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl"
+                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs rounded-xl cursor-pointer"
               >
-                Close
+                {isAmharic ? "ዝጋ" : "Close"}
               </button>
             </div>
           </div>
@@ -1235,33 +1294,37 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center space-x-2 text-amber-400">
                 <Smartphone className="w-5 h-5" />
-                <h3 className="font-black text-base text-white">Delivery Channel Configuration</h3>
+                <h3 className="font-black text-base text-white">
+                  {isAmharic ? "የማስታወቂያ መቀበያ መንገዶች ማስተካከያ" : "Delivery Channel Configuration"}
+                </h3>
               </div>
               <button
                 onClick={() => setShowChannelSettingsModal(false)}
-                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white"
+                className="p-1 hover:bg-slate-800 rounded-lg text-slate-400 hover:text-white cursor-pointer"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
             <p className="text-xs text-slate-300">
-              Configure delivery methods for role-based notifications for <strong className="text-amber-400">{currentUserRole}</strong>:
+              {isAmharic 
+                ? `ለተጠቃሚ ሚና (${currentUserRole}) የሚደርሱትን ማስታወቂያዎች መቀበያ መንገድ ይምረጡ፦` 
+                : `Configure delivery methods for role-based notifications for ${currentUserRole}:`}
             </p>
 
             <div className="space-y-3">
               {[
-                { key: "inApp", label: "In-App Notification Center", icon: Bell, desc: "Real-time popover & top bar bell badge" },
-                { key: "push", label: "In-App System Alerts", icon: Radio, desc: "Instant in-app notification alerts" },
-                { key: "email", label: "Email Notifications", icon: Mail, desc: "Digest and critical instant emails" },
-                { key: "sms", label: "SMS Urgent Alerts", icon: MessageSquare, desc: "SMS for critical safety & budget overruns" }
+                { key: "inApp", labelEn: "In-App Notification Center", labelAm: "በመተግበሪያው ውስጥ ማሳወቂያ", icon: Bell, descEn: "Real-time popover & top bar bell badge", descAm: "በአናት ባር ላይ የሚታይ ደወልና ባጅ" },
+                { key: "push", labelEn: "In-App System Alerts", labelAm: "የቀጥታ ስክሪን ባነር ማንቂያ", icon: Radio, descEn: "Instant in-app notification alerts", descAm: "በስክሪኑ ላይ ተንሳፋፊ ፈጣን ማስታወቂያ" },
+                { key: "email", labelEn: "Email Notifications", labelAm: "የኢሜይል ማስታወቂያዎች", icon: Mail, descEn: "Digest and critical instant emails", descAm: "ለዋና ዋና ጉዳዮች ወደ ኢሜይል የሚላክ" },
+                { key: "sms", labelEn: "SMS Urgent Alerts", labelAm: "የአጭር የጽሑፍ መልእክት (SMS)", icon: MessageSquare, descEn: "SMS for critical safety & budget overruns", descAm: "ለከፍተኛ አደጋ እና የበጀት ጉዳዮች በSMS" }
               ].map(ch => (
                 <div key={ch.key} className="flex items-center justify-between p-3 bg-slate-800/80 rounded-xl border border-slate-700/80">
                   <div className="flex items-center space-x-3">
                     <ch.icon className="w-4 h-4 text-amber-400" />
                     <div>
-                      <p className="text-xs font-bold text-white">{ch.label}</p>
-                      <p className="text-[10px] text-slate-400">{ch.desc}</p>
+                      <p className="text-xs font-bold text-white">{isAmharic ? ch.labelAm : ch.labelEn}</p>
+                      <p className="text-[10px] text-slate-400">{isAmharic ? ch.descAm : ch.descEn}</p>
                     </div>
                   </div>
 
@@ -1269,7 +1332,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                     type="checkbox"
                     checked={(channels as any)[ch.key]}
                     onChange={(e) => setChannels(prev => ({ ...prev, [ch.key]: e.target.checked }))}
-                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-700"
+                    className="w-4 h-4 rounded text-amber-500 focus:ring-amber-500 bg-slate-900 border-slate-700 cursor-pointer"
                   />
                 </div>
               ))}
@@ -1278,9 +1341,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
             <div className="flex justify-end pt-2 border-t border-slate-800">
               <button
                 onClick={() => setShowChannelSettingsModal(false)}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow"
+                className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl shadow cursor-pointer"
               >
-                Save Channel Preferences
+                {isAmharic ? "ምርጫዎችን አስቀምጥ" : "Save Channel Preferences"}
               </button>
             </div>
           </div>
@@ -1460,18 +1523,18 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                     handleActionClick(selectedNotif, "ack");
                     setSelectedNotif(null);
                   }}
-                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl cursor-pointer"
                 >
-                  Acknowledge
+                  {isAmharic ? "አረጋግጥ" : "Acknowledge"}
                 </button>
                 <button
                   onClick={() => {
                     handleActionClick(selectedNotif, "snooze");
                     setSelectedNotif(null);
                   }}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl"
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl cursor-pointer"
                 >
-                  Snooze 4h
+                  {isAmharic ? "ለ4 ሰዓት አቆይ" : "Snooze 4h"}
                 </button>
               </div>
 
@@ -1481,9 +1544,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
                     onNavigateToTab(selectedNotif.actionTab!);
                     setSelectedNotif(null);
                   }}
-                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl flex items-center space-x-1"
+                  className="px-4 py-1.5 bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs rounded-xl flex items-center space-x-1 cursor-pointer"
                 >
-                  <span>Open ERP Module</span>
+                  <span>{isAmharic ? "ወደ ክፍሉ ሂድ" : "Open ERP Module"}</span>
                   <ExternalLink className="w-3.5 h-3.5" />
                 </button>
               )}
