@@ -67,13 +67,13 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
   // Filter zones matching currently selected project, building, and floor
   const activeZonesOnFloor = useMemo(() => {
     return localZones.filter(z => {
-      // Normalizing project string match
-      const pMatch = z.building.toLowerCase().includes(selectedProject.toLowerCase()) || 
-                     selectedProject.toLowerCase().includes(z.building.toLowerCase()) ||
-                     (selectedProject === "Digital Bole Heights" && z.building === "Digital Bole Heights");
+      const bld = (z?.building || "").toLowerCase();
+      const prj = (selectedProject || "").toLowerCase();
+      const pMatch = (bld.length > 0 && prj.length > 0) && (bld.includes(prj) || prj.includes(bld)) ||
+                     (selectedProject === "Digital Bole Heights" && z?.building === "Digital Bole Heights");
       
-      const fMatch = z.floor === selectedFloor;
-      return pMatch && fMatch;
+      const fMatch = z?.floor === selectedFloor;
+      return Boolean(pMatch && fMatch);
     });
   }, [localZones, selectedProject, selectedFloor]);
 
@@ -196,10 +196,12 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
     const todayStr = "2026-07-01"; // Consistent date from mock
     return attendance.filter(a => {
       // Support matching by name, or if the zone name matches
-      const zoneMatch = a.zone.toLowerCase().replace(/\s+/g, '') === selectedZone.zone.toLowerCase().replace(/\s+/g, '') ||
-                        a.zone.toLowerCase() === selectedZone.zone.toLowerCase();
-      const floorMatch = a.floor === selectedZone.floor;
-      return zoneMatch && floorMatch && a.date === todayStr && (a.status === "Present" || a.status === "Late");
+      const aZone = (a?.zone || "").toLowerCase().replace(/\s+/g, '');
+      const sZone = (selectedZone?.zone || "").toLowerCase().replace(/\s+/g, '');
+      const zoneMatch = (aZone.length > 0 && aZone === sZone) ||
+                        (a?.zone || "").toLowerCase() === (selectedZone?.zone || "").toLowerCase();
+      const floorMatch = a?.floor === selectedZone?.floor;
+      return zoneMatch && floorMatch && a?.date === todayStr && (a?.status === "Present" || a?.status === "Late");
     });
   }, [selectedZone, attendance]);
 
@@ -221,10 +223,11 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
   const relevantProgressLogs = useMemo(() => {
     const logs = progressLogs || [];
     return logs.filter(log => {
-      const projectMatches = log.building.toLowerCase().includes(selectedProject.toLowerCase()) || 
-                             selectedProject.toLowerCase().includes(log.building.toLowerCase());
-      const floorMatches = log.floor === selectedFloor;
-      return projectMatches && floorMatches;
+      const logBld = (log?.building || "").toLowerCase();
+      const prj = (selectedProject || "").toLowerCase();
+      const projectMatches = (logBld.length > 0 && prj.length > 0) && (logBld.includes(prj) || prj.includes(logBld));
+      const floorMatches = log?.floor === selectedFloor;
+      return Boolean(projectMatches && floorMatches);
     });
   }, [progressLogs, selectedProject, selectedFloor]);
 
@@ -233,7 +236,7 @@ export const SiteLayout: React.FC<SiteLayoutProps> = ({
     return zonesToDisplay.map(z => {
       // Find logs for this zone
       const logsForZone = relevantProgressLogs.filter(log => 
-        log.zone.trim().toLowerCase() === z.zone.trim().toLowerCase()
+        (log?.zone || "").trim().toLowerCase() === (z?.zone || "").trim().toLowerCase()
       );
 
       // Speed metrics calculation:

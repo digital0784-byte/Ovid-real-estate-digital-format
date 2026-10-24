@@ -378,11 +378,11 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
       // Search
       if (filters.searchQuery) {
         const q = filters.searchQuery.toLowerCase();
-        const matchesTitle = n.title.toLowerCase().includes(q) || (n.titleAm && n.titleAm.toLowerCase().includes(q));
-        const matchesDesc = n.description.toLowerCase().includes(q) || (n.descriptionAm && n.descriptionAm.toLowerCase().includes(q));
-        const matchesCategory = n.category.toLowerCase().includes(q);
-        const matchesSender = n.sender.toLowerCase().includes(q);
-        const matchesProject = n.projectName.toLowerCase().includes(q);
+        const matchesTitle = (n.title || "").toLowerCase().includes(q) || (n.titleAm && n.titleAm.toLowerCase().includes(q));
+        const matchesDesc = (n.description || "").toLowerCase().includes(q) || (n.descriptionAm && n.descriptionAm.toLowerCase().includes(q));
+        const matchesCategory = (n.category || "").toLowerCase().includes(q);
+        const matchesSender = (n.sender || "").toLowerCase().includes(q);
+        const matchesProject = (n.projectName || "").toLowerCase().includes(q);
         if (!matchesTitle && !matchesDesc && !matchesCategory && !matchesSender && !matchesProject) {
           return false;
         }

@@ -402,12 +402,13 @@ export function UserRoleApprovalHub({
   // Filtered Requests List
   const filteredRequests = requests.filter(r => {
     const matchesStatus = statusFilter === "ALL" || r.status === statusFilter;
-    const matchesSearch = searchQuery === "" || 
-      r.userName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.userId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      r.reason.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(r.currentRole).toLowerCase().includes(searchQuery.toLowerCase()) ||
-      String(r.requestedRole).toLowerCase().includes(searchQuery.toLowerCase());
+    const queryLower = (searchQuery || "").toLowerCase();
+    const matchesSearch = queryLower === "" || 
+      (r.userName || "").toLowerCase().includes(queryLower) ||
+      (r.userId || "").toLowerCase().includes(queryLower) ||
+      (r.reason || "").toLowerCase().includes(queryLower) ||
+      String(r.currentRole || "").toLowerCase().includes(queryLower) ||
+      String(r.requestedRole || "").toLowerCase().includes(queryLower);
     return matchesStatus && matchesSearch;
   });
 

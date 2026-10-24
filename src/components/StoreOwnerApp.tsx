@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
+import { formatCurrency, formatNumber } from "../utils/formatters";
 import { ProjectZone, AluminumFormworkPanel, PanelStatus, PanelType, UserRole, RegisteredSite, RegisteredWarehouse, Worker, Expense, WarehousePanelTypeEntry } from "../types";
 import { INITIAL_ACCESSORY_MASTER_DATABASE, ACCESSORY_CATEGORIES } from "../data/accessoryMasterDatabase";
 import { MaterialSearchAutocomplete, MaterialOption } from "./MaterialSearchAutocomplete";
@@ -1749,11 +1750,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     });
   }, [storeItems, searchFilter, categoryFilter]);
 
-  // COMPUTED DASHBOARD METRICS
-  const totalMaterialStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + i.totalStock, 0), [storeItems]);
-  const availableStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + i.availableStock, 0), [storeItems]);
-  const reservedStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + i.reservedStock, 0), [storeItems]);
-  const lowStockCount = useMemo(() => storeItems.filter(i => i.availableStock <= i.minThreshold).length, [storeItems]);
+  // COMPUTED DASHBOARD METRICS - Guarded against non-number / undefined values
+  const totalMaterialStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + (Number(i?.totalStock) || 0), 0), [storeItems]);
+  const availableStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + (Number(i?.availableStock) || 0), 0), [storeItems]);
+  const reservedStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + (Number(i?.reservedStock) || 0), 0), [storeItems]);
+  const lowStockCount = useMemo(() => storeItems.filter(i => (Number(i?.availableStock) || 0) <= (Number(i?.minThreshold) || 10)).length, [storeItems]);
 
   const totalFormworkPanelsCount = dbPanels.length || 850;
   const cleaningQueueCount = 18;
@@ -3016,7 +3017,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                               </div>
                               <div className="flex justify-between font-mono">
                                 <span className="text-slate-500">Capacity Area:</span>
-                                <span className="font-bold text-emerald-400">{wh.totalCapacitySqM.toLocaleString()} m²</span>
+                                <span className="font-bold text-emerald-400">{formatNumber(wh.totalCapacitySqM, "10,000")} m²</span>
                               </div>
 
                               {/* Capacity Utilization Progress Bar */}
@@ -3504,7 +3505,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   <div key={rule.jobPosition} className="p-3 bg-slate-900/80 rounded-xl border border-slate-800">
                     <div className="font-bold text-white text-[11px] font-sans">{rule.amharicTitle}</div>
                     <div className="text-[10px] text-emerald-400 mt-1">
-                      Limit: <strong className="text-white">{rule.maxQtyWithoutApproval.toLocaleString()} Pcs</strong>
+                      Limit: <strong className="text-white">{formatNumber(rule.maxQtyWithoutApproval, "0")} Pcs</strong>
                     </div>
                     <div className="text-[9px] text-slate-400 mt-0.5 font-sans truncate">
                       {rule.requiresHigherApproval ? `Approver: ${rule.approverRoleRequired}` : "Direct Store Issue"}
@@ -3974,7 +3975,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   </div>
                   <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">Loss Financial Value</span>
-                    <span className="text-sm font-black text-amber-400 mt-1 block">ETB {dcr.totalLossValueETB.toLocaleString()}</span>
+                    <span className="text-sm font-black text-amber-400 mt-1 block">{formatCurrency(dcr.totalLossValueETB, "ETB", "ETB 0")}</span>
                   </div>
                   <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
                     <span className="text-[10px] text-slate-500 uppercase font-bold block">Transmitted To HQ</span>

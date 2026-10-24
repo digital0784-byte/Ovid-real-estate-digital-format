@@ -2877,7 +2877,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                         <div>
                           <p className="text-slate-400 text-[10px] uppercase tracking-wider font-semibold">{t("Total Transport Weight", "ጠቅላላ የጭነት ክብደት")}</p>
                           <span className="text-lg font-bold text-slate-900">
-                            {optResults.totalWeightKg.toLocaleString()} kg
+                            {optResults?.totalWeightKg != null ? Number(optResults.totalWeightKg).toLocaleString() : "—"} kg
                           </span>
                         </div>
                       </div>

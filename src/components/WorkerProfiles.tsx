@@ -149,26 +149,28 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
 
   // Unique options for filter dropdowns
   const departments = useMemo(() => {
-    const list = new Set(workers.map(w => w.department));
+    const list = new Set(workers.filter(Boolean).map(w => w.department).filter(Boolean));
     return ["All", ...Array.from(list)];
   }, [workers]);
 
   const trades = useMemo(() => {
-    const list = new Set(workers.map(w => w.trade));
+    const list = new Set(workers.filter(Boolean).map(w => w.trade).filter(Boolean));
     return ["All", ...Array.from(list)];
   }, [workers]);
 
   const companies = useMemo(() => {
-    const list = new Set(workers.map(w => w.company));
+    const list = new Set(workers.filter(Boolean).map(w => w.company).filter(Boolean));
     return ["All", ...Array.from(list)];
   }, [workers]);
 
-  // Filtered Workers
+  // Filtered Workers - Safe against undefined w.name, w.id, w.company (prevents xe.name crash)
   const filteredWorkers = useMemo(() => {
+    const term = (searchTerm || "").toLowerCase().trim();
     return workers.filter(w => {
-      const matchSearch = 
-        w.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-        w.id.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!w) return false;
+      const workerName = (w.name || (w as any).fullName || (w as any).workerName || (w as any).displayName || "").toLowerCase();
+      const workerId = (w.id || "").toLowerCase();
+      const matchSearch = term === "" || workerName.includes(term) || workerId.includes(term);
       const matchDept = selectedDepartment === "All" || w.department === selectedDepartment;
       const matchTrade = selectedTrade === "All" || w.trade === selectedTrade;
       const matchCompany = selectedCompany === "All" || w.company === selectedCompany;

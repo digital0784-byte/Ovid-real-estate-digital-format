@@ -163,11 +163,18 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   // Filtered Roster
   const filteredDirectoryWorkers = useMemo(() => {
+    const q = (directorySearch || "").toLowerCase();
     return sharedWorkers.filter(w => {
-      const matchesSearch = w.name.toLowerCase().includes(directorySearch.toLowerCase()) || 
-                            w.id.toLowerCase().includes(directorySearch.toLowerCase()) ||
-                            (w.position && w.position.toLowerCase().includes(directorySearch.toLowerCase())) ||
-                            w.trade.toLowerCase().includes(directorySearch.toLowerCase());
+      if (!w) return false;
+      const wName = (w.name || (w as any).fullName || (w as any).workerName || "").toLowerCase();
+      const wId = (w.id || "").toLowerCase();
+      const wPos = (w.position || "").toLowerCase();
+      const wTrade = (w.trade || "").toLowerCase();
+      const matchesSearch = q === "" || 
+                            wName.includes(q) || 
+                            wId.includes(q) ||
+                            wPos.includes(q) ||
+                            wTrade.includes(q);
       const matchesTrade = dirFilterTrade === "All" || w.trade === dirFilterTrade;
       const matchesStatus = dirFilterStatus === "All" || w.status === dirFilterStatus;
       return matchesSearch && matchesTrade && matchesStatus;

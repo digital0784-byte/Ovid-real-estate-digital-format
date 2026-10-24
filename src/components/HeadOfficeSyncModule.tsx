@@ -751,9 +751,14 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
         teamMatch = team ? team.memberIds.includes(a.workerId) : false;
       }
 
-      const matchesSearch = worker.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            a.workerId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                            a.trade.toLowerCase().includes(searchTerm.toLowerCase());
+      const q = (searchTerm || "").toLowerCase();
+      const wName = (worker?.name || (worker as any)?.fullName || (worker as any)?.workerName || a?.workerName || "").toLowerCase();
+      const wId = (a?.workerId || worker?.id || "").toLowerCase();
+      const wTrade = (a?.trade || worker?.trade || "").toLowerCase();
+      const matchesSearch = q === "" || 
+                            wName.includes(q) || 
+                            wId.includes(q) ||
+                            wTrade.includes(q);
 
       return projectMatch && buildingMatch && floorMatch && zoneMatch && teamMatch && matchesSearch;
     });

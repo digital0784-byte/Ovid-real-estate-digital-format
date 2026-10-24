@@ -448,8 +448,17 @@ export const DbService = {
           const cached = offlineEngine.getCache<Worker>("workers", initialWorkers);
           if (!snapshot.empty) {
             const items = snapshot.docs.map(docSnap => {
-              const data = docSnap.data() as Worker;
-              return { ...data, id: data.id || docSnap.id };
+              const data = docSnap.data() as any;
+              const resolvedName = data.name || data.fullName || data.workerName || data.displayName || "";
+              return {
+                ...data,
+                id: data.id || docSnap.id,
+                name: resolvedName,
+                company: data.company || "",
+                department: data.department || "Operations",
+                trade: data.trade || "General Labor",
+                status: data.status || "Active"
+              } as Worker;
             });
             const fsIds = new Set(items.map(x => x.id));
             const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));

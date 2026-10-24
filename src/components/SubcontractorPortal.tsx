@@ -273,9 +273,12 @@ export function SubcontractorPortal({
     
     // Get workers belonging to subcontractor
     const subWorkers = workers.filter(w => {
-      const belongsToSub = w.company.toLowerCase().includes("subcontractor") || 
-                           w.company.toLowerCase().includes(currentSub.nameEn.split(" ")[0].toLowerCase()) ||
-                           w.trade === currentSub.primaryTrade;
+      if (!w) return false;
+      const compStr = (w.company || "").toLowerCase();
+      const subPrefix = (currentSub?.nameEn || "").split(" ")[0]?.toLowerCase() || "";
+      const belongsToSub = compStr.includes("subcontractor") || 
+                           (subPrefix.length > 0 && compStr.includes(subPrefix)) ||
+                           w.trade === currentSub?.primaryTrade;
       return belongsToSub;
     });
 

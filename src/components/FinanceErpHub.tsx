@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
+import { formatCurrency, formatNumber, parseMoney } from "../utils/formatters";
 import { 
   ProjectZone, 
   AttendanceRecord, 
@@ -371,17 +372,17 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           if (dbPayments && dbPayments.length > 0) setPayments(dbPayments);
           if (dbProcurements && dbProcurements.length > 0) {
             const mappedProcurements: ProcurementRecord[] = dbProcurements.map((p: any, idx: number) => {
-              const rawCostNum = typeof p.poAmount === "number"
+              const parsedPoAmount = typeof p.poAmount === "number" && !isNaN(p.poAmount)
                 ? p.poAmount
-                : typeof p.cost === "number"
-                  ? p.cost
-                  : (parseInt(String(p.cost || p.amount || "").replace(/[^0-9]/g, ""), 10) || 500000);
+                : parseMoney(p.poAmount ?? p.cost ?? p.amount ?? p.totalAmount);
+              const validPoAmount = parsedPoAmount !== null ? parsedPoAmount : undefined;
+              const rawCostNum = validPoAmount !== undefined ? validPoAmount : 500000;
               return {
                 id: p.id || `PROC-${idx + 1}`,
                 poNumber: p.poNumber || p.id || `PO-2026-00${idx + 1}`,
                 supplier: p.supplier || "Supplier Partner",
                 materialItem: p.materialItem || p.item || "Construction Material",
-                poAmount: rawCostNum,
+                poAmount: validPoAmount as any,
                 consumptionCost: typeof p.consumptionCost === "number" ? p.consumptionCost : Math.round(rawCostNum * 0.8),
                 transferCost: typeof p.transferCost === "number" ? p.transferCost : 50000,
                 lossCost: typeof p.lossCost === "number" ? p.lossCost : 10000,
@@ -1867,9 +1868,9 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                         <td className="py-3 px-3 font-mono font-bold text-blue-400">{p.poNumber || p.id}</td>
                         <td className="py-3 px-3 font-bold text-white">{p.supplier || "-"}</td>
                         <td className="py-3 px-3 text-slate-300">{p.materialItem || (p as any).item || "-"}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {(p.poAmount ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {(p.customsTax ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-amber-400">ETB {(p.deliveryCost ?? 0).toLocaleString()}</td>
+                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">{formatCurrency(p.poAmount, "ETB", "ETB —")}</td>
+                        <td className="py-3 px-3 font-mono text-red-400">{formatCurrency(p.customsTax, "ETB", "ETB 0")}</td>
+                        <td className="py-3 px-3 font-mono text-amber-400">{formatCurrency(p.deliveryCost, "ETB", "ETB 0")}</td>
                         <td className="py-3 px-3">
                           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
                             p.status === "Paid" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-amber-950 text-amber-400 border border-amber-800"
