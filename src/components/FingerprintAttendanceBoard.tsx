@@ -1170,9 +1170,9 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   // Filter the shared live attendance table
   const filteredAttendance = useMemo(() => {
     return attendance.filter(item => {
-      const matchSearch = item.workerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          item.workerId.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          (item.trade && item.trade.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchSearch = String(item.workerName ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          String(item.workerId ?? "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          String(item.trade ?? "").toLowerCase().includes(searchTerm.toLowerCase());
       const matchTeam = filterTeam === "All" || item.trade === filterTeam || item.department === filterTeam;
       return matchSearch && matchTeam;
     });

@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { blockedAsSimulation } from "../config/features";
 import { 
   Building2, 
   Users, 
@@ -104,7 +105,7 @@ export function computeBaselinePayroll(
   return workers.map((w, index) => {
     // 1. Filter real attendance records for this worker in the selected period
     const workerAtt = attendance.filter(a => {
-      const isMatchingWorker = a.workerId === w.id || (a.workerName && w.name && a.workerName.toLowerCase() === w.name.toLowerCase());
+      const isMatchingWorker = a.workerId === w.id || (Boolean(a.workerName && w.name) && String(a.workerName ?? "").toLowerCase() === String(w.name ?? "").toLowerCase());
       if (!isMatchingWorker) return false;
       if (!periodPrefix || selectedPeriod === "All Attendance Records" || selectedPeriod === "All Records" || selectedPeriod === "All") return true;
       return a.date ? a.date.startsWith(periodPrefix) : true;
@@ -145,12 +146,12 @@ export function computeBaselinePayroll(
 
     // 4. Employment type & basic salary calculation
     const isDaily = (
-      w.employmentType?.toLowerCase().includes("labourer") || 
-      w.employmentType?.toLowerCase().includes("daily") ||
+      String(w.employmentType ?? "").toLowerCase().includes("labourer") || 
+      String(w.employmentType ?? "").toLowerCase().includes("daily") ||
       w.trade === "Carpenter" || 
       w.trade === "Welder" ||
-      w.position?.toLowerCase().includes("labourer") ||
-      w.position?.toLowerCase().includes("daily")
+      String(w.position ?? "").toLowerCase().includes("labourer") ||
+      String(w.position ?? "").toLowerCase().includes("daily")
     );
     const employmentType: "Daily Labourer" | "Contract" | "Permanent" = isDaily 
       ? "Daily Labourer" 
@@ -258,13 +259,13 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
 
   // Derive real role assignees from workers list
   const assignedTeamLeaderName = useMemo(() => {
-    const tl = workers.find(w => w.role === UserRole.TEAM_LEADER || w.position?.toLowerCase().includes("team leader"))?.name
+    const tl = workers.find(w => w.role === UserRole.TEAM_LEADER || String(w.position ?? "").toLowerCase().includes("team leader"))?.name
       || workers.find(w => w.teamLeader && w.teamLeader.trim())?.teamLeader;
     return tl || "Unassigned";
   }, [workers]);
 
   const assignedTimeKeeperName = useMemo(() => {
-    const tk = workers.find(w => w.role === UserRole.TIME_KEEPER || w.position?.toLowerCase().includes("time keeper"))?.name;
+    const tk = workers.find(w => w.role === UserRole.TIME_KEEPER || String(w.position ?? "").toLowerCase().includes("time keeper"))?.name;
     return tk || "Unassigned";
   }, [workers]);
 
@@ -668,8 +669,8 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
   // Filters
   const filteredRecords = useMemo(() => {
     return payrollRecords.filter(r => {
-      const matchSearch = (r.workerName || "").toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (r.workerId || "").toLowerCase().includes(searchTerm.toLowerCase());
+      const matchSearch = String(r.workerName ?? "").toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          String(r.workerId ?? "").toLowerCase().includes(searchTerm.toLowerCase());
       const matchDept = deptFilter === "All" || r.department === deptFilter;
       const matchStatus = statusFilter === "All" || r.status === statusFilter;
       const matchActive = !filterActiveOnly || r.attendanceDays > 0;
@@ -1882,6 +1883,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                 <div>
                   <button
                     onClick={() => {
+                      if (blockedAsSimulation("Send Payroll Report")) return;
                       if (!sendToTeamLeader && !sendToTimeKeeper && !sendToHeadOffice) {
                         alert(isAmharic ? "እባክዎን ቢያንስ አንድ ተቀባይ ይምረጡ!" : "Please select at least one recipient!");
                         return;

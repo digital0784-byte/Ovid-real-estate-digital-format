@@ -410,7 +410,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
       }
 
       // Sort logs by date descending
-      logs.sort((a, b) => b.date.localeCompare(a.date));
+      logs.sort((a, b) => String(b.date ?? "").localeCompare(String(a.date ?? "")));
       setDailyLogs(logs);
     } catch (err) {
       console.error("Error loading formwork data", err);

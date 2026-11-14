@@ -92,10 +92,10 @@ export const DailyAttendanceReportsHub: React.FC<DailyAttendanceReportsHubProps>
       // Date filter (or match date string)
       const matchesDate = !reportDate || rec.date === reportDate;
       const matchesSearch = 
-        rec.workerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rec.workerId.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rec.department.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        rec.trade.toLowerCase().includes(searchQuery.toLowerCase());
+        String(rec.workerName ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(rec.workerId ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(rec.department ?? "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+        String(rec.trade ?? "").toLowerCase().includes(searchQuery.toLowerCase());
 
       const matchesSite = filterSite === "All" || rec.building === filterSite;
       const matchesDept = filterDept === "All" || rec.department === filterDept;
@@ -131,7 +131,7 @@ export const DailyAttendanceReportsHub: React.FC<DailyAttendanceReportsHubProps>
   const teamAggregatedData = useMemo(() => {
     const teamNames = ["Assembly Team Alpha", "Stripping Team Beta", "Steel Fixing Team Gamma", "Concreting Team Delta", "Support Team Epsilon"];
     return teamNames.map(teamName => {
-      const teamRecs = filteredRecords.filter(r => r.team === teamName || r.department.includes(teamName.split(" ")[0]));
+      const teamRecs = filteredRecords.filter(r => r.team === teamName || String(r.department ?? "").includes(teamName.split(" ")[0]));
       const totalMembers = teamRecs.length || 3;
       const presentCount = teamRecs.filter(r => r.status === "Present").length;
       const lateCount = teamRecs.filter(r => r.status === "Late").length;

@@ -751,10 +751,10 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
         teamMatch = team ? team.memberIds.includes(a.workerId) : false;
       }
 
-      const q = (searchTerm || "").toLowerCase();
-      const wName = (worker?.name || (worker as any)?.fullName || (worker as any)?.workerName || a?.workerName || "").toLowerCase();
-      const wId = (a?.workerId || worker?.id || "").toLowerCase();
-      const wTrade = (a?.trade || worker?.trade || "").toLowerCase();
+      const q = String(searchTerm ?? "").toLowerCase();
+      const wName = String(worker?.name || (worker as any)?.fullName || (worker as any)?.workerName || a?.workerName || "").toLowerCase();
+      const wId = String(a?.workerId || worker?.id || "").toLowerCase();
+      const wTrade = String(a?.trade || worker?.trade || "").toLowerCase();
       const matchesSearch = q === "" || 
                             wName.includes(q) || 
                             wId.includes(q) ||

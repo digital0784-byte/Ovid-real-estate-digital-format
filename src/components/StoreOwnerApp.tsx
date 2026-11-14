@@ -425,11 +425,11 @@ export const WorkerAutocomplete: React.FC<WorkerAutocompleteProps> = ({
     const q = query.toLowerCase().trim();
     return workers.filter(
       w =>
-        w.name.toLowerCase().includes(q) ||
-        w.id.toLowerCase().includes(q) ||
-        (w.trade && w.trade.toLowerCase().includes(q)) ||
-        (w.department && w.department.toLowerCase().includes(q)) ||
-        (w.company && w.company.toLowerCase().includes(q))
+        String(w.name ?? "").toLowerCase().includes(q) ||
+        String(w.id ?? "").toLowerCase().includes(q) ||
+        String(w.trade ?? "").toLowerCase().includes(q) ||
+        String(w.department ?? "").toLowerCase().includes(q) ||
+        String(w.company ?? "").toLowerCase().includes(q)
     ).slice(0, 20);
   }, [workers, query]);
 
@@ -528,9 +528,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 }) => {
   const assignedWarehouseManager = useMemo(() => {
     const found = workers.find(w =>
-      (w.position && w.position.toLowerCase().includes("warehouse manager")) ||
-      (w.trade && w.trade.toLowerCase().includes("warehouse manager")) ||
-      (w.department && w.department.toLowerCase().includes("warehouse"))
+      String(w.position ?? "").toLowerCase().includes("warehouse manager") ||
+      String(w.trade ?? "").toLowerCase().includes("warehouse manager") ||
+      String(w.department ?? "").toLowerCase().includes("warehouse")
     );
     return found?.name || "";
   }, [workers]);

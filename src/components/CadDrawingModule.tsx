@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { authFetch } from "../services/authService";
+import { blockedAsSimulation } from "../config/features";
 import { 
   FileText, 
   Upload, 
@@ -104,9 +105,9 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
 }) => {
   const assignedSiteEngineer = useMemo(() => {
     const found = workers.find(w =>
-      (w.position && w.position.toLowerCase().includes("site engineer")) ||
-      (w.trade && w.trade.toLowerCase().includes("site engineer")) ||
-      (w.position && w.position.toLowerCase().includes("engineer"))
+      String(w.position ?? "").toLowerCase().includes("site engineer") ||
+      String(w.trade ?? "").toLowerCase().includes("site engineer") ||
+      String(w.position ?? "").toLowerCase().includes("engineer")
     );
     return found?.name || "";
   }, [workers]);
@@ -399,6 +400,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   };
 
   const handleCommitToMrp = () => {
+    if (blockedAsSimulation("Commit CAD BOM to MRP")) return;
     setIsCommitting(true);
     setTimeout(() => {
       setIsCommitting(false);
@@ -767,6 +769,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
   // 4. Daily Progress Photo Upload
   const handleDailyImageUpload = (e: React.FormEvent) => {
     e.preventDefault();
+    if (blockedAsSimulation("Daily Progress Photo Upload")) return;
     setIsPhotoUploading(true);
 
     setTimeout(() => {
@@ -809,6 +812,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
 
   // 5. Run AI Drawing Alignment Inspection (CAD vs Progress Photo)
   const handleRunAiAnalysis = () => {
+    if (blockedAsSimulation("CAD Visual Alignment Inspection")) return;
     if (!selectedDailyImage) return;
     setIsAiRunning(true);
 
@@ -888,6 +892,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
 
   // 7. Executive Report Center PDF/Excel Compilation
   const triggerReportExport = (format: "pdf" | "excel") => {
+    if (blockedAsSimulation(`CAD ${format.toUpperCase()} Report Export`)) return;
     setExportAnimation(format);
     setTimeout(() => {
       setExportAnimation("none");

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { UserRole, AuditLog } from "../types";
+import { blockedAsSimulation } from "../config/features";
 import {
   Shield,
   ShieldCheck,
@@ -811,6 +812,7 @@ export const EnterpriseSettingsPanels: React.FC<EnterprisePanelsProps> = ({
             <button
               disabled={runningBackup}
               onClick={() => {
+                if (blockedAsSimulation("Trigger Cloud Backup")) return;
                 setRunningBackup(true);
                 setTimeout(() => {
                   const now = new Date().toISOString().replace("T", " ").slice(0, 16);

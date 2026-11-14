@@ -36,8 +36,9 @@ service cloud.firestore {
         getUserRole() != 'Pending';
     }
 
+    // Super Admin intentionally NOT listed (owner decision). To require MFA again add it here, in server.ts SENSITIVE_ROLES, src/services/authService.ts SENSITIVE_ROLES and firestore.rules isSensitiveRole()
     function isSensitiveRole() {
-      return getUserRole() in ['Super Admin', 'Head Office', 'Project Manager', 'Section Head', 'Finance Manager'];
+      return getUserRole() in ['Head Office', 'Project Manager', 'Section Head', 'Finance Manager'];
     }
 
     function hasFreshMfa() {

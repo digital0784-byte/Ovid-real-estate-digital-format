@@ -166,10 +166,10 @@ export const Attendance: React.FC<AttendanceProps> = ({
     const q = (directorySearch || "").toLowerCase();
     return sharedWorkers.filter(w => {
       if (!w) return false;
-      const wName = (w.name || (w as any).fullName || (w as any).workerName || "").toLowerCase();
-      const wId = (w.id || "").toLowerCase();
-      const wPos = (w.position || "").toLowerCase();
-      const wTrade = (w.trade || "").toLowerCase();
+      const wName = String(w.name || (w as any).fullName || (w as any).workerName || "").toLowerCase();
+      const wId = String(w.id ?? "").toLowerCase();
+      const wPos = String(w.position ?? "").toLowerCase();
+      const wTrade = String(w.trade ?? "").toLowerCase();
       const matchesSearch = q === "" || 
                             wName.includes(q) || 
                             wId.includes(q) ||
@@ -179,14 +179,14 @@ export const Attendance: React.FC<AttendanceProps> = ({
       const matchesStatus = dirFilterStatus === "All" || w.status === dirFilterStatus;
       return matchesSearch && matchesTrade && matchesStatus;
     }).sort((a, b) => {
-      if (dirSortKey === "id") return a.id.localeCompare(b.id);
-      if (dirSortKey === "joinedDate") return a.joinedDate.localeCompare(b.joinedDate);
+      if (dirSortKey === "id") return String(a.id ?? "").localeCompare(String(b.id ?? ""));
+      if (dirSortKey === "joinedDate") return String(a.joinedDate ?? "").localeCompare(String(b.joinedDate ?? ""));
       if (dirSortKey === "performance") {
         const scoreA = getWorkerAverageScore(a.id);
         const scoreB = getWorkerAverageScore(b.id);
         return scoreB - scoreA;
       }
-      return a.name.localeCompare(b.name);
+      return String(a.name ?? "").localeCompare(String(b.name ?? ""));
     });
   }, [sharedWorkers, directorySearch, dirFilterTrade, dirFilterStatus, dirSortKey]);
 
@@ -337,8 +337,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
       const workerFloor = w?.floor || a.floor;
       const workerZone = w?.zone || a.zone;
 
-      const matchesSearch = a.workerName.toLowerCase().includes(attSearchQuery.toLowerCase()) || 
-                            a.workerId.toLowerCase().includes(attSearchQuery.toLowerCase());
+      const matchesSearch = String(a.workerName ?? "").toLowerCase().includes(attSearchQuery.toLowerCase()) || 
+                            String(a.workerId ?? "").toLowerCase().includes(attSearchQuery.toLowerCase());
       const matchesStatus = attFilterStatus === "All" || a.status === attFilterStatus;
       const matchesZone = attFilterZone === "All" || a.zone === attFilterZone || workerZone === attFilterZone;
       const matchesProject = attFilterProject === "All" || workerProject === attFilterProject;
@@ -439,8 +439,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   const filteredEvaluations = useMemo(() => {
     return sharedEvaluations.filter(e => {
-      const matchesSearch = e.workerName.toLowerCase().includes(perfSearchQuery.toLowerCase()) || 
-                            e.workerId.toLowerCase().includes(perfSearchQuery.toLowerCase());
+      const matchesSearch = String(e.workerName ?? "").toLowerCase().includes(perfSearchQuery.toLowerCase()) || 
+                            String(e.workerId ?? "").toLowerCase().includes(perfSearchQuery.toLowerCase());
       const matchesGrade = perfFilterGrade === "All" || e.level === perfFilterGrade;
       return matchesSearch && matchesGrade;
     });
@@ -2699,7 +2699,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                     <div className="max-h-24 overflow-y-auto space-y-1 pr-1 bg-white p-1.5 rounded border border-slate-200 font-mono text-[9px]">
                       {offlineQueue.map((q, idx) => (
                         <div key={idx} className="flex justify-between text-slate-600">
-                          <span>{q.record.workerName.split(" ")[0]} ({q.type})</span>
+                          <span>{String(q.record.workerName ?? "").split(" ")[0]} ({q.type})</span>
                           <span className="text-[8px] text-slate-400">{q.record.checkIn || q.record.checkOut}</span>
                         </div>
                       ))}

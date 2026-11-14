@@ -1485,7 +1485,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   >
                     <option value="">{isAmharic ? "-- የቡድን መሪ ይምረጡ --" : "-- Select Team Leader --"}</option>
                     {Array.from(new Set([
-                      ...workers.filter(w => w.role === UserRole.TEAM_LEADER || w.trade?.toLowerCase().includes("leader")).map(w => w.name),
+                      ...workers.filter(w => w.role === UserRole.TEAM_LEADER || String(w.trade ?? "").toLowerCase().includes("leader")).map(w => w.name),
                       ...workers.map(w => w.teamLeader).filter((n): n is string => Boolean(n && n !== "Unassigned")),
                       ...workers.map(w => w.name)
                     ])).map(name => (
@@ -1515,7 +1515,7 @@ export const BiometricEnrollmentKiosk: React.FC<BiometricEnrollmentKioskProps> =
                   >
                     <option value="">{isAmharic ? "-- ጋንግ ቺፍ ይምረጡ --" : "-- Select Gang Chief --"}</option>
                     {Array.from(new Set([
-                      ...workers.filter(w => w.role === UserRole.GANG_CHIEF || w.trade?.toLowerCase().includes("chief")).map(w => w.name),
+                      ...workers.filter(w => w.role === UserRole.GANG_CHIEF || String(w.trade ?? "").toLowerCase().includes("chief")).map(w => w.name),
                       ...workers.map(w => w.gangChief).filter((n): n is string => Boolean(n && n !== "Unassigned")),
                       ...workers.map(w => w.name)
                     ])).map(name => (

@@ -728,15 +728,15 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     if (searchTerm.trim() !== "") {
       const q = searchTerm.toLowerCase();
       list = list.filter(r => 
-        (r.workerName || "").toLowerCase().includes(q) ||
-        (r.workerId || "").toLowerCase().includes(q) ||
-        (r.trade || "").toLowerCase().includes(q)
+        String(r.workerName ?? "").toLowerCase().includes(q) ||
+        String(r.workerId ?? "").toLowerCase().includes(q) ||
+        String(r.trade ?? "").toLowerCase().includes(q)
       );
     }
 
     // Floor filter
     if (filterFloor !== "all") {
-      list = list.filter(r => r.floor.toString() === filterFloor);
+      list = list.filter(r => String(r.floor ?? "") === filterFloor);
     }
 
     // Zone filter
@@ -751,21 +751,21 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
 
     // Sort
     list.sort((a, b) => {
-      let valA = a[sortField as keyof AttendanceRecord];
-      let valB = b[sortField as keyof AttendanceRecord];
+      const valA = a[sortField as keyof AttendanceRecord];
+      const valB = b[sortField as keyof AttendanceRecord];
 
-      if (valA === undefined || valA === null) return 1;
-      if (valB === undefined || valB === null) return -1;
+      const missingA = valA === undefined || valA === null;
+      const missingB = valB === undefined || valB === null;
+      if (missingA && missingB) return 0;
+      if (missingA) return 1;
+      if (missingB) return -1;
 
-      if (typeof valA === "string") {
-        return sortOrder === "asc" 
-          ? valA.localeCompare(valB as string) 
-          : (valB as string).localeCompare(valA);
-      } else {
-        return sortOrder === "asc" 
-          ? (valA as number) - (valB as number) 
-          : (valB as number) - (valA as number);
-      }
+      const cmp =
+        typeof valA === "number" && typeof valB === "number"
+          ? valA - valB
+          : String(valA).localeCompare(String(valB));
+
+      return sortOrder === "asc" ? cmp : -cmp;
     });
 
     return list;
@@ -844,7 +844,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     return Object.entries(data).map(([floor, count]) => ({
       name: `FL ${floor}`,
       Present: count
-    })).sort((a,b) => a.name.localeCompare(b.name));
+    })).sort((a,b) => String(a.name ?? "").localeCompare(String(b.name ?? "")));
   }, [attendance]);
 
   const zoneChartData = useMemo(() => {

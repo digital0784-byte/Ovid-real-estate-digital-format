@@ -855,14 +855,38 @@ export default function App() {
         setMfaCodeInput("");
         logAction("MFA Verified", `Sensitive-role MFA TOTP verified for ${currentUserRole}`);
       } else {
-        setMfaError(
-          isAmharic
-            ? "የገባው የማረጋገጫ ኮድ የተሳሳተ ነው። እባክዎ ትክክለኛውን 6 አሃዝ ኮድ ያስገቡ።"
-            : res.message || "Invalid verification code."
-        );
+        let errorMessage = "";
+        switch (res.error) {
+          case "invalid_mfa_code":
+            errorMessage = isAmharic
+              ? "የገባው ባለ 6 አሃዝ ኮድ አይዛመድም። እባክዎ በዚህ ስክሪን ላይ ካለው QR ኮድ የተፈጠረውን አዲስ 'Digital Construction ERP' ግቤት ይጠቀሙ፣ የቆዩ 'Digital Construction ERP' ግቤቶችን ይሰርዙ፣ እና የስልክዎን ሰዓት ወደ Automatic ያስተካክሉ።"
+              : "The code does not match. Please use the entry created from the QR code on this screen, delete older 'Digital Construction ERP' entries in your authenticator app, and set your phone clock to automatic.";
+            break;
+          case "rate_limit_exceeded":
+            errorMessage = isAmharic
+              ? "በጣም ብዙ ሙከራዎች ተደርገዋል። እባክዎ አንድ ደቂቃ ይጠብቁና እንደገና ይሞክሩ።"
+              : "Too many attempts. Please wait a minute and try again.";
+            break;
+          case "mfa_unavailable":
+            errorMessage = isAmharic
+              ? "የሰርቨር MFA አገልግሎት አልተዋቀረም (ENCRYPTION_SECRET_KEY ይጎድላል)።"
+              : "Server MFA is not configured (ENCRYPTION_SECRET_KEY is missing).";
+            break;
+          case "mfa_verify_failed":
+            errorMessage = isAmharic
+              ? "ሰርቨሩ የተቀመጠውን የMFA ሚስጥር ማንበብ አልቻለም። እባክዎ አስተዳዳሪ (Admin) MFA እንዲያድስልዎ ይጠይቁ።"
+              : "Server could not read the stored MFA secret. Please ask an administrator to reset your MFA.";
+            break;
+          default:
+            errorMessage = res.message
+              ? `${res.message}${res.error ? ` (${res.error})` : ""}`
+              : (res.error || (isAmharic ? "የMFA ማረጋገጫ አልተሳካም።" : "MFA verification failed."));
+            break;
+        }
+        setMfaError(errorMessage);
       }
     } catch (err: any) {
-      setMfaError(err?.message || "MFA verification failed.");
+      setMfaError(err?.message || (isAmharic ? "የMFA ማረጋገጫ አልተሳካም።" : "MFA verification failed."));
     } finally {
       setMfaSubmitting(false);
     }
@@ -1910,6 +1934,14 @@ export default function App() {
                       Secret: {mfaSecret}
                     </div>
                   )}
+                </div>
+              )}
+
+              {mfaEnrolled === true && (
+                <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 leading-relaxed">
+                  {isAmharic
+                    ? 'ባለ 6 አሃዝ ኮዱ በAuthenticator መተግበሪያዎ (Google Authenticator / Microsoft Authenticator / Authy) ውስጥ በ "Digital Construction ERP" ስም ስር የሚገኝ ሲሆን በየ30 ሰከንዱ ይቀየራል።'
+                    : 'Your 6-digit code is in your authenticator app (Google Authenticator / Microsoft Authenticator / Authy) under "Digital Construction ERP" and changes every 30 s.'}
                 </div>
               )}
 

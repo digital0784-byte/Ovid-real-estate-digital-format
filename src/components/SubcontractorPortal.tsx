@@ -274,8 +274,8 @@ export function SubcontractorPortal({
     // Get workers belonging to subcontractor
     const subWorkers = workers.filter(w => {
       if (!w) return false;
-      const compStr = (w.company || "").toLowerCase();
-      const subPrefix = (currentSub?.nameEn || "").split(" ")[0]?.toLowerCase() || "";
+      const compStr = String(w.company ?? "").toLowerCase();
+      const subPrefix = String(currentSub?.nameEn ?? "").split(" ")[0]?.toLowerCase() || "";
       const belongsToSub = compStr.includes("subcontractor") || 
                            (subPrefix.length > 0 && compStr.includes(subPrefix)) ||
                            w.trade === currentSub?.primaryTrade;

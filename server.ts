@@ -53,8 +53,8 @@ if (!encryptionKeyBuffer) {
 
 const IV_LENGTH = 12;
 const MFA_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+// Super Admin intentionally NOT listed (owner decision). To require MFA again add it here, in server.ts SENSITIVE_ROLES, src/services/authService.ts SENSITIVE_ROLES and firestore.rules isSensitiveRole()
 const SENSITIVE_ROLES = new Set([
-  "Super Admin",
   "Head Office",
   "Project Manager",
   "Section Head",
@@ -212,6 +212,29 @@ function aiRateLimit(req: express.Request, res: express.Response, next: express.
   return next();
 }
 
+// Sliding-window MFA rate limiter (8 requests per 60s per uid or IP)
+const mfaRateWindowStore = new Map<string, number[]>();
+const MFA_RATE_LIMIT_MAX = 8;
+const MFA_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
+function mfaRateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const key = String((req as any).authUser?.uid || req.ip || "unknown");
+  const now = Date.now();
+  const timestamps = (mfaRateWindowStore.get(key) || []).filter((ts) => now - ts < MFA_RATE_LIMIT_WINDOW_MS);
+  if (timestamps.length >= MFA_RATE_LIMIT_MAX) {
+    const oldest = timestamps[0] || now;
+    res.setHeader("Retry-After", String(Math.ceil((MFA_RATE_LIMIT_WINDOW_MS - (now - oldest)) / 1000)));
+    return res.status(429).json({
+      success: false,
+      error: "rate_limit_exceeded",
+      message: "Too many MFA requests. Please wait a minute and try again."
+    });
+  }
+  timestamps.push(now);
+  mfaRateWindowStore.set(key, timestamps);
+  return next();
+}
+
 function encryptPayload(text: string) {
   if (!encryptionKeyBuffer) {
     throw new Error("ENCRYPTION_SECRET_KEY is not configured");
@@ -318,7 +341,8 @@ async function startServer() {
       const userData = userSnap.exists ? userSnap.data() : null;
       const role = userData?.role || "Pending";
       const required = SENSITIVE_ROLES.has(role);
-      const enrolled = secretSnap.exists && Boolean(secretSnap.data()?.ciphertext);
+      const secretData = secretSnap.exists ? secretSnap.data() : null;
+      const enrolled = Boolean(secretSnap.exists && secretData?.ciphertext && secretData?.confirmed === true);
       const rawMfaAt = Number(authUser.claims?.mfaAt || 0);
       const mfaAt = Number.isFinite(rawMfaAt) && rawMfaAt > 0 ? rawMfaAt : null;
       const verifiedRecently = Boolean(mfaAt && Date.now() - mfaAt <= MFA_MAX_AGE_MS);
@@ -337,7 +361,7 @@ async function startServer() {
   });
 
   // TOTP MFA Enrollment Endpoint
-  app.post("/api/security/mfa/enroll", verifyAppCheck, requireAuth, async (req, res) => {
+  app.post("/api/security/mfa/enroll", verifyAppCheck, requireAuth, mfaRateLimit, async (req, res) => {
     if (!mfaAvailable || !adminApp) {
       return res.status(503).json({
         success: false,
@@ -351,6 +375,43 @@ async function startServer() {
       return res.status(503).json({ success: false, error: "mfa_unavailable" });
     }
     try {
+      const secretDocRef = firestore.collection("mfa_secrets").doc(authUser.uid);
+      const existingSnap = await secretDocRef.get();
+      if (existingSnap.exists) {
+        const existingData = existingSnap.data();
+        if (existingData?.confirmed === true) {
+          const mfaAt = Number(authUser.claims?.mfaAt || 0);
+          const hasFreshMfa = Number.isFinite(mfaAt) && mfaAt > 0 && Date.now() - mfaAt <= MFA_MAX_AGE_MS;
+          if (!hasFreshMfa) {
+            return res.status(409).json({
+              success: false,
+              error: "mfa_already_enrolled",
+              message: "An authenticator is already enrolled. Verify with your current code to reset it."
+            });
+          }
+        } else if (existingData?.ciphertext && existingData?.iv && existingData?.tag) {
+          try {
+            const base32Secret = decryptPayload(existingData.ciphertext, existingData.iv, existingData.tag);
+            const existingOtpSecret = Secret.fromBase32(base32Secret);
+            const existingTotp = new TOTP({
+              issuer: "Digital Construction ERP",
+              label: authUser.email || authUser.uid,
+              algorithm: "SHA1",
+              digits: 6,
+              period: 30,
+              secret: existingOtpSecret
+            });
+            return res.json({
+              success: true,
+              otpauthUri: existingTotp.toString(),
+              secret: existingOtpSecret.base32
+            });
+          } catch (decryptErr) {
+            console.warn("Unconfirmed MFA secret could not be decrypted; generating a new secret:", decryptErr);
+          }
+        }
+      }
+
       const secret = new Secret({ size: 20 });
       const totp = new TOTP({
         issuer: "Digital Construction ERP",
@@ -361,11 +422,12 @@ async function startServer() {
         secret
       });
       const encrypted = encryptPayload(secret.base32);
-      await firestore.collection("mfa_secrets").doc(authUser.uid).set({
+      await secretDocRef.set({
         uid: authUser.uid,
         ciphertext: encrypted.ciphertext,
         iv: encrypted.iv,
         tag: encrypted.tag,
+        confirmed: false,
         updatedAt: new Date().toISOString()
       });
       return res.json({
@@ -380,7 +442,7 @@ async function startServer() {
   });
 
   // TOTP MFA Verification Endpoint
-  app.post("/api/security/mfa/verify", verifyAppCheck, requireAuth, async (req, res) => {
+  app.post("/api/security/mfa/verify", verifyAppCheck, requireAuth, mfaRateLimit, async (req, res) => {
     if (!mfaAvailable || !adminApp) {
       return res.status(503).json({
         success: false,
@@ -403,7 +465,8 @@ async function startServer() {
       return res.status(503).json({ success: false, error: "mfa_unavailable" });
     }
     try {
-      const secretSnap = await firestore.collection("mfa_secrets").doc(authUser.uid).get();
+      const secretDocRef = firestore.collection("mfa_secrets").doc(authUser.uid);
+      const secretSnap = await secretDocRef.get();
       if (!secretSnap.exists) {
         return res.status(400).json({
           success: false,
@@ -429,6 +492,15 @@ async function startServer() {
           error: "invalid_mfa_code",
           message: "Invalid or expired verification code."
         });
+      }
+      if (enc.confirmed !== true) {
+        await secretDocRef.set(
+          {
+            confirmed: true,
+            confirmedAt: new Date().toISOString()
+          },
+          { merge: true }
+        );
       }
       const mfaAt = Date.now();
       const userRecord = await getAuth(adminApp).getUser(authUser.uid);

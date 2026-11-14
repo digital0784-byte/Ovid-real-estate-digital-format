@@ -12,13 +12,12 @@ import { UserRole } from "../types";
 
 export const MFA_TTL_MS = 12 * 60 * 60 * 1000;
 
+// Super Admin intentionally NOT listed (owner decision). To require MFA again add it here, in server.ts SENSITIVE_ROLES, src/services/authService.ts SENSITIVE_ROLES and firestore.rules isSensitiveRole()
 export const SENSITIVE_ROLES: ReadonlySet<string> = new Set([
-  UserRole.SUPER_ADMIN,
   UserRole.HEAD_OFFICE,
   UserRole.PROJECT_MANAGER,
   UserRole.SECTION_HEAD,
   UserRole.FINANCE_MANAGER,
-  "Super Admin",
   "Head Office",
   "Project Manager",
   "Section Head",

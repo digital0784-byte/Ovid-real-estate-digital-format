@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
+import { blockedAsSimulation } from "../config/features";
 import { db, isFirebaseReady } from "../firebase";
 import { collection, onSnapshot } from "firebase/firestore";
 import {
@@ -5396,6 +5397,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <p className="text-slate-400 uppercase font-black text-[9px]">{isAmharic ? "የበረራ ትዕዛዞች" : "Simulation Actions"}</p>
                         <button
                           onClick={() => {
+                            if (blockedAsSimulation("Drone Auto-Pilot Scan")) return;
                             setDroneFlightSimulating(true);
                             setDroneFlightStep("Mapping");
                             setTimeout(() => setDroneFlightStep("Image Processing"), 1500);
@@ -5615,6 +5617,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                   />
                   <button
                     onClick={() => {
+                      if (blockedAsSimulation("AI Voice Assistant Query")) return;
                       if (!voiceQuery.trim()) return;
                       setIsVoiceActive(true);
                       setVoiceResponse(isAmharic ? "የድምፅ ጥያቄውን በማስኬድ ላይ..." : "Processing voice token query...");

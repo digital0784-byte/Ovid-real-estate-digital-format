@@ -91,7 +91,7 @@ export const PlanningScheduler: React.FC<PlanningSchedulerProps> = ({
   const availableGangChiefs = useMemo(() => {
     const map = new Map<string, string>();
     workers.forEach(w => {
-      if (w.role === UserRole.GANG_CHIEF || w.position?.toLowerCase().includes("gang chief")) {
+      if (w.role === UserRole.GANG_CHIEF || String(w.position ?? "").toLowerCase().includes("gang chief")) {
         map.set(w.id, w.name);
       }
       if (w.gangChief && w.gangChief.trim()) {

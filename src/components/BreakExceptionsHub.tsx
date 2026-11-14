@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { blockedAsSimulation } from "../config/features";
 import { 
   ShieldCheck, 
   Clock, 
@@ -542,6 +543,7 @@ export const BreakExceptionsHub: React.FC<BreakExceptionsHubProps> = ({
 
   // Simulated Report Exporter
   const handleExport = (reportName: string) => {
+    if (blockedAsSimulation("Attendance Exceptions Export")) return;
     setIsExporting(true);
     setExportMessage(isAmharic ? "ማውጫውን በማዘጋጀት ላይ ነው..." : "Compiling metrics and preparing encrypted file...");
     setTimeout(() => {
