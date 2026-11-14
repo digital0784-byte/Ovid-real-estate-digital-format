@@ -241,7 +241,8 @@ class OfflineCacheAndOutboxEngine {
   }
 
   public async flushOutbox(): Promise<void> {
-    if (!isFirebaseReady || !db || (auth && !auth.currentUser) || typeof window === "undefined") return;
+    const isNavigatorOnline = typeof navigator === "undefined" || navigator.onLine !== false;
+    if (!isFirebaseReady || !db || !isNavigatorOnline || (auth && !auth.currentUser) || typeof window === "undefined") return;
     try {
       const outboxKey = this.getOutboxKey();
       const existing = localStorage.getItem(outboxKey);
@@ -289,7 +290,8 @@ if (typeof window !== "undefined") {
 }
 
 function canQueryFirestore(): boolean {
-  return Boolean(isFirebaseReady && db && (auth ? Boolean(auth.currentUser) : true));
+  const isNavigatorOnline = typeof navigator === "undefined" || navigator.onLine !== false;
+  return Boolean(isFirebaseReady && db && isNavigatorOnline && (auth ? Boolean(auth.currentUser) : true));
 }
 
 // Unified Primary Data Fetcher (Firestore is authoritative source of truth when online)

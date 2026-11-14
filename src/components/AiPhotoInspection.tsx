@@ -599,7 +599,7 @@ export const AiPhotoInspection: React.FC<AiPhotoInspectionProps> = ({
   // Update master zone state on concrete readiness status changes or approvals
   const handleAuthorizeConcretePour = () => {
     // Attempt to locate matching zone in the master project state
-    const targetZoneId = `B1-F0${activePhoto.floor}-Z${activePhoto.zone.split(" ")[1]}`;
+    const targetZoneId = `B1-F0${activePhoto.floor}-Z${String(activePhoto?.zone ?? "").split(" ")[1] || "A"}`;
     const matchedZone = zones.find(z => z.id === targetZoneId);
 
     if (matchedZone && onUpdateZone) {

@@ -2296,7 +2296,7 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
               <button
                 type="button"
                 onClick={async () => {
-                  const serials = issueSerials.split(",").map(s => s.trim()).filter(Boolean);
+                  const serials = String(issueSerials ?? "").split(",").map(s => s.trim()).filter(Boolean);
                   await SiteStoreMovementService.issueMaterial(selectedReqForAction.id, {
                     issuedQty: issueQty,
                     condition: "Good",

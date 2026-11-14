@@ -1552,7 +1552,7 @@ export const PanelMasterDatabaseView: React.FC<PanelMasterDatabaseViewProps> = (
                         {acc.standardDimension} ({acc.accessoryType})
                       </span>
                       <span className="text-[10px] text-slate-400">
-                        Ratio: {ratio}× per panel • {acc.manufacturer.split(" ")[0]}
+                        Ratio: {ratio}× per panel • {String(acc?.manufacturer ?? "").split(" ")[0] || "—"}
                       </span>
                     </div>
 

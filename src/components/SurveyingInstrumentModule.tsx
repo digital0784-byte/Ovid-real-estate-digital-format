@@ -1194,7 +1194,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                       <div className="flex justify-between items-center">
                         <span className="font-mono font-black text-xs text-red-600">{cp.id}</span>
                         <span className="text-[9px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded font-mono font-bold">
-                          {cp.accuracyLevel.split(" ")[0]}
+                          {String(cp?.accuracyLevel ?? "").split(" ")[0] || "—"}
                         </span>
                       </div>
                       
@@ -1654,7 +1654,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {progressSummary.productivityZone.map((zone, idx) => (
                       <div key={idx} className="p-3 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-between text-xs">
-                        <span className="font-bold text-slate-700">{zone.zone.split(" ")[0]}</span>
+                        <span className="font-bold text-slate-700">{String(zone?.zone ?? "").split(" ")[0] || "Zone"}</span>
                         <strong className="font-mono text-slate-900">{zone.panelsPerDay} units/day</strong>
                       </div>
                     ))}
@@ -2550,7 +2550,7 @@ export const SurveyingInstrumentModule: React.FC<SurveyingInstrumentModuleProps>
                                 <td className="p-3 font-mono font-bold text-red-600 text-[10px]">{record.id}</td>
                                 <td className="p-3 text-slate-500 text-[10px] font-mono whitespace-nowrap">{record.timestamp}</td>
                                 <td className="p-3 whitespace-nowrap">
-                                  {record.building} (Fl {record.floor} - {record.zone.split(" ")[0]})
+                                  {record.building} (Fl {record.floor} - {String(record?.zone ?? "").split(" ")[0] || "Zone"})
                                 </td>
                                 <td className="p-3">
                                   <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${

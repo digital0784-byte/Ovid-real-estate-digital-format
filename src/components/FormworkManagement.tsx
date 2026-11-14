@@ -3028,7 +3028,7 @@ export const FormworkManagement: React.FC<FormworkManagementProps> = ({
                                   <div className="w-[2.5px] h-6 bg-slate-900"></div>
                                   <div className="w-[1.5px] h-6 bg-slate-900"></div>
                                 </div>
-                                <span className="text-[8px] font-mono text-slate-400 font-bold tracking-wider">{bundle.id.split("-").pop()}</span>
+                                <span className="text-[8px] font-mono text-slate-400 font-bold tracking-wider">{String(bundle?.id ?? "").split("-").pop() || "N/A"}</span>
                               </div>
                             </div>
 

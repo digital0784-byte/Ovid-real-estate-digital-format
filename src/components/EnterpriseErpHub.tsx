@@ -958,7 +958,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
     if (!wf) return;
     
     // Deconstruct stages
-    const stages = wf.path.split(" ➔ ");
+    const stages = String(wf?.path ?? "").split(" ➔ ").filter(Boolean);
     const newReq = {
       id: `REQ-${Math.floor(100 + Math.random() * 900)}`,
       workflowId: wf.id,

@@ -1,5 +1,20 @@
 import { initializeApp, getApps, getApp } from "firebase/app";
-import { getFirestore, initializeFirestore, enableIndexedDbPersistence } from "firebase/firestore";
+import {
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  memoryLocalCache,
+  getDoc,
+  getDocFromCache,
+  getDocFromServer,
+  doc,
+  enableNetwork,
+  disableNetwork,
+  type FirestoreSettings,
+  type DocumentReference,
+  type DocumentSnapshot,
+} from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import firebaseConfigJson from "../firebase-applet-config.json";
 
@@ -42,14 +57,19 @@ const firebaseConfig = {
   firestoreDatabaseId: firebaseConfigJson.firestoreDatabaseId || customConfig.firestoreDatabaseId || ""
 };
 
-let app;
+let app: any;
 let db: any = null;
 let auth: any = null;
 let isFirebaseReady = false;
 
+const isBrowserRuntime =
+  typeof window !== "undefined" &&
+  typeof document !== "undefined" &&
+  !env.VITEST;
+
 // Check if variables are configured and non-placeholder
-const isConfigValid = 
-  Boolean(firebaseConfig.apiKey) && 
+const isConfigValid =
+  Boolean(firebaseConfig.apiKey) &&
   Boolean(firebaseConfig.projectId) &&
   firebaseConfig.apiKey !== "undefined" &&
   firebaseConfig.projectId !== "undefined" &&
@@ -60,27 +80,63 @@ if (isConfigValid) {
   try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     const databaseId = firebaseConfig.firestoreDatabaseId;
+
+    const localCache =
+      isBrowserRuntime && typeof indexedDB !== "undefined"
+        ? persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        : memoryLocalCache();
+
+    const firestoreSettings: FirestoreSettings = {
+      ignoreUndefinedProperties: true,
+      localCache,
+      // Use HTTP long-polling in browser runtimes so restricted/proxied iframes and mobile LTE
+      // networks never fail WebChannel streaming handshakes with [code=unavailable].
+      ...(isBrowserRuntime
+        ? {
+            experimentalForceLongPolling: true,
+            experimentalLongPollingOptions: { timeoutSeconds: 30 },
+          }
+        : {}),
+    };
+
     try {
       db = databaseId
-        ? initializeFirestore(app, { ignoreUndefinedProperties: true }, databaseId)
-        : initializeFirestore(app, { ignoreUndefinedProperties: true });
+        ? initializeFirestore(app, firestoreSettings, databaseId)
+        : initializeFirestore(app, firestoreSettings);
     } catch {
       db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
     }
+
     auth = getAuth(app);
     isFirebaseReady = true;
 
-    // Enable offline persistence for fully resilient field operations
-    if (typeof window !== "undefined") {
-      enableIndexedDbPersistence(db).catch((err) => {
-        if (err.code === 'failed-precondition') {
-          console.warn("Firestore offline persistence notice: Multiple tabs open.");
-        } else if (err.code === 'unimplemented') {
-          console.warn("Firestore offline persistence is not supported by this browser.");
-        } else {
-          console.warn("Firestore offline persistence notice:", err.message);
-        }
+    if (isBrowserRuntime && db) {
+      // Keep Firestore network state synchronized with browser connectivity so offline devices
+      // operate cleanly on IndexedDB cache instead of triggering repeated unavailable timeouts.
+      if (typeof navigator !== "undefined" && navigator.onLine === false) {
+        disableNetwork(db).catch(() => {});
+      }
+
+      window.addEventListener("offline", () => {
+        if (db) disableNetwork(db).catch(() => {});
       });
+
+      window.addEventListener("online", () => {
+        if (db) enableNetwork(db).catch(() => {});
+      });
+
+      // Validate Firestore connectivity once at startup when online
+      if (typeof navigator === "undefined" || navigator.onLine !== false) {
+        (async function testConnection() {
+          try {
+            await getDocFromServer(doc(db, "test", "connection"));
+          } catch (error) {
+            if (error instanceof Error && error.message.includes("the client is offline")) {
+              console.warn("Firestore connection notice: operating in offline cache mode until backend becomes reachable.");
+            }
+          }
+        })();
+      }
     }
   } catch (error) {
     console.warn("Firebase Initialization notice. Operating in resilient offline-first mode:", error);
@@ -88,6 +144,30 @@ if (isConfigValid) {
   }
 } else {
   console.info("Firebase environment variables not fully set. Defaulting to local persistent storage engine.");
+}
+
+export async function getDocWithCacheFallback<T = any>(
+  docRef: DocumentReference<T>
+): Promise<DocumentSnapshot<T> | null> {
+  try {
+    return await getDoc(docRef);
+  } catch (err: any) {
+    const code = err?.code || "";
+    const msg = String(err?.message || "").toLowerCase();
+    if (
+      code === "unavailable" ||
+      code === "failed-precondition" ||
+      msg.includes("offline") ||
+      msg.includes("unavailable")
+    ) {
+      try {
+        return await getDocFromCache(docRef);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  }
 }
 
 export function sanitizeForFirestore<T>(obj: T): T {
@@ -156,8 +236,10 @@ export interface FirestoreErrorInfo {
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
   const currentUser = auth?.currentUser;
+  const rawMessage = error instanceof Error ? error.message : String(error);
+  const errCode = (error as any)?.code || "";
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: rawMessage,
     authInfo: {
       userId: currentUser?.uid,
       email: currentUser?.email,
@@ -172,7 +254,11 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error("Firestore Error:", JSON.stringify(errInfo));
+  if (errCode === "unavailable" || rawMessage.toLowerCase().includes("the client is offline")) {
+    console.warn("Firestore Offline Notice:", JSON.stringify(errInfo));
+  } else {
+    console.error("Firestore Error:", JSON.stringify(errInfo));
+  }
   return errInfo;
 }
 

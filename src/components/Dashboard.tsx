@@ -115,12 +115,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [roleWorkers]);
 
   // Average safety score from teams
-  const avgSafetyScore = Math.round(teams.reduce((acc, t) => acc + t.safetyScore, 0) / teams.length) || 92;
-  const avgQualityScore = Math.round(teams.reduce((acc, t) => acc + t.qualityScore, 0) / teams.length) || 88;
+  const avgSafetyScore = teams.length > 0
+    ? Math.round(teams.reduce((acc, t) => acc + (t.safetyScore ?? 0), 0) / teams.length) || 92
+    : 92;
+  const avgQualityScore = teams.length > 0
+    ? Math.round(teams.reduce((acc, t) => acc + (t.qualityScore ?? 0), 0) / teams.length) || 88
+    : 88;
 
   // Calculate Overall project progress (completion % of all zones)
-  const totalPercentage = zones.reduce((acc, z) => acc + z.completionPercentage, 0);
-  const overallProgress = Math.round(totalPercentage / zones.length) || 0;
+  const totalPercentage = zones.reduce((acc, z) => acc + (z.completionPercentage ?? 0), 0);
+  const overallProgress = zones.length > 0 ? Math.round(totalPercentage / zones.length) || 0 : 0;
 
   // Formwork output data for interactive SVG chart (panel installation trend over last 5 days)
   const panelOutputTrend = useMemo(() => {
@@ -532,14 +536,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <span className="font-bold text-slate-400 uppercase tracking-wider block mb-1">Performer Highlights</span>
               {topPerformer && (
                 <div className="flex justify-between items-center bg-slate-900 p-1.5 rounded">
-                  <span className="text-emerald-400 font-bold">Top: {topPerformer.name.split(" ")[0]}</span>
+                  <span className="text-emerald-400 font-bold">
+                    Top: {String(topPerformer.name ?? topPerformer.id ?? "Worker").split(" ")[0]}
+                  </span>
                   <span className="font-mono text-white font-bold">{topPerformer.score}%</span>
                 </div>
               )}
             </div>
             {lowPerformer && topPerformer !== lowPerformer ? (
               <div className="flex justify-between items-center bg-slate-900 p-1.5 rounded mt-1">
-                <span className="text-amber-400 font-bold">Low: {lowPerformer.name.split(" ")[0]}</span>
+                <span className="text-amber-400 font-bold">
+                  Low: {String(lowPerformer.name ?? lowPerformer.id ?? "Worker").split(" ")[0]}
+                </span>
                 <span className="font-mono text-white font-bold">{lowPerformer.score}%</span>
               </div>
             ) : (
@@ -576,7 +584,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <p className="text-xs text-slate-500 font-medium">{t("Workers Present")}</p>
             <h3 className="text-2xl font-bold text-slate-900">{presentCount}</h3>
             <p className="text-xs text-emerald-600 font-semibold flex items-center mt-0.5">
-              <span>{Math.round((presentCount / totalWorkers) * 100)}% {isAmharic ? "መገኘት" : "Rate"}</span>
+              <span>{totalWorkers > 0 ? Math.round((presentCount / totalWorkers) * 100) : 0}% {isAmharic ? "መገኘት" : "Rate"}</span>
             </p>
           </div>
         </div>
@@ -856,8 +864,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {index + 1}
                     </span>
                     <div>
-                      <h4 className="text-sm font-semibold text-slate-800">{w.name}</h4>
-                      <p className="text-[11px] text-slate-500 font-mono">{w.id} | {w.trade}</p>
+                      <h4 className="text-sm font-semibold text-slate-800">{w.name || w.id || "Worker"}</h4>
+                      <p className="text-[11px] text-slate-500 font-mono">{w.id} | {w.trade || "—"}</p>
                     </div>
                   </div>
                   <div className="text-right">

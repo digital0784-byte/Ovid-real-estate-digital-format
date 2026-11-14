@@ -5,8 +5,8 @@ import {
   signOut,
   User,
 } from "firebase/auth";
-import { doc, getDoc, setDoc } from "firebase/firestore";
-import { auth, db, isFirebaseReady, sanitizeForFirestore } from "../firebase";
+import { doc, setDoc } from "firebase/firestore";
+import { auth, db, isFirebaseReady, sanitizeForFirestore, getDocWithCacheFallback } from "../firebase";
 import { getAppCheckToken } from "../appCheck";
 import { UserRole } from "../types";
 
@@ -209,8 +209,8 @@ export async function signInWithEmail(
   let profileData: Record<string, any> | null = null;
   if (db) {
     try {
-      const snap = await getDoc(doc(db, "users", firebaseUser.uid));
-      if (snap.exists()) {
+      const snap = await getDocWithCacheFallback(doc(db, "users", firebaseUser.uid));
+      if (snap && snap.exists()) {
         profileData = snap.data();
       }
     } catch {

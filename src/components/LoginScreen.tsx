@@ -15,13 +15,13 @@ import {
   verifyMfa,
   AuthServiceError,
 } from "../services/authService";
-import { auth, db, isFirebaseReady } from "../firebase";
+import { auth, db, isFirebaseReady, getDocWithCacheFallback } from "../firebase";
 import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
   ConfirmationResult,
 } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { QRCodeSVG } from "qrcode.react";
 import { 
   Shield, 
@@ -622,7 +622,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           const uid = userCred.user.uid;
           let profileData: Record<string, any> | null = null;
           if (db) {
-            const userSnap = await getDoc(doc(db, "users", uid)).catch(() => null);
+            const userSnap = await getDocWithCacheFallback(doc(db, "users", uid));
             if (userSnap && userSnap.exists()) {
               profileData = userSnap.data();
             }

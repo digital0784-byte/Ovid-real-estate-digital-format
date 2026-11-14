@@ -629,7 +629,7 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   // Helper values for project-level reporting & live metrics
   const chartData = useMemo(() => {
     return [...syncHistory].reverse().map(item => ({
-      name: item.timestamp.split(" ")[1] || item.timestamp,
+      name: String(item?.timestamp ?? "").split(" ")[1] || item?.timestamp || "",
       records: item.recordsCount,
       latency: item.durationMs,
       conflicts: item.conflictsResolved
@@ -681,7 +681,7 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
           steps: [
             "Secure terminal bridge handshake completed.",
             `Payload containing ${simRecordsCount} attendance scans parsed successfully.`,
-            `SHA-256 signature verified against signature ${randHash.split("...")[0]}.`,
+            `SHA-256 signature verified against signature ${String(randHash ?? "").split("...")[0]}.`,
             "Conflict resolution engine checked 100% of rows.",
             "0 structural integrity warnings detected during transaction check.",
             "Committed transaction blocks safely to main cloud collection.",

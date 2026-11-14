@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { DbService } from "./services/db";
-import { auth, db, isFirebaseReady, handleFirestoreError, OperationType } from "./firebase";
+import { auth, db, isFirebaseReady, handleFirestoreError, OperationType, getDocWithCacheFallback } from "./firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { QRCodeSVG } from "qrcode.react";
 import { SIMULATIONS_ENABLED, SIMULATION_ONLY_TABS } from "./config/features";
 import {
@@ -428,9 +428,10 @@ export default function App() {
               }
               setIsAuthLoading(false);
             },
-            (error) => {
+            (error: any) => {
               handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-              const profile: UserProfile = {
+              const isUnavailable = error?.code === "unavailable";
+              const fallbackProfile: UserProfile = {
                 uid: firebaseUser.uid,
                 displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
                 role: "Pending" as UserRole,
@@ -439,8 +440,12 @@ export default function App() {
                 phoneNumber: firebaseUser.phoneNumber || "",
                 createdAt: new Date().toISOString()
               };
-              setCurrentUserProfile((prev) => prev || profile);
-              setCurrentUserRole("Pending" as UserRole);
+              setCurrentUserProfile((prev) => prev || fallbackProfile);
+              setCurrentUserRole((prevRole) =>
+                isUnavailable && prevRole && prevRole !== ("Pending" as UserRole)
+                  ? prevRole
+                  : ("Pending" as UserRole)
+              );
               setIsAuthLoading(false);
             }
           );
@@ -493,8 +498,8 @@ export default function App() {
       setIsAuthLoading(true);
       try {
         await auth.currentUser.getIdToken(true).catch(() => {});
-        const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
-        if (snap.exists()) {
+        const snap = await getDocWithCacheFallback(doc(db, "users", auth.currentUser.uid));
+        if (snap && snap.exists()) {
           const data = snap.data();
           const resolvedRole = resolveUserRole(data);
           const resolvedStatus = resolvedRole === "Pending" ? "Pending" : "Active";

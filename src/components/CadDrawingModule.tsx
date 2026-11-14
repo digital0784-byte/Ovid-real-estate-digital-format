@@ -610,7 +610,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     setCadFilenameInput(file.name);
     
     // Infer file type
-    const ext = file.name.split(".").pop()?.toUpperCase() || "";
+    const ext = String(file?.name ?? "").split(".").pop()?.toUpperCase() || "";
     if (["DWG", "DXF", "PDF", "PNG", "JPG", "JPEG"].includes(ext)) {
       setCadFileType(ext === "JPEG" ? "JPG" : ext as any);
     }

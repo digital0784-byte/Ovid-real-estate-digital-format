@@ -930,8 +930,8 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                       />
                     ) : (
                       <div className="flex flex-wrap gap-1.5 pt-1">
-                        {activeWorker.skills ? (
-                          activeWorker.skills.split(",").map((s, idx) => (
+                        {typeof activeWorker.skills === "string" && activeWorker.skills.trim().length > 0 ? (
+                          activeWorker.skills.split(",").filter(s => s.trim().length > 0).map((s, idx) => (
                             <span 
                               key={idx} 
                               className="bg-slate-900 text-slate-100 text-[10px] font-bold px-2.5 py-1 rounded-md border border-slate-800 font-sans shadow-2xs"

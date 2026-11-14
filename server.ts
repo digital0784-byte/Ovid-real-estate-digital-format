@@ -1,7 +1,6 @@
 import express from "express";
 import path from "path";
 import fs from "fs";
-import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import crypto from "crypto";
@@ -43,11 +42,11 @@ const encryptionKeyBuffer = resolveEncryptionKey(process.env.ENCRYPTION_SECRET_K
 let mfaAvailable = Boolean(encryptionKeyBuffer);
 
 if (!encryptionKeyBuffer) {
-  if (process.env.NODE_ENV === "production") {
-    console.error("[FATAL] ENCRYPTION_SECRET_KEY must be a valid 32-byte key (64 hex chars or 32-byte base64) in production.");
+  if (process.env.REQUIRE_ENCRYPTION_KEY === "true") {
+    console.error("[FATAL] ENCRYPTION_SECRET_KEY must be a valid 32-byte key (64 hex chars or 32-byte base64) when REQUIRE_ENCRYPTION_KEY=true.");
     process.exit(1);
   } else {
-    console.warn("[WARN] ENCRYPTION_SECRET_KEY is missing or not a valid 32-byte key. MFA endpoints are disabled (503) in development.");
+    console.warn("[WARN] ENCRYPTION_SECRET_KEY is missing or not a valid 32-byte key. MFA endpoints will remain disabled (503 mfa_unavailable) until configured.");
   }
 }
 
@@ -1106,6 +1105,7 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
     });
   } else {
     try {
+      const { createServer: createViteServer } = await import("vite");
       const vite = await createViteServer({
         server: { middlewareMode: true, hmr: false },
         appType: "spa",
