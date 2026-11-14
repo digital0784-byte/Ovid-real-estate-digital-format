@@ -3,8 +3,9 @@ import { NotificationService } from "./notificationService";
 import { db, isFirebaseReady, sanitizeForFirestore } from "../firebase";
 import { doc, setDoc, collection, query, where, getDocs } from "firebase/firestore";
 
-const STORAGE_KEY_REQUESTS = "buildsync_role_change_requests_v1";
-const STORAGE_KEY_AUDIT = "buildsync_role_change_audit_logs_v1";
+// In-memory store backed by Firestore role_change_requests (no client localStorage authority)
+let inMemoryRequests: RoleChangeRequest[] | null = null;
+let inMemoryAuditLogs: RoleChangeAuditLog[] | null = null;
 
 // Default Initial Seed Requests for immediate testing & demonstration
 const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
@@ -99,7 +100,7 @@ const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
     requestedByRole: "Time Keeper",
     requestedDate: "2026-07-18",
     requestedTime: "11:00 AM",
-    approvedBy: "Nuriye Ahmed Adem",
+    approvedBy: "System Administrator",
     approvedByRole: "Super Admin",
     approvedDate: "2026-07-18",
     approvedTime: "02:45 PM",
@@ -149,7 +150,7 @@ const INITIAL_SEED_AUDITS: RoleChangeAuditLog[] = [
     previousRole: "Time Keeper",
     newRole: "Supervisor",
     requestedBy: "Abebe Bikila",
-    approvedBy: "Nuriye Ahmed Adem",
+    approvedBy: "System Administrator",
     approverRole: "Super Admin",
     status: "Approved",
     reason: "Completed 3 years site operations training and appointed site supervisor for Zone 4.",
@@ -194,46 +195,28 @@ export class RoleChangeApprovalService {
     );
   }
 
-  // Get all requests from local storage or seed
+  // Get all requests from in-memory session state
   public static getRequests(): RoleChangeRequest[] {
-    if (typeof window === "undefined") return INITIAL_SEED_REQUESTS;
-    const stored = localStorage.getItem(STORAGE_KEY_REQUESTS);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(INITIAL_SEED_REQUESTS));
-      return INITIAL_SEED_REQUESTS;
+    if (!inMemoryRequests) {
+      inMemoryRequests = [...INITIAL_SEED_REQUESTS];
     }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return INITIAL_SEED_REQUESTS;
-    }
+    return inMemoryRequests;
   }
 
   public static saveRequests(requests: RoleChangeRequest[]): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_REQUESTS, JSON.stringify(requests));
-    }
+    inMemoryRequests = [...requests];
   }
 
   // Get all audit logs
   public static getAuditLogs(): RoleChangeAuditLog[] {
-    if (typeof window === "undefined") return INITIAL_SEED_AUDITS;
-    const stored = localStorage.getItem(STORAGE_KEY_AUDIT);
-    if (!stored) {
-      localStorage.setItem(STORAGE_KEY_AUDIT, JSON.stringify(INITIAL_SEED_AUDITS));
-      return INITIAL_SEED_AUDITS;
+    if (!inMemoryAuditLogs) {
+      inMemoryAuditLogs = [...INITIAL_SEED_AUDITS];
     }
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return INITIAL_SEED_AUDITS;
-    }
+    return inMemoryAuditLogs;
   }
 
   public static saveAuditLogs(logs: RoleChangeAuditLog[]): void {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_AUDIT, JSON.stringify(logs));
-    }
+    inMemoryAuditLogs = [...logs];
   }
 
   // Submit a new Role Change Request
@@ -364,12 +347,9 @@ export class RoleChangeApprovalService {
     const currentTime = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     let finalRole = params.assignedRoleOverride || req.requestedRole;
 
-    // Enforce that Nuriye Ahmed Adem (mejennur669@gmail.com / 0910097862 / 0920843843) is the only Super Admin
-    const isReqOwnerSuperAdmin =
-      req.userEmail?.toLowerCase().trim() === "mejennur669@gmail.com" ||
-      req.phoneNumber?.includes("910097862") ||
-      req.phoneNumber?.includes("920843843");
-    if ((finalRole === UserRole.SUPER_ADMIN || finalRole === "Super Admin") && !isReqOwnerSuperAdmin) {
+    const approverIsSuperAdmin =
+      params.approverRole === UserRole.SUPER_ADMIN || String(params.approverRole) === "Super Admin";
+    if ((finalRole === UserRole.SUPER_ADMIN || finalRole === "Super Admin") && !approverIsSuperAdmin) {
       finalRole = UserRole.HEAD_OFFICE;
     }
 

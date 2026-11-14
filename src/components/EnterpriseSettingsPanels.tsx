@@ -857,7 +857,7 @@ export const EnterpriseSettingsPanels: React.FC<EnterprisePanelsProps> = ({
       { titleAm: "7. Biometric Attendance እንዴት እንደሚሰራ (How Biometric Attendance Works)", desc: "Biometric data is stored as a secure mathematical template/reference on the device; raw phone biometric sensor imagery is never transmitted to Firebase. Employee enrollment is managed via the HR/Time Keeper workflow." },
       { titleAm: "8. መረጃ ለምን ያህል ጊዜ እንደሚጠበቅ (Data Retention Period)", desc: "Attendance, Payroll, and Audit Records are retained in accordance with national labor laws and corporate financial audit retention requirements." },
       { titleAm: "9. የመረጃ ጥያቄ/ማስተካከያ ሂደት (Data Inquiry & Correction Process)", desc: "Employees can submit profile or attendance correction requests through theEmployee → Time Keeper → Supervisor / HR approval workflow." },
-      { titleAm: "10. የSupport መገናኛ መንገድ (Support Contact Channels)", desc: "Only Super Admin: Nuriye Ahmed Adem | Phone: 0910097862/0920843843 | Email: mejennur669@gmail.com." }
+      { titleAm: "10. የSupport መገናኛ መንገድ (Support Contact Channels)", desc: "Contact your organization's System Administrator, HR Manager, or Head Office Security Operations team via internal escalation." }
     ];
 
     const archLayers = [

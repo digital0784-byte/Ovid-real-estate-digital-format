@@ -1,4 +1,21 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+
+vi.mock('../firebase', () => ({
+  db: null,
+  auth: null,
+  isFirebaseReady: false,
+  OperationType: {
+    CREATE: 'create',
+    UPDATE: 'update',
+    DELETE: 'delete',
+    LIST: 'list',
+    GET: 'get',
+    WRITE: 'write'
+  },
+  sanitizeForFirestore: (data: any) => data,
+  handleFirestoreError: vi.fn()
+}));
+
 import { DbService } from '../services/db';
 import { Worker } from '../types';
 

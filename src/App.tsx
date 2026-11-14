@@ -2,8 +2,19 @@ import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { DbService } from "./services/db";
 import { auth, db, isFirebaseReady, handleFirestoreError, OperationType } from "./firebase";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, onSnapshot, getDoc, setDoc } from "firebase/firestore";
+import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { QRCodeSVG } from "qrcode.react";
+import { SIMULATIONS_ENABLED, SIMULATION_ONLY_TABS } from "./config/features";
+import {
+  resolveUserRole,
+  isSensitiveRole,
+  hasFreshMfaClaim,
+  getMfaStatus,
+  enrollMfa,
+  verifyMfa,
+  signOutCurrentUser
+} from "./services/authService";
 import { 
   initialWorkers, 
   initialTeams, 
@@ -69,7 +80,6 @@ import { NotificationBellDropdown } from "./components/NotificationBellDropdown"
 import { EnterpriseNotificationCenter } from "./components/EnterpriseNotificationCenter";
 import { LiveNotificationToast } from "./components/LiveNotificationToast";
 import { NotificationService } from "./services/notificationService";
-import { RoleChangeApprovalService } from "./services/roleChangeApprovalService";
 import { PanelTraceabilityModule } from "./components/PanelTraceabilityModule";
 import { TaskManagementSearchHub } from "./components/TaskManagementSearchHub";
 import { FirestoreDataExplorer } from "./components/FirestoreDataExplorer";
@@ -159,14 +169,8 @@ export default function App() {
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  // Shell UI parameters
-  const [currentUserRole, setCurrentUserRole] = useState<UserRole>(() => {
-    if (typeof window !== "undefined") {
-      const saved = localStorage.getItem("erp_current_user_role");
-      if (saved && saved !== UserRole.SUPER_ADMIN && saved !== "Super Admin") return saved as UserRole;
-    }
-    return UserRole.WORKER;
-  });
+  // Shell UI parameters — role is resolved strictly from Firestore `users/{uid}`
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole>("Pending" as UserRole);
   const [selectedProject, setSelectedProject] = useState<string>("Addis Ababa Tower Block A");
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
@@ -318,12 +322,15 @@ export default function App() {
   // Security and Authentication session states
   const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("erp_is_authenticated") === "true";
-    }
-    return false;
-  });
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [mfaVerified, setMfaVerified] = useState<boolean>(false);
+  const [mfaChecking, setMfaChecking] = useState<boolean>(false);
+  const [mfaEnrolled, setMfaEnrolled] = useState<boolean | null>(null);
+  const [mfaQrUri, setMfaQrUri] = useState<string>("");
+  const [mfaSecret, setMfaSecret] = useState<string>("");
+  const [mfaCodeInput, setMfaCodeInput] = useState<string>("");
+  const [mfaError, setMfaError] = useState<string>("");
+  const [mfaSubmitting, setMfaSubmitting] = useState<boolean>(false);
   const [sessionTimeoutMinutes, setSessionTimeoutMinutes] = useState(10);
   const [lastActivity, setLastActivity] = useState<number>(Date.now());
   const [loginMetadata, setLoginMetadata] = useState<{ loginTime: string; device: string; ip: string; gps: string } | null>(null);
@@ -364,232 +371,65 @@ export default function App() {
       return;
     }
 
+    let unsubProfile: (() => void) | undefined;
+
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      if (unsubProfile) {
+        unsubProfile();
+        unsubProfile = undefined;
+      }
+
       if (firebaseUser) {
         setIsAuthenticated(true);
         setIsAuthLoading(true);
 
         if (db) {
           const userDocRef = doc(db, "users", firebaseUser.uid);
-          const unsubProfile = onSnapshot(
+          unsubProfile = onSnapshot(
             userDocRef,
             (docSnap) => {
-              let pendingReg: any = null;
-              if (typeof window !== "undefined") {
-                try {
-                  const raw = sessionStorage.getItem("erp_pending_registration_profile") || localStorage.getItem("erp_pending_registration_profile");
-                  if (raw) {
-                    const parsed = JSON.parse(raw);
-                    if (!parsed.email || !firebaseUser.email || parsed.email.toLowerCase() === firebaseUser.email.toLowerCase()) {
-                      pendingReg = parsed;
-                    }
-                  }
-                } catch {}
-              }
-
               if (docSnap.exists()) {
-                const rawData = docSnap.data();
-                const emailPrefix = firebaseUser.email?.split("@")[0]?.toLowerCase() || "";
-                const needsPendingEnrich =
-                  pendingReg &&
-                  (!rawData.displayName ||
-                    rawData.displayName.toLowerCase() === emailPrefix ||
-                    rawData.displayName === "Registered User" ||
-                    !rawData.phoneNumber ||
-                    (rawData.requestedRole === "Worker" && pendingReg.requestedRole && pendingReg.requestedRole !== "Worker"));
-
-                const data = needsPendingEnrich
-                  ? {
-                      ...rawData,
-                      employeeId: rawData.employeeId || pendingReg.employeeId,
-                      displayName: pendingReg.displayName || rawData.displayName,
-                      name: pendingReg.name || pendingReg.displayName || rawData.name,
-                      phoneNumber: pendingReg.phoneNumber || rawData.phoneNumber,
-                      requestedRole: pendingReg.requestedRole || rawData.requestedRole,
-                      department: pendingReg.department || rawData.department,
-                      trade: pendingReg.trade || rawData.trade,
-                      position: pendingReg.position || rawData.position
-                    }
-                  : rawData;
-
-                if (needsPendingEnrich) {
-                  setDoc(userDocRef, data, { merge: true }).catch(() => {});
-                  if ( typeof window !== "undefined") {
-                    sessionStorage.removeItem("erp_pending_registration_profile");
-                    localStorage.removeItem("erp_pending_registration_profile");
-                  }
-                }
-
-                let effectiveRole = (data.role as UserRole) || ("Pending" as any);
-                let effectiveStatus = data.status || "Pending";
-
-                // Enforce Super Admin strictly for the ONLY Super Admin (Nuriye Ahmed Adem - mejennur669@gmail.com)
-                const userEmailLower = (data.email || firebaseUser.email || "").toLowerCase().trim();
-                const isSoleSuperAdmin = userEmailLower === "mejennur669@gmail.com";
-
-                if (isSoleSuperAdmin) {
-                  effectiveRole = UserRole.SUPER_ADMIN;
-                  effectiveStatus = "Active";
-                  if (
-                    data.role !== UserRole.SUPER_ADMIN ||
-                    data.status !== "Active" ||
-                    data.displayName !== "Nuriye Ahmed Adem"
-                  ) {
-                    setDoc(
-                      userDocRef,
-                      {
-                        displayName: "Nuriye Ahmed Adem",
-                        email: "mejennur669@gmail.com",
-                        phoneNumber: "0910097862/0920843843",
-                        role: UserRole.SUPER_ADMIN,
-                        requestedRole: UserRole.SUPER_ADMIN,
-                        status: "Active"
-                      },
-                      { merge: true }
-                    ).catch(() => {});
-                  }
-                } else {
-                  // Non-owner CAN NEVER be Super Admin. If found with Super Admin, demote immediately!
-                  if (effectiveRole === UserRole.SUPER_ADMIN || data.role === UserRole.SUPER_ADMIN) {
-                    effectiveRole = (data.requestedRole && data.requestedRole !== UserRole.SUPER_ADMIN)
-                      ? (data.requestedRole as UserRole)
-                      : UserRole.WORKER;
-                    if (data.status !== "Active") {
-                      effectiveRole = "Pending" as any;
-                      effectiveStatus = "Pending";
-                    }
-                    setDoc(userDocRef, { role: effectiveRole, status: effectiveStatus }, { merge: true }).catch(() => {});
-                  }
-
-                  // If account is not approved by Super Admin, enforce Pending status and Pending role
-                  if (effectiveStatus !== "Active") {
-                    effectiveRole = "Pending" as any;
-                    effectiveStatus = "Pending";
-                  }
-                }
-
-                if (effectiveStatus === "Active" && (effectiveRole === ("Pending" as any) || !effectiveRole) && data.requestedRole) {
-                  effectiveRole = (data.requestedRole === UserRole.SUPER_ADMIN && !isSoleSuperAdmin)
-                    ? UserRole.WORKER
-                    : (data.requestedRole as UserRole);
-                }
-
-                // Check RoleChangeApprovalService in case it was approved in app memory or Firestore
-                if (effectiveRole === ("Pending" as any) && !isSoleSuperAdmin) {
-                  try {
-                    const reqs = RoleChangeApprovalService.getRequests();
-                    const appReq = reqs.find(r => 
-                      (r.userId === firebaseUser.uid || (data.email && r.userEmail?.toLowerCase() === data.email.toLowerCase())) &&
-                      r.status === "Approved"
-                    );
-                    if (appReq) {
-                      const approvedRole = (appReq.assignedRole || appReq.requestedRole) as UserRole;
-                      if (approvedRole && approvedRole !== ("Pending" as any)) {
-                        effectiveRole = approvedRole === UserRole.SUPER_ADMIN ? UserRole.WORKER : approvedRole;
-                        effectiveStatus = "Active";
-                        setDoc(userDocRef, { role: effectiveRole, status: "Active" }, { merge: true }).catch(err => console.error("Syncing approved role to Firestore failed:", err));
-                      }
-                    }
-                  } catch (e) {
-                    console.warn("Error checking RoleChangeApprovalService in onSnapshot:", e);
-                  }
-                }
+                const data = docSnap.data();
+                const resolvedRole = resolveUserRole(data);
+                const effectiveStatus = resolvedRole === "Pending" ? "Pending" : "Active";
 
                 const profile: UserProfile = {
                   uid: firebaseUser.uid,
-                  displayName: isSoleSuperAdmin
-                    ? "Nuriye Ahmed Adem"
-                    : (data.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User"),
-                  role: effectiveRole,
-                  requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || pendingReg?.requestedRole || "Worker"),
+                  displayName:
+                    data.displayName ||
+                    data.name ||
+                    firebaseUser.displayName ||
+                    firebaseUser.email?.split("@")[0] ||
+                    "Authenticated User",
+                  role: resolvedRole,
+                  requestedRole: data.requestedRole || "Worker",
                   status: effectiveStatus,
-                  email: isSoleSuperAdmin ? "mejennur669@gmail.com" : (data.email || firebaseUser.email || ""),
-                  phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : (data.phoneNumber || firebaseUser.phoneNumber || ""),
+                  email: data.email || firebaseUser.email || "",
+                  phoneNumber: data.phoneNumber || firebaseUser.phoneNumber || "",
                   createdAt: data.createdAt
                 };
                 setCurrentUserProfile(profile);
-                if (effectiveRole && effectiveRole !== ("Pending" as any)) {
-                  setCurrentUserRole(effectiveRole);
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("erp_current_user_role", effectiveRole);
-                  }
-                } else {
-                  setCurrentUserRole("Pending" as any);
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("erp_current_user_role", "Pending");
-                  }
-                }
+                setCurrentUserRole(resolvedRole as UserRole);
               } else {
-                const userEmailLower = (firebaseUser.email || "").toLowerCase().trim();
-                const isOwner = userEmailLower === "mejennur669@gmail.com";
-                
-                let pendingReg: any = null;
-                if (typeof window !== "undefined") {
-                  try {
-                    const raw = sessionStorage.getItem("erp_pending_registration_profile") || localStorage.getItem("erp_pending_registration_profile");
-                    if (raw) pendingReg = JSON.parse(raw);
-                  } catch {}
-                }
-
-                let initialRole: UserRole = isOwner ? UserRole.SUPER_ADMIN : ("Pending" as any);
-                let initialStatus = isOwner ? "Active" : "Pending";
-                let targetRequestedRole = isOwner ? UserRole.SUPER_ADMIN : (pendingReg?.requestedRole || pendingReg?.position || "Worker");
-                if (!isOwner && targetRequestedRole === UserRole.SUPER_ADMIN) {
-                  targetRequestedRole = UserRole.WORKER;
-                }
-
-                const newUserProfileData = {
-                  id: firebaseUser.uid,
-                  uid: firebaseUser.uid,
-                  employeeId: pendingReg?.employeeId || `DCERP-${firebaseUser.uid.slice(0, 6).toUpperCase()}`,
-                  displayName: isOwner
-                    ? "Nuriye Ahmed Adem"
-                    : (pendingReg?.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User"),
-                  name: isOwner
-                    ? "Nuriye Ahmed Adem"
-                    : (pendingReg?.displayName || firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Registered User"),
-                  email: isOwner ? "mejennur669@gmail.com" : (pendingReg?.email || firebaseUser.email || ""),
-                  phoneNumber: isOwner ? "0910097862/0920843843" : (pendingReg?.phoneNumber || firebaseUser.phoneNumber || ""),
-                  role: initialRole,
-                  requestedRole: targetRequestedRole,
-                  department: pendingReg?.department || "",
-                  trade: pendingReg?.trade || "",
-                  position: targetRequestedRole,
-                  status: initialStatus,
-                  createdAt: pendingReg?.createdAt || new Date().toISOString()
-                };
-                setDoc(userDocRef, newUserProfileData, { merge: true }).catch((err) => {
-                  console.error("Auto-creating user profile in Firestore failed:", err);
-                });
-
                 const profile: UserProfile = {
                   uid: firebaseUser.uid,
-                  displayName: newUserProfileData.displayName,
-                  role: initialRole,
-                  requestedRole: newUserProfileData.requestedRole,
-                  status: initialStatus,
-                  email: newUserProfileData.email,
-                  phoneNumber: newUserProfileData.phoneNumber,
-                  createdAt: newUserProfileData.createdAt
+                  displayName:
+                    firebaseUser.displayName ||
+                    firebaseUser.email?.split("@")[0] ||
+                    "Registered User",
+                  role: "Pending",
+                  requestedRole: "Worker",
+                  status: "Pending",
+                  email: firebaseUser.email || "",
+                  phoneNumber: firebaseUser.phoneNumber || ""
                 };
                 setCurrentUserProfile(profile);
-                if (initialRole && initialRole !== ("Pending" as any)) {
-                  setCurrentUserRole(initialRole);
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("erp_current_user_role", initialRole);
-                  }
-                } else {
-                  setCurrentUserRole("Pending" as any);
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem("erp_current_user_role", "Pending");
-                  }
-                }
+                setCurrentUserRole("Pending" as UserRole);
               }
               setIsAuthLoading(false);
             },
             (error) => {
               handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-              // Fallback to local profile if Firestore profile read has error
               const profile: UserProfile = {
                 uid: firebaseUser.uid,
                 displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
@@ -600,40 +440,51 @@ export default function App() {
                 createdAt: new Date().toISOString()
               };
               setCurrentUserProfile((prev) => prev || profile);
+              setCurrentUserRole("Pending" as UserRole);
               setIsAuthLoading(false);
             }
           );
-          return () => unsubProfile();
         } else {
           setIsAuthLoading(false);
         }
       } else {
         setIsAuthenticated(false);
         setCurrentUserProfile(null);
+        setCurrentUserRole("Pending" as UserRole);
+        setMfaVerified(false);
+        setMfaEnrolled(null);
+        setMfaQrUri("");
+        setMfaSecret("");
+        setMfaCodeInput("");
+        setMfaError("");
         setIsAuthLoading(false);
       }
     });
 
-    return () => unsubscribe();
+    return () => {
+      if (unsubProfile) unsubProfile();
+      unsubscribe();
+    };
   }, []);
 
   const handleLogout = async () => {
-    if (auth && auth.currentUser) {
-      try {
-        await signOut(auth);
-      } catch (err) {
-        console.error("Error signing out from Firebase Auth:", err);
-      }
+    try {
+      await signOutCurrentUser();
+    } catch (err) {
+      console.error("Error signing out from Firebase Auth:", err);
     }
     setIsAuthenticated(false);
     setCurrentUserProfile(null);
+    setCurrentUserRole("Pending" as UserRole);
+    setMfaVerified(false);
+    setMfaEnrolled(null);
+    setMfaQrUri("");
+    setMfaSecret("");
+    setMfaCodeInput("");
+    setMfaError("");
     setLocationGranted(null);
     setIsCheckingLocation(false);
     setLocationCoords(null);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("erp_is_authenticated");
-      localStorage.removeItem("erp_current_user_role");
-    }
     logAction("User Logged Out", "Operator requested secure closure of acting session.");
   };
 
@@ -641,43 +492,34 @@ export default function App() {
     if (auth?.currentUser && db) {
       setIsAuthLoading(true);
       try {
+        await auth.currentUser.getIdToken(true).catch(() => {});
         const snap = await getDoc(doc(db, "users", auth.currentUser.uid));
         if (snap.exists()) {
           const data = snap.data();
-          const userEmailLower = (data.email || auth.currentUser.email || "").toLowerCase().trim();
-          const isSoleSuperAdmin = userEmailLower === "mejennur669@gmail.com";
-          let resolvedRole: UserRole = isSoleSuperAdmin
-            ? UserRole.SUPER_ADMIN
-            : (data.role === UserRole.SUPER_ADMIN ? (data.requestedRole as UserRole || UserRole.WORKER) : ((data.role as UserRole) || ("Pending" as any)));
-          let resolvedStatus = isSoleSuperAdmin ? "Active" : (data.status || "Pending");
-          if (!isSoleSuperAdmin && resolvedStatus !== "Active") {
-            resolvedRole = "Pending" as any;
-          }
+          const resolvedRole = resolveUserRole(data);
+          const resolvedStatus = resolvedRole === "Pending" ? "Pending" : "Active";
           const profile: UserProfile = {
             uid: auth.currentUser.uid,
-            displayName: isSoleSuperAdmin
-              ? "Nuriye Ahmed Adem"
-              : (data.displayName || auth.currentUser.displayName || auth.currentUser.email?.split("@")[0] || "Authenticated User"),
+            displayName:
+              data.displayName ||
+              data.name ||
+              auth.currentUser.displayName ||
+              auth.currentUser.email?.split("@")[0] ||
+              "Authenticated User",
             role: resolvedRole,
-            requestedRole: isSoleSuperAdmin ? UserRole.SUPER_ADMIN : (data.requestedRole || "Worker"),
+            requestedRole: data.requestedRole || "Worker",
             status: resolvedStatus,
-            email: isSoleSuperAdmin ? "mejennur669@gmail.com" : (data.email || auth.currentUser.email || ""),
-            phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : (data.phoneNumber || auth.currentUser.phoneNumber || ""),
+            email: data.email || auth.currentUser.email || "",
+            phoneNumber: data.phoneNumber || auth.currentUser.phoneNumber || "",
             createdAt: data.createdAt
           };
           setCurrentUserProfile(profile);
-          if (resolvedRole && resolvedRole !== ("Pending" as any)) {
-            setCurrentUserRole(resolvedRole);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("erp_current_user_role", resolvedRole);
-            }
-          } else {
-            setCurrentUserRole("Pending" as any);
-            if (typeof window !== "undefined") {
-              localStorage.setItem("erp_current_user_role", "Pending");
-            }
-          }
+          setCurrentUserRole(resolvedRole as UserRole);
+        } else {
+          setCurrentUserRole("Pending" as UserRole);
         }
+        const freshMfa = await hasFreshMfaClaim(false);
+        setMfaVerified(freshMfa);
       } catch (err) {
         console.error("Error refreshing user profile:", err);
       } finally {
@@ -820,7 +662,10 @@ export default function App() {
     }
   };
 
-  const allTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
+  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
+  const allTabs = SIMULATIONS_ENABLED
+    ? rawAllTabs
+    : rawAllTabs.filter(tab => !SIMULATION_ONLY_TABS.has(tab));
 
   // Aluminum Formwork Management System is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
   const formworkAllowedRoles: UserRole[] = [
@@ -855,6 +700,9 @@ export default function App() {
   };
 
   const hasAccess = (tab: string): boolean => {
+    if (!SIMULATIONS_ENABLED && SIMULATION_ONLY_TABS.has(tab)) {
+      return false;
+    }
     if (tab === "formworkManagement") {
       return formworkAllowedRoles.includes(currentUserRole);
     }
@@ -934,12 +782,95 @@ export default function App() {
     currentUserProfile?.status === "Pending" || 
     currentUserProfile?.role === ("Pending" as any) || 
     currentUserRole === ("Pending" as any) ||
-    (currentUserProfile != null && currentUserProfile.status !== "Active" && currentUserProfile.role !== UserRole.SUPER_ADMIN)
-  ) && (currentUserProfile?.email?.toLowerCase() !== "mejennur669@gmail.com" && auth?.currentUser?.email?.toLowerCase() !== "mejennur669@gmail.com");
+    (currentUserProfile != null && currentUserProfile.status !== "Active")
+  );
+
+  const mfaGateRequired = Boolean(
+    isAuthenticated &&
+    !isPendingUser &&
+    auth?.currentUser &&
+    isSensitiveRole(currentUserRole) &&
+    !mfaVerified
+  );
+
+  // Enforce TOTP MFA verification when an authenticated sensitive-role user lacks a fresh MFA claim
+  React.useEffect(() => {
+    if (!isAuthenticated || isPendingUser || !auth?.currentUser || !isSensitiveRole(currentUserRole)) {
+      return;
+    }
+
+    let cancelled = false;
+    async function verifyMfaState() {
+      setMfaChecking(true);
+      setMfaError("");
+      try {
+        const freshClaim = await hasFreshMfaClaim(false);
+        if (freshClaim) {
+          if (!cancelled) setMfaVerified(true);
+          return;
+        }
+        const status = await getMfaStatus();
+        if (status.verifiedRecently) {
+          const refreshed = await hasFreshMfaClaim(true);
+          if (refreshed) {
+            if (!cancelled) setMfaVerified(true);
+            return;
+          }
+        }
+        if (!cancelled) {
+          setMfaVerified(false);
+          setMfaEnrolled(status.enrolled);
+        }
+        if (!status.enrolled) {
+          const enrollRes = await enrollMfa();
+          if (!cancelled) {
+            setMfaQrUri(enrollRes.otpauthUri || "");
+            setMfaSecret(enrollRes.secret || "");
+          }
+        }
+      } catch (err: any) {
+        if (!cancelled) {
+          setMfaError(err?.message || "Unable to verify MFA status.");
+        }
+      } finally {
+        if (!cancelled) setMfaChecking(false);
+      }
+    }
+
+    verifyMfaState();
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated, isPendingUser, currentUserRole]);
+
+  const handleSubmitAppMfa = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaCodeInput.trim()) return;
+    setMfaSubmitting(true);
+    setMfaError("");
+    try {
+      const res = await verifyMfa(mfaCodeInput.trim());
+      if (res.success) {
+        setMfaVerified(true);
+        setMfaCodeInput("");
+        logAction("MFA Verified", `Sensitive-role MFA TOTP verified for ${currentUserRole}`);
+      } else {
+        setMfaError(
+          isAmharic
+            ? "የገባው የማረጋገጫ ኮድ የተሳሳተ ነው። እባክዎ ትክክለኛውን 6 አሃዝ ኮድ ያስገቡ።"
+            : res.message || "Invalid verification code."
+        );
+      }
+    } catch (err: any) {
+      setMfaError(err?.message || "MFA verification failed.");
+    } finally {
+      setMfaSubmitting(false);
+    }
+  };
 
   // Load master datasets from the real database service ONLY when user is authenticated & authorized
   React.useEffect(() => {
-    if (!isAuthenticated || isPendingUser) {
+    if (!isAuthenticated || isPendingUser || mfaGateRequired) {
       setIsLoading(false);
       return;
     }
@@ -1004,11 +935,11 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [isAuthenticated, isPendingUser]);
+  }, [isAuthenticated, isPendingUser, mfaGateRequired]);
 
   // Attach real-time onSnapshot listeners for formworkPanels and panelMovementLogs collections
   React.useEffect(() => {
-    if (typeof window === "undefined" || !isAuthenticated || isPendingUser) return;
+    if (typeof window === "undefined" || !isAuthenticated || isPendingUser || mfaGateRequired) return;
 
     console.log("[App.tsx] Subscribing to real-time formworkPanels and panelMovementLogs from DbService...");
 
@@ -1027,11 +958,11 @@ export default function App() {
       unsubPanels();
       unsubLogs();
     };
-  }, [isAuthenticated, isPendingUser]);
+  }, [isAuthenticated, isPendingUser, mfaGateRequired]);
 
   // Handle real-time workers list update from DbService (Firestore onSnapshot) or cross-component registrations
   React.useEffect(() => {
-    if (typeof window === "undefined" || !isAuthenticated || isPendingUser) return;
+    if (typeof window === "undefined" || !isAuthenticated || isPendingUser || mfaGateRequired) return;
 
     const unsubWorkers = DbService.subscribeWorkers((liveWorkers) => {
       if (liveWorkers && liveWorkers.length > 0) {
@@ -1058,7 +989,7 @@ export default function App() {
       window.removeEventListener("workers_updated", syncWorkersList);
       window.removeEventListener("storage", syncWorkersList);
     };
-  }, [isAuthenticated, isPendingUser]);
+  }, [isAuthenticated, isPendingUser, mfaGateRequired]);
 
   // Handle window online/offline events for unstable network indicator
   React.useEffect(() => {
@@ -1139,7 +1070,7 @@ export default function App() {
 
   // Real-Time Notification Stream from Firestore & Local Sync for authenticated users
   React.useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || isPendingUser || mfaGateRequired) return;
 
     // Listen for custom tab navigation events dispatched by notifications
     const handleTabNav = (e: CustomEvent<string>) => {
@@ -1801,25 +1732,26 @@ export default function App() {
         onLanguageToggle={() => setIsAmharic(!isAmharic)}
         auditLogsCount={auditLogs.length}
         onLoginSuccess={(role, method, loginLog, registeredProfile) => {
-          // Unlock ERP session - prioritize registeredProfile if this is a fresh registration
-          let activeRole = role;
+          const activeRole = (registeredProfile?.role as UserRole) || role || ("Pending" as UserRole);
           if (registeredProfile) {
-            activeRole = (registeredProfile.role as UserRole) || role;
             setCurrentUserProfile(registeredProfile);
-          } else if (currentUserProfile?.role && currentUserProfile.role !== ("Pending" as any) && currentUserProfile.status === "Active") {
-            activeRole = currentUserProfile.role as UserRole;
-          }
-
-          // STRICT ENFORCEMENT: ONLY mejennur669@gmail.com can ever receive activeRole = UserRole.SUPER_ADMIN
-          const authedEmail = (registeredProfile?.email || currentUserProfile?.email || auth?.currentUser?.email || "").toLowerCase().trim();
-          const isOwnerUser = authedEmail === "mejennur669@gmail.com";
-
-          if (!isOwnerUser && (activeRole === UserRole.SUPER_ADMIN || String(activeRole) === "Super Admin")) {
-            activeRole = ("Pending" as any);
+          } else if (!auth?.currentUser) {
+            setCurrentUserProfile({
+              uid: "dev-demo-" + activeRole,
+              displayName: `${activeRole} User`,
+              role: activeRole,
+              status: activeRole === ("Pending" as any) ? "Pending" : "Active",
+              email: `${String(activeRole).toLowerCase().replace(/\s+/g, ".")}@company.local`
+            });
           }
 
           setCurrentUserRole(activeRole);
           setIsAuthenticated(true);
+          if (auth?.currentUser && isSensitiveRole(activeRole)) {
+            setMfaVerified(method.includes("MFA") || method.includes("TOTP"));
+          } else {
+            setMfaVerified(true);
+          }
           setLoginMetadata(loginLog);
           setLocationGranted(null);
           setIsCheckingLocation(false);
@@ -1831,44 +1763,21 @@ export default function App() {
             setActiveTab("storeOwnerApp");
           }
 
-          if (isOwnerUser && activeRole === UserRole.SUPER_ADMIN) {
-            setCurrentUserProfile({
-              uid: auth?.currentUser?.uid || "super-admin-nuriye",
-              displayName: "Nuriye Ahmed Adem",
-              role: UserRole.SUPER_ADMIN,
-              requestedRole: UserRole.SUPER_ADMIN,
-              status: "Active",
-              email: "mejennur669@gmail.com",
-              phoneNumber: "0910097862/0920843843"
-            });
-          } else if (!registeredProfile && !auth?.currentUser && !currentUserProfile) {
-            setCurrentUserProfile({
-              uid: "demo-" + activeRole,
-              displayName: `${activeRole} User`,
-              role: activeRole,
-              status: activeRole === ("Pending" as any) ? "Pending" : "Active",
-              email: `${String(activeRole).toLowerCase().replace(/\s+/g, ".")}@company.com`
-            });
-          }
-
-          if (typeof window !== "undefined") {
-            localStorage.setItem("erp_is_authenticated", "true");
-            localStorage.setItem("erp_current_user_role", activeRole);
-          }
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${activeRole} | Metadata: ${JSON.stringify(loginLog)}`, activeRole);
 
-          // Fetch fresh data in the background
-          Promise.all([
-            DbService.getWorkers(),
-            DbService.getAuditLogs(),
-            DbService.getNotifications()
-          ]).then(([fetchedWorkers, fetchedAudit, fetchedNotifications]) => {
-            setWorkers(fetchedWorkers);
-            setAuditLogs(fetchedAudit);
-            setNotifications(fetchedNotifications);
-          }).catch((err) => {
-            console.error("Error refreshing data on login success in background:", err);
-          });
+          if (activeRole !== ("Pending" as any) && (!auth?.currentUser || !isSensitiveRole(activeRole) || method.includes("MFA"))) {
+            Promise.all([
+              DbService.getWorkers(),
+              DbService.getAuditLogs(),
+              DbService.getNotifications()
+            ]).then(([fetchedWorkers, fetchedAudit, fetchedNotifications]) => {
+              setWorkers(fetchedWorkers);
+              setAuditLogs(fetchedAudit);
+              setNotifications(fetchedNotifications);
+            }).catch((err) => {
+              console.error("Error refreshing data on login success in background:", err);
+            });
+          }
         }}
       />
     );
@@ -1918,60 +1827,17 @@ export default function App() {
           </div>
 
           {/* Account Approval Status Panel */}
-          {currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com" ||
-           auth?.currentUser?.email?.toLowerCase() === "mejennur669@gmail.com" ? (
-            <div className="bg-slate-800/80 p-4 rounded-xl border border-amber-500/30 text-left space-y-3">
-              <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
-                <ShieldCheck size={16} />
-                <span>{isAmharic ? "የስርዓት ባለቤት ማፅደቂያ (Owner Self-Activation)" : "Owner Self-Activation"}</span>
-              </div>
-              <div className="grid grid-cols-1 gap-2 pt-1">
-                <button
-                  onClick={() => {
-                    setCurrentUserRole(UserRole.SUPER_ADMIN);
-                    if (currentUserProfile) {
-                      setCurrentUserProfile({
-                        ...currentUserProfile,
-                        displayName: "Nuriye Ahmed Adem",
-                        email: "mejennur669@gmail.com",
-                        phoneNumber: "0910097862/0920843843",
-                        status: "Active",
-                        role: UserRole.SUPER_ADMIN
-                      });
-                    }
-                    if (typeof window !== "undefined") {
-                      localStorage.setItem("erp_current_user_role", UserRole.SUPER_ADMIN);
-                    }
-                    if (db && auth?.currentUser?.uid) {
-                      setDoc(doc(db, "users", auth.currentUser.uid), {
-                        displayName: "Nuriye Ahmed Adem",
-                        email: "mejennur669@gmail.com",
-                        phoneNumber: "0910097862/0920843843",
-                        status: "Active",
-                        role: UserRole.SUPER_ADMIN
-                      }, { merge: true }).catch(err => console.error("Error updating owner status in Firestore:", err));
-                    }
-                  }}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-lg shadow-emerald-600/20"
-                >
-                  <CheckCircle2 size={16} />
-                  <span>{isAmharic ? "መለያዬን አግብር (Super Admin)" : "Activate Account as Super Admin"}</span>
-                </button>
-              </div>
+          <div className="bg-amber-950/40 p-4 rounded-xl border border-amber-500/30 text-left space-y-2">
+            <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
+              <Clock size={16} />
+              <span>{isAmharic ? "የማጽደቅ ሂደት በማካሄድ ላይ (Awaiting Approval)" : "Awaiting Administrator Approval"}</span>
             </div>
-          ) : (
-            <div className="bg-amber-950/40 p-4 rounded-xl border border-amber-500/30 text-left space-y-2">
-              <div className="flex items-center space-x-2 text-amber-400 font-bold text-xs">
-                <Clock size={16} />
-                <span>{isAmharic ? "የማጽደቅ ሂደት በማካሄድ ላይ (Awaiting Approval)" : "Awaiting Super Admin Approval"}</span>
-              </div>
-              <p className="text-[11px] text-slate-300 leading-relaxed">
-                {isAmharic
-                  ? "መለያዎ በሱፐር አድሚን (Super Admin: Nuriye Ahmed Adem) እስከሚፀድቅ ድረስ 'Pending' ደረጃ ላይ ይቆያል።"
-                  : "Your account will remain in 'Pending' state until it is approved by the Super Admin (Nuriye Ahmed Adem)."}
-              </p>
-            </div>
-          )}
+            <p className="text-[11px] text-slate-300 leading-relaxed">
+              {isAmharic
+                ? "መለያዎ በሲስተሙ አስተዳዳሪ (Super Admin / Head Office / HR) እስከሚፀድቅ ድረስ 'Pending' ደረጃ ላይ ይቆያል።"
+                : "Your account will remain in 'Pending' state until it is reviewed and activated by an authorized Administrator."}
+            </p>
+          </div>
 
           <p className="text-xs text-slate-400 leading-relaxed font-sans">
             {isAmharic 
@@ -1995,6 +1861,101 @@ export default function App() {
               <span>{isAmharic ? "ውጣ" : "Sign Out"}</span>
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mfaGateRequired) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-100 font-sans relative overflow-hidden p-6">
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#0f172a_1px,transparent_1px),linear-gradient(to_bottom,#0f172a_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30" />
+
+        <div className="relative z-10 max-w-md w-full bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-2xl space-y-5">
+          <div className="flex items-center space-x-3">
+            <div className="p-3 bg-red-600/15 border border-red-500/30 text-red-400 rounded-xl">
+              <ShieldCheck size={28} />
+            </div>
+            <div>
+              <h2 className="text-lg font-extrabold text-white tracking-tight">
+                {isAmharic ? "ባለሁለት ደረጃ ማረጋገጫ (MFA)" : "Two-Factor Authentication Required"}
+              </h2>
+              <p className="text-xs text-slate-400">
+                {isAmharic
+                  ? `ለ "${currentUserRole}" የስራ ድርሻ TOTP ማረጋገጫ ያስፈልጋል።`
+                  : `Role "${currentUserRole}" requires TOTP authenticator verification.`}
+              </p>
+            </div>
+          </div>
+
+          {mfaChecking ? (
+            <div className="py-6 flex flex-col items-center space-y-3 text-slate-400 text-xs">
+              <RefreshCw size={24} className="animate-spin text-red-500" />
+              <span>{isAmharic ? "የMFA ሁኔታ በመፈተሽ ላይ..." : "Checking MFA enrollment status..."}</span>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmitAppMfa} className="space-y-4">
+              {mfaEnrolled === false && mfaQrUri && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-4 flex flex-col items-center space-y-3 text-center">
+                  <p className="text-xs font-semibold text-amber-300">
+                    {isAmharic
+                      ? "ይህን QR ኮድ በAuthenticator መተግበሪያዎ ስካን ያድርጉ"
+                      : "Scan this QR code in your Authenticator app"}
+                  </p>
+                  <div className="bg-white p-3 rounded-xl">
+                    <QRCodeSVG value={mfaQrUri} size={160} />
+                  </div>
+                  {mfaSecret && (
+                    <div className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-[11px] font-mono text-slate-300 break-all">
+                      Secret: {mfaSecret}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-300 mb-1.5">
+                  {isAmharic ? "ባለ 6 አሃዝ የማረጋገጫ ኮድ" : "6-Digit Authenticator Code"}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  required
+                  value={mfaCodeInput}
+                  onChange={(e) => setMfaCodeInput(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  className="w-full px-4 py-3 bg-slate-950 border border-slate-700 rounded-xl text-center text-lg font-mono tracking-[0.4em] text-white focus:outline-none focus:border-red-500"
+                />
+              </div>
+
+              {mfaError && (
+                <div className="p-3 bg-red-950/60 border border-red-500/40 rounded-xl text-xs text-red-300 font-semibold">
+                  {mfaError}
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  type="submit"
+                  disabled={mfaSubmitting || mfaCodeInput.length < 6}
+                  className="flex-1 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-all cursor-pointer"
+                >
+                  {mfaSubmitting
+                    ? (isAmharic ? "በማረጋገጥ ላይ..." : "Verifying...")
+                    : (isAmharic ? "አረጋግጥ እና ክፈት" : "Verify & Continue")}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleLogout}
+                  className="bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-2.5 px-4 rounded-xl text-xs transition-all cursor-pointer border border-slate-700"
+                >
+                  {isAmharic ? "ውጣ" : "Sign Out"}
+                </button>
+              </div>
+            </form>
+          )}
         </div>
       </div>
     );
@@ -2124,11 +2085,7 @@ export default function App() {
                   {isAmharic ? "መለያ" : "Profile"}
                 </span>
                 <div className="text-[10px] sm:text-xs font-bold text-slate-700 truncate">
-                  {currentUserProfile?.displayName || (
-                    currentUserRole === UserRole.SUPER_ADMIN && (currentUserProfile?.email === "mejennur669@gmail.com" || auth?.currentUser?.email === "mejennur669@gmail.com")
-                      ? "Nuriye (Admin)" 
-                      : (currentUserRole === UserRole.SUPER_ADMIN ? UserRole.WORKER : currentUserRole)
-                  )}
+                  {currentUserProfile?.displayName || currentUserRole}
                 </div>
               </div>
             </div>
@@ -2442,7 +2399,7 @@ export default function App() {
             )}
 
             {/* Biometric Attendance Board Tab */}
-            {tabPermissions[currentUserRole]?.includes("biometricBoard") && (
+            {hasAccess("biometricBoard") && (
               <button
                 onClick={() => navigateToTab("biometricBoard")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
@@ -2455,7 +2412,7 @@ export default function App() {
             )}
 
             {/* Fingerprint Attendance Board Tab */}
-            {tabPermissions[currentUserRole]?.includes("fingerprintBoard") && (
+            {hasAccess("fingerprintBoard") && (
               <button
                 onClick={() => navigateToTab("fingerprintBoard")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
@@ -2468,7 +2425,7 @@ export default function App() {
             )}
 
             {/* Real-Time Cloud Sync Tab */}
-            {tabPermissions[currentUserRole]?.includes("headOfficeSync") && (
+            {hasAccess("headOfficeSync") && (
               <button
                 onClick={() => navigateToTab("headOfficeSync")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
@@ -2481,7 +2438,7 @@ export default function App() {
             )}
 
             {/* Biometric Kiosk Tab */}
-            {tabPermissions[currentUserRole]?.includes("biometricKiosk") && (
+            {hasAccess("biometricKiosk") && (
               <button
                 onClick={() => navigateToTab("biometricKiosk")}
                 className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
@@ -2624,7 +2581,7 @@ export default function App() {
             )}
 
             {/* Launch Readiness Tab */}
-            {tabPermissions[currentUserRole]?.includes("launchReadiness") && (
+            {hasAccess("launchReadiness") && (
               <button
                 onClick={() => navigateToTab("launchReadiness")}
                 className={`px-4 py-3 flex items-center space-x-1.5 text-orange-400 transition-colors cursor-pointer border-b-2 ${
@@ -3186,7 +3143,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "biometricBoard" && (
+        {activeTab === "biometricBoard" && hasAccess("biometricBoard") && (
           <BiometricAttendanceBoard 
             workers={workers} 
             attendance={attendance} 
@@ -3197,7 +3154,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "fingerprintBoard" && (
+        {activeTab === "fingerprintBoard" && hasAccess("fingerprintBoard") && (
           <FingerprintAttendanceBoard 
             workers={workers} 
             attendance={attendance} 
@@ -3208,7 +3165,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "headOfficeSync" && (
+        {activeTab === "headOfficeSync" && hasAccess("headOfficeSync") && (
           <HeadOfficeSyncModule
             workers={workers}
             teams={teams}
@@ -3221,7 +3178,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "biometricKiosk" && (
+        {activeTab === "biometricKiosk" && hasAccess("biometricKiosk") && (
           <BiometricEnrollmentKiosk 
             workers={workers} 
             attendance={attendance} 
@@ -3355,7 +3312,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "launchReadiness" && (
+        {activeTab === "launchReadiness" && hasAccess("launchReadiness") && (
           <LaunchReadinessHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -3457,13 +3414,7 @@ export default function App() {
       <footer className="bg-white border-t border-slate-200 py-6 text-center text-xs text-slate-400 no-print">
         <div className="max-w-7xl mx-auto px-4 space-y-1">
           <p>© {new Date().getFullYear()} Digital Construction ERP System. All rights reserved. Aluminum Formwork Productivity Command Hub.</p>
-          <p className="font-semibold text-slate-500">
-            {isAmharic 
-              ? "ሱፐር አድሚን (Super Admin): Nuriye Ahmed Adem" 
-              : "Super Admin: Nuriye Ahmed Adem"} 
-            {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843 | {isAmharic ? "ኢሜይል:" : "Email:"} mejennur669@gmail.com
-          </p>
-          <p className="font-mono text-[10px]">Secure offline local-sync enabled | Bole Heights Project Site B1</p>
+          <p className="font-mono text-[10px]">Secure offline local-sync enabled | Digital Construction ERP Enterprise Platform</p>
         </div>
       </footer>
 

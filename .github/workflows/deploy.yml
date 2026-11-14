@@ -55,8 +55,15 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE_NAME="gcr.io/${{ secrets.GCP_PROJECT_ID }}/digital-construction-erp:${{ github.sha }}"
-          docker build -t $IMAGE_NAME .
+          docker build \
+            --build-arg VITE_RECAPTCHA_SITE_KEY="${{ secrets.VITE_RECAPTCHA_SITE_KEY }}" \
+            --build-arg VITE_APPCHECK_PROVIDER="v3" \
+            -t $IMAGE_NAME .
           docker push $IMAGE_NAME
+
+      - name: Deploy Firebase Security Rules & Indexes
+        run: |
+          npx --yes firebase-tools deploy --only firestore:rules,firestore:indexes,storage --non-interactive
 
       - name: Deploy to Cloud Run
         run: |
@@ -66,4 +73,5 @@ jobs:
             --region europe-west1 \
             --allow-unauthenticated \
             --port 3000 \
-            --set-env-vars ENCRYPTION_SECRET_KEY=${{ secrets.ENCRYPTION_SECRET_KEY }},GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            --set-secrets ENCRYPTION_SECRET_KEY=ENCRYPTION_SECRET_KEY:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest \
+            --set-env-vars NODE_ENV=production,ENFORCE_APP_CHECK=true,ALLOW_SIMULATED_AI=false

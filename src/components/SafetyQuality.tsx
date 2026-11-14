@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { authFetch } from "../services/authService";
 import { 
   ShieldAlert, 
   CheckCircle, 
@@ -172,7 +173,7 @@ export const SafetyQuality: React.FC<SafetyQualityProps> = ({
     }, 2500);
 
     try {
-      const response = await fetch("/api/ai/predict-safety", {
+      const response = await authFetch("/api/ai/predict-safety", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ safetyLogs, qualitySnags })

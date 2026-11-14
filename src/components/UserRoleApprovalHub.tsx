@@ -206,14 +206,6 @@ export function UserRoleApprovalHub({
           }
         });
 
-        // 3. Merge with local cache requests and back-fill local-only requests to Firestore
-        localReqs.forEach(lr => {
-          if (!firestoreReqsMap.has(lr.id)) {
-            firestoreReqsMap.set(lr.id, lr);
-            setDoc(doc(db, "role_change_requests", lr.id), sanitizeForFirestore(lr), { merge: true }).catch(() => {});
-          }
-        });
-
         const combinedReqs = Array.from(firestoreReqsMap.values());
         setRequests(combinedReqs);
       } catch (err) {
@@ -311,8 +303,8 @@ export function UserRoleApprovalHub({
     if (!approvingReq) return;
 
     let approvedRole = overrideRole || approvingReq.requestedRole;
-    // Strict restriction: Only mejennur669@gmail.com can be Super Admin
-    if (approvedRole === UserRole.SUPER_ADMIN && approvingReq.userEmail?.toLowerCase() !== "mejennur669@gmail.com") {
+    // Strict restriction: Only an active Super Admin can assign the Super Admin role
+    if (approvedRole === UserRole.SUPER_ADMIN && currentUserRole !== UserRole.SUPER_ADMIN) {
       approvedRole = UserRole.WORKER;
     }
 

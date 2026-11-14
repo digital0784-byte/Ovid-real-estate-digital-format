@@ -1354,7 +1354,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
           <div className="bg-slate-800/80 p-2.5 rounded-xl border border-slate-700 font-mono text-[10px] space-y-0.5">
             <p className="text-slate-400 text-[9px]">{isAmharic ? "ዋና አስተዳዳሪ" : "LEAD ADMINISTRATOR"}</p>
             <p className="text-red-400 font-black">{currentAdminName}</p>
-            <p className="text-slate-300 text-[9px]">0910097862 / 0920843843</p>
+            <p className="text-slate-300 text-[9px]">{currentUserRole}</p>
           </div>
         </div>
       </div>
@@ -4396,12 +4396,12 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
               </div>
               <button
                 onClick={() => {
-                  alert(`BI executive summary report dispatched to ${currentAdminName}'s administrative email.`);
-                  onLogAction("Dispatched BI Report", "Emailed BI analysis digest to mejennur669@gmail.com");
+                  alert(`BI executive summary report prepared for ${currentAdminName}.`);
+                  onLogAction("Dispatched BI Report", `Prepared BI analysis digest for ${currentAdminName}`);
                 }}
                 className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded py-2 font-bold cursor-pointer transition-all"
               >
-                {isAmharic ? `የBI ሪፖርት ወደ ${currentAdminName} ላክ` : "Send BI Report to mejennur669@gmail.com"}
+                {isAmharic ? `የBI ሪፖርት ወደ ${currentAdminName} ላክ` : `Send BI Report to ${currentAdminName}`}
               </button>
             </div>
           </div>
@@ -4822,8 +4822,7 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                 <div className="space-y-1">
                   <h4 className="text-sm font-black tracking-tight">{currentAdminName}</h4>
                   <p className="text-[11px] text-slate-300 font-medium">{isAmharic ? "ሙሉ-ስታክ የERP አርክቴክት" : "Full Stack ERP Architect"}</p>
-                  <p className="text-[11px] font-mono text-red-400">0910097862 / 0920843843</p>
-                  <p className="text-[11px] font-mono text-slate-400 font-semibold">mejennur669@gmail.com</p>
+                  <p className="text-[11px] font-mono text-red-400">{isAmharic ? "የኢንተርፕራይዝ ሲስተም አስተዳደር" : "Enterprise Systems Architecture"}</p>
                 </div>
                 <div className="pt-2 border-t border-slate-800 text-[10px] text-slate-400 italic leading-snug">
                   {isAmharic ? "ለ Digital Construction ERP የአሉሚኒየም ፎርምወርክ ሲስተም የተዘጋጀ። በከፍተኛ ጥበቃ ክላውድ ሰርቨር የተረጋገጠ።" : "Designed explicitly for Digital Construction ERP Aluminum Formwork Systems. Authenticated under high-integrity multi-region cloud servers."}

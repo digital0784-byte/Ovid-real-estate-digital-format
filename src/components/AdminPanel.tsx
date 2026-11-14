@@ -84,7 +84,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
             const ex = map.get(k);
             if (k === uid) return true;
             if (item.employeeId && ex.employeeId && item.employeeId === ex.employeeId) return true;
-            if (item.email && ex.email && item.email.toLowerCase() === ex.email.toLowerCase() && item.email !== "mejennur669@gmail.com") return true;
+            if (item.email && ex.email && item.email.toLowerCase() === ex.email.toLowerCase()) return true;
             return false;
           });
           if (existingKey) {
@@ -228,8 +228,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       roleSelections[uid] ||
       (userRec.requestedRole && userRec.requestedRole !== "Pending" ? userRec.requestedRole : UserRole.WORKER);
 
-    // Only mejennur669@gmail.com can be Super Admin
-    if (targetRole === UserRole.SUPER_ADMIN && userRec.email?.toLowerCase() !== "mejennur669@gmail.com") {
+    // Only an existing Super Admin can assign the Super Admin role
+    if (targetRole === UserRole.SUPER_ADMIN && currentUserRole !== UserRole.SUPER_ADMIN) {
       targetRole = UserRole.WORKER;
     }
 
@@ -373,14 +373,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
           </p>
         </div>
 
-        {/* User Role Simulation Dropdown & Sole Super Admin Badge */}
+        {/* User Role Simulation Dropdown */}
         <div className="flex flex-col items-end gap-2 text-xs">
-          <div className="bg-red-50 border border-red-200 rounded-lg px-3 py-1.5 text-[11px] font-mono text-slate-700">
-            <span className="font-black text-red-700 uppercase">Only Super Admin:</span>{" "}
-            <span className="font-bold text-slate-900">Nuriye Ahmed Adem</span>{" | "}
-            <span>0910097862/0920843843</span>{" | "}
-            <span className="underline">mejennur669@gmail.com</span>
-          </div>
           <div className="flex items-center space-x-2">
             <span className="font-semibold text-slate-500">Active Duty Role:</span>
             <select 
@@ -543,7 +537,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             className="bg-slate-50 border border-slate-200 rounded px-2 py-1 text-[11px] font-bold text-slate-800 outline-none"
                           >
                             {Array.from(new Set(Object.values(UserRole)))
-                              .filter((r) => r !== UserRole.SUPER_ADMIN || u.email === "mejennur669@gmail.com")
+                              .filter((r) => r !== UserRole.SUPER_ADMIN || currentUserRole === UserRole.SUPER_ADMIN || u.role === UserRole.SUPER_ADMIN)
                               .map((r) => (
                                 <option key={r} value={r}>
                                   {r}
@@ -558,7 +552,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                             <CheckCircle2 size={12} />
                             <span>{isPending ? (isAmharic ? "አጽድቅ" : "Approve") : (isAmharic ? "ድርሻ ቀይር" : "Update")}</span>
                           </button>
-                          {u.email !== "mejennur669@gmail.com" && (
+                          {u.role !== UserRole.SUPER_ADMIN && (
                             <button
                               type="button"
                               onClick={() => handleDeleteRegistrant(uid)}

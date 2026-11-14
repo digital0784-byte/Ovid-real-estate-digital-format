@@ -49,6 +49,8 @@ interface SecuritySettingsHubProps {
     status: string;
     email: string;
     phoneNumber?: string;
+    employeeId?: string;
+    department?: string;
   } | null;
   selectedProject?: string;
   onToggleLanguage?: () => void;
@@ -91,10 +93,10 @@ type SettingsTabId =
 
 const RBAC_SPECIFICATION: { role: string; titleAm: string; scopeEn: string; scopeAm: string }[] = [
   {
-    role: "Super Admin (Nuriye Ahmed Adem)",
-    titleAm: "ብቸኛው ሱፐር አድሚን (Nuriye Ahmed Adem)",
-    scopeEn: "Only Super Admin (0910097862/0920843843 | mejennur669@gmail.com) — Full global ERP & security authority.",
-    scopeAm: "ሙሉ የሲስተም፣ የደህንነት እና የአስተዳደር ቁጥጥር (0910097862/0920843843 | mejennur669@gmail.com)።"
+    role: "Super Admin",
+    titleAm: "ዋና ሱፐር አድሚን (Super Admin)",
+    scopeEn: "Full global ERP, RBAC, MFA, and security governance authority.",
+    scopeAm: "ሙሉ የሲስተም፣ የደህንነት እና የአስተዳደር ቁጥጥር ስልጣን።"
   },
   {
     role: "Head Office",
@@ -175,29 +177,27 @@ export function SecuritySettingsHub({
   ].includes(currentUserRole);
 
   // --- SECTION 2: MY PROFILE STATES ---
-  const isSoleSuperAdmin =
-    currentUserRole === UserRole.SUPER_ADMIN ||
-    currentUserProfile?.email?.toLowerCase() === "mejennur669@gmail.com";
+  const isSuperAdminRole = currentUserRole === UserRole.SUPER_ADMIN;
 
   const [profileName, setProfileName] = useState(
-    isSoleSuperAdmin
-      ? "Nuriye Ahmed Adem"
-      : currentUserProfile?.displayName || `${currentUserRole} Operator`
+    currentUserProfile?.displayName || `${currentUserRole} Operator`
   );
   const [employeeId] = useState(
-    isSoleSuperAdmin ? "DCERP-SA-001" : `DCERP-${currentUserRole.slice(0, 2).toUpperCase()}-104`
+    currentUserProfile?.employeeId ||
+      (isSuperAdminRole ? "DCERP-SA-001" : `DCERP-${currentUserRole.slice(0, 2).toUpperCase()}-104`)
   );
   const [jobPosition, setJobPosition] = useState<string>(currentUserRole);
   const [department, setDepartment] = useState(
-    isSoleSuperAdmin ? "Executive & System Governance" : "Aluminum Formwork & Site Engineering"
+    currentUserProfile?.department ||
+      (isSuperAdminRole ? "Executive & System Governance" : "Aluminum Formwork & Site Engineering")
   );
   const [assignedProject, setAssignedProject] = useState(selectedProject);
   const [assignedSite, setAssignedSite] = useState("Bole Heights Site B1");
   const [profilePhone, setProfilePhone] = useState(
-    isSoleSuperAdmin ? "0910097862/0920843843" : currentUserProfile?.phoneNumber || "0910097862/0920843843"
+    currentUserProfile?.phoneNumber || ""
   );
   const [profileEmail, setProfileEmail] = useState(
-    isSoleSuperAdmin ? "mejennur669@gmail.com" : currentUserProfile?.email || "mejennur669@gmail.com"
+    currentUserProfile?.email || ""
   );
   const [profilePhotoBadge, setProfilePhotoBadge] = useState<"initials" | "hardhat" | "executive">("executive");
   const [profileSavedMsg, setProfileSavedMsg] = useState("");
@@ -280,7 +280,7 @@ export function SecuritySettingsHub({
     {
       id: "SES-100",
       userId: "SA-01",
-      userName: "Nuriye Ahmed Adem",
+      userName: currentUserProfile?.displayName || "Super Admin Operator",
       role: UserRole.SUPER_ADMIN,
       device: "Desktop Workstation - Chrome",
       ip: "192.168.10.1",
@@ -347,7 +347,7 @@ export function SecuritySettingsHub({
 
   // --- ENTERPRISE SOC STATES ---
   const [appCheckEnabled, setAppCheckEnabled] = useState(true);
-  const [plainText, setPlainText] = useState("DCERP-EMP-0910097862-SALARY-125000-ETB");
+  const [plainText, setPlainText] = useState("DCERP-EMP-0001-AES256-SAMPLE");
   const [encryptedHex, setEncryptedHex] = useState("");
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -356,9 +356,9 @@ export function SecuritySettingsHub({
       await setDoc(
         doc(db, "users", auth.currentUser.uid),
         {
-          displayName: isSoleSuperAdmin ? "Nuriye Ahmed Adem" : profileName,
-          phoneNumber: isSoleSuperAdmin ? "0910097862/0920843843" : profilePhone,
-          email: isSoleSuperAdmin ? "mejennur669@gmail.com" : profileEmail
+          displayName: profileName,
+          phoneNumber: profilePhone,
+          email: profileEmail
         },
         { merge: true }
       ).catch(() => {});
@@ -491,24 +491,26 @@ export function SecuritySettingsHub({
             </div>
           </div>
 
-          {/* Only Super Admin Box */}
+          {/* Role Governance Box */}
           <div className="bg-red-50/60 p-3 rounded-xl border border-red-200 font-mono text-[10px] text-slate-700 space-y-1">
             <p className="font-bold text-red-700 flex items-center gap-1">
               <Cpu size={11} />
-              <span>{isAmharic ? "ብቸኛው ሱፐር አድሚን (Only Super Admin)" : "Only Super Admin"}</span>
+              <span>{isAmharic ? "የሱፐር አድሚን አስተዳደር (RBAC + MFA)" : "Super Admin Governance"}</span>
             </p>
             <div>
-              <span className="text-slate-500">{isAmharic ? "ስም:" : "Name:"}</span>{" "}
-              <span className="font-bold text-slate-900">Nuriye Ahmed Adem</span>
+              <span className="text-slate-500">{isAmharic ? "ተጠቃሚ:" : "Operator:"}</span>{" "}
+              <span className="font-bold text-slate-900">{profileName}</span>
             </div>
             <div>
-              <span className="text-slate-500">{isAmharic ? "ስልክ:" : "Phone:"}</span>{" "}
-              <span className="font-bold text-slate-900">0910097862/0920843843</span>
+              <span className="text-slate-500">{isAmharic ? "የስራ ድርሻ:" : "Role:"}</span>{" "}
+              <span className="font-bold text-slate-900">{currentUserRole}</span>
             </div>
-            <div>
-              <span className="text-slate-500">{isAmharic ? "ኢሜይል:" : "Email:"}</span>{" "}
-              <span className="font-bold underline text-slate-900">mejennur669@gmail.com</span>
-            </div>
+            {profileEmail && (
+              <div>
+                <span className="text-slate-500">{isAmharic ? "ኢሜይል:" : "Email:"}</span>{" "}
+                <span className="font-bold underline text-slate-900">{profileEmail}</span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -893,7 +895,7 @@ export function SecuritySettingsHub({
                         return;
                       }
                       const domainMatch = allowedWorkDomains.some((d) => trimmed.endsWith(d.toLowerCase()));
-                      if (!domainMatch && !isSoleSuperAdmin) {
+                      if (!domainMatch && !isSuperAdminRole) {
                         setEmailChangeStatusMsg(
                           isAmharic
                             ? `ያልተፈቀደ የኢሜይል Domain! የተፈቀዱት፦ ${allowedWorkDomains.join(", ")}`
@@ -957,7 +959,7 @@ export function SecuritySettingsHub({
                           type="button"
                           disabled={!emailChangePending.emailVerified || emailChangePending.hrApproved}
                           onClick={() => {
-                            const updated = isSoleSuperAdmin ? "mejennur669@gmail.com" : emailChangePending.newEmail;
+                            const updated = emailChangePending.newEmail;
                             setProfileEmail(updated);
                             setEmailChangePending(null);
                             setNewEmailCandidate("");

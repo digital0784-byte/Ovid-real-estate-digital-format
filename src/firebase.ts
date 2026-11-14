@@ -176,4 +176,4 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   return errInfo;
 }
 
-export { db, auth, isFirebaseReady };
+export { app, db, auth, isFirebaseReady };

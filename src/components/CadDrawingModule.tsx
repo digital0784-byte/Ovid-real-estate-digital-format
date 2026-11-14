@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
+import { authFetch } from "../services/authService";
 import { 
   FileText, 
   Upload, 
@@ -849,7 +850,7 @@ export const CadDrawingModule: React.FC<CadDrawingModuleProps> = ({
     }, 1000);
 
     try {
-      const response = await fetch("/api/ai/analyze-cad", {
+      const response = await authFetch("/api/ai/analyze-cad", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { DbService } from "../services/db";
+import { authFetch } from "../services/authService";
 import { formatCurrency, formatNumber, parseMoney } from "../utils/formatters";
 import { 
   ProjectZone, 
@@ -760,7 +761,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const handleRunAiAnalysis = async () => {
     setAiLoading(true);
     try {
-      const response = await fetch("/api/finance/ai-analysis", {
+      const response = await authFetch("/api/finance/ai-analysis", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

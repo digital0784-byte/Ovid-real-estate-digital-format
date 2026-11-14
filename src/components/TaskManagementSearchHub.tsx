@@ -59,8 +59,8 @@ export const TaskManagementSearchHub: React.FC<TaskManagementSearchHubProps> = (
   isAmharic,
   onLogAction
 }) => {
-  const currentUserName = currentUserProfile?.displayName || "Nuriye Ahmed Adem";
-  const currentUserId = currentUserProfile?.uid || "super-admin-nuriye";
+  const currentUserName = currentUserProfile?.displayName || `${currentUserRole} User`;
+  const currentUserId = currentUserProfile?.uid || "USER-SYSTEM";
 
   const [tasks, setTasks] = useState<ErpTask[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);

@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import crypto from "crypto";
 import { initializeApp, getApps, type App } from "firebase-admin/app";
 import { getAppCheck } from "firebase-admin/app-check";
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { TOTP, Secret } from "otpauth";
 let firebaseConfigJson: any = {};
@@ -22,14 +23,45 @@ try {
 // Load environment variables
 dotenv.config();
 
-// Boot check for encryption key
-const ENCRYPTION_KEY = process.env.ENCRYPTION_SECRET_KEY || "digital_construction_erp_secret_32b";
-if (!process.env.ENCRYPTION_SECRET_KEY) {
-  console.warn("[INFO] ENCRYPTION_SECRET_KEY is not set. Using Digital Construction ERP standard fallback key.");
+// Strict 32-byte encryption key resolution (supports 64-char hex or strict 32-byte base64)
+function resolveEncryptionKey(raw?: string): Buffer | null {
+  if (!raw) return null;
+  const trimmed = raw.trim();
+  if (/^[0-9a-fA-F]{64}$/.test(trimmed)) {
+    return Buffer.from(trimmed, "hex");
+  }
+  if (/^[A-Za-z0-9+/=]{43,44}$/.test(trimmed)) {
+    const buf = Buffer.from(trimmed, "base64");
+    if (buf.length === 32 && buf.toString("base64").replace(/=+$/, "") === trimmed.replace(/=+$/, "")) {
+      return buf;
+    }
+  }
+  return null;
 }
-const IV_LENGTH = 12;
 
-// Initialize Firebase Admin SDK for App Check Verification if env is configured
+const encryptionKeyBuffer = resolveEncryptionKey(process.env.ENCRYPTION_SECRET_KEY);
+let mfaAvailable = Boolean(encryptionKeyBuffer);
+
+if (!encryptionKeyBuffer) {
+  if (process.env.NODE_ENV === "production") {
+    console.error("[FATAL] ENCRYPTION_SECRET_KEY must be a valid 32-byte key (64 hex chars or 32-byte base64) in production.");
+    process.exit(1);
+  } else {
+    console.warn("[WARN] ENCRYPTION_SECRET_KEY is missing or not a valid 32-byte key. MFA endpoints are disabled (503) in development.");
+  }
+}
+
+const IV_LENGTH = 12;
+const MFA_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+const SENSITIVE_ROLES = new Set([
+  "Super Admin",
+  "Head Office",
+  "Project Manager",
+  "Section Head",
+  "Finance Manager",
+]);
+
+// Initialize Firebase Admin SDK
 let adminApp: App | null = null;
 try {
   const projectId = firebaseConfigJson.projectId || process.env.FIREBASE_PROJECT_ID;
@@ -43,13 +75,41 @@ try {
   console.warn("Firebase Admin SDK initialize warning:", e);
 }
 
+function getFirestoreDb() {
+  if (!adminApp) return null;
+  const databaseId = firebaseConfigJson.firestoreDatabaseId;
+  return databaseId ? getFirestore(adminApp, databaseId) : getFirestore(adminApp);
+}
+
+// 30-second cache for user active/role profile lookups
+const userProfileCache = new Map<string, { data: any; expiresAt: number }>();
+const USER_CACHE_TTL_MS = 30 * 1000;
+
+async function getCachedUserProfile(uid: string): Promise<any | null> {
+  const cached = userProfileCache.get(uid);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) {
+    return cached.data;
+  }
+  const firestore = getFirestoreDb();
+  if (!firestore) return null;
+  const snap = await firestore.collection("users").doc(uid).get();
+  if (!snap.exists) {
+    userProfileCache.set(uid, { data: null, expiresAt: now + USER_CACHE_TTL_MS });
+    return null;
+  }
+  const data = snap.data() || null;
+  userProfileCache.set(uid, { data, expiresAt: now + USER_CACHE_TTL_MS });
+  return data;
+}
+
 // Real Firebase App Check Verification Middleware
 async function verifyAppCheck(req: express.Request, res: express.Response, next: express.NextFunction) {
   const appCheckToken = req.header("X-Firebase-AppCheck");
 
   if (!appCheckToken) {
     if (process.env.ENFORCE_APP_CHECK === "true") {
-      return res.status(401).json({ success: false, error: "401 Unauthorized: Missing X-Firebase-AppCheck header." });
+      return res.status(401).json({ success: false, error: "unauthorized_app_check", message: "Missing X-Firebase-AppCheck header." });
     }
     return next();
   }
@@ -62,52 +122,125 @@ async function verifyAppCheck(req: express.Request, res: express.Response, next:
     } catch (err: any) {
       console.warn("App Check token verification warning:", err.message);
       if (process.env.ENFORCE_APP_CHECK === "true") {
-        return res.status(401).json({ 
-          success: false, 
-          error: "401 Unauthorized: Invalid or expired App Check token.", 
-          details: err.message 
+        return res.status(401).json({
+          success: false,
+          error: "invalid_app_check",
+          message: "Invalid or expired App Check token."
         });
       }
       return next();
     }
+  } else if (process.env.ENFORCE_APP_CHECK === "true") {
+    return res.status(503).json({
+      success: false,
+      error: "app_check_unavailable",
+      message: "Firebase Admin SDK is not initialized for App Check verification."
+    });
   } else {
     return next();
   }
 }
 
-function encryptPayload(text: string) {
+// Bearer Firebase ID Token verification middleware
+async function requireAuth(req: express.Request, res: express.Response, next: express.NextFunction) {
+  if (!adminApp) {
+    return res.status(503).json({ success: false, error: "auth_unavailable", message: "Authentication service unavailable." });
+  }
+  const authHeader = req.header("Authorization") || "";
+  const match = /^Bearer\s+(.+)$/i.exec(authHeader.trim());
+  if (!match || !match[1]) {
+    return res.status(401).json({ success: false, error: "unauthorized", message: "Missing Bearer ID token." });
+  }
   try {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv("aes-256-gcm", Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)), iv);
-    let encrypted = cipher.update(text, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    const authTag = cipher.getAuthTag().toString("hex");
-    return {
-      ciphertext: encrypted,
-      iv: iv.toString("hex"),
-      tag: authTag
+    const decoded = await getAuth(adminApp).verifyIdToken(match[1]);
+    (req as any).authUser = {
+      uid: decoded.uid,
+      email: decoded.email || "",
+      claims: decoded
     };
-  } catch (error) {
-    console.error("Encryption error:", error);
-    throw error;
+    return next();
+  } catch {
+    return res.status(401).json({ success: false, error: "invalid_token", message: "Invalid or expired authentication token." });
   }
 }
 
-function decryptPayload(ciphertext: string, ivHex: string, tagHex: string) {
-  try {
-    const decipher = crypto.createDecipheriv(
-      "aes-256-gcm",
-      Buffer.from(ENCRYPTION_KEY.padEnd(32).slice(0, 32)),
-      Buffer.from(ivHex, "hex")
-    );
-    decipher.setAuthTag(Buffer.from(tagHex, "hex"));
-    let decrypted = decipher.update(ciphertext, "hex", "utf8");
-    decrypted += decipher.final("utf8");
-    return decrypted;
-  } catch (error) {
-    console.error("Decryption error:", error);
-    throw error;
+// Require Active non-Pending user profile and fresh MFA claim for sensitive roles
+async function requireActiveUser(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const authUser = (req as any).authUser;
+  if (!authUser?.uid) {
+    return res.status(401).json({ success: false, error: "unauthorized" });
   }
+  try {
+    const profile = await getCachedUserProfile(authUser.uid);
+    if (!profile || profile.status !== "Active" || !profile.role || profile.role === "Pending") {
+      return res.status(403).json({ success: false, error: "user_not_active", message: "Account is not approved for this operation." });
+    }
+    if (SENSITIVE_ROLES.has(profile.role)) {
+      const mfaAt = Number(authUser.claims?.mfaAt || 0);
+      if (!Number.isFinite(mfaAt) || mfaAt <= 0 || Date.now() - mfaAt > MFA_MAX_AGE_MS) {
+        return res.status(403).json({ success: false, error: "mfa_required", message: "Fresh TOTP MFA verification required." });
+      }
+    }
+    (req as any).userProfile = profile;
+    return next();
+  } catch (err) {
+    console.error("Active user lookup error:", err);
+    return res.status(503).json({ success: false, error: "user_lookup_failed" });
+  }
+}
+
+// Sliding-window AI rate limiter (20 requests per 60s per uid or IP)
+const aiRateWindowStore = new Map<string, number[]>();
+const AI_RATE_LIMIT_MAX = 20;
+const AI_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+
+function aiRateLimit(req: express.Request, res: express.Response, next: express.NextFunction) {
+  const key = String((req as any).authUser?.uid || req.ip || "unknown");
+  const now = Date.now();
+  const timestamps = (aiRateWindowStore.get(key) || []).filter((ts) => now - ts < AI_RATE_LIMIT_WINDOW_MS);
+  if (timestamps.length >= AI_RATE_LIMIT_MAX) {
+    const oldest = timestamps[0] || now;
+    res.setHeader("Retry-After", String(Math.ceil((AI_RATE_LIMIT_WINDOW_MS - (now - oldest)) / 1000)));
+    return res.status(429).json({
+      success: false,
+      error: "rate_limit_exceeded",
+      message: "Too many AI requests. Please try again shortly."
+    });
+  }
+  timestamps.push(now);
+  aiRateWindowStore.set(key, timestamps);
+  return next();
+}
+
+function encryptPayload(text: string) {
+  if (!encryptionKeyBuffer) {
+    throw new Error("ENCRYPTION_SECRET_KEY is not configured");
+  }
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv("aes-256-gcm", encryptionKeyBuffer, iv);
+  let encrypted = cipher.update(text, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const authTag = cipher.getAuthTag().toString("hex");
+  return {
+    ciphertext: encrypted,
+    iv: iv.toString("hex"),
+    tag: authTag
+  };
+}
+
+function decryptPayload(ciphertext: string, ivHex: string, tagHex: string) {
+  if (!encryptionKeyBuffer) {
+    throw new Error("ENCRYPTION_SECRET_KEY is not configured");
+  }
+  const decipher = crypto.createDecipheriv(
+    "aes-256-gcm",
+    encryptionKeyBuffer,
+    Buffer.from(ivHex, "hex")
+  );
+  decipher.setAuthTag(Buffer.from(tagHex, "hex"));
+  let decrypted = decipher.update(ciphertext, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
 }
 
 const _filename = typeof __filename !== "undefined" ? __filename : "";
@@ -115,6 +248,21 @@ const _dirname = typeof __dirname !== "undefined" ? __dirname : process.cwd();
 
 async function startServer() {
   const app = express();
+  app.set("trust proxy", 1);
+  app.disable("x-powered-by");
+
+  // Security headers middleware
+  app.use((req, res, next) => {
+    res.setHeader("X-Content-Type-Options", "nosniff");
+    res.setHeader("X-Frame-Options", "SAMEORIGIN");
+    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+    res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=(self)");
+    if (process.env.NODE_ENV === "production") {
+      res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    }
+    next();
+  });
+
   // AI Studio runs Nginx on 8080 which proxies to port 3000.
   // We must bind to port 3000 (never 8080) to avoid EADDRINUSE collisions.
   const PORT = (process.env.PORT && process.env.PORT !== "8080") ? Number(process.env.PORT) : 3000;
@@ -126,7 +274,6 @@ async function startServer() {
   function getGeminiClient() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey || apiKey === "MY_GEMINI_API_KEY" || apiKey.trim() === "") {
-      console.warn("GEMINI_API_KEY is not configured or holds a placeholder. Falling back to high-fidelity simulated AI engine.");
       return null;
     }
     return new GoogleGenAI({
@@ -139,6 +286,9 @@ async function startServer() {
     });
   }
 
+  const allowSimulatedAi =
+    process.env.NODE_ENV !== "production" && process.env.ALLOW_SIMULATED_AI === "true";
+
   // --- API Routes ---
 
   // Health check
@@ -146,303 +296,175 @@ async function startServer() {
     res.json({ status: "ok", time: new Date().toISOString() });
   });
 
-  // Simple memory store for rate limiting testing
-  const rateLimitStore: { [ip: string]: number[] } = {};
-
-  app.post("/api/testing/run-suite", async (req, res) => {
-    const results = [];
-    const logs = [];
-
-    // Test 1: AES-256-GCM Encryption / Decryption
-    try {
-      logs.push("Running Test Suite 1/5: AES-256-GCM Cryptographic Payload Protection...");
-      const sampleText = "OVID_ERP_TEST_SECRET_" + Date.now();
-      const enc = encryptPayload(sampleText);
-      const dec = decryptPayload(enc.ciphertext, enc.iv, enc.tag);
-      if (dec === sampleText) {
-        results.push({ name: "AES-256-GCM Cryptographic Payload Protection", status: "passed", details: "Roundtrip encryption & authentication tag matching verified." });
-        logs.push("✓ AES-256-GCM Cryptographic Payload Protection: PASSED");
-      } else {
-        throw new Error("Decrypted text mismatch");
-      }
-    } catch (e: any) {
-      results.push({ name: "AES-256-GCM Cryptographic Payload Protection", status: "failed", details: e.message });
-      logs.push(`✗ AES-256-GCM Cryptographic Payload Protection: FAILED (${e.message})`);
-    }
-
-    // Test 2: App Check Verification Middleware
-    try {
-      logs.push("Running Test Suite 2/5: Firebase App Check Security Verification...");
-      results.push({ name: "Firebase App Check Anti-Abuse Shield", status: "passed", details: adminApp ? "Live Firebase Admin App Check active." : "Development App Check bypass layer validated." });
-      logs.push("✓ Firebase App Check Anti-Abuse Shield: PASSED");
-    } catch (e: any) {
-      results.push({ name: "Firebase App Check Anti-Abuse Shield", status: "failed", details: e.message });
-      logs.push(`✗ Firebase App Check Anti-Abuse Shield: FAILED (${e.message})`);
-    }
-
-    // Test 3: API Rate Limiter
-    try {
-      logs.push("Running Test Suite 3/5: Ingress Rate Limiting Shield...");
-      results.push({ name: "API Rate Limiting & DoS Shield", status: "passed", details: "5 requests / 10s threshold verified." });
-      logs.push("✓ API Rate Limiting & DoS Shield: PASSED");
-    } catch (e: any) {
-      results.push({ name: "API Rate Limiting & DoS Shield", status: "failed", details: e.message });
-      logs.push(`✗ API Rate Limiting & DoS Shield: FAILED (${e.message})`);
-    }
-
-    // Test 4: TOTP Multi-Factor Authentication
-    try {
-      logs.push("Running Test Suite 4/5: TOTP Multi-Factor Authentication Logic...");
-      results.push({ name: "TOTP MFA Security Assertion", status: "passed", details: "MFA challenge and device lease validation verified." });
-      logs.push("✓ TOTP MFA Security Assertion: PASSED");
-    } catch (e: any) {
-      results.push({ name: "TOTP MFA Security Assertion", status: "failed", details: e.message });
-      logs.push(`✗ TOTP MFA Security Assertion: FAILED (${e.message})`);
-    }
-
-    // Test 5: Firestore & Local Offline Outbox Cache Engine
-    try {
-      logs.push("Running Test Suite 5/5: Primary Firestore & Local Outbox Engine Sync...");
-      results.push({ name: "Firestore Source of Truth & Local Cache Parity", status: "passed", details: "Primary Firestore pipeline and offline outbox fallback validated." });
-      logs.push("✓ Firestore Source of Truth & Local Cache Parity: PASSED");
-    } catch (e: any) {
-      results.push({ name: "Firestore Source of Truth & Local Cache Parity", status: "failed", details: e.message });
-      logs.push(`✗ Firestore Source of Truth & Local Cache Parity: FAILED (${e.message})`);
-    }
-
-    const allPassed = results.every(r => r.status === "passed");
-
-    res.json({
-      success: allPassed,
-      timestamp: new Date().toISOString(),
-      passedCount: results.filter(r => r.status === "passed").length,
-      totalCount: results.length,
-      results,
-      logs
-    });
-  });
-
-  app.post("/api/security/test-rate-limit", (req, res) => {
-    const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress || "unknown";
-    const now = Date.now();
-    
-    if (!rateLimitStore[ip as string]) {
-      rateLimitStore[ip as string] = [];
-    }
-    
-    // Filter timestamps in the last 10 seconds
-    rateLimitStore[ip as string] = rateLimitStore[ip as string].filter(t => now - t < 10000);
-    
-    if (rateLimitStore[ip as string].length >= 5) {
-      return res.status(429).json({
+  // TOTP MFA Status Endpoint
+  app.get("/api/security/mfa/status", verifyAppCheck, requireAuth, async (req, res) => {
+    if (!mfaAvailable || !adminApp) {
+      return res.status(503).json({
         success: false,
-        error: "429 Too Many Requests",
-        message: "API Rate Limit Exceeded (Threshold: 5 requests / 10s). Rate limiter shield triggered!",
-        ip,
-        requestsCount: rateLimitStore[ip as string].length,
-        resetsInMs: 10000 - (now - rateLimitStore[ip as string][0])
+        error: "mfa_unavailable",
+        message: "Server MFA service is not configured."
       });
     }
-    
-    rateLimitStore[ip as string].push(now);
-    res.json({
-      success: true,
-      message: "Request allowed. App Check & API token checked.",
-      ip,
-      requestsCount: rateLimitStore[ip as string].length,
-      threshold: "5 requests / 10s"
-    });
-  });
-
-  app.post("/api/security/encrypt", (req, res) => {
-    const { text } = req.body;
-    if (!text) {
-      return res.status(400).json({ success: false, error: "Text field required" });
+    const authUser = (req as any).authUser;
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+      return res.status(503).json({ success: false, error: "mfa_unavailable" });
     }
     try {
-      const result = encryptPayload(text);
-      res.json({
+      const [userSnap, secretSnap] = await Promise.all([
+        firestore.collection("users").doc(authUser.uid).get(),
+        firestore.collection("mfa_secrets").doc(authUser.uid).get()
+      ]);
+      const userData = userSnap.exists ? userSnap.data() : null;
+      const role = userData?.role || "Pending";
+      const required = SENSITIVE_ROLES.has(role);
+      const enrolled = secretSnap.exists && Boolean(secretSnap.data()?.ciphertext);
+      const rawMfaAt = Number(authUser.claims?.mfaAt || 0);
+      const mfaAt = Number.isFinite(rawMfaAt) && rawMfaAt > 0 ? rawMfaAt : null;
+      const verifiedRecently = Boolean(mfaAt && Date.now() - mfaAt <= MFA_MAX_AGE_MS);
+
+      return res.json({
         success: true,
-        algorithm: "AES-256-GCM",
-        text,
-        ...result
+        enrolled,
+        required,
+        verifiedRecently,
+        mfaAt
       });
-    } catch (e: any) {
-      res.status(500).json({ success: false, error: e.message });
+    } catch (err) {
+      console.error("MFA status error:", err);
+      return res.status(500).json({ success: false, error: "mfa_status_failed" });
     }
   });
 
-  app.post("/api/security/decrypt", (req, res) => {
-    const { ciphertext, iv, tag } = req.body;
-    if (!ciphertext || !iv || !tag) {
-      return res.status(400).json({ success: false, error: "Ciphertext, iv, and tag fields required" });
+  // TOTP MFA Enrollment Endpoint
+  app.post("/api/security/mfa/enroll", verifyAppCheck, requireAuth, async (req, res) => {
+    if (!mfaAvailable || !adminApp) {
+      return res.status(503).json({
+        success: false,
+        error: "mfa_unavailable",
+        message: "Server MFA encryption key is not configured."
+      });
+    }
+    const authUser = (req as any).authUser;
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+      return res.status(503).json({ success: false, error: "mfa_unavailable" });
     }
     try {
-      const decrypted = decryptPayload(ciphertext, iv, tag);
-      res.json({
-        success: true,
-        algorithm: "AES-256-GCM",
-        decrypted
+      const secret = new Secret({ size: 20 });
+      const totp = new TOTP({
+        issuer: "Digital Construction ERP",
+        label: authUser.email || authUser.uid,
+        algorithm: "SHA1",
+        digits: 6,
+        period: 30,
+        secret
       });
-    } catch (e: any) {
-      res.status(500).json({ success: false, error: "Decryption failed. Authentication tag mismatch or corrupted ciphertext." });
+      const encrypted = encryptPayload(secret.base32);
+      await firestore.collection("mfa_secrets").doc(authUser.uid).set({
+        uid: authUser.uid,
+        ciphertext: encrypted.ciphertext,
+        iv: encrypted.iv,
+        tag: encrypted.tag,
+        updatedAt: new Date().toISOString()
+      });
+      return res.json({
+        success: true,
+        otpauthUri: totp.toString(),
+        secret: secret.base32
+      });
+    } catch (err) {
+      console.error("MFA enroll error:", err);
+      return res.status(500).json({ success: false, error: "mfa_enroll_failed" });
     }
   });
 
-  app.post("/api/security/verify-mfa", async (req, res) => {
-    const { code, userId, secret } = req.body;
-    if (!code) {
-      return res.status(400).json({ success: false, error: "Code required" });
+  // TOTP MFA Verification Endpoint
+  app.post("/api/security/mfa/verify", verifyAppCheck, requireAuth, async (req, res) => {
+    if (!mfaAvailable || !adminApp) {
+      return res.status(503).json({
+        success: false,
+        error: "mfa_unavailable",
+        message: "Server MFA service is not configured."
+      });
     }
-
-    let userSecret = secret;
-    let targetUserId = userId || "";
-    let userName = "OVID User";
-
-    // If userId provided and no direct secret passed, fetch secret from Firestore
-    if (!userSecret && targetUserId && adminApp) {
-      try {
-        const databaseId = firebaseConfigJson.firestoreDatabaseId;
-        const firestore = databaseId ? getFirestore(adminApp, databaseId) : getFirestore(adminApp);
-        const userDoc = await firestore.collection("users").doc(targetUserId).get();
-        if (userDoc.exists) {
-          const userData = userDoc.data();
-          userSecret = userData?.mfaSecret || userData?.totpSecret;
-          userName = userData?.displayName || userName;
-        } else {
-          const querySnap = await firestore.collection("users").where("email", "==", targetUserId.toLowerCase()).get();
-          if (!querySnap.empty) {
-            const userData = querySnap.docs[0].data();
-            userSecret = userData?.mfaSecret || userData?.totpSecret;
-            userName = userData?.displayName || userName;
-          }
-        }
-      } catch (err) {
-        console.warn("Could not fetch user MFA secret from Firestore:", err);
-      }
-    }
-
-    if (!userSecret) {
+    const { code } = req.body || {};
+    const cleanCode = String(code || "").trim();
+    if (!/^\d{6}$/.test(cleanCode)) {
       return res.status(400).json({
         success: false,
-        error: "MFA not enrolled for this user",
-        message: "User has not enrolled or set up Multi-Factor Authentication (MFA)."
+        error: "invalid_code_format",
+        message: "A 6-digit verification code is required."
       });
     }
-
+    const authUser = (req as any).authUser;
+    const firestore = getFirestoreDb();
+    if (!firestore) {
+      return res.status(503).json({ success: false, error: "mfa_unavailable" });
+    }
     try {
-      let otpSecret: Secret;
-      try {
-        otpSecret = Secret.fromBase32(userSecret);
-      } catch {
-        otpSecret = Secret.fromUTF8(userSecret);
+      const secretSnap = await firestore.collection("mfa_secrets").doc(authUser.uid).get();
+      if (!secretSnap.exists) {
+        return res.status(400).json({
+          success: false,
+          error: "mfa_not_enrolled",
+          message: "MFA has not been enrolled for this account."
+        });
       }
-
+      const enc = secretSnap.data()!;
+      const base32Secret = decryptPayload(enc.ciphertext, enc.iv, enc.tag);
+      const otpSecret = Secret.fromBase32(base32Secret);
       const totp = new TOTP({
-        issuer: "OVID ERP",
-        label: targetUserId,
+        issuer: "Digital Construction ERP",
+        label: authUser.email || authUser.uid,
         algorithm: "SHA1",
         digits: 6,
         period: 30,
         secret: otpSecret
       });
-
-      const delta = totp.validate({ token: String(code).trim(), window: 1 });
-      const isValid = delta !== null;
-
-      if (isValid) {
-        return res.json({
-          success: true,
-          message: "MFA TOTP Token Authorized. Device trust lease registered.",
-          userId: targetUserId,
-          userName: userName,
-          timestamp: new Date().toISOString()
-        });
-      } else {
+      const delta = totp.validate({ token: cleanCode, window: 1 });
+      if (delta === null) {
         return res.status(401).json({
           success: false,
-          error: "401 Unauthorized",
-          message: "Invalid OTP Token. MFA TOTP challenge failed. Incident logged."
+          error: "invalid_mfa_code",
+          message: "Invalid or expired verification code."
         });
       }
-    } catch (e: any) {
-      return res.status(500).json({
-        success: false,
-        error: "MFA verification failed",
-        message: e.message
+      const mfaAt = Date.now();
+      const userRecord = await getAuth(adminApp).getUser(authUser.uid);
+      await getAuth(adminApp).setCustomUserClaims(authUser.uid, {
+        ...(userRecord.customClaims || {}),
+        mfaAt
       });
-    }
-  });
-
-  app.post("/api/security/app-check-token", async (req, res) => {
-    const { provider } = req.body;
-    const tokenHeader = req.header("X-Firebase-AppCheck");
-
-    if (adminApp) {
-      try {
-        if (tokenHeader) {
-          const claims = await getAppCheck(adminApp).verifyToken(tokenHeader);
-          return res.json({
-            success: true,
-            verified: true,
-            provider: provider || "reCAPTCHA Enterprise / Firebase App Check",
-            appId: claims.appId,
-            ttlSeconds: 3600,
-            createdAt: new Date().toISOString()
-          });
-        } else {
-          const appCheckToken = await getAppCheck(adminApp).createToken(process.env.FIREBASE_APP_ID || "default-app-id");
-          return res.json({
-            success: true,
-            verified: true,
-            provider: provider || "reCAPTCHA Enterprise / Firebase App Check",
-            token: appCheckToken.token,
-            ttlMillis: appCheckToken.ttlMillis,
-            createdAt: new Date().toISOString()
-          });
-        }
-      } catch (err: any) {
-        return res.status(400).json({
-          success: false,
-          error: "App Check token verification failed.",
-          message: err.message
-        });
-      }
-    }
-
-    if (process.env.NODE_ENV === "production") {
-      return res.status(500).json({
-        success: false,
-        error: "Firebase Admin SDK is not initialized for production App Check verification."
+      return res.json({
+        success: true,
+        mfaAt
       });
+    } catch (err) {
+      console.error("MFA verify error:", err);
+      return res.status(500).json({ success: false, error: "mfa_verify_failed" });
     }
-
-    const mockToken = "eyJhY29udGV4dCI6Ik9WSUQtRVJQIiwiaWF0IjoxNzg5MTg5LCJleHAiOjE3ODkyMTksImFwcElkIjoiMTo3ODY1NTM0OjI4YzkzIn0." + 
-                      crypto.randomBytes(32).toString("hex") + "." + 
-                      crypto.randomBytes(16).toString("hex");
-    res.json({
-      success: true,
-      verified: false,
-      provider: provider || "reCAPTCHA Enterprise (Dev Mode)",
-      token: mockToken,
-      ttlSeconds: 3600,
-      createdAt: new Date().toISOString()
-    });
   });
 
   // AI Predictions Endpoint
-  app.post("/api/ai/predict", verifyAppCheck, async (req, res) => {
+  app.post("/api/ai/predict", verifyAppCheck, requireAuth, requireActiveUser, aiRateLimit, async (req, res) => {
     try {
       const { zones, teams, workers, evaluations, progressLogs, safetyLogs, qualitySnags } = req.body;
       const ai = getGeminiClient();
 
       if (!ai) {
-        // High fidelity mock fallback
-        const mockResult = generateMockPredictions(zones, teams, workers, evaluations, progressLogs);
-        return res.json({
-          success: true,
-          simulated: true,
-          data: mockResult
+        if (allowSimulatedAi) {
+          const mockResult = generateMockPredictions(zones, teams, workers, evaluations, progressLogs);
+          return res.json({
+            success: true,
+            simulated: true,
+            data: mockResult
+          });
+        }
+        return res.status(503).json({
+          success: false,
+          error: "ai_not_configured",
+          message: "AI service is not configured."
         });
       }
 
@@ -561,48 +583,56 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
 
     } catch (error) {
       console.error("Gemini API prediction failed:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Internal Server Error" 
+      res.status(502).json({
+        success: false,
+        error: "ai_request_failed",
+        message: "AI prediction request failed."
       });
     }
   });
 
   // AI Financial Analysis & Fraud Detection Endpoint
-  app.post("/api/finance/ai-analysis", verifyAppCheck, async (req, res) => {
+  app.post("/api/finance/ai-analysis", verifyAppCheck, requireAuth, requireActiveUser, aiRateLimit, async (req, res) => {
     try {
       const { budgetData, expenseData, payrollData, procurementData, assetData, projectsData } = req.body;
       const ai = getGeminiClient();
 
       if (!ai) {
-        return res.json({
-          success: true,
-          simulated: true,
-          data: {
-            predictedExpensesNextMonth: 104500000,
-            predictedCashFlow3Months: [
-              { month: "Aug 2026", cashIn: 185000000, cashOut: 110000000, netCash: 75000000 },
-              { month: "Sep 2026", cashIn: 195000000, cashOut: 115000000, netCash: 80000000 },
-              { month: "Oct 2026", cashIn: 210000000, cashOut: 120000000, netCash: 90000000 }
-            ],
-            unusualSpendingAlerts: [
-              { id: "ALERT-101", category: "Equipment Fuel", amount: 2400000, threshold: 1800000, riskLevel: "High", reason: "Fuel consumption spiked +33% on concrete pump truck CP-02 without corresponding cubic meter log increase." },
-              { id: "ALERT-102", category: "Material Procurement", amount: 15400000, threshold: 12000000, riskLevel: "Medium", reason: "Rebar unit price from Ethio Steel Mills is 8% above Q2 market baseline." }
-            ],
-            payrollAnomalies: [
-              { workerId: "W-104", name: "Abebe Kassaye", anomalyType: "Overtime Spike", description: "38 overtime hours logged in single week (exceeds 20h safety cap). Verified with Timekeeper Abebe Girma.", severity: "Warning" },
-              { workerId: "W-209", name: "Tewodros Worku", anomalyType: "Duplicate Badge Entry", description: "Biometric clock-in recorded at Site B1 and Site A1 within 12 minutes.", severity: "Severe" }
-            ],
-            forecastCompletionCost: 362000000,
-            recommendedBudgetAdjustments: [
-              { fromCategory: "Overhead & Supervision", toCategory: "Material Concrete & Rebar", amount: 3500000, justification: "Overhead is running 12% under budget while concrete supplier prices increased 4%." },
-              { fromCategory: "Equipment Leasing", toCategory: "Formwork Spare Accessories", amount: 1200000, justification: "Formwork pin replacement rate requires buffer funding before slab casting floor 8." }
-            ],
-            fraudRiskAlerts: [
-              { riskType: "Split Purchase Orders", targetEntity: "PO-2026-881 & PO-2026-882", severity: "Medium", recommendation: "Two POs issued to same vendor under ETB 15M threshold within 48 hours. Recommend Head Office audit." }
-            ],
-            executiveSummaryMarkdown: "### Executive Financial Intelligence Summary\n- **Overall Fiscal Health**: **Strong / Low Default Risk** (CPI = 1.08, SPI = 1.04)\n- **Operating Margin**: 28.4% gross profit margin sustained across Bole Heights & Yeka Hills projects.\n- **Cash Flow Runway**: Projected net liquidity reserve exceeds ETB 245M through Q4 2026.\n- **Key Recommendation**: Approve recommended ETB 3.5M budget re-allocation from Overhead to Material buffer to lock in bulk cement discounts."
-          }
+        if (allowSimulatedAi) {
+          return res.json({
+            success: true,
+            simulated: true,
+            data: {
+              predictedExpensesNextMonth: 104500000,
+              predictedCashFlow3Months: [
+                { month: "Aug 2026", cashIn: 185000000, cashOut: 110000000, netCash: 75000000 },
+                { month: "Sep 2026", cashIn: 195000000, cashOut: 115000000, netCash: 80000000 },
+                { month: "Oct 2026", cashIn: 210000000, cashOut: 120000000, netCash: 90000000 }
+              ],
+              unusualSpendingAlerts: [
+                { id: "ALERT-101", category: "Equipment Fuel", amount: 2400000, threshold: 1800000, riskLevel: "High", reason: "Fuel consumption spiked +33% on concrete pump truck CP-02 without corresponding cubic meter log increase." },
+                { id: "ALERT-102", category: "Material Procurement", amount: 15400000, threshold: 12000000, riskLevel: "Medium", reason: "Rebar unit price from Ethio Steel Mills is 8% above Q2 market baseline." }
+              ],
+              payrollAnomalies: [
+                { workerId: "W-104", name: "Abebe Kassaye", anomalyType: "Overtime Spike", description: "38 overtime hours logged in single week (exceeds 20h safety cap). Verified with Timekeeper Abebe Girma.", severity: "Warning" },
+                { workerId: "W-209", name: "Tewodros Worku", anomalyType: "Duplicate Badge Entry", description: "Biometric clock-in recorded at Site B1 and Site A1 within 12 minutes.", severity: "Severe" }
+              ],
+              forecastCompletionCost: 362000000,
+              recommendedBudgetAdjustments: [
+                { fromCategory: "Overhead & Supervision", toCategory: "Material Concrete & Rebar", amount: 3500000, justification: "Overhead is running 12% under budget while concrete supplier prices increased 4%." },
+                { fromCategory: "Equipment Leasing", toCategory: "Formwork Spare Accessories", amount: 1200000, justification: "Formwork pin replacement rate requires buffer funding before slab casting floor 8." }
+              ],
+              fraudRiskAlerts: [
+                { riskType: "Split Purchase Orders", targetEntity: "PO-2026-881 & PO-2026-882", severity: "Medium", recommendation: "Two POs issued to same vendor under ETB 15M threshold within 48 hours. Recommend Head Office audit." }
+              ],
+              executiveSummaryMarkdown: "### Executive Financial Intelligence Summary\n- **Overall Fiscal Health**: **Strong / Low Default Risk** (CPI = 1.08, SPI = 1.04)\n- **Operating Margin**: 28.4% gross profit margin sustained across Bole Heights & Yeka Hills projects.\n- **Cash Flow Runway**: Projected net liquidity reserve exceeds ETB 245M through Q4 2026.\n- **Key Recommendation**: Approve recommended ETB 3.5M budget re-allocation from Overhead to Material buffer to lock in bulk cement discounts."
+            }
+          });
+        }
+        return res.status(503).json({
+          success: false,
+          error: "ai_not_configured",
+          message: "AI service is not configured."
         });
       }
 
@@ -658,26 +688,33 @@ Return a JSON object matching this schema exactly without markdown formatting ar
 
     } catch (error) {
       console.error("Gemini Finance AI analysis failed:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Internal Server Error" 
+      res.status(502).json({
+        success: false,
+        error: "ai_request_failed",
+        message: "AI financial analysis failed."
       });
     }
   });
 
   // AI Safety Predictions Endpoint
-  app.post("/api/ai/predict-safety", verifyAppCheck, async (req, res) => {
+  app.post("/api/ai/predict-safety", verifyAppCheck, requireAuth, requireActiveUser, aiRateLimit, async (req, res) => {
     try {
       const { safetyLogs, qualitySnags } = req.body;
       const ai = getGeminiClient();
 
       if (!ai) {
-        // High fidelity mock fallback
-        const mockResult = generateMockSafetyPredictions(safetyLogs || [], qualitySnags || []);
-        return res.json({
-          success: true,
-          simulated: true,
-          data: mockResult
+        if (allowSimulatedAi) {
+          const mockResult = generateMockSafetyPredictions(safetyLogs || [], qualitySnags || []);
+          return res.json({
+            success: true,
+            simulated: true,
+            data: mockResult
+          });
+        }
+        return res.status(503).json({
+          success: false,
+          error: "ai_not_configured",
+          message: "AI service is not configured."
         });
       }
 
@@ -779,25 +816,33 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
 
     } catch (error) {
       console.error("Gemini Safety prediction failed:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: error instanceof Error ? error.message : "Internal Server Error" 
+      res.status(502).json({
+        success: false,
+        error: "ai_request_failed",
+        message: "AI safety prediction failed."
       });
     }
   });
 
   // AI CAD Analysis Endpoint - Generates Automatic Work Plan and Daily Assessments
-  app.post("/api/ai/analyze-cad", verifyAppCheck, async (req, res) => {
+  app.post("/api/ai/analyze-cad", verifyAppCheck, requireAuth, requireActiveUser, aiRateLimit, async (req, res) => {
     const { filename, project, block, floor, zone } = req.body;
     try {
       const ai = getGeminiClient();
 
       if (!ai) {
-        const mockResult = generateMockCadAnalysis(filename || "drawing.dwg", project || "OVID Bole Heights", block || "Block A", floor || 4, zone || "Zone A");
-        return res.json({
-          success: true,
-          simulated: true,
-          data: mockResult
+        if (allowSimulatedAi) {
+          const mockResult = generateMockCadAnalysis(filename || "drawing.dwg", project || "OVID Bole Heights", block || "Block A", floor || 4, zone || "Zone A");
+          return res.json({
+            success: true,
+            simulated: true,
+            data: mockResult
+          });
+        }
+        return res.status(503).json({
+          success: false,
+          error: "ai_not_configured",
+          message: "AI service is not configured."
         });
       }
 
@@ -948,29 +993,29 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
       });
 
     } catch (error) {
-      console.warn("CAD Automatic analysis Gemini call failed, falling back to mock generator:", error);
-      try {
-        const fallbackResult = generateMockCadAnalysis(
-          filename || "drawing.dwg",
-          project || "OVID Bole Heights",
-          block || "Block A",
-          floor ? Number(floor) : 4,
-          zone || "Zone A"
-        );
-
-        res.json({
-          success: true,
-          simulated: true,
-          data: fallbackResult,
-          warning: "Gemini API is currently experiencing high demand. Loaded highly accurate pre-trained local CAD analytics module instead."
-        });
-      } catch (fallbackError) {
-        console.error("CAD Fallback generator failed:", fallbackError);
-        res.status(500).json({ 
-          success: false, 
-          error: error instanceof Error ? error.message : "Internal Server Error" 
-        });
+      console.error("CAD Automatic analysis Gemini call failed:", error);
+      if (allowSimulatedAi) {
+        try {
+          const fallbackResult = generateMockCadAnalysis(
+            filename || "drawing.dwg",
+            project || "OVID Bole Heights",
+            block || "Block A",
+            floor ? Number(floor) : 4,
+            zone || "Zone A"
+          );
+          return res.json({
+            success: true,
+            simulated: true,
+            data: fallbackResult,
+            warning: "Simulated CAD analytics module used in development."
+          });
+        } catch {}
       }
+      return res.status(502).json({
+        success: false,
+        error: "ai_request_failed",
+        message: "AI CAD analysis request failed."
+      });
     }
   });
 

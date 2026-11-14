@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { authFetch } from "../services/authService";
 import { 
   Sparkles, 
   Layers, 
@@ -310,7 +311,7 @@ export const AIPredictions: React.FC<AIPredictionsProps> = ({
     setLoading(true);
     setErrorMsg("");
     try {
-      const response = await fetch("/api/ai/predict", {
+      const response = await authFetch("/api/ai/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

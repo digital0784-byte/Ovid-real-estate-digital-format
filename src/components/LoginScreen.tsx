@@ -2,17 +2,27 @@ import React, { useState, useEffect } from "react";
 import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
-import { RoleChangeApprovalService } from "../services/roleChangeApprovalService";
+import {
+  signInWithEmail,
+  registerWithEmail,
+  requestPasswordReset,
+  validatePassword,
+  resolveUserRole,
+  isDemoLoginEnabled,
+  isSensitiveRole,
+  getMfaStatus,
+  enrollMfa,
+  verifyMfa,
+  AuthServiceError,
+} from "../services/authService";
 import { auth, db, isFirebaseReady } from "../firebase";
-import { 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  sendPasswordResetEmail,
+import {
   RecaptchaVerifier,
   signInWithPhoneNumber,
-  ConfirmationResult
+  ConfirmationResult,
 } from "firebase/auth";
-import { doc, setDoc, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
+import { QRCodeSVG } from "qrcode.react";
 import { 
   Shield, 
   ShieldCheck,
@@ -105,6 +115,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   const [mfaRequired, setMfaRequired] = useState(false);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaError, setMfaError] = useState("");
+  const [mfaLoading, setMfaLoading] = useState(false);
+  const [mfaEnrollment, setMfaEnrollment] = useState<{ otpauthUri: string; secret?: string } | null>(null);
+  const [pendingAuthResult, setPendingAuthResult] = useState<{
+    targetRole: UserRole;
+    method: string;
+    profile: any;
+  } | null>(null);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [phoneLoading, setPhoneLoading] = useState(false);
   
@@ -181,34 +198,25 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     }, 150);
   };
 
-  // Helper to map Employee ID to standard roles
+  // Helper to map Employee ID to standard roles (dev demo mode only)
   const getRoleFromEmpId = (id: string): UserRole => {
     let formatted = id.toUpperCase().trim();
     if (formatted.startsWith("DIGITAL CONSTRUCTION ERP-")) {
       formatted = formatted.replace("DIGITAL CONSTRUCTION ERP-", "");
     }
-    if (
-      formatted === "NURIYE AHMED ADEM" ||
-      formatted === "NURIYE" ||
-      formatted === "MEJENNUR669@GMAIL.COM" ||
-      formatted.includes("910097862") ||
-      formatted.includes("920843843")
-    ) {
-      return UserRole.SUPER_ADMIN;
-    }
-    if (formatted.startsWith("HO") || formatted === "YOSEPH") return UserRole.HEAD_OFFICE;
-    if (formatted.startsWith("PM") || formatted === "DAWIT") return UserRole.PROJECT_MANAGER;
-    if (formatted.startsWith("SE") || formatted === "SINTAYEHU") return UserRole.SITE_ENGINEER;
-    if (formatted.startsWith("SV") || formatted === "KASSA") return UserRole.SUPERVISOR;
-    if (formatted.startsWith("TK") || formatted === "ABEBE") return UserRole.TIME_KEEPER;
-    if (formatted.startsWith("TL") || formatted === "YOHANNES") return UserRole.TEAM_LEADER;
-    if (formatted.startsWith("GC") || formatted === "FIKRU") return UserRole.GANG_CHIEF;
-    if (formatted.startsWith("WM") || formatted === "WAREHOUSE" || formatted === "MULUGETA") return UserRole.WAREHOUSE_MANAGER;
+    if (formatted.startsWith("HO")) return UserRole.HEAD_OFFICE;
+    if (formatted.startsWith("PM")) return UserRole.PROJECT_MANAGER;
+    if (formatted.startsWith("SE")) return UserRole.SITE_ENGINEER;
+    if (formatted.startsWith("SV")) return UserRole.SUPERVISOR;
+    if (formatted.startsWith("TK")) return UserRole.TIME_KEEPER;
+    if (formatted.startsWith("TL")) return UserRole.TEAM_LEADER;
+    if (formatted.startsWith("GC")) return UserRole.GANG_CHIEF;
+    if (formatted.startsWith("WM") || formatted === "WAREHOUSE") return UserRole.WAREHOUSE_MANAGER;
     if (formatted.startsWith("SM") || formatted === "STORE") return UserRole.STORE_MANAGER;
-    if (formatted.startsWith("HR") || formatted === "TIGIST") return UserRole.HR_MANAGER;
-    if (formatted.startsWith("FM") || formatted === "BEMENT") return UserRole.FINANCE_MANAGER;
-    if (formatted.startsWith("SH") || formatted === "ALEMAYEHU") return UserRole.SECTION_HEAD;
-    if (formatted.startsWith("SR") || formatted === "TADESSE") return UserRole.SURVEYOR;
+    if (formatted.startsWith("HR")) return UserRole.HR_MANAGER;
+    if (formatted.startsWith("FM")) return UserRole.FINANCE_MANAGER;
+    if (formatted.startsWith("SH")) return UserRole.SECTION_HEAD;
+    if (formatted.startsWith("SR")) return UserRole.SURVEYOR;
     return UserRole.WORKER;
   };
 
@@ -254,142 +262,63 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       setErrorMessage(isAmharic ? "እባክዎ ስልክ ቁጥር ያስገቡ" : "Please enter your phone number");
       return;
     }
-    if (!regPassword.trim() || regPassword.trim().length < 4) {
-      setErrorMessage(isAmharic ? "እባክዎ ቢያንስ 4 አሃዝ ያለው የይለፍ ቃል ያስገቡ" : "Please enter a password with at least 4 characters.");
+    if (!regEmail.trim()) {
+      setErrorMessage(isAmharic ? "እባክዎ ኢሜል አድራሻ ያስገቡ" : "Please enter your email address");
       return;
     }
 
-    const effectiveEmail = regEmail.trim()
-      ? regEmail.trim().toLowerCase()
-      : `${regPhone.replace(/\D/g, "") || Date.now()}@dcerp.local`;
-    const firebasePassword = regPassword.trim().length < 6
-      ? regPassword.trim().padEnd(6, "0")
-      : regPassword.trim();
-
-    // STRICT OWNER RESTRICTION: Only mejennur669@gmail.com is Super Admin (Nuriye Ahmed Adem)
-    // Any self-registration must ALWAYS go through approval wait ('Pending') and can NEVER self-claim Super Admin!
-    const isSoleSuperAdminReg = effectiveEmail === "mejennur669@gmail.com";
-
-    // Non-owners can NEVER select or receive Super Admin
-    let sanitizedRegRole = (regRole || UserRole.WORKER);
-    if (sanitizedRegRole === UserRole.SUPER_ADMIN) {
-      sanitizedRegRole = UserRole.WORKER;
+    const pwCheck = validatePassword(regPassword);
+    if (!pwCheck.valid) {
+      setErrorMessage(isAmharic ? pwCheck.messageAm || "የይለፍ ቃሉ መስፈርቱን አያሟላም" : pwCheck.messageEn || "Password does not meet requirements");
+      return;
     }
 
-    try {
-      const prefix = getPrefixFromRole(sanitizedRegRole as UserRole);
-      const randNum = Math.floor(100 + Math.random() * 900);
-      const generatedId = `${prefix}-${randNum}`;
-      const fullEmpId = `Digital Construction ERP-${generatedId}`;
-      const nowIso = new Date().toISOString();
+    const sanitizedRegRole =
+      !regRole || regRole === UserRole.SUPER_ADMIN || String(regRole) === "Super Admin"
+        ? UserRole.WORKER
+        : regRole;
 
-      // All new self-registrants MUST enter Pending status and await Super Admin approval
-      const pendingRegData = {
-        employeeId: fullEmpId,
-        displayName: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
-        name: isSoleSuperAdminReg ? "Nuriye Ahmed Adem" : regName.trim(),
-        email: isSoleSuperAdminReg ? "mejennur669@gmail.com" : effectiveEmail,
-        phoneNumber: regPhone.trim(),
-        role: "Pending",
+    try {
+      const { user, profile, employeeId: fullEmpId } = await registerWithEmail({
+        email: regEmail,
+        password: regPassword,
+        displayName: regName,
+        phoneNumber: regPhone,
         requestedRole: sanitizedRegRole,
         department: regDept || sanitizedRegRole,
         trade: regTrade || sanitizedRegRole,
-        position: sanitizedRegRole,
-        status: "Pending",
-        createdAt: nowIso
-      };
-
-      if (typeof window !== "undefined") {
-        sessionStorage.setItem("erp_pending_registration_profile", JSON.stringify(pendingRegData));
-        localStorage.setItem("erp_pending_registration_profile", JSON.stringify(pendingRegData));
-      }
-
-      let authedUid: string | null = null;
-      if (isFirebaseReady && auth) {
-        try {
-          const userCred = await createUserWithEmailAndPassword(auth, effectiveEmail, firebasePassword);
-          if (userCred?.user?.uid) {
-            authedUid = userCred.user.uid;
-          }
-        } catch (fbErr: any) {
-          if (fbErr.code === "auth/email-already-in-use") {
-            try {
-              const existingCred = await signInWithEmailAndPassword(auth, effectiveEmail, firebasePassword);
-              if (existingCred?.user?.uid) {
-                authedUid = existingCred.user.uid;
-              }
-            } catch {
-              console.info("Existing email in Firebase Auth; saving registration profile directly to Firestore.");
-            }
-          } else {
-            console.warn("Firebase Auth registration notice (saving directly to Firestore):", fbErr?.message);
-          }
-        }
-      }
-
-      const targetUserId = authedUid || auth?.currentUser?.uid || fullEmpId;
-      const userDocPayload = {
-        ...pendingRegData,
-        id: targetUserId,
-        uid: targetUserId
-      };
-
-      // Always save the new registrant to Firestore `users` and `registrants` collections and local cache/outbox
-      await DbService.saveUser(userDocPayload);
-      if (db) {
-        await setDoc(doc(db, "users", targetUserId), userDocPayload, { merge: true }).catch((e) =>
-          console.warn("Direct Firestore users write notice:", e)
-        );
-        await setDoc(doc(db, "registrants", fullEmpId), { ...userDocPayload, id: fullEmpId }, { merge: true }).catch((e) =>
-          console.warn("Direct Firestore registrants write notice:", e)
-        );
-      }
-
-      // Submit Role Change Request into Approval Queue (also writes to Firestore `role_change_requests`)
-      RoleChangeApprovalService.submitRoleChangeRequest({
-        userId: targetUserId,
-        userName: regName.trim(),
-        userEmail: regEmail.trim().toLowerCase(),
-        phoneNumber: regPhone.trim(),
-        currentRole: "Pending",
-        requestedRole: sanitizedRegRole,
-        reason: isAmharic 
-          ? `በሊንክ የተመዘገበ አዲስ ተጠቃሚ የተጠየቀ የስራ ድርሻ: ${sanitizedRegRole}` 
-          : `New user self-registered via link. Requested role: ${sanitizedRegRole}`,
-        requestedBy: regName.trim(),
-        requestedByRole: "Pending User"
       });
+
+      const nowIso = new Date().toISOString();
 
       const newWorker: Worker = {
         id: fullEmpId,
         name: regName.trim(),
         phoneNumber: regPhone.trim(),
-        nationalId: `NID-${Math.floor(100000 + Math.random() * 900000)}`,
+        nationalId: `NID-${user.uid.slice(0, 6).toUpperCase()}`,
         company: "Digital Construction ERP",
         department: regDept || sanitizedRegRole,
         trade: regTrade || sanitizedRegRole,
         position: sanitizedRegRole,
         joinedDate: nowIso.split("T")[0],
         status: "Active",
-        teamId: "team-1"
+        teamId: "team-1",
       };
 
-      await DbService.addWorker(newWorker);
+      await DbService.addWorker(newWorker).catch(() => {});
 
-      // Create a system notification so Admin and Head Office can see the new registrant
       const newNotif: SystemNotification = {
         id: `NOTIF-REG-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
         type: "New Registrant",
         title: isAmharic ? `አዲስ ተመዝጋቢ: ${regName.trim()}` : `New Registrant: ${regName.trim()}`,
-        message: isAmharic 
+        message: isAmharic
           ? `አዲስ ሰራተኛ ${regName.trim()} (${sanitizedRegRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`
           : `New staff member ${regName.trim()} (${sanitizedRegRole}) has registered on the system. ID: ${fullEmpId}`,
         timestamp: nowIso,
-        read: false
+        read: false,
       };
-      await DbService.addNotification(newNotif).catch(e => console.error("Error writing system notification for registrant:", e));
+      await DbService.addNotification(newNotif).catch(() => {});
 
-      // Trigger Enterprise Notification for Admin, Head Office, and HR Manager
       NotificationService.createNotification({
         title: `New Registrant: ${regName.trim()}`,
         titleAm: `አዲስ ተመዝጋቢ: ${regName.trim()}`,
@@ -401,7 +330,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         projectName: "Global System",
         siteName: "Registration Portal",
         sender: regName.trim(),
-        senderRole: sanitizedRegRole || "Self-Registered User",
+        senderRole: String(sanitizedRegRole || "Self-Registered User"),
         receiver: "Admin, Head Office & HR",
         targetRoles: [
           UserRole.SUPER_ADMIN,
@@ -410,55 +339,56 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           "Super Admin",
           "Head Office",
           "HR Manager",
-          "HR"
+          "HR",
         ],
         deliveryChannels: { inApp: true, push: true, email: true, sms: false },
-        actionTab: "admin"
+        actionTab: "admin",
       });
 
-      // Also generate an audit log record for self-registration
       const newAuditLog: AuditLog = {
         id: `AUD-REG-${Date.now().toString().slice(-4)}-${Math.floor(1000 + Math.random() * 9000)}`,
         timestamp: nowIso,
-        userId: targetUserId,
+        userId: user.uid,
         userName: regName.trim(),
-        role: sanitizedRegRole,
+        role: "Pending",
         action: "User Self-Registration",
-        details: `Successfully registered profile as role: ${sanitizedRegRole}. Assigned ID: ${fullEmpId}. GPS: 9.0272° N, 38.7483° E (Bole Heights Site)`
+        details: `Registered pending profile requesting role: ${sanitizedRegRole}. Assigned ID: ${fullEmpId}.`,
       };
-      await DbService.addAuditLog(newAuditLog).catch(e => console.error("Error creating registration audit log:", e));
+      await DbService.addAuditLog(newAuditLog).catch(() => {});
 
       setSuccessMessage(
         isAmharic
-          ? `ምዝገባው በተሳካ ሁኔታ ተጠናቋል! መለያ ቁጥርዎ፡ ${fullEmpId} ነው። በመግባት ላይ...`
-          : `Registration completed successfully! Your ID is: ${fullEmpId}. Logging in...`
+          ? `ምዝገባው በተሳካ ሁኔታ ተጠናቋል! መለያ ቁጥርዎ፡ ${fullEmpId} ነው።`
+          : `Registration completed successfully! Your ID is: ${fullEmpId}.`
       );
 
-      const simulatedLog = {
+      const loginLog = {
         loginTime: nowIso.replace("T", " ").slice(0, 19),
-        device: navigator.userAgent.includes("Mobile") 
-          ? "Mobile App client (iOS/Android ERP Core)" 
-          : "Desktop Workstation (Windows 11 Enterprise / Chrome)",
-        ip: `192.168.10.${Math.floor(10 + Math.random() * 200)}`,
-        gps: "9.0272° N, 38.7483° E (Digital Bole Heights Site B1)"
+        device: navigator.userAgent.includes("Mobile")
+          ? "Mobile App client (iOS/Android ERP Core)"
+          : "Desktop Workstation",
+        ip: "client-session",
+        gps: "Pending Site Verification",
       };
 
       setTimeout(() => {
         onLoginSuccess(
           "Pending" as UserRole,
           `Registered User ID (${fullEmpId})`,
-          simulatedLog,
-          userDocPayload
+          loginLog,
+          profile
         );
-      }, 1500);
-
-    } catch (error) {
-      console.error("Registration error:", error);
-      setErrorMessage(
-        isAmharic
-          ? "ምዝገባው አልተሳካም። እባክዎ እንደገና ይሞክሩ።"
-          : "Registration failed. Please try again."
-      );
+      }, 1000);
+    } catch (error: any) {
+      if (error instanceof AuthServiceError) {
+        setErrorMessage(isAmharic ? error.messageAm : error.message);
+      } else {
+        setErrorMessage(
+          isAmharic
+            ? "ምዝገባው አልተሳካም። እባክዎ እንደገና ይሞክሩ።"
+            : "Registration failed. Please try again."
+        );
+      }
     }
   };
 
@@ -470,8 +400,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     const targetEmail = (resetEmail || email).trim().toLowerCase();
     if (!targetEmail) {
       setResetErrorMessage(
-        isAmharic 
-          ? "እባክዎ የኢሜል አድራሻ ያስገቡ" 
+        isAmharic
+          ? "እባክዎ የኢሜል አድራሻ ያስገቡ"
           : "Please enter your email address."
       );
       return;
@@ -480,8 +410,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(targetEmail)) {
       setResetErrorMessage(
-        isAmharic 
-          ? "እባክዎ ትክክለኛ የኢሜል አድራሻ ያስገቡ" 
+        isAmharic
+          ? "እባክዎ ትክክለኛ የኢሜል አድራሻ ያስገቡ"
           : "Please enter a valid email address."
       );
       return;
@@ -489,9 +419,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
     setResetLoading(true);
     try {
-      if (isFirebaseReady && auth) {
-        await sendPasswordResetEmail(auth, targetEmail);
-      }
+      await requestPasswordReset(targetEmail);
       setResetSuccessMessage(
         isAmharic
           ? "ይህ ኢሜል በሲስተሙ ውስጥ ካለ የይለፍ ቃል መቀየሪያ ሊንክ ተላኳል።"
@@ -524,6 +452,22 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     }
   };
 
+  const completeLogin = (role: UserRole, method: string, profile: any) => {
+    const loginLog = {
+      loginTime: new Date().toISOString().replace("T", " ").slice(0, 19),
+      device: navigator.userAgent.includes("Mobile")
+        ? "Mobile App client (iOS/Android ERP Core)"
+        : "Desktop Workstation",
+      ip: "client-session",
+      gps: "Site Session",
+    };
+
+    setSuccessMessage(isAmharic ? "በተሳካ ሁኔታ ገብተዋል! በመጫን ላይ..." : "Authorized successfully! Loading ERP...");
+    setTimeout(() => {
+      onLoginSuccess(role, method, loginLog, profile);
+    }, 300);
+  };
+
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage("");
@@ -547,175 +491,56 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       return;
     }
 
-    // Validate inputs depending on authMethod
-    let targetRole = selectedRole;
+    // Handle active MFA verification step
+    if (mfaRequired && pendingAuthResult) {
+      if (!mfaCode.trim()) {
+        setMfaError(isAmharic ? "እባክዎ ባለ 6-አሃዝ MFA ማረጋገጫ ኮድ ያስገቡ" : "Please enter your 6-digit MFA security token.");
+        return;
+      }
+      setMfaLoading(true);
+      try {
+        const res = await verifyMfa(mfaCode.trim());
+        if (!res.success) {
+          setMfaError(res.message || (isAmharic ? "የተሳሳተ የደህንነት TOTP ኮድ!" : "Incorrect TOTP MFA authentication token!"));
+          handleFailedAttempt(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "TOTP MFA authentication failed");
+          return;
+        }
+        const verified = pendingAuthResult;
+        setMfaRequired(false);
+        setMfaEnrollment(null);
+        setMfaCode("");
+        setPendingAuthResult(null);
+        completeLogin(verified.targetRole, verified.method, verified.profile);
+      } catch {
+        setMfaError(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "MFA verification failed. Please check network connection.");
+      } finally {
+        setMfaLoading(false);
+      }
+      return;
+    }
+
+    let targetRole: UserRole = selectedRole;
     let identifiedMethod = "Password Check";
     let activeProfile: any = null;
 
     if (authMethod === "credentials") {
-      if (!email || !password) {
+      if (!email.trim() || !password) {
         handleFailedAttempt(isAmharic ? "የኢሜል እና የይለፍ ቃል ያስገቡ" : "Please enter email and password");
         return;
       }
 
-      if (password.length < 6) {
-        handleFailedAttempt(isAmharic ? "የይለፍ ቃል ቢያንስ 6 ቁምፊ መሆን አለበት" : "Password must be at least 6 characters");
+      try {
+        const result = await signInWithEmail(email, password);
+        activeProfile = result.profile;
+        targetRole = result.resolvedRole as UserRole;
+        identifiedMethod = "Email/Password Authentication";
+      } catch (err: any) {
+        const msg = err instanceof AuthServiceError
+          ? (isAmharic ? err.messageAm : err.message)
+          : (isAmharic ? "የተሳሳተ ኢሜል ወይም የይለፍ ቃል።" : "Invalid email or password.");
+        handleFailedAttempt(msg);
         return;
       }
-
-      const lowerEmail = email.toLowerCase().trim();
-
-      // Real Firebase Authentication verification with fallback
-      let authedUid: string | null = null;
-      if (isFirebaseReady && auth) {
-        try {
-          const userCred = await signInWithEmailAndPassword(auth, lowerEmail, password);
-          if (userCred?.user?.uid) {
-            authedUid = userCred.user.uid;
-          }
-        } catch (fbErr: any) {
-          if (fbErr.code === "auth/user-not-found") {
-            try {
-              const newCred = await createUserWithEmailAndPassword(auth, lowerEmail, password);
-              if (newCred?.user?.uid) {
-                authedUid = newCred.user.uid;
-              }
-            } catch (createErr: any) {
-              handleFailedAttempt(isAmharic ? "ኢሜል ወይም የይለፍ ቃል አልተገኘም" : "User not found or creation failed");
-              return;
-            }
-          } else {
-            handleFailedAttempt(
-              isAmharic 
-                ? "የተሳሳተ የይለፍ ቃል ወይም የተቀየረ መለያ" 
-                : fbErr?.message || "Incorrect password or authentication failed"
-            );
-            return;
-          }
-        }
-      }
-
-      let foundRoleInDb = false;
-      const currentUid = authedUid || auth?.currentUser?.uid;
-
-      // Owner Email absolute Super Admin override (Only Super Admin: Nuriye Ahmed Adem)
-      if (lowerEmail === "mejennur669@gmail.com") {
-        targetRole = UserRole.SUPER_ADMIN;
-        foundRoleInDb = true;
-        activeProfile = {
-          uid: currentUid || "super-admin-nuriye",
-          displayName: "Nuriye Ahmed Adem",
-          email: "mejennur669@gmail.com",
-          phoneNumber: "0910097862/0920843843",
-          role: UserRole.SUPER_ADMIN,
-          requestedRole: UserRole.SUPER_ADMIN,
-          status: "Active"
-        };
-        if (currentUid && db) {
-          await setDoc(doc(db, "users", currentUid), activeProfile, { merge: true }).catch(() => {});
-        }
-      }
-
-      // 1. Check Firestore user document for approved role
-      if (!foundRoleInDb && currentUid && db) {
-        try {
-          const userDocSnap = await getDoc(doc(db, "users", currentUid));
-          if (userDocSnap.exists()) {
-            const userData = userDocSnap.data();
-            activeProfile = {
-              uid: currentUid,
-              displayName: userData.displayName || userData.name || lowerEmail.split("@")[0],
-              email: userData.email || lowerEmail,
-              phoneNumber: userData.phoneNumber || "",
-              role: userData.role,
-              requestedRole: userData.requestedRole || userData.role,
-              status: userData.status || "Active",
-              department: userData.department,
-              trade: userData.trade,
-              position: userData.position,
-              createdAt: userData.createdAt
-            };
-            if (userData.role && userData.role !== "Pending") {
-              targetRole = (userData.role === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
-                ? UserRole.HEAD_OFFICE
-                : (userData.role as UserRole);
-              foundRoleInDb = true;
-            } else if (userData.status === "Active" && userData.requestedRole && userData.requestedRole !== "Pending") {
-              targetRole = (userData.requestedRole === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
-                ? UserRole.HEAD_OFFICE
-                : (userData.requestedRole as UserRole);
-              foundRoleInDb = true;
-              await setDoc(doc(db, "users", currentUid), { role: targetRole, status: "Active" }, { merge: true }).catch(() => {});
-            }
-          }
-        } catch (e) {
-          console.warn("Could not fetch user document from Firestore during login:", e);
-        }
-      }
-
-      // 2. If role is still Pending in Firestore, check RoleChangeApprovalService for approved request
-      if (!foundRoleInDb) {
-        try {
-          const allRequests = RoleChangeApprovalService.getRequests();
-          const approvedReq = allRequests.find(r => 
-            (r.userEmail?.toLowerCase() === lowerEmail || (currentUid && r.userId === currentUid)) && 
-            r.status === "Approved"
-          );
-          if (approvedReq) {
-            const approvedRole = (approvedReq.assignedRole || approvedReq.requestedRole) as UserRole;
-            if (approvedRole && approvedRole !== ("Pending" as any)) {
-              // Super admin cannot be claimed by non-owner
-              targetRole = (approvedRole === UserRole.SUPER_ADMIN && lowerEmail !== "mejennur669@gmail.com")
-                ? UserRole.HEAD_OFFICE 
-                : approvedRole;
-              foundRoleInDb = true;
-              if (currentUid && db) {
-                await setDoc(doc(db, "users", currentUid), {
-                  role: targetRole,
-                  requestedRole: targetRole,
-                  status: "Active"
-                }, { merge: true }).catch(err => console.error("Error writing approved role to Firestore:", err));
-              }
-            }
-          }
-        } catch (e) {
-          console.warn("Error checking RoleChangeApprovalService for approved role:", e);
-        }
-      }
-
-      // 3. Fallback: Unapproved non-owner accounts remain Pending until Admin/HO/HR approval
-      if (!foundRoleInDb) {
-        if (lowerEmail === "mejennur669@gmail.com") {
-          targetRole = UserRole.SUPER_ADMIN;
-        } else {
-          targetRole = "Pending" as any;
-          if (currentUid && db) {
-            // Provision the initial Pending user profile in Firestore so user exists across Auth & Firestore
-            const initialProfile = {
-              displayName: lowerEmail.split("@")[0] || "OVID Employee",
-              name: lowerEmail.split("@")[0] || "OVID Employee",
-              email: lowerEmail,
-              phoneNumber: "",
-              role: "Pending",
-              status: "Pending",
-              createdAt: new Date().toISOString(),
-              employeeId: `EMP-${currentUid.slice(0, 6).toUpperCase()}`,
-              department: "General Operations",
-              trade: "Staff",
-              position: "Pending Approval",
-              requestedRole: "Pending",
-              id: currentUid,
-              uid: currentUid
-            };
-            await setDoc(doc(db, "users", currentUid), initialProfile, { merge: true }).catch((err) => {
-              console.warn("Could not auto-provision Pending user profile in Firestore:", err);
-            });
-            activeProfile = initialProfile;
-          }
-        }
-      }
-      
-      identifiedMethod = "Email/Password Authentication";
     } else if (authMethod === "phone") {
       if (!phoneNumber.trim()) {
         handleFailedAttempt(isAmharic ? "ስልክ ቁጥር ያስገቡ" : "Please enter phone number");
@@ -748,7 +573,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           let appVerifier = (window as any).recaptchaVerifier;
           if (!appVerifier) {
             appVerifier = new RecaptchaVerifier(auth, "recaptcha-container", {
-              size: "invisible"
+              size: "invisible",
             });
             (window as any).recaptchaVerifier = appVerifier;
           }
@@ -768,52 +593,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
             try {
               (window as any).recaptchaVerifier.clear();
               (window as any).recaptchaVerifier = null;
-            } catch (e) {}
+            } catch {}
           }
-          const code = phoneErr?.code || "";
-          const msg = phoneErr?.message || "";
-          if (code === "auth/api-key-not-valid" || msg.includes("api-key-not-valid")) {
-            handleFailedAttempt(
-              isAmharic
-                ? "የፋየርቤዝ ኤፒአይ ቁልፍ (API Key) ትክክለኛ አይደለም:: እባክዎ በፕሮጀክት ቅንብሮች ውስጥ ትክክለኛ VITE_FIREBASE_API_KEY ያስገቡ::"
-                : "Invalid Firebase API Key. Please provide a valid VITE_FIREBASE_API_KEY in environment settings."
-            );
-          } else if (code === "auth/operation-not-allowed") {
-            handleFailedAttempt(
-              isAmharic
-                ? "በፋየርቤዝ ውስጥ የስልክ ማረጋገጫ (Phone Auth) አልተከፈተም:: እባክዎ በFirebase Console -> Authentication -> Sign-in method ውስጥ 'Phone' ን ያንቁ::"
-                : "Phone authentication is disabled in your Firebase project. Please enable 'Phone' in Firebase Console > Authentication > Sign-in method."
-            );
-          } else if (code === "auth/invalid-app-credential") {
-            handleFailedAttempt(
-              isAmharic
-                ? "የመተግበሪያው ጎራ በFirebase Console ውስጥ አልተፈቀደም:: እባክዎ በAuthorized Domains ውስጥ ጎራዎን ያክሉ::"
-                : "Domain not authorized in Firebase Console. Please add your domain under Firebase Console > Authentication > Settings > Authorized domains."
-            );
-          } else if (code === "auth/invalid-phone-number") {
-            handleFailedAttempt(
-              isAmharic
-                ? "ትክክለኛ ያልሆነ የስልክ ቁጥር ቅርፅ። እባክዎ በ+251 የሀገር ኮድ ያረጋግጡ።"
-                : "Invalid phone number format. Please ensure correct country code (+251)."
-            );
-          } else if (code === "auth/too-many-requests" || code === "auth/quota-exceeded") {
-            handleFailedAttempt(
-              isAmharic
-                ? "የኤስኤምኤስ መላክ ገደብ አልፏል ወይም ብዙ ሙከራ ተደርጓል። እባክዎ ቆይተው ይሞክሩ።"
-                : "SMS quota exceeded or too many attempts. Please try again later."
-            );
-          } else if (code === "auth/captcha-check-failed") {
-            handleFailedAttempt(
-              isAmharic ? "reCAPTCHA ማረጋገጫ አልተሳካም።" : "reCAPTCHA verification failed."
-            );
-          } else {
-            handleFailedAttempt(
-              isAmharic
-                ? "የኤስኤምኤስ ኮድ መላክ አልተሳካም። እባክዎ ስልክ ቁጥሩን ያረጋግጡ።"
-                : phoneErr?.message || "Failed to send SMS code. Please verify phone number."
-            );
-          }
-          return;
+          handleFailedAttempt(
+            isAmharic
+              ? "የኤስኤምኤስ ኮድ መላክ አልተሳካም። እባክዎ ስልክ ቁጥሩን ያረጋግጡ።"
+              : phoneErr?.message || "Failed to send SMS code. Please verify phone number."
+          );
         } finally {
           setPhoneLoading(false);
         }
@@ -832,45 +618,46 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
         setPhoneLoading(true);
         try {
-          await confirmationResult.confirm(otpCode.trim());
+          const userCred = await confirmationResult.confirm(otpCode.trim());
+          const uid = userCred.user.uid;
+          let profileData: Record<string, any> | null = null;
+          if (db) {
+            const userSnap = await getDoc(doc(db, "users", uid)).catch(() => null);
+            if (userSnap && userSnap.exists()) {
+              profileData = userSnap.data();
+            }
+          }
+          const resolvedRole = resolveUserRole(profileData);
+          targetRole = resolvedRole as UserRole;
+          activeProfile = {
+            uid,
+            displayName: profileData?.displayName || formattedPhone,
+            email: profileData?.email || "",
+            phoneNumber: profileData?.phoneNumber || formattedPhone,
+            role: resolvedRole,
+            requestedRole: profileData?.requestedRole || "Worker",
+            status: resolvedRole === "Pending" ? "Pending" : "Active",
+          };
         } catch (confirmErr: any) {
-          console.error("OTP Confirmation error:", confirmErr);
           const code = confirmErr?.code || "";
           if (code === "auth/invalid-verification-code") {
             handleFailedAttempt(isAmharic ? "የተሳሳተ የኦቲፒ (OTP) ኮድ" : "Incorrect OTP verification code");
           } else if (code === "auth/code-expired") {
             handleFailedAttempt(isAmharic ? "የማረጋገጫ ኮዱ ጊዜው አልፏል። እባክዎ እንደገና ይላኩ" : "Verification code expired. Please request a new code.");
           } else {
-            handleFailedAttempt(
-              isAmharic
-                ? "የኦቲፒ ማረጋገጫ አልተሳካም"
-                : confirmErr?.message || "Failed to verify OTP code"
-            );
+            handleFailedAttempt(isAmharic ? "የኦቲፒ ማረጋገጫ አልተሳካም" : "Failed to verify OTP code");
           }
           return;
         } finally {
           setPhoneLoading(false);
         }
-
-        // Exact phone verification for Super Admin (Nuriye Ahmed Adem) based on official phone numbers (+251910097862 / +251920843843)
-        const cleanPhone = formattedPhone.replace(/\s+/g, "");
-        if (cleanPhone === "+251910097862" || cleanPhone === "+251920843843") {
-          targetRole = UserRole.SUPER_ADMIN;
-          if (auth?.currentUser?.uid && db) {
-            await setDoc(doc(db, "users", auth.currentUser.uid), {
-              displayName: "Nuriye Ahmed Adem",
-              email: "mejennur669@gmail.com",
-              phoneNumber: "0910097862/0920843843",
-              role: UserRole.SUPER_ADMIN,
-              requestedRole: UserRole.SUPER_ADMIN,
-              status: "Active"
-            }, { merge: true }).catch(() => {});
-          }
-        }
-
         identifiedMethod = "Mobile SMS OTP";
       }
     } else if (authMethod === "empId") {
+      if (!isDemoLoginEnabled) {
+        handleFailedAttempt(isAmharic ? "ይህ የመግቢያ ዘዴ በዚህ አካባቢ አልተፈቀደም" : "Demo login is disabled in this environment.");
+        return;
+      }
       if (!employeeId) {
         handleFailedAttempt(isAmharic ? "እባክዎ የኩባንያ መታወቂያ ያስገቡ" : "Please enter Employee ID");
         return;
@@ -878,6 +665,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       targetRole = getRoleFromEmpId(employeeId);
       identifiedMethod = `Employee ID (${employeeId})`;
     } else if (authMethod === "biometric") {
+      if (!isDemoLoginEnabled) {
+        handleFailedAttempt(isAmharic ? "ይህ የመግቢያ ዘዴ በዚህ አካባቢ አልተፈቀደም" : "Demo login is disabled in this environment.");
+        return;
+      }
       if (!scanSuccess) {
         handleFailedAttempt(isAmharic ? "እባክዎ መጀመሪያ ባዮሜትሪክ መለያ ይቃኙ" : "Please perform biometric scan first");
         return;
@@ -885,62 +676,51 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       identifiedMethod = biometricType === "fingerprint" ? "Secure Fingerprint Scan" : "High-Res Face Recognition";
     }
 
-    // Determine if TOTP MFA is required (Sensitive roles require MFA by policy)
-    const isSensitiveRole = [UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.FINANCE_MANAGER].includes(targetRole);
-
-    if (isSensitiveRole && !mfaRequired) {
-      setMfaRequired(true);
-      setMfaCode(""); // User must enter their own MFA code manually
-      setSuccessMessage(
-        isAmharic
-          ? "እባክዎ ባለ 6-አሃዝ MFA ማረጋገጫ ኮድዎን ያስገቡ"
-          : "Please enter your 6-digit MFA security token."
-      );
+    // Pending users go straight to Pending Approval screen without MFA
+    if ((targetRole as any) === "Pending") {
+      completeLogin(targetRole, identifiedMethod, activeProfile);
       return;
     }
 
-    if (mfaRequired) {
-      if (!mfaCode.trim()) {
-        setMfaError(isAmharic ? "እባክዎ ባለ 6-አሃዝ MFA ማረጋገጫ ኮድ ያስገቡ" : "Please enter your 6-digit MFA security token.");
-        return;
-      }
+    // Server-side TOTP MFA check for sensitive roles when Firebase Auth user is signed in
+    if (isSensitiveRole(targetRole) && auth?.currentUser) {
+      setMfaLoading(true);
       try {
-        const res = await fetch("/api/security/verify-mfa", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            code: mfaCode.trim(),
-            userId: email.trim().toLowerCase() || employeeId.trim() || "user",
-            userName: email || employeeId || "User"
-          })
-        });
-        const mfaData = await res.json();
-        if (!res.ok || !mfaData.success) {
-          setMfaError(mfaData.message || mfaData.error || (isAmharic ? "የተሳሳተ የደህንነት TOTP ኮድ!" : "Incorrect TOTP MFA authentication token!"));
-          handleFailedAttempt(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "TOTP MFA authentication failed");
+        const status = await getMfaStatus();
+        if (!status.verifiedRecently) {
+          setPendingAuthResult({
+            targetRole,
+            method: identifiedMethod,
+            profile: activeProfile,
+          });
+          setMfaRequired(true);
+          setMfaCode("");
+          setMfaError("");
+          if (!status.enrolled) {
+            const enrolled = await enrollMfa();
+            setMfaEnrollment(enrolled);
+          } else {
+            setMfaEnrollment(null);
+          }
+          setSuccessMessage(
+            isAmharic
+              ? "እባክዎ ባለ 6-አሃዝ MFA ማረጋገጫ ኮድዎን ያስገቡ"
+              : "Please enter your 6-digit TOTP authenticator code."
+          );
           return;
         }
-      } catch (mfaErr: any) {
-        setMfaError(isAmharic ? "የኤምኤፍኤ ማረጋገጫ አልተሳካም" : "MFA verification failed. Please check network connection.");
-        handleFailedAttempt("MFA verification request failed");
+      } catch (mfaStatusErr: any) {
+        setErrorMessage(
+          mfaStatusErr?.message ||
+            (isAmharic ? "የMFA ሁኔታን ማረጋገጥ አልተቻለም" : "Unable to verify MFA policy status.")
+        );
         return;
+      } finally {
+        setMfaLoading(false);
       }
     }
 
-    // Successful login details
-    const simulatedLog = {
-      loginTime: new Date().toISOString().replace("T", " ").slice(0, 19),
-      device: navigator.userAgent.includes("Mobile") 
-        ? "Mobile App client (iOS/Android ERP Core)" 
-        : "Desktop Workstation (Windows 11 Enterprise / Chrome)",
-      ip: `192.168.10.${Math.floor(10 + Math.random() * 200)}`,
-      gps: "9.0272° N, 38.7483° E (Digital Bole Heights Site B1)"
-    };
-
-    setSuccessMessage(isAmharic ? "በተሳካ ሁኔታ ገብተዋል! በመጫን ላይ..." : "Authorized successfully! Loading ERP...");
-    setTimeout(() => {
-      onLoginSuccess(targetRole, identifiedMethod, simulatedLog, activeProfile);
-    }, 800);
+    completeLogin(targetRole, identifiedMethod, activeProfile);
   };
 
   const handleFailedAttempt = (err: string) => {
@@ -1137,8 +917,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                 {[
                   { id: "credentials", icon: Mail, label: isAmharic ? "ፓስዎርድ" : "Password" },
                   { id: "phone", icon: Phone, label: isAmharic ? "ኤስኤምኤስ" : "SMS" },
-                  { id: "empId", icon: User, label: isAmharic ? "መታወቂያ" : "Emp ID" },
-                  { id: "biometric", icon: Fingerprint, label: isAmharic ? "ባዮሜትሪክ" : "Biometrics" },
+                  ...(isDemoLoginEnabled
+                    ? [
+                        { id: "empId", icon: User, label: isAmharic ? "መታወቂያ" : "Emp ID" },
+                        { id: "biometric", icon: Fingerprint, label: isAmharic ? "ባዮሜትሪክ" : "Biometrics" },
+                      ]
+                    : []),
                 ].map((m) => {
                   const Icon = m.icon;
                   return (
@@ -1152,6 +936,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         setSuccessMessage("");
                         setIsOtpSent(false);
                         setMfaRequired(false);
+                        setMfaEnrollment(null);
                       }}
                       className={`flex-1 py-2 rounded-lg text-[10px] font-bold uppercase transition-all flex flex-col items-center justify-center space-y-1 cursor-pointer ${
                         authMethod === m.id ? "bg-red-600 text-white shadow-lg shadow-red-600/10" : "text-slate-400 hover:text-slate-200"
@@ -1364,7 +1149,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     </>
                   )}
 
-                  {authMethod === "empId" && (
+                  {isDemoLoginEnabled && authMethod === "empId" && (
                     <div>
                       <label className="block text-[10px] font-mono uppercase text-slate-400 mb-1 font-bold">
                         {isAmharic ? "የኩባንያ መታወቂያ / ሰራተኛ መለያ ቁጥር" : "Company Employee Identity ID"}
@@ -1380,12 +1165,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         />
                       </div>
                       <p className="text-[10px] text-slate-500 font-mono mt-1">
-                        {isAmharic ? "ምሳሌ፦ PM-01 ለስራ አስኪያጅ፣ HO-01 ለዋና መ/ቤት" : "Note: ID prefix maps to custom authorizations automatically."}
+                        {isAmharic ? "ምሳሌ፦ PM-01 ለስራ አስኪያጅ፣ HO-01 ለዋና መ/ቤት" : "Dev Demo: ID prefix maps to local demo role."}
                       </p>
                     </div>
                   )}
 
-                  {authMethod === "biometric" && (
+                  {isDemoLoginEnabled && authMethod === "biometric" && (
                     <div className="space-y-3 bg-slate-950 border border-slate-800 p-4 rounded-xl text-center">
                       <div className="flex justify-center space-x-2 mb-2">
                         <button
@@ -1457,39 +1242,45 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                           {isScanning 
                             ? (isAmharic ? `በመቃኘት ላይ... ${scanProgress}%` : `Scanning Secure Elements... ${scanProgress}%`) 
                             : scanSuccess 
-                              ? (isAmharic ? "ተቀባይነት አግኝቷል" : "SecID Match Verified (100% Hash)") 
-                              : (isAmharic ? "ለመቃኘት ምልክቱን ይጫኑ" : "Click to emulate hardware scan")}
+                              ? (isAmharic ? "ተቀባይነት አግኝቷል" : "SecID Match Verified") 
+                              : (isAmharic ? "ለመቃኘት ምልክቱን ይጫኑ" : "Click to scan (Dev Demo)")}
                         </span>
-                      </div>
-
-                      <div className="text-left bg-slate-900 p-2.5 rounded-lg border border-slate-800/80 flex items-start gap-2">
-                        <Info size={13} className="text-red-400 shrink-0 mt-0.5" />
-                        <p className="text-[10px] text-slate-400 leading-normal">
-                          {isAmharic 
-                            ? "ባዮሜትሪክ መረጃ በሳይት መመዝገቢያ ሃርድዌር የተመዘገበውን ይለፍ-ቃል ሃሽ ብቻ ያነጻጽራል። ጥሬ ምስል በደመና ላይ አይቀመጥም።" 
-                            : "Biometrics uses encrypted trust modules which cross-reference secure mathematical vectors without storing raw facial or ridge templates."}
-                        </p>
                       </div>
                     </div>
                   )}
                 </div>
               )
             ) : (
-                // MFA VERIFICATION VIEW (Triggered for Head Office, Proj Manager, Section Head)
+                // MFA ENROLLMENT & VERIFICATION VIEW (Triggered for sensitive roles)
                 <div className="space-y-4 bg-slate-950 border border-red-950/80 p-4 rounded-xl animate-fade-in">
                   <div className="text-center">
                     <div className="w-10 h-10 rounded-full bg-red-950/50 border border-red-500/30 flex items-center justify-center mx-auto mb-2 text-red-400">
-                      <KeyRound size={20} className="animate-spin" />
+                      <KeyRound size={20} />
                     </div>
                     <h4 className="text-xs font-black uppercase text-white tracking-widest">
-                      {isAmharic ? "ሁለተኛ ደረጃ ማረጋገጫ (MFA)" : "Multi-Factor Authentication"}
+                      {isAmharic ? "ሁለተኛ ደረጃ ማረጋገጫ (TOTP MFA)" : "Multi-Factor Authentication (TOTP)"}
                     </h4>
                     <p className="text-[10px] text-slate-400 mt-1">
-                      {isAmharic 
-                        ? "ለስሜታዊ ሚናዎች ከፍተኛ ጥበቃን ለማረጋገጥ የማረጋገጫ ኮድ ያስገቡ" 
-                        : "Strict HO security protocol requires secondary verification code to open administrative database privileges."}
+                      {mfaEnrollment
+                        ? (isAmharic
+                            ? "የAuthenticator መተግበሪያዎን (Google Authenticator / Authy) በመጠቀም ይህንን QR ኮድ ይቃኙና ባለ 6-አሃዝ ኮዱን ያስገቡ።"
+                            : "Scan this QR code with your Authenticator app and enter the 6-digit verification code.")
+                        : (isAmharic
+                            ? "ለስሜታዊ ሚናዎች ከፍተኛ ጥበቃን ለማረጋገጥ የAuthenticator 6-አሃዝ ኮድ ያስገቡ።"
+                            : "Strict security policy requires a 6-digit TOTP authenticator code.")}
                     </p>
                   </div>
+
+                  {mfaEnrollment?.otpauthUri && (
+                    <div className="flex flex-col items-center gap-2 bg-white p-3 rounded-xl mx-auto w-fit">
+                      <QRCodeSVG value={mfaEnrollment.otpauthUri} size={150} />
+                      {mfaEnrollment.secret && (
+                        <span className="text-[10px] font-mono text-slate-800 break-all max-w-[220px] text-center select-all">
+                          {mfaEnrollment.secret}
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {mfaError && (
                     <p className="text-xs text-red-400 text-center font-bold bg-red-950/20 py-1.5 rounded border border-red-900/30">
@@ -1506,7 +1297,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       maxLength={6}
                       value={mfaCode}
                       onChange={(e) => { setMfaCode(e.target.value); setMfaError(""); }}
-                      placeholder="0 0 0 0 0 0"
+                      placeholder="000000"
                       className="w-full py-2.5 text-sm bg-slate-900 border border-slate-800 rounded-lg text-white placeholder-slate-600 focus:outline-none focus:border-red-500 tracking-[0.7em] font-black text-center transition-all font-mono"
                     />
                   </div>
@@ -1516,6 +1307,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       type="button"
                       onClick={() => {
                         setMfaRequired(false);
+                        setMfaEnrollment(null);
+                        setPendingAuthResult(null);
                         setMfaCode("");
                         setMfaError("");
                       }}
@@ -1525,14 +1318,23 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setMfaCode("");
+                      disabled={mfaLoading}
+                      onClick={async () => {
                         setMfaError("");
-                        setSuccessMessage(isAmharic ? "አዲስ የማረጋገጫ ኮድ ጥያቄ ተልኳል" : "A new MFA challenge request was sent.");
+                        setMfaLoading(true);
+                        try {
+                          const enrolled = await enrollMfa();
+                          setMfaEnrollment(enrolled);
+                          setSuccessMessage(isAmharic ? "አዲስ የQR ኮድ ተፈጥሯል" : "Generated Authenticator QR enrollment key.");
+                        } catch (err: any) {
+                          setMfaError(err?.message || "Failed to generate QR enrollment.");
+                        } finally {
+                          setMfaLoading(false);
+                        }
                       }}
-                      className="flex-1 py-1.5 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 text-[10px] font-bold uppercase transition-all text-red-400 cursor-pointer"
+                      className="flex-1 py-1.5 rounded bg-slate-900 border border-slate-800 hover:bg-slate-800 text-[10px] font-bold uppercase transition-all text-red-400 cursor-pointer disabled:opacity-50"
                     >
-                      {isAmharic ? "ኮድ መልሰህ ላክ" : "Resend Token"}
+                      {isAmharic ? "QR አድስ" : "Setup / Reset QR"}
                     </button>
                   </div>
                 </div>
@@ -1566,12 +1368,12 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                   {/* SUBMIT BUTTON */}
                   <button
                     type="submit"
-                    disabled={isLocked || phoneLoading}
+                    disabled={isLocked || phoneLoading || mfaLoading}
                     className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-lg shadow-red-600/20 hover:shadow-red-600/30 transition-all flex items-center justify-center space-x-2 cursor-pointer disabled:opacity-50"
                   >
                     <Shield size={14} />
                     <span>
-                      {phoneLoading
+                      {phoneLoading || mfaLoading
                         ? (isAmharic ? "በማስኬድ ላይ..." : "Processing...")
                         : mfaRequired 
                           ? (isAmharic ? "ማረጋገጫ አረጋግጥ እና ክፈት" : "Verify Token & Authorize") 
@@ -1802,14 +1604,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       {/* FOOTER & TRUST INDICATION */}
       <div className="relative z-10 text-center py-6 border-t border-slate-900 text-slate-500 text-[11px] font-mono space-y-1">
         <p>© {new Date().getFullYear()} Digital Construction ERP System Engineering Division. All rights reserved.</p>
-        <p className="text-slate-400 font-bold">
-          {isAmharic 
-            ? "ሱፐር አድሚን (Super Admin): Nuriye Ahmed Adem" 
-            : "Super Admin: Nuriye Ahmed Adem"} 
-          {" "}| {isAmharic ? "ስልክ:" : "Phone:"} 0910097862/0920843843 | {isAmharic ? "ኢሜይል:" : "Email:"} mejennur669@gmail.com
-        </p>
         <p className="text-[10px] text-slate-600">
-          Authorized ERP Terminal ID: Digital Construction ERP-ET-ADB-B1 | Registered Audit Logs Count: {auditLogsCount} | mejennur669@gmail.com
+          Authorized ERP Terminal | Registered Audit Logs Count: {auditLogsCount}
         </p>
       </div>
 

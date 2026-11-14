@@ -130,6 +130,20 @@ class OfflineCacheAndOutboxEngine {
     return `digital_construction_outbox_queue`;
   }
 
+  public getRawCache<T>(collectionName: string): T[] | null {
+    if (typeof window === "undefined") return null;
+    const key = this.getStorageKey(collectionName);
+    try {
+      const data = localStorage.getItem(key);
+      if (!data) return null;
+      const parsed = JSON.parse(data);
+      return Array.isArray(parsed) ? parsed : null;
+    } catch (e) {
+      console.warn(`Error reading raw cache collection "${collectionName}":`, e);
+      return null;
+    }
+  }
+
   public getCache<T>(collectionName: string, defaultData: T[]): T[] {
     if (typeof window === "undefined") return defaultData;
     const key = this.getStorageKey(collectionName);
@@ -177,6 +191,42 @@ class OfflineCacheAndOutboxEngine {
     this.saveCache(collectionName, filtered);
   }
 
+  public getOutboxQueue(): OutboxItem[] {
+    if (typeof window === "undefined") return [];
+    try {
+      const existing = localStorage.getItem(this.getOutboxKey());
+      if (!existing) return [];
+      const queue: OutboxItem[] = JSON.parse(existing);
+      if (!Array.isArray(queue)) return [];
+      return [...queue].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    } catch {
+      return [];
+    }
+  }
+
+  public reconcileWithOutbox<T extends { id?: string }>(collectionName: string, firestoreItems: T[]): T[] {
+    const map = new Map<string, T>();
+    for (const item of firestoreItems) {
+      if (item && item.id) {
+        map.set(item.id, item);
+      }
+    }
+
+    const pendingActions = this.getOutboxQueue().filter(entry => entry.collectionName === collectionName);
+    for (const entry of pendingActions) {
+      if (entry.action === "delete") {
+        map.delete(entry.id);
+      } else if (entry.action === "set" && entry.data) {
+        const existing = map.get(entry.id);
+        map.set(entry.id, existing ? { ...existing, ...entry.data, id: entry.id } : { ...entry.data, id: entry.id });
+      }
+    }
+
+    const reconciled = Array.from(map.values());
+    this.saveCache(collectionName, reconciled);
+    return reconciled;
+  }
+
   public queueOutbox(action: "set" | "delete", collectionName: string, id: string, data?: any): void {
     if (typeof window === "undefined") return;
     try {
@@ -191,7 +241,7 @@ class OfflineCacheAndOutboxEngine {
   }
 
   public async flushOutbox(): Promise<void> {
-    if (!isFirebaseReady || !db || typeof window === "undefined") return;
+    if (!isFirebaseReady || !db || (auth && !auth.currentUser) || typeof window === "undefined") return;
     try {
       const outboxKey = this.getOutboxKey();
       const existing = localStorage.getItem(outboxKey);
@@ -233,61 +283,33 @@ if (typeof window !== "undefined") {
   window.addEventListener("online", () => {
     offlineEngine.flushOutbox().catch(err => console.error("Error flushing offline outbox:", err));
   });
-  // Flush queued items immediately on module load
   setTimeout(() => {
     offlineEngine.flushOutbox().catch(() => {});
   }, 1000);
 }
 
-// Unified Primary Data Fetcher & Modifier (Firestore is primary source of truth)
+function canQueryFirestore(): boolean {
+  return Boolean(isFirebaseReady && db && (auth ? Boolean(auth.currentUser) : true));
+}
+
+// Unified Primary Data Fetcher (Firestore is authoritative source of truth when online)
 async function fetchCollection<T extends { id: string }>(collectionName: string, defaultData: T[], maxLimit: number = 100): Promise<T[]> {
-  if (isFirebaseReady && db && auth?.currentUser) {
+  if (canQueryFirestore() && db) {
     try {
-      console.log(`[DbService] Fetching Firestore collection "${collectionName}" (bounded query limit ${maxLimit})...`);
       const colRef = collection(db, collectionName);
       const q = query(colRef, limit(maxLimit));
       const snapshot = await getDocs(q);
-      const cached = offlineEngine.getCache<T>(collectionName, defaultData);
-
-      if (!snapshot.empty) {
-        const items = snapshot.docs.map(docSnap => {
-          const data = docSnap.data() as T;
-          return { ...data, id: data.id || docSnap.id };
-        });
-        console.log(`[DbService] Successfully loaded ${items.length} documents from Firestore collection "${collectionName}".`);
-        
-        // Merge Firestore items with local-only cached items so newly registered items aren't wiped
-        const fsIds = new Set(items.map(x => x.id));
-        const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));
-        const combined = [...items, ...localOnly];
-
-        offlineEngine.saveCache(collectionName, combined);
-
-        // Back-fill local-only registered items to Firestore
-        if (localOnly.length > 0) {
-          console.log(`[DbService] Found ${localOnly.length} local-only item(s) in "${collectionName}". Syncing to Firestore...`);
-          localOnly.forEach(item => {
-            setDoc(doc(db, collectionName, item.id), sanitizeForFirestore(item), { merge: true }).catch(err => {
-              console.warn(`[DbService] Auto-syncing local document ${item.id} to Firestore failed:`, err);
-            });
+      const items = snapshot.empty
+        ? []
+        : snapshot.docs.map(docSnap => {
+            const data = docSnap.data() as T;
+            return { ...data, id: data.id || docSnap.id };
           });
-        }
-
-        return combined;
-      } else {
-        console.log(`[DbService] Firestore collection "${collectionName}" is empty. Checking local cache (${cached.length} items).`);
-        // If Firestore is empty, upload all cached items to Firestore if available
-        if (cached && cached.length > 0) {
-          cached.forEach(item => {
-            setDoc(doc(db, collectionName, item.id), sanitizeForFirestore(item), { merge: true }).catch(err => {
-              console.warn(`[DbService] Initial seed sync for ${item.id} failed:`, err);
-            });
-          });
-        }
-        return cached;
-      }
+      return offlineEngine.reconcileWithOutbox<T>(collectionName, items);
     } catch (err) {
       console.warn(`Firestore primary read failed for "${collectionName}". Falling back to offline cache:`, err);
+      const rawCache = offlineEngine.getRawCache<T>(collectionName);
+      return rawCache ?? offlineEngine.getCache<T>(collectionName, defaultData);
     }
   }
   return offlineEngine.getCache<T>(collectionName, defaultData);
@@ -397,26 +419,19 @@ export const DbService = {
     callback: (users: any[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "users");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const cached = offlineEngine.getCache<any>("users", []);
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            return { ...data, id: data.id || data.uid || docSnap.id, uid: data.uid || docSnap.id };
-          });
-          const fsIds = new Set(items.map(x => x.id));
-          const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));
-          const combined = [...items, ...localOnly];
-          offlineEngine.saveCache("users", combined);
-          if (localOnly.length > 0) {
-            localOnly.forEach(item => {
-              setDoc(doc(db, "users", item.id), sanitizeForFirestore(item), { merge: true }).catch(() => {});
-            });
-          }
-          callback(combined);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                return { ...data, id: data.id || data.uid || docSnap.id, uid: data.uid || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<any>("users", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "users");
@@ -440,44 +455,28 @@ export const DbService = {
     callback: (workersList: Worker[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "workers");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const cached = offlineEngine.getCache<Worker>("workers", initialWorkers);
-          if (!snapshot.empty) {
-            const items = snapshot.docs.map(docSnap => {
-              const data = docSnap.data() as any;
-              const resolvedName = data.name || data.fullName || data.workerName || data.displayName || "";
-              return {
-                ...data,
-                id: data.id || docSnap.id,
-                name: resolvedName,
-                company: data.company || "",
-                department: data.department || "Operations",
-                trade: data.trade || "General Labor",
-                status: data.status || "Active"
-              } as Worker;
-            });
-            const fsIds = new Set(items.map(x => x.id));
-            const localOnly = cached.filter(x => x && x.id && !fsIds.has(x.id));
-            const combined = [...items, ...localOnly];
-            offlineEngine.saveCache("workers", combined);
-            if (localOnly.length > 0) {
-              localOnly.forEach(item => {
-                setDoc(doc(db, "workers", item.id), sanitizeForFirestore(item), { merge: true }).catch(() => {});
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as any;
+                const resolvedName = data.name || data.fullName || data.workerName || data.displayName || "";
+                return {
+                  ...data,
+                  id: data.id || docSnap.id,
+                  name: resolvedName,
+                  company: data.company || "",
+                  department: data.department || "Operations",
+                  trade: data.trade || "General Labor",
+                  status: data.status || "Active"
+                } as Worker;
               });
-            }
-            callback(combined);
-          } else {
-            if (cached && cached.length > 0) {
-              cached.forEach(item => {
-                setDoc(doc(db, "workers", item.id), sanitizeForFirestore(item), { merge: true }).catch(() => {});
-              });
-            }
-            callback(cached);
-          }
+          const reconciled = offlineEngine.reconcileWithOutbox<Worker>("workers", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "workers");
@@ -691,18 +690,19 @@ export const DbService = {
     callback: (notifs: any[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
-      console.log("[DbService] Subscribing real-time onSnapshot listener to 'notifications'...");
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "notifications");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data();
-            return { ...data, id: data.id || docSnap.id };
-          });
-          console.log(`[DbService.onSnapshot] Live update received for 'notifications'. Document count: ${items.length}`);
-          
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data();
+                return { ...data, id: data.id || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<any>("notifications", items);
+
           let readIds = new Set<string>();
           if (typeof window !== "undefined") {
             try {
@@ -714,8 +714,7 @@ export const DbService = {
             } catch {}
           }
 
-          const rawList = items.length > 0 ? items : offlineEngine.getCache<any>("notifications", []);
-          const processed = rawList.map(n => {
+          const processed = reconciled.map(n => {
             if (readIds.has(n.id) || n.status === "Read" || n.read === true) {
               return { ...n, status: "Read", read: true };
             }
@@ -727,14 +726,11 @@ export const DbService = {
             return String(b.id || "").localeCompare(String(a.id || ""));
           });
 
-          if (items.length > 0) {
-            offlineEngine.saveCache("notifications", processed);
-          }
+          offlineEngine.saveCache("notifications", processed);
           callback(processed);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "notifications");
-          console.warn("[DbService.onSnapshot] Error in 'notifications' listener:", error);
           if (onError) onError(error);
           const cached = offlineEngine.getCache<any>("notifications", []);
           callback(cached);
@@ -774,28 +770,22 @@ export const DbService = {
     callback: (panels: AluminumFormworkPanel[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
-      console.log("[DbService] Subscribing real-time onSnapshot listener to 'formworkPanels'...");
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "formworkPanels");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as AluminumFormworkPanel;
-            return { ...data, id: data.id || docSnap.id };
-          });
-          console.log(`[DbService.onSnapshot] Live update received for 'formworkPanels'. Document count: ${items.length}`);
-          if (items.length > 0) {
-            offlineEngine.saveCache("formworkPanels", items);
-            callback(items);
-          } else {
-            const cached = offlineEngine.getCache<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
-            callback(cached);
-          }
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as AluminumFormworkPanel;
+                return { ...data, id: data.id || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<AluminumFormworkPanel>("formworkPanels", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "formworkPanels");
-          console.warn("[DbService.onSnapshot] Error in 'formworkPanels' listener, falling back to cache:", error);
           if (onError) onError(error);
           const cached = offlineEngine.getCache<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
           callback(cached);
@@ -803,7 +793,6 @@ export const DbService = {
       );
       return unsubscribe;
     } else {
-      console.log("[DbService] Firebase not active for 'formworkPanels'. Returning cached state.");
       const cached = offlineEngine.getCache<AluminumFormworkPanel>("formworkPanels", initialFormworkPanels);
       callback(cached);
       return () => {};
@@ -831,28 +820,22 @@ export const DbService = {
     callback: (logs: PanelMovementLog[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
-      console.log("[DbService] Subscribing real-time onSnapshot listener to 'panelMovementLogs'...");
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelMovementLogs");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelMovementLog;
-            return { ...data, id: data.id || docSnap.id };
-          });
-          console.log(`[DbService.onSnapshot] Live update received for 'panelMovementLogs'. Document count: ${items.length}`);
-          if (items.length > 0) {
-            offlineEngine.saveCache("panelMovementLogs", items);
-            callback(items);
-          } else {
-            const cached = offlineEngine.getCache<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
-            callback(cached);
-          }
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelMovementLog;
+                return { ...data, id: data.id || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelMovementLog>("panelMovementLogs", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelMovementLogs");
-          console.warn("[DbService.onSnapshot] Error in 'panelMovementLogs' listener, falling back to cache:", error);
           if (onError) onError(error);
           const cached = offlineEngine.getCache<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
           callback(cached);
@@ -860,7 +843,6 @@ export const DbService = {
       );
       return unsubscribe;
     } else {
-      console.log("[DbService] Firebase not active for 'panelMovementLogs'. Returning cached state.");
       const cached = offlineEngine.getCache<PanelMovementLog>("panelMovementLogs", initialMovementLogs);
       callback(cached);
       return () => {};
@@ -1520,29 +1502,23 @@ export const DbService = {
     callback: (panels: TraceablePanel[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
-      console.log("[DbService] Subscribing real-time onSnapshot listener to 'traceablePanels'...");
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "traceablePanels");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as TraceablePanel;
-            const id = data.id || data.panelId || docSnap.id;
-            return { ...data, id, panelId: data.panelId || id };
-          });
-          console.log(`[DbService.onSnapshot] Live update for 'traceablePanels': ${items.length} docs`);
-          if (items.length > 0) {
-            offlineEngine.saveCache("traceablePanels", items);
-            callback(items);
-          } else {
-            const cached = offlineEngine.getCache<TraceablePanel>("traceablePanels", INITIAL_SEED_PANELS);
-            callback(cached);
-          }
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as TraceablePanel;
+                const id = data.id || data.panelId || docSnap.id;
+                return { ...data, id, panelId: data.panelId || id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<TraceablePanel>("traceablePanels", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "traceablePanels");
-          console.warn("[DbService.onSnapshot] Error in 'traceablePanels', using cache:", error);
           if (onError) onError(error);
           callback(offlineEngine.getCache<TraceablePanel>("traceablePanels", INITIAL_SEED_PANELS));
         }
@@ -1594,22 +1570,20 @@ export const DbService = {
     callback: (movements: PanelTraceabilityMovement[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelTraceabilityMovements");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelTraceabilityMovement;
-            const id = data.id || data.movementId || docSnap.id;
-            return { ...data, id, movementId: data.movementId || id };
-          });
-          if (items.length > 0) {
-            offlineEngine.saveCache("panelTraceabilityMovements", items);
-            callback(items);
-          } else {
-            callback(offlineEngine.getCache<PanelTraceabilityMovement>("panelTraceabilityMovements", INITIAL_SEED_MOVEMENTS));
-          }
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelTraceabilityMovement;
+                const id = data.id || data.movementId || docSnap.id;
+                return { ...data, id, movementId: data.movementId || id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelTraceabilityMovement>("panelTraceabilityMovements", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelTraceabilityMovements");
@@ -1655,18 +1629,20 @@ export const DbService = {
     callback: (damages: PanelDamageInspection[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelDamageInspections");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelDamageInspection;
-            const id = data.id || data.inspectionId || docSnap.id;
-            return { ...data, id, inspectionId: data.inspectionId || id };
-          });
-          offlineEngine.saveCache("panelDamageInspections", items);
-          callback(items);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelDamageInspection;
+                const id = data.id || data.inspectionId || docSnap.id;
+                return { ...data, id, inspectionId: data.inspectionId || id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelDamageInspection>("panelDamageInspections", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelDamageInspections");
@@ -1712,18 +1688,20 @@ export const DbService = {
     callback: (issues: PanelIssueTransaction[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelIssueTransactions");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelIssueTransaction;
-            const id = data.id || data.issueId || docSnap.id;
-            return { ...data, id, issueId: data.issueId || id };
-          });
-          offlineEngine.saveCache("panelIssueTransactions", items);
-          callback(items);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelIssueTransaction;
+                const id = data.id || data.issueId || docSnap.id;
+                return { ...data, id, issueId: data.issueId || id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelIssueTransaction>("panelIssueTransactions", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelIssueTransactions");
@@ -1769,18 +1747,20 @@ export const DbService = {
     callback: (returns: PanelReturnTransaction[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelReturnTransactions");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelReturnTransaction;
-            const id = data.id || data.returnId || docSnap.id;
-            return { ...data, id, returnId: data.returnId || id };
-          });
-          offlineEngine.saveCache("panelReturnTransactions", items);
-          callback(items);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelReturnTransaction;
+                const id = data.id || data.returnId || docSnap.id;
+                return { ...data, id, returnId: data.returnId || id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelReturnTransaction>("panelReturnTransactions", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelReturnTransactions");
@@ -1826,18 +1806,20 @@ export const DbService = {
     callback: (records: PanelInventoryReconciliationRecord[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelInventoryReconciliations");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelInventoryReconciliationRecord;
-            const id = data.id || data.reconciliationId || docSnap.id;
-            return { ...data, id, reconciliationId: data.reconciliationId || id };
-          });
-          offlineEngine.saveCache("panelInventoryReconciliations", items);
-          callback(items);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelInventoryReconciliationRecord;
+                const id = data.id || data.reconciliationId || docSnap.id;
+                return { ...data, id, reconciliationId: data.reconciliationId || id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelInventoryReconciliationRecord>("panelInventoryReconciliations", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelInventoryReconciliations");
@@ -1881,17 +1863,19 @@ export const DbService = {
     callback: (logs: PanelTraceabilityAuditLog[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelTraceabilityAuditLogs");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as PanelTraceabilityAuditLog;
-            return { ...data, id: data.id || docSnap.id };
-          });
-          offlineEngine.saveCache("panelTraceabilityAuditLogs", items);
-          callback(items);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as PanelTraceabilityAuditLog;
+                return { ...data, id: data.id || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<PanelTraceabilityAuditLog>("panelTraceabilityAuditLogs", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelTraceabilityAuditLogs");
@@ -1926,21 +1910,19 @@ export const DbService = {
     callback: (dimensions: ConfiguredDimensionOption[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "panelDimensionLibrary");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as ConfiguredDimensionOption;
-            return { ...data, id: data.id || docSnap.id };
-          });
-          if (items.length > 0) {
-            offlineEngine.saveCache("panelDimensionLibrary", items);
-            callback(items);
-          } else {
-            callback(offlineEngine.getCache<ConfiguredDimensionOption>("panelDimensionLibrary", DEFAULT_DIMENSION_LIBRARY));
-          }
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as ConfiguredDimensionOption;
+                return { ...data, id: data.id || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<ConfiguredDimensionOption>("panelDimensionLibrary", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "panelDimensionLibrary");
@@ -1996,18 +1978,19 @@ export const DbService = {
     callback: (tasks: ErpTask[]) => void,
     onError?: (error: any) => void
   ): () => void {
-    if (isFirebaseReady && db && auth?.currentUser) {
+    if (canQueryFirestore() && db) {
       const colRef = collection(db, "tasks");
       const unsubscribe = onSnapshot(
         colRef,
         (snapshot) => {
-          const items = snapshot.docs.map(docSnap => {
-            const data = docSnap.data() as ErpTask;
-            return { ...data, id: data.id || docSnap.id };
-          });
-          const merged = items.length > 0 ? items : initialErpTasks;
-          offlineEngine.saveCache("tasks", merged);
-          callback(merged);
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(docSnap => {
+                const data = docSnap.data() as ErpTask;
+                return { ...data, id: data.id || docSnap.id };
+              });
+          const reconciled = offlineEngine.reconcileWithOutbox<ErpTask>("tasks", items);
+          callback(reconciled);
         },
         (error) => {
           handleFirestoreError(error, OperationType.GET, "tasks");
