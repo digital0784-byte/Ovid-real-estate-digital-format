@@ -52,6 +52,9 @@ if (!encryptionKeyBuffer) {
 
 const IV_LENGTH = 12;
 const MFA_MAX_AGE_MS = 12 * 60 * 60 * 1000;
+// MASTER SWITCH, OFF by default. Must stay in sync with VITE_MFA_ENFORCED in client build and mfaEnforced() in firestore.rules.
+const MFA_ENFORCED = process.env.MFA_ENFORCED === "true";
+
 // Super Admin intentionally NOT listed (owner decision). To require MFA again add it here, in server.ts SENSITIVE_ROLES, src/services/authService.ts SENSITIVE_ROLES and firestore.rules isSensitiveRole()
 const SENSITIVE_ROLES = new Set([
   "Head Office",
@@ -174,7 +177,7 @@ async function requireActiveUser(req: express.Request, res: express.Response, ne
     if (!profile || profile.status !== "Active" || !profile.role || profile.role === "Pending") {
       return res.status(403).json({ success: false, error: "user_not_active", message: "Account is not approved for this operation." });
     }
-    if (SENSITIVE_ROLES.has(profile.role)) {
+    if (MFA_ENFORCED && SENSITIVE_ROLES.has(profile.role)) {
       const mfaAt = Number(authUser.claims?.mfaAt || 0);
       if (!Number.isFinite(mfaAt) || mfaAt <= 0 || Date.now() - mfaAt > MFA_MAX_AGE_MS) {
         return res.status(403).json({ success: false, error: "mfa_required", message: "Fresh TOTP MFA verification required." });
@@ -339,7 +342,7 @@ async function startServer() {
       ]);
       const userData = userSnap.exists ? userSnap.data() : null;
       const role = userData?.role || "Pending";
-      const required = SENSITIVE_ROLES.has(role);
+      const required = MFA_ENFORCED && SENSITIVE_ROLES.has(role);
       const secretData = secretSnap.exists ? secretSnap.data() : null;
       const enrolled = Boolean(secretSnap.exists && secretData?.ciphertext && secretData?.confirmed === true);
       const rawMfaAt = Number(authUser.claims?.mfaAt || 0);

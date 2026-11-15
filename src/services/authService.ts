@@ -12,6 +12,11 @@ import { UserRole } from "../types";
 
 export const MFA_TTL_MS = 12 * 60 * 60 * 1000;
 
+// MASTER SWITCH, OFF by default (owner decision). To turn it on everywhere flip ALL THREE:
+// build with VITE_MFA_ENFORCED=true, run the server with MFA_ENFORCED=true,
+// and set mfaEnforced() to true in firestore.rules (then publish the rules).
+export const MFA_ENFORCED: boolean = import.meta.env.VITE_MFA_ENFORCED === "true";
+
 // Super Admin intentionally NOT listed (owner decision). To require MFA again add it here, in server.ts SENSITIVE_ROLES, src/services/authService.ts SENSITIVE_ROLES and firestore.rules isSensitiveRole()
 export const SENSITIVE_ROLES: ReadonlySet<string> = new Set([
   UserRole.HEAD_OFFICE,
@@ -25,7 +30,7 @@ export const SENSITIVE_ROLES: ReadonlySet<string> = new Set([
 ]);
 
 export function isSensitiveRole(role: string | UserRole | undefined | null): boolean {
-  if (!role) return false;
+  if (!role || !MFA_ENFORCED) return false;
   return SENSITIVE_ROLES.has(String(role));
 }
 
