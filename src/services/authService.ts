@@ -138,6 +138,8 @@ function getPrefixFromRole(role: string): string {
       return "HR";
     case UserRole.FINANCE_MANAGER:
       return "FM";
+    case UserRole.ACCOUNTANT:
+      return "AC";
     case UserRole.SECTION_HEAD:
       return "SH";
     case UserRole.SURVEYOR:

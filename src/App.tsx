@@ -137,11 +137,16 @@ import {
 export interface UserProfile {
   uid: string;
   displayName: string;
+  name?: string;
   role: UserRole | string;
   requestedRole?: UserRole | string;
   status: string;
   email: string;
   phoneNumber?: string;
+  department?: string;
+  assignedProject?: string;
+  assignedProjects?: string[];
+  assignedSite?: string;
   createdAt?: string;
 }
 
@@ -401,11 +406,16 @@ export default function App() {
                     firebaseUser.displayName ||
                     firebaseUser.email?.split("@")[0] ||
                     "Authenticated User",
+                  name: data.name || data.displayName,
                   role: resolvedRole,
                   requestedRole: data.requestedRole || "Worker",
                   status: effectiveStatus,
                   email: data.email || firebaseUser.email || "",
                   phoneNumber: data.phoneNumber || firebaseUser.phoneNumber || "",
+                  department: data.department,
+                  assignedProject: data.assignedProject,
+                  assignedProjects: Array.isArray(data.assignedProjects) ? data.assignedProjects : undefined,
+                  assignedSite: data.assignedSite,
                   createdAt: data.createdAt
                 };
                 setCurrentUserProfile(profile);
@@ -697,6 +707,7 @@ export default function App() {
     [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
+    [UserRole.ACCOUNTANT]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SURVEYOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
@@ -3064,6 +3075,8 @@ export default function App() {
           <FinanceErpHub 
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
+            currentUserName={currentUserProfile?.displayName || currentUserProfile?.name || currentUserRole}
+            currentUserProfile={currentUserProfile}
             workers={workers}
             attendance={attendance}
             teams={teams}
@@ -3177,6 +3190,7 @@ export default function App() {
             onLogAction={(action, details) => logAction(action, details)}
             teams={teams}
             onSwitchRole={(newRole) => setCurrentUserRole(newRole)}
+            onUpdateWorker={handleUpdateWorker}
           />
         )}
 
@@ -3185,6 +3199,7 @@ export default function App() {
             workers={workers} 
             attendance={attendance} 
             onAddAttendance={handleAddAttendance} 
+            onUpdateWorker={handleUpdateWorker}
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}
@@ -3196,6 +3211,7 @@ export default function App() {
             workers={workers} 
             attendance={attendance} 
             onAddAttendance={handleAddAttendance} 
+            onUpdateWorker={handleUpdateWorker}
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}
@@ -3221,6 +3237,7 @@ export default function App() {
             attendance={attendance} 
             onAddAttendance={handleAddAttendance} 
             onEnrollWorker={handleAddWorker}
+            onUpdateWorker={handleUpdateWorker}
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}

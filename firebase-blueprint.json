@@ -16,7 +16,7 @@
         "trade": { "type": "string" },
         "position": { "type": "string" },
         "requestedRole": { "type": "string" },
-        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager"] },
+        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager", "Accountant"] },
         "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
@@ -256,27 +256,54 @@
     },
     "Expense": {
       "title": "Expense",
-      "description": "On-site and administrative cash flow outflows.",
+      "description": "Accounts Payable (AP) bills, vendor liabilities, and on-site cash flow outflows.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "payableId": { "type": "string" },
+        "billNumber": { "type": "string" },
+        "purchaseOrderNumber": { "type": "string" },
+        "contractNumber": { "type": "string" },
         "projectId": { "type": "string" },
+        "project": { "type": "string" },
+        "vendor": { "type": "string" },
         "category": { "type": "string" },
+        "payableCategory": { "type": "string" },
+        "subtotalAmount": { "type": "number" },
+        "taxAmount": { "type": "number" },
         "amount": { "type": "number" },
-        "status": { "type": "string", "enum": ["Pending", "Approved", "Paid"] },
-        "date": { "type": "string" }
+        "paidAmount": { "type": "number" },
+        "workflowStage": { "type": "string" },
+        "paymentTerms": { "type": "string" },
+        "responsibleOfficer": { "type": "string" },
+        "status": { "type": "string" },
+        "date": { "type": "string" },
+        "dueDate": { "type": "string" }
       },
       "required": ["id", "projectId", "category", "amount", "status"]
     },
     "Invoice": {
       "title": "Invoice",
-      "description": "Client billing and billing receivables registers.",
+      "description": "Accounts Receivable (AR) client billing, contract receivables, and collection tracking logs.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "receivableId": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "contractNumber": { "type": "string" },
+        "project": { "type": "string" },
         "clientName": { "type": "string" },
+        "receivableCategory": { "type": "string" },
+        "subtotalAmount": { "type": "number" },
+        "taxAmount": { "type": "number" },
         "amount": { "type": "number" },
-        "status": { "type": "string", "enum": ["Draft", "Sent", "Paid", "Overdue"] },
+        "paidAmount": { "type": "number" },
+        "workflowStage": { "type": "string" },
+        "paymentTerms": { "type": "string" },
+        "responsibleOfficer": { "type": "string" },
+        "isDisputed": { "type": "boolean" },
+        "status": { "type": "string" },
+        "date": { "type": "string" },
         "dueDate": { "type": "string" }
       },
       "required": ["id", "clientName", "amount", "status"]
@@ -677,6 +704,336 @@
         "formatted": { "type": "string" }
       },
       "required": ["id", "name", "category", "formatted"]
+    },
+    "FinancialTarget": {
+      "title": "FinancialTarget",
+      "description": "Monthly planned revenue, expense, cash collection, and cash payment targets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "period": { "type": "string" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "category": { "type": "string" },
+        "plannedRevenue": { "type": "number" },
+        "plannedExpense": { "type": "number" },
+        "plannedCollection": { "type": "number" },
+        "plannedPayment": { "type": "number" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "period", "project"]
+    },
+    "FinancialAccount": {
+      "title": "FinancialAccount",
+      "description": "Corporate cash boxes and bank accounts managed for treasury and liquidity tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "accountCode": { "type": "string" },
+        "accountName": { "type": "string" },
+        "accountType": { "type": "string", "enum": ["Cash", "Bank"] },
+        "bankName": { "type": "string" },
+        "accountNumber": { "type": "string" },
+        "currency": { "type": "string" },
+        "openingBalance": { "type": "number" },
+        "currentBalance": { "type": "number" },
+        "minimumThreshold": { "type": "number" },
+        "bankAccountSubtype": { "type": "string" },
+        "lastReconciledDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Active", "Inactive", "Frozen", "Closed"] }
+      },
+      "required": ["id", "accountName", "accountType", "currentBalance", "status"]
+    },
+    "CashTransaction": {
+      "title": "CashTransaction",
+      "description": "Cash collections, cash payments, and bank/cash transfers with verification and approval controls.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "referenceNo": { "type": "string" },
+        "type": { "type": "string", "enum": ["Collection", "Payment", "Transfer"] },
+        "date": { "type": "string" },
+        "amount": { "type": "number" },
+        "accountId": { "type": "string" },
+        "accountName": { "type": "string" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "category": { "type": "string" },
+        "counterparty": { "type": "string" },
+        "contractNumber": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "bankReferenceNumber": { "type": "string" },
+        "receiptNumber": { "type": "string" },
+        "paymentVoucherNumber": { "type": "string" },
+        "paymentMethod": { "type": "string" },
+        "recordedBy": { "type": "string" },
+        "verifiedBy": { "type": "string" },
+        "approvedBy": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "referenceNo", "type", "date", "amount", "accountId", "status"]
+    },
+    "MonthlyCollectionPlan": {
+      "title": "MonthlyCollectionPlan",
+      "description": "Monthly planned customer cash collection targets by company, project, customer, or department.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "planNumber": { "type": "string" },
+        "financialYear": { "type": "string" },
+        "month": { "type": "string" },
+        "targetScope": { "type": "string", "enum": ["Company", "Project", "Customer", "Department"] },
+        "project": { "type": "string" },
+        "customer": { "type": "string" },
+        "department": { "type": "string" },
+        "contractNumber": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "plannedAmount": { "type": "number" },
+        "expectedDate": { "type": "string" },
+        "responsiblePerson": { "type": "string" },
+        "approvalStatus": { "type": "string", "enum": ["Draft", "Pending Approval", "Approved", "Rejected"] }
+      },
+      "required": ["id", "financialYear", "month", "plannedAmount", "approvalStatus"]
+    },
+    "MonthlyPaymentPlan": {
+      "title": "MonthlyPaymentPlan",
+      "description": "Monthly planned supplier, payroll, vehicle/equipment rental, tax, and operational cash payment budgets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "planNumber": { "type": "string" },
+        "financialYear": { "type": "string" },
+        "month": { "type": "string" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "supplierOrPayee": { "type": "string" },
+        "expenseCategory": { "type": "string" },
+        "invoiceNumber": { "type": "string" },
+        "plannedAmount": { "type": "number" },
+        "expectedDate": { "type": "string" },
+        "responsiblePerson": { "type": "string" },
+        "approvalStatus": { "type": "string", "enum": ["Draft", "Pending Approval", "Approved", "Rejected"] }
+      },
+      "required": ["id", "financialYear", "month", "supplierOrPayee", "expenseCategory", "plannedAmount", "approvalStatus"]
+    },
+    "FinancialSettings": {
+      "title": "FinancialSettings",
+      "description": "Corporate ERP financial preferences, thresholds, and alert controls.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "defaultCurrency": { "type": "string" },
+        "fiscalYearStartMonth": { "type": "number" },
+        "defaultPaymentTermsDays": { "type": "number" },
+        "lowCashAlertThresholdEtb": { "type": "number" },
+        "budgetOverrunAlertPct": { "type": "number" },
+        "requireDirectorApprovalAboveEtb": { "type": "number" },
+        "enableCriticalAlerts": { "type": "boolean" }
+      },
+      "required": ["id", "defaultCurrency"]
+    },
+    "ProjectBudgetPlan": {
+      "title": "ProjectBudgetPlan",
+      "description": "Master construction project budget with 12-category line items, contingency, and 5-stage approval lifecycle.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "budgetId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "projectCode": { "type": "string" },
+        "contractNumber": { "type": "string" },
+        "clientName": { "type": "string" },
+        "budgetYear": { "type": "string" },
+        "originalContractAmount": { "type": "number" },
+        "originalApprovedBudget": { "type": "number" },
+        "approvedProjectBudget": { "type": "number" },
+        "contingencyBudget": { "type": "number" },
+        "currency": { "type": "string" },
+        "budgetStatus": { "type": "string", "enum": ["Draft", "Submitted", "Under Review", "Approved", "Rejected", "Revised", "Closed"] }
+      },
+      "required": ["id", "budgetId", "projectName", "approvedProjectBudget", "budgetStatus"]
+    },
+    "BudgetAllocation": {
+      "title": "BudgetAllocation",
+      "description": "Monthly, quarterly, and annual budget allocations per project, category, and line item with over-allocation enforcement.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "allocationId": { "type": "string" },
+        "projectBudgetPlanId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "budgetYear": { "type": "string" },
+        "budgetMonth": { "type": "string" },
+        "budgetCategory": { "type": "string" },
+        "allocatedAmount": { "type": "number" },
+        "approvalStatus": { "type": "string", "enum": ["Draft", "Pending Verification", "Finance Verified", "Approved", "Rejected"] }
+      },
+      "required": ["id", "allocationId", "projectBudgetPlanId", "projectName", "budgetMonth", "allocatedAmount", "approvalStatus"]
+    },
+    "BudgetRevision": {
+      "title": "BudgetRevision",
+      "description": "Immutable project budget revision history preserving original baseline and multi-stage approvals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "revisionId": { "type": "string" },
+        "projectBudgetPlanId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "originalApprovedBudget": { "type": "number" },
+        "previousRevisedBudget": { "type": "number" },
+        "proposedRevisedBudget": { "type": "number" },
+        "budgetChangeAmount": { "type": "number" },
+        "revisionStatus": { "type": "string", "enum": ["Requested", "Finance Review", "PM Review", "Approved", "Rejected"] }
+      },
+      "required": ["id", "revisionId", "projectBudgetPlanId", "projectName", "proposedRevisedBudget", "revisionStatus"]
+    },
+    "ActualCostEntry": {
+      "title": "ActualCostEntry",
+      "description": "Verified project actual cost transactions synced from ERP modules or direct entry with duplicate prevention.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "costTransactionId": { "type": "string" },
+        "projectName": { "type": "string" },
+        "transactionDate": { "type": "string" },
+        "budgetCategory": { "type": "string" },
+        "totalCost": { "type": "number" },
+        "sourceModule": { "type": "string" },
+        "verificationStatus": { "type": "string", "enum": ["Registered", "Source Verified", "Budget Classified", "Validated", "Rejected"] }
+      },
+      "required": ["id", "costTransactionId", "projectName", "transactionDate", "budgetCategory", "totalCost", "verificationStatus"]
+    },
+    "CashFlowForecastItem": {
+      "title": "CashFlowForecastItem",
+      "description": "Explicit cash inflow and outflow forecast records with approval workflow and confidence tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "forecastRef": { "type": "string" },
+        "direction": { "type": "string", "enum": ["Inflow", "Outflow"] },
+        "category": { "type": "string" },
+        "project": { "type": "string" },
+        "accountId": { "type": "string" },
+        "expectedDate": { "type": "string" },
+        "financialYear": { "type": "string" },
+        "amount": { "type": "number" },
+        "counterparty": { "type": "string" },
+        "sourceType": { "type": "string" },
+        "approvalStatus": { "type": "string", "enum": ["Draft", "Submitted", "Approved", "Rejected"] }
+      },
+      "required": ["id", "forecastRef", "direction", "category", "project", "expectedDate", "amount", "approvalStatus"]
+    },
+    "BankReconciliation": {
+      "title": "BankReconciliation",
+      "description": "Bank and cash statement reconciliations comparing ERP ledger transactions against bank statements.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "reconciliationNo": { "type": "string" },
+        "accountId": { "type": "string" },
+        "accountName": { "type": "string" },
+        "periodStart": { "type": "string" },
+        "periodEnd": { "type": "string" },
+        "statementClosingBalance": { "type": "number" },
+        "bookClosingBalance": { "type": "number" },
+        "discrepancyAmount": { "type": "number" },
+        "approvalStatus": { "type": "string", "enum": ["Draft", "Submitted", "Finance Review", "Reconciled", "Disputed"] }
+      },
+      "required": ["id", "reconciliationNo", "accountId", "periodStart", "periodEnd", "approvalStatus"]
+    },
+    "BankTransaction": {
+      "title": "BankTransaction",
+      "description": "Bank deposits, withdrawals, client/supplier/salary payments, transfers, charges, and interest income requiring approval before affecting bank balances.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "transactionNo": { "type": "string" },
+        "accountId": { "type": "string" },
+        "accountName": { "type": "string" },
+        "transactionType": { "type": "string" },
+        "direction": { "type": "string", "enum": ["Credit", "Debit"] },
+        "transactionDate": { "type": "string" },
+        "amount": { "type": "number" },
+        "referenceNo": { "type": "string" },
+        "project": { "type": "string" },
+        "approvalStatus": { "type": "string", "enum": ["Pending Verification", "Pending Approval", "Approved", "Rejected", "Reversed"] }
+      },
+      "required": ["id", "transactionNo", "accountId", "transactionType", "direction", "transactionDate", "amount", "approvalStatus"]
+    },
+    "BankStatement": {
+      "title": "BankStatement",
+      "description": "Immutable uploaded bank statement archives (Excel, CSV, PDF) preserving original extracted and verified lines.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "statementNo": { "type": "string" },
+        "accountId": { "type": "string" },
+        "bankName": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileFormat": { "type": "string", "enum": ["Excel", "CSV", "PDF"] },
+        "fileChecksum": { "type": "string" },
+        "periodStart": { "type": "string" },
+        "periodEnd": { "type": "string" },
+        "closingBalance": { "type": "number" },
+        "isImmutable": { "type": "boolean" }
+      },
+      "required": ["id", "statementNo", "accountId", "fileName", "fileFormat", "fileChecksum", "isImmutable"]
+    },
+    "ChartAccount": {
+      "title": "ChartAccount",
+      "description": "Double-entry Chart of Accounts master record (Asset, Liability, Equity, Revenue, Cost of Construction, Operating Expense, Administrative Expense).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "accountCode": { "type": "string" },
+        "accountName": { "type": "string" },
+        "accountType": { "type": "string", "enum": ["Asset", "Liability", "Equity", "Revenue", "Cost of Construction", "Operating Expense", "Administrative Expense"] },
+        "subType": { "type": "string" },
+        "normalBalance": { "type": "string", "enum": ["Debit", "Credit"] },
+        "cashFlowSection": { "type": "string", "enum": ["Operating", "Investing", "Financing", "Non-Cash"] },
+        "isActive": { "type": "boolean" },
+        "openingBalance": { "type": "number" },
+        "currency": { "type": "string" }
+      },
+      "required": ["id", "accountCode", "accountName", "accountType", "normalBalance"]
+    },
+    "JournalEntry": {
+      "title": "JournalEntry",
+      "description": "Double-entry accounting journal voucher requiring balanced Debits = Credits and approval before posting.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "journalNo": { "type": "string" },
+        "entryDate": { "type": "string" },
+        "fiscalYear": { "type": "string" },
+        "periodMonth": { "type": "string" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "entryType": { "type": "string", "enum": ["Standard", "Opening Balance", "Adjusting", "Closing", "Auto-Sync"] },
+        "sourceModule": { "type": "string" },
+        "totalDebit": { "type": "number" },
+        "totalCredit": { "type": "number" },
+        "isBalanced": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Draft", "Submitted", "Posted", "Rejected", "Reversed"] }
+      },
+      "required": ["id", "journalNo", "entryDate", "totalDebit", "totalCredit", "isBalanced", "status"]
+    },
+    "FinancialPeriodClose": {
+      "title": "FinancialPeriodClose",
+      "description": "Financial period closing records with statement snapshots, balance verification, and role-based approval signatures.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "periodKey": { "type": "string" },
+        "periodType": { "type": "string", "enum": ["Daily", "Monthly", "Quarterly", "Annual"] },
+        "financialYear": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "Under Review", "Closed", "Reopened"] },
+        "isTrialBalanceBalanced": { "type": "boolean" },
+        "isBalanceSheetBalanced": { "type": "boolean" }
+      },
+      "required": ["id", "periodKey", "periodType", "financialYear", "startDate", "endDate", "status"]
     }
   },
   "firestore": {
@@ -851,6 +1208,74 @@
     "/tasks/{taskId}": {
       "schema": "ErpTask",
       "description": "Field construction tasks, assignments, status and execution records."
+    },
+    "/financialTargets/{targetId}": {
+      "schema": "FinancialTarget",
+      "description": "Monthly planned revenue, expense, cash collection, and cash payment targets."
+    },
+    "/financialAccounts/{accountId}": {
+      "schema": "FinancialAccount",
+      "description": "Corporate cash drawers and bank account balances."
+    },
+    "/cashTransactions/{txId}": {
+      "schema": "CashTransaction",
+      "description": "Cash collection, cash payment, and inter-account transfer ledger."
+    },
+    "/financialSettings/{settingId}": {
+      "schema": "FinancialSettings",
+      "description": "Financial thresholds, fiscal calendar, and alert configuration."
+    },
+    "/collectionPlans/{planId}": {
+      "schema": "MonthlyCollectionPlan",
+      "description": "Approved monthly cash collection plans across company, projects, customers, and departments."
+    },
+    "/paymentPlans/{planId}": {
+      "schema": "MonthlyPaymentPlan",
+      "description": "Approved monthly cash payment plans across construction cost categories."
+    },
+    "/projectBudgetPlans/{planId}": {
+      "schema": "ProjectBudgetPlan",
+      "description": "Master project budgets with 12 cost categories, line items, contingency, and approval workflow."
+    },
+    "/budgetAllocations/{allocationId}": {
+      "schema": "BudgetAllocation",
+      "description": "Monthly budget allocations linked to approved project budgets."
+    },
+    "/budgetRevisions/{revisionId}": {
+      "schema": "BudgetRevision",
+      "description": "Immutable project budget revision requests and multi-stage management approvals."
+    },
+    "/actualCostEntries/{costId}": {
+      "schema": "ActualCostEntry",
+      "description": "Verified project actual cost ledger entries with source module traceability."
+    },
+    "/cashFlowForecastItems/{forecastId}": {
+      "schema": "CashFlowForecastItem",
+      "description": "Cash flow forecast inflow/outflow projections with approval workflows."
+    },
+    "/bankReconciliations/{recId}": {
+      "schema": "BankReconciliation",
+      "description": "Periodic bank and cash account statement reconciliations."
+    },
+    "/bankTransactions/{txId}": {
+      "schema": "BankTransaction",
+      "description": "Part 6 bank transaction ledger with strict approval controls before updating account balances."
+    },
+    "/bankStatements/{statementId}": {
+      "schema": "BankStatement",
+      "description": "Immutable original bank statements uploaded in Excel, CSV, or PDF format."
+    },
+    "/chartOfAccounts/{accountId}": {
+      "schema": "ChartAccount",
+      "description": "General Ledger Chart of Accounts definitions and opening balances."
+    },
+    "/journalEntries/{entryId}": {
+      "schema": "JournalEntry",
+      "description": "Balanced double-entry accounting journal vouchers with debit/credit validation and approval workflow."
+    },
+    "/financialPeriods/{periodId}": {
+      "schema": "FinancialPeriodClose",
+      "description": "Accounting period closing records, snapshots, and executive approval signatures."
     }
   }
 }

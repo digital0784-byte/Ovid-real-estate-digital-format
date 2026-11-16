@@ -5,9 +5,6 @@ export function simulationsEnabled(env: any = import.meta.env): boolean {
 export const SIMULATIONS_ENABLED: boolean = simulationsEnabled();
 
 export const SIMULATION_ONLY_TABS: ReadonlySet<string> = new Set([
-  "biometricBoard",
-  "fingerprintBoard",
-  "biometricKiosk",
   "headOfficeSync",
   "launchReadiness",
   "mobileApps",

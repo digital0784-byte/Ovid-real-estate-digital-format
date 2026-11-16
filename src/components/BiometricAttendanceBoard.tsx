@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { 
   Fingerprint, 
   ScanLine, 
@@ -35,9 +35,20 @@ import {
   Briefcase,
   Layers,
   Award,
-  KeyRound
+  KeyRound,
+  Video,
+  VideoOff,
+  Scan
 } from "lucide-react";
 import { Worker, AttendanceRecord, AttendanceMethod, UserRole } from "../types";
+import {
+  captureAndVerifyLiveFace,
+  enrollWorkerFingerprint,
+  verifyWorkerFingerprint,
+  getStoredCredentialId,
+  getCurrentGpsPosition,
+  calculateDistanceMeters
+} from "../services/biometricService";
 import { 
   ResponsiveContainer, 
   AreaChart, 
@@ -60,6 +71,7 @@ interface BiometricAttendanceBoardProps {
   workers: Worker[];
   attendance: AttendanceRecord[];
   onAddAttendance: (record: AttendanceRecord) => void;
+  onUpdateWorker?: (worker: Worker) => void | Promise<void>;
   isAmharic: boolean;
   currentUserRole: UserRole;
   onLogAction?: (action: string, details: string) => void;
@@ -78,6 +90,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   workers,
   attendance,
   onAddAttendance,
+  onUpdateWorker,
   isAmharic,
   currentUserRole,
   onLogAction
@@ -97,6 +110,12 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   const [isSoundEnabled, setIsSoundEnabled] = useState(true);
 
   // --- ACTIVE CONTROLLER STATES ---
+  const [verifyMode, setVerifyMode] = useState<"fingerprint" | "face" | "pin">("fingerprint");
+  const [selectedBioWorkerId, setSelectedBioWorkerId] = useState<string>("");
+  const [isFaceCameraOn, setIsFaceCameraOn] = useState(false);
+  const [faceCameraError, setFaceCameraError] = useState("");
+  const boardVideoRef = useRef<HTMLVideoElement | null>(null);
+  const boardStreamRef = useRef<MediaStream | null>(null);
   const [enteredPin, setEnteredPin] = useState("");
   const [pinFailedAttempts, setPinFailedAttempts] = useState(0);
   const [pinLockoutUntil, setPinLockoutUntil] = useState<number | null>(null);
@@ -277,7 +296,211 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   };
 
   // --- AUTOMATIC PIN IDENTIFICATION ---
-  const handleStartBiometricScan = () => {
+  const stopBoardCamera = () => {
+    if (boardStreamRef.current) {
+      boardStreamRef.current.getTracks().forEach((t) => t.stop());
+      boardStreamRef.current = null;
+    }
+    if (boardVideoRef.current) {
+      boardVideoRef.current.srcObject = null;
+    }
+    setIsFaceCameraOn(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (boardStreamRef.current) {
+        boardStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  const startBoardCamera = async (): Promise<boolean> => {
+    setFaceCameraError("");
+    if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+      setFaceCameraError(isAmharic ? "ካሜራ በዚህ አሳሽ አይደገፍም።" : "Camera API unavailable in this browser.");
+      return false;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user" },
+        audio: false,
+      });
+      boardStreamRef.current = stream;
+      setIsFaceCameraOn(true);
+      setTimeout(() => {
+        if (boardVideoRef.current) {
+          boardVideoRef.current.srcObject = stream;
+          void boardVideoRef.current.play().catch(() => {});
+        }
+      }, 60);
+      return true;
+    } catch (err: any) {
+      setFaceCameraError(
+        isAmharic
+          ? "የካሜራ ፍቃድ ተከልክሏል ወይም ካሜራ አልተገኘም።"
+          : (err?.message || "Camera access denied.")
+      );
+      setIsFaceCameraOn(false);
+      return false;
+    }
+  };
+
+  const handleBoardFingerprintScan = async () => {
+    const worker = workers.find((w) => w.id === selectedBioWorkerId);
+    if (!worker) {
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "ሰራተኛ አልተመረጠም" : "Employee Required",
+        message: isAmharic ? "እባክዎ መጀመሪያ ሰራተኛ ይምረጡ።" : "Please select a worker for WebAuthn fingerprint verification.",
+      });
+      return;
+    }
+
+    setIsScanning(true);
+    setScanProgress(30);
+    setScanResult(null);
+    setScanLogs([
+      isAmharic ? `🔐 የ ${worker.name} የጣት አሻራ ዳሳሽ እየተጠየቀ ነው...` : `🔐 Requesting hardware fingerprint for ${worker.name}...`,
+    ]);
+    playBeep("scan");
+
+    const hasCred = Boolean(getStoredCredentialId(worker));
+    const bioRes = hasCred
+      ? await verifyWorkerFingerprint(worker)
+      : await enrollWorkerFingerprint(worker);
+
+    if (!bioRes.success) {
+      setIsScanning(false);
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "የጣት አሻራ ማረጋገጫ አልተሳካም" : "Fingerprint Failed",
+        message: isAmharic ? bioRes.messageAm : bioRes.message,
+        worker,
+      });
+      return;
+    }
+
+    let updatedWorker = worker;
+    if (!hasCred && bioRes.templateString && onUpdateWorker) {
+      updatedWorker = { ...worker, fingerprint: bioRes.templateString };
+      await onUpdateWorker(updatedWorker);
+    }
+
+    setScanProgress(70);
+    setScanLogs((prev) => [
+      ...prev,
+      isAmharic ? "✅ አሻራ ተረጋግጧል! ጂፒኤስ በመፍተሽ ላይ..." : "✅ Fingerprint verified! Checking live GPS...",
+    ]);
+
+    try {
+      const gps = await getCurrentGpsPosition(10000);
+      const realDist = Math.round(calculateDistanceMeters(gps.lat, gps.lng, geofenceLat, geofenceLng));
+      setScanProgress(100);
+      setIsScanning(false);
+      processFinalKioskAttendance(updatedWorker, gps.lat, gps.lng, realDist, realDist <= allowedRadius, AttendanceMethod.FINGERPRINT);
+    } catch {
+      setIsScanning(false);
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "ጂፒኤስ የለም" : "Location Required",
+        message: isAmharic
+          ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+          : "Location required for attendance — please enable GPS permission.",
+        worker: updatedWorker,
+      });
+    }
+  };
+
+  const handleBoardFaceScan = async () => {
+    const worker = workers.find((w) => w.id === selectedBioWorkerId);
+    if (!worker) {
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "ሰራተኛ አልተመረጠም" : "Employee Required",
+        message: isAmharic ? "እባክዎ መጀመሪያ ሰራተኛ ይምረጡ።" : "Please select a worker for camera face detection.",
+      });
+      return;
+    }
+
+    if (!isFaceCameraOn || !boardVideoRef.current) {
+      await startBoardCamera();
+      return;
+    }
+
+    setIsScanning(true);
+    setScanProgress(35);
+    setScanResult(null);
+    setScanLogs([
+      isAmharic ? `📷 ለ ${worker.name} የፊት መለያ ፍተሻ በሂደት ላይ...` : `📷 Running live face detection for ${worker.name}...`,
+    ]);
+    playBeep("scan");
+
+    const faceRes = await captureAndVerifyLiveFace(boardVideoRef.current, worker.faceRecognitionData);
+    if (!faceRes.detected || !faceRes.descriptor) {
+      setIsScanning(false);
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "የፊት መለያ አልተሳካም" : "Face Detection Failed",
+        message: isAmharic ? (faceRes.reasonAm || "ፊት አልተለየም።") : (faceRes.reasonEn || "No face detected."),
+        worker,
+      });
+      return;
+    }
+
+    let updatedWorker = worker;
+    if (!worker.faceRecognitionData?.startsWith("face-v1:") && onUpdateWorker) {
+      updatedWorker = {
+        ...worker,
+        faceRecognitionData: faceRes.descriptor,
+        photo: faceRes.snapshotDataUrl || worker.photo,
+      };
+      await onUpdateWorker(updatedWorker);
+    }
+
+    setScanProgress(70);
+    setScanLogs((prev) => [
+      ...prev,
+      isAmharic
+        ? `✅ ፊት ተረጋግጧል (${faceRes.similarityScore ?? faceRes.confidence}%). ጂፒኤስ በመፍተሽ ላይ...`
+        : `✅ Face verified (${faceRes.similarityScore ?? faceRes.confidence}%). Checking GPS...`,
+    ]);
+
+    try {
+      const gps = await getCurrentGpsPosition(10000);
+      const realDist = Math.round(calculateDistanceMeters(gps.lat, gps.lng, geofenceLat, geofenceLng));
+      setScanProgress(100);
+      setIsScanning(false);
+      processFinalKioskAttendance(updatedWorker, gps.lat, gps.lng, realDist, realDist <= allowedRadius, AttendanceMethod.FACE_RECOGNITION);
+    } catch {
+      setIsScanning(false);
+      playBeep("error");
+      setScanResult({
+        success: false,
+        title: isAmharic ? "ጂፒኤስ የለም" : "Location Required",
+        message: isAmharic
+          ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+          : "Location required for attendance — please enable GPS permission.",
+        worker: updatedWorker,
+      });
+    }
+  };
+
+  const handleStartBiometricScan = async () => {
+    if (verifyMode === "fingerprint") {
+      await handleBoardFingerprintScan();
+      return;
+    }
+    if (verifyMode === "face") {
+      await handleBoardFaceScan();
+      return;
+    }
+
     // Check if lockout active (5 failed attempts within 2 minutes)
     if (pinLockoutUntil && Date.now() < pinLockoutUntil) {
       const remainingSecs = Math.ceil((pinLockoutUntil - Date.now()) / 1000);
@@ -302,14 +525,13 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
       return;
     }
 
-    // Match worker by attendancePin (reject with generic Invalid PIN message on mismatch, no worker leak)
     const worker = workers.find(w => w.attendancePin === enteredPin.trim());
     if (!worker) {
       playBeep("error");
       const nextFail = pinFailedAttempts + 1;
       setPinFailedAttempts(nextFail);
       if (nextFail >= 5) {
-        setPinLockoutUntil(Date.now() + 120000); // 2 minute lockout
+        setPinLockoutUntil(Date.now() + 120000);
         setPinFailedAttempts(0);
         setScanResult({
           success: false,
@@ -330,85 +552,40 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
       return;
     }
 
-    // Reset failed attempts on success
     setPinFailedAttempts(0);
     setPinLockoutUntil(null);
 
-    if (typeof window === "undefined" || !navigator.geolocation) {
-      playBeep("error");
-      alert(isAmharic ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ ያብሩ!" : "Location required for attendance - please enable GPS/location permission");
-      return;
-    }
-
     setIsScanning(true);
-    setScanProgress(0);
+    setScanProgress(45);
     setScanLogs([
       isAmharic 
         ? "⚡ የፒን ማረጋገጫ ተጠናቋል... የጂፒኤስ ግንኙነት እየተፈጠረ ነው።" 
-        : "⚡ PIN verification authenticated. Initializing real device GPS handshake..."
+        : "⚡ PIN authenticated. Acquiring real GPS coordinates..."
     ]);
     playBeep("scan");
 
-    // Acquire real device GPS
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        const realLat = position.coords.latitude;
-        const realLng = position.coords.longitude;
-        const realDist = Math.round(getDistanceInMeters(realLat, realLng, geofenceLat, geofenceLng));
-        const isInside = realDist <= allowedRadius;
-
-        let step = 0;
-        const interval = setInterval(() => {
-          step++;
-          setScanProgress(step * 20);
-          playBeep("scan");
-
-          if (step === 2) {
-            setScanLogs(prev => [
-              ...prev,
-              isAmharic
-                ? `🔍 የፒን ማረጋገጫ ፍለጋ በሂደት ላይ...`
-                : `🔍 Verification: Validating PIN against registered worker roster...`
-            ]);
-          } else if (step === 3) {
-            setScanLogs(prev => [
-              ...prev,
-              isAmharic
-                ? `🛰️ የጂፒኤስ ሲግናል ተገኝቷል... [መጋጠሚያ: ${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
-                : `🛰️ Acquired real GPS coordinates: [${realLat.toFixed(5)}°N, ${realLng.toFixed(5)}°E]`
-            ]);
-          } else if (step === 4) {
-            setScanLogs(prev => [
-              ...prev,
-              isAmharic
-                ? `🔐 የጂኦፌንስ ፍተሻ፡ ${realDist}ሜ ከማእከሉ (ፍቃድ፡ ${isInside ? "ተፈቅዷል" : "ተከልክሏል"})`
-                : `🔐 Geofence proximity audit: ${realDist}m from center. Status: ${isInside ? "AUTHORIZED" : "OUTSIDE SITE BOUNDARY"}`
-            ]);
-          } else if (step === 5) {
-            clearInterval(interval);
-            setIsScanning(false);
-            processFinalKioskAttendance(worker, realLat, realLng, realDist, isInside);
-          }
-        }, 250);
-      },
-      (error) => {
-        setIsScanning(false);
-        playBeep("error");
-        const errMsg = isAmharic
-          ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ/ሎኬሽን ይፍቀዱ!"
-          : "Location required for attendance - please enable GPS/location permission";
-        setScanResult({
-          success: false,
-          title: isAmharic ? "መዝገብ ውድቅ ተደርጓል (ጂፒኤስ የለም)" : "Attendance Rejected (Location Required)",
-          message: errMsg,
-          worker
-        });
-        if (onLogAction) {
-          onLogAction("GPS Location Denied", `${worker.name} attendance attempt blocked due to disabled GPS or permission error.`);
-        }
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-    );
+    try {
+      const gps = await getCurrentGpsPosition(10000);
+      const realDist = Math.round(calculateDistanceMeters(gps.lat, gps.lng, geofenceLat, geofenceLng));
+      setScanProgress(100);
+      setIsScanning(false);
+      processFinalKioskAttendance(worker, gps.lat, gps.lng, realDist, realDist <= allowedRadius, AttendanceMethod.MANUAL_ENTRY);
+    } catch {
+      setIsScanning(false);
+      playBeep("error");
+      const errMsg = isAmharic
+        ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል - እባክዎን ጂፒኤስ/ሎኬሽን ይፍቀዱ!"
+        : "Location required for attendance - please enable GPS/location permission";
+      setScanResult({
+        success: false,
+        title: isAmharic ? "መዝገብ ውድቅ ተደርጓል (ጂፒኤስ የለም)" : "Attendance Rejected (Location Required)",
+        message: errMsg,
+        worker
+      });
+      if (onLogAction) {
+        onLogAction("GPS Location Denied", `${worker.name} attendance attempt blocked due to disabled GPS or permission error.`);
+      }
+    }
   };
 
   const processFinalKioskAttendance = (
@@ -416,7 +593,8 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
     realLat: number,
     realLng: number,
     currentDistance: number,
-    isInsideGeofence: boolean
+    isInsideGeofence: boolean,
+    usedMethod: AttendanceMethod = AttendanceMethod.FINGERPRINT
   ) => {
     const todayStr = new Date().toISOString().split("T")[0];
     const timeStr = new Date().toLocaleTimeString("en-US", { hour12: false });
@@ -526,12 +704,12 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
         date: todayStr,
         checkIn: timeStr,
         checkOut: null,
-        method: AttendanceMethod.FINGERPRINT,
+        method: usedMethod,
         workingHours: 0,
         overtime: 0,
         status,
         gpsCoordinates: { lat: realLat, lng: realLng },
-        deviceUsed: "Digital Construction ERP-KIOSK-PRO-01",
+        deviceUsed: usedMethod === AttendanceMethod.FACE_RECOGNITION ? "LIVE-CAMERA-FACE-01" : "Digital Construction ERP-KIOSK-PRO-01",
         verifiedBy: currentUserRole,
         gpsLocationString: `Bole Heights (${currentDistance}m)`
       };
@@ -1144,89 +1322,180 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                 </div>
               </div>
 
-              {/* PIN Verification Badge */}
+              {/* Verification Mode Switcher: Fingerprint / Face / PIN */}
               <div className="space-y-1.5">
                 <span className="text-[10px] text-slate-500 font-mono uppercase tracking-widest block">
                   {isAmharic ? "የማረጋገጫ ዘዴ" : "VERIFICATION SYSTEM"}
                 </span>
-                <div className="flex items-center space-x-2 bg-slate-950 px-3 py-2 rounded-xl border border-slate-800 text-xs text-slate-300 font-bold font-mono">
-                  <KeyRound size={14} className="text-red-400" />
-                  <span>{isAmharic ? "የፒን ቁጥር ማረጋገጫ (PIN Verification)" : "PIN Verification Keypad"}</span>
+                <div className="grid grid-cols-3 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[11px] font-bold">
+                  <button
+                    type="button"
+                    onClick={() => { setVerifyMode("fingerprint"); stopBoardCamera(); setScanResult(null); }}
+                    className={`px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      verifyMode === "fingerprint" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Fingerprint size={13} />
+                    <span>{isAmharic ? "አሻራ" : "Finger"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setVerifyMode("face"); setScanResult(null); }}
+                    className={`px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      verifyMode === "face" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <ScanLine size={13} />
+                    <span>{isAmharic ? "ፊት" : "Face"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setVerifyMode("pin"); stopBoardCamera(); setScanResult(null); }}
+                    className={`px-2.5 py-1.5 rounded-lg flex items-center justify-center gap-1 cursor-pointer transition-all ${
+                      verifyMode === "pin" ? "bg-red-600 text-white" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <KeyRound size={13} />
+                    <span>{isAmharic ? "ፒን" : "PIN"}</span>
+                  </button>
                 </div>
               </div>
 
             </div>
 
-            {/* PIN Entry Keypad & GPS Status */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 text-xs">
-              <div className="space-y-2">
-                <label className="text-slate-400 font-bold block">
-                  {isAmharic ? "የሰራተኛ ፒን ቁጥር (4-6 አሃዝ)" : "Worker Attendance PIN Keypad"}
-                </label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="password"
-                    maxLength={6}
-                    value={enteredPin}
-                    onChange={(e) => {
-                      setEnteredPin(e.target.value);
-                      setScanResult(null);
-                    }}
-                    placeholder="••••"
-                    className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center tracking-[0.3em] font-mono text-base font-extrabold text-white w-full focus:outline-none focus:border-red-500"
-                  />
-                  {enteredPin && (
-                    <button
-                      type="button"
-                      onClick={() => setEnteredPin("")}
-                      className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold shrink-0"
-                    >
-                      {isAmharic ? "አጽዳ" : "Clear"}
-                    </button>
-                  )}
-                </div>
-                
-                {/* 3x4 Keypad */}
-                <div className="grid grid-cols-3 gap-1 pt-1 max-w-[220px]">
-                  {["1","2","3","4","5","6","7","8","9","C","0","⌫"].map((btn) => (
-                    <button
-                      key={btn}
-                      type="button"
-                      onClick={() => {
+            {verifyMode === "pin" ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-1 text-xs">
+                <div className="space-y-2">
+                  <label className="text-slate-400 font-bold block">
+                    {isAmharic ? "የሰራተኛ ፒን ቁጥር (4-6 አሃዝ)" : "Worker Attendance PIN Keypad"}
+                  </label>
+                  <div className="flex items-center space-x-2">
+                    <input
+                      type="password"
+                      maxLength={6}
+                      value={enteredPin}
+                      onChange={(e) => {
+                        setEnteredPin(e.target.value);
                         setScanResult(null);
-                        if (btn === "C") {
-                          setEnteredPin("");
-                        } else if (btn === "⌫") {
-                          setEnteredPin(prev => prev.slice(0, -1));
-                        } else {
-                          if (enteredPin.length < 6) {
-                            setEnteredPin(prev => prev + btn);
-                          }
-                        }
                       }}
-                      className="py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-850 text-white rounded-lg font-mono text-xs font-bold active:scale-95 transition-all"
-                    >
-                      {btn}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-3 flex flex-col justify-between">
-                <div className="space-y-1.5">
-                  <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መሳሪያ ሁኔታ" : "Real Device Geolocation Status"}</label>
-                  <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center space-x-2 text-emerald-400 font-mono text-[11px]">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
-                    <span>{isAmharic ? "የቀጥታ መሳሪያ ጂፒኤስ ማረጋገጫ (ተዘጋጅቷል)" : "Hardware Geolocation (Live at Clock-In)"}</span>
+                      placeholder="••••"
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-center tracking-[0.3em] font-mono text-base font-extrabold text-white w-full focus:outline-none focus:border-red-500"
+                    />
+                    {enteredPin && (
+                      <button
+                        type="button"
+                        onClick={() => setEnteredPin("")}
+                        className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold shrink-0"
+                      >
+                        {isAmharic ? "አጽዳ" : "Clear"}
+                      </button>
+                    )}
+                  </div>
+                  
+                  {/* 3x4 Keypad */}
+                  <div className="grid grid-cols-3 gap-1 pt-1 max-w-[220px]">
+                    {["1","2","3","4","5","6","7","8","9","C","0","⌫"].map((btn) => (
+                      <button
+                        key={btn}
+                        type="button"
+                        onClick={() => {
+                          setScanResult(null);
+                          if (btn === "C") {
+                            setEnteredPin("");
+                          } else if (btn === "⌫") {
+                            setEnteredPin(prev => prev.slice(0, -1));
+                          } else {
+                            if (enteredPin.length < 6) {
+                              setEnteredPin(prev => prev + btn);
+                            }
+                          }
+                        }}
+                        className="py-1.5 bg-slate-950 hover:bg-slate-800 border border-slate-850 text-white rounded-lg font-mono text-xs font-bold active:scale-95 transition-all"
+                      >
+                        {btn}
+                      </button>
+                    ))}
                   </div>
                 </div>
 
-                <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
-                  <span className="font-mono text-slate-300 font-bold block">{isAmharic ? "📌 ፒን መመሪያ:" : "📌 PIN Instructions:"}</span>
-                  <p>{isAmharic ? "እባክዎን የ 4-6 አሃዝ ፒን ቁጥርዎን በመተየብ 'አረጋግጥ እና አስገባ' የሚለውን ቁልፍ ይጫኑ።" : "Type your 4-6 digit PIN, then press the verification button below."}</p>
+                <div className="space-y-3 flex flex-col justify-between">
+                  <div className="space-y-1.5">
+                    <label className="text-slate-400 font-bold block">{isAmharic ? "የጂፒኤስ መሳሪያ ሁኔታ" : "Real Device Geolocation Status"}</label>
+                    <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800 flex items-center space-x-2 text-emerald-400 font-mono text-[11px]">
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0"></span>
+                      <span>{isAmharic ? "የቀጥታ መሳሪያ ጂፒኤስ ማረጋገጫ (ተዘጋጅቷል)" : "Hardware Geolocation (Live at Clock-In)"}</span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+                    <span className="font-mono text-slate-300 font-bold block">{isAmharic ? "📌 ፒን መመሪያ:" : "📌 PIN Instructions:"}</span>
+                    <p>{isAmharic ? "እባክዎን የ 4-6 አሃዝ ፒን ቁጥርዎን በመተየብ 'አረጋግጥ እና አስገባ' የሚለውን ቁልፍ ይጫኑ።" : "Type your 4-6 digit PIN, then press the verification button below."}</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3 pt-1 text-xs">
+                <div>
+                  <label className="text-slate-400 font-bold block mb-1.5">
+                    {isAmharic ? "ሰራተኛ ይምረጡ (ለአሻራ / ለፊት መለያ)" : "Select Employee (Fingerprint / Face ID)"}
+                  </label>
+                  <select
+                    value={selectedBioWorkerId}
+                    onChange={(e) => { setSelectedBioWorkerId(e.target.value); setScanResult(null); }}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-none focus:border-red-500"
+                  >
+                    <option value="">{isAmharic ? "-- ሰራተኛ ይምረጡ --" : "-- Select Employee --"}</option>
+                    {workers.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({w.id}) {w.fingerprint ? "• Finger" : ""} {w.faceRecognitionData ? "• Face" : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {verifyMode === "face" && (
+                  <div className="space-y-2">
+                    <div className="relative bg-slate-950 border border-slate-800 rounded-xl overflow-hidden aspect-video max-h-52 mx-auto flex items-center justify-center">
+                      {isFaceCameraOn ? (
+                        <>
+                          <video ref={boardVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                          <div className="absolute inset-6 border-2 border-dashed border-emerald-400/70 rounded-xl pointer-events-none" />
+                        </>
+                      ) : (
+                        <div className="p-4 text-center space-y-1.5">
+                          <Camera size={28} className="mx-auto text-slate-500" />
+                          <p className="text-[11px] text-slate-400">
+                            {isAmharic ? "የቀጥታ ፊት መለያ ካሜራ ለመክፈት ከታች ይጫኑ" : "Press Start Camera to run live face detection"}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {faceCameraError && <p className="text-[11px] text-red-400 font-bold">{faceCameraError}</p>}
+                    <div className="flex justify-center gap-2">
+                      {!isFaceCameraOn ? (
+                        <button
+                          type="button"
+                          onClick={() => void startBoardCamera()}
+                          className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <Video size={14} />
+                          <span>{isAmharic ? "ካሜራ ክፈት" : "Start Camera"}</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={stopBoardCamera}
+                          className="px-4 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <VideoOff size={14} />
+                          <span>{isAmharic ? "ካሜራ ዝጋ" : "Stop Camera"}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* SENSOR TARGET & SCATTER RING */}
@@ -1237,7 +1506,7 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
               }`}></div>
 
               <button
-                onClick={handleStartBiometricScan}
+                onClick={() => void handleStartBiometricScan()}
                 disabled={isScanning}
                 className={`relative w-24 h-24 rounded-full flex flex-col items-center justify-center border transition-all duration-300 shadow-2xl cursor-pointer ${
                   isScanning 
@@ -1248,14 +1517,16 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                 {isScanning && (
                   <div className="absolute inset-0 bg-red-600/10 rounded-full animate-ping pointer-events-none"></div>
                 )}
-                {isScanning && (
-                  <div className="absolute w-20 h-0.5 bg-red-500 left-1.5 shadow-[0_0_8px_rgba(239,68,68,0.8)] animate-[bounce_1.4s_infinite] z-20"></div>
+                {verifyMode === "fingerprint" ? (
+                  <Fingerprint size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-500"} />
+                ) : verifyMode === "face" ? (
+                  <Scan size={36} className={isScanning ? "text-emerald-400 animate-pulse" : "text-emerald-500"} />
+                ) : (
+                  <ShieldCheck size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
                 )}
 
-                <ShieldCheck size={36} className={isScanning ? "text-red-500 animate-pulse" : "text-red-600"} />
-
                 <span className="text-[7px] uppercase tracking-widest font-black text-slate-500 mt-2 block font-mono">
-                  {isScanning ? "VERIFYING..." : "PRESS SENSOR"}
+                  {isScanning ? "VERIFYING..." : verifyMode === "fingerprint" ? "SCAN FINGER" : verifyMode === "face" ? "SCAN FACE" : "VERIFY PIN"}
                 </span>
               </button>
             </div>

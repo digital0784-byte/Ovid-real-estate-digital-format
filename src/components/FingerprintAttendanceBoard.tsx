@@ -47,11 +47,24 @@ import {
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { Worker, AttendanceRecord, AttendanceMethod, UserRole } from "../types";
+import {
+  captureAndVerifyLiveFace,
+  enrollWorkerFingerprint,
+  verifyWorkerFingerprint,
+  getStoredCredentialId,
+  getCurrentGpsPosition,
+  calculateDistanceMeters,
+  getBiometricCapabilities,
+  getConnectedUsbHidCount,
+  requestUsbScannerDevice,
+  matchWorkerByToken,
+} from "../services/biometricService";
 
 interface FingerprintAttendanceBoardProps {
   workers: Worker[];
   attendance: AttendanceRecord[];
   onAddAttendance: (record: AttendanceRecord) => void;
+  onUpdateWorker?: (worker: Worker) => void | Promise<void>;
   isAmharic: boolean;
   currentUserRole: UserRole;
   onLogAction?: (action: string, details: string) => void;
@@ -112,6 +125,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   workers,
   attendance,
   onAddAttendance,
+  onUpdateWorker,
   isAmharic,
   currentUserRole,
   onLogAction
@@ -189,28 +203,36 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const mediaStreamRef = useRef<MediaStream | null>(null);
 
+  // Real Live GPS State
+  const [liveGpsCoords, setLiveGpsCoords] = useState<{ lat: number; lng: number; accuracy?: number } | null>(null);
+  const [liveGpsDistance, setLiveGpsDistance] = useState<number | null>(null);
+  const [gpsStatusError, setGpsStatusError] = useState<string | null>(null);
+  const [isFetchingGps, setIsFetchingGps] = useState(false);
+
   // Mode 2: QR Code & Geofence Scanner State
   const [qrScanInput, setQrScanInput] = useState("");
   const [isQrScanning, setIsQrScanning] = useState(false);
-  const [simulatedGpsDistance, setSimulatedGpsDistance] = useState<number>(28); // 28 meters from Bole Heights center
 
-  // Mode 3: Personal Mobile Self Check-in with Face Detection & Own QR Badge State
+  // Mode 3: Personal Mobile Self Check-in with Real Front-Camera Face Detection & WebAuthn Fingerprint
   // Policy: "ማንኛውም የሲስተሙ ተጠቃሚ በስልኩ face detection በመጠቀም የራሱን attendance መሙላት ይችላል"
   const [personalPhoneMode, setPersonalPhoneMode] = useState<"face_detection" | "qr_badge">("face_detection");
+  const [isPersonalCameraActive, setIsPersonalCameraActive] = useState(false);
+  const [personalCameraError, setPersonalCameraError] = useState<string | null>(null);
+  const personalVideoRef = useRef<HTMLVideoElement | null>(null);
+  const personalMediaStreamRef = useRef<MediaStream | null>(null);
   const [isPersonalFaceScanning, setIsPersonalFaceScanning] = useState(false);
   const [personalFaceConfidence, setPersonalFaceConfidence] = useState<number>(0);
   const [personalScanBadgeInput, setPersonalScanBadgeInput] = useState<string>("");
   const [isPersonalScanningBadge, setIsPersonalScanningBadge] = useState<boolean>(false);
   const [isPersonalAuthenticating, setIsPersonalAuthenticating] = useState(false);
   const [personalBiometricVerified, setPersonalBiometricVerified] = useState(false);
-  const [mobileGpsDeviation, setMobileGpsDeviation] = useState<number>(34);
 
-  // Mode 4: Hardware OTG/USB Scanner State
-  const [enteredPin, setEnteredPin] = useState("");
-  const [pinFailedAttempts, setPinFailedAttempts] = useState(0);
+  // Mode 4: Hardware OTG/USB & Fingerprint Scanner State
+  const [usbReaderName, setUsbReaderName] = useState<string | null>(null);
+  const [usbConnectedCount, setUsbConnectedCount] = useState<{ usb: number; hid: number }>({ usb: 0, hid: 0 });
+  const [otgHardwareTokenInput, setOtgHardwareTokenInput] = useState("");
   const [pinLockoutUntil, setPinLockoutUntil] = useState<number | null>(null);
-  const [forceFail, setForceFail] = useState(false);
-  const [failReasonPreset, setFailReasonPreset] = useState<"corrupted" | "unregistered">("corrupted");
+  const biometricCaps = useMemo(() => getBiometricCapabilities(), []);
 
   // Offline queue state
   const [offlineQueue, setOfflineQueue] = useState<QueuedAttendance[]>([]);
@@ -282,15 +304,38 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     };
   }, [isAmharic, onLogAction]);
 
-  // Clean up camera stream on unmount or mode switch
+  // Clean up camera streams on unmount and check USB/GPS capabilities
   useEffect(() => {
+    getConnectedUsbHidCount().then(setUsbConnectedCount).catch(() => {});
     return () => {
       stopCamera();
+      stopPersonalCamera();
     };
   }, []);
 
-  // Start real camera stream
-  const startCamera = async () => {
+  // Resolve real GPS coordinates and Haversine distance against site geofence
+  const resolveRealGps = async (): Promise<{ lat: number; lng: number; distanceMeters: number } | null> => {
+    setIsFetchingGps(true);
+    setGpsStatusError(null);
+    try {
+      const pos = await getCurrentGpsPosition(10000);
+      const dist = Math.round(calculateDistanceMeters(pos.lat, pos.lng, geofenceLat, geofenceLng));
+      setLiveGpsCoords(pos);
+      setLiveGpsDistance(dist);
+      return { lat: pos.lat, lng: pos.lng, distanceMeters: dist };
+    } catch (err: any) {
+      const msg = isAmharic
+        ? "የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል። እባክዎ የስልክዎን Location ያብሩና ፍቃድ ይስጡ።"
+        : `GPS location required (${err?.message || "Permission denied"}). Please allow browser location access.`;
+      setGpsStatusError(msg);
+      return null;
+    } finally {
+      setIsFetchingGps(false);
+    }
+  };
+
+  // Start real camera stream (Mode 1)
+  const startCamera = async (): Promise<boolean> => {
     try {
       setCameraPermissionError(null);
       if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
@@ -300,27 +345,30 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         mediaStreamRef.current = stream;
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
+          await videoRef.current.play().catch(() => {});
         }
         setIsCameraActive(true);
+        return true;
       } else {
         setCameraPermissionError(
-          isAmharic 
-            ? "የስልኩ/የኮምፒውተሩ ካሜራ አልተገኘም ወይም ፍቃድ አልተሰጠውም።" 
+          isAmharic
+            ? "የስልኩ/የኮምፒውተሩ ካሜራ አልተገኘም ወይም ፍቃድ አልተሰጠውም።"
             : "Camera hardware not accessible or permission denied."
         );
+        return false;
       }
-    } catch (err: any) {
-      console.warn("Camera start failed, falling back to simulated vision:", err);
+    } catch {
       setCameraPermissionError(
-        isAmharic 
-          ? "ካሜራውን መክፈት አልተቻለም (ፍቃድ ይከልከላል)። የAI ቪዥን ሲሙሌተር እየሰራ ነው።" 
-          : "Camera permission denied or unavailable. AI Vision simulator is active."
+        isAmharic
+          ? "ካሜራውን መክፈት አልተቻለም። እባክዎ የአሳሽ (Browser) ካሜራ ፍቃድ ይስጡ።"
+          : "Camera permission denied or camera not available. Please allow camera access."
       );
       setIsCameraActive(false);
+      return false;
     }
   };
 
-  // Stop camera stream
+  // Stop Mode 1 camera stream
   const stopCamera = () => {
     if (mediaStreamRef.current) {
       mediaStreamRef.current.getTracks().forEach(track => track.stop());
@@ -332,14 +380,61 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     setIsCameraActive(false);
   };
 
+  // Start real front camera stream (Mode 3 Personal Mobile)
+  const startPersonalCamera = async (): Promise<boolean> => {
+    try {
+      setPersonalCameraError(null);
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "user", width: { ideal: 480 }, height: { ideal: 360 } }
+        });
+        personalMediaStreamRef.current = stream;
+        if (personalVideoRef.current) {
+          personalVideoRef.current.srcObject = stream;
+          await personalVideoRef.current.play().catch(() => {});
+        }
+        setIsPersonalCameraActive(true);
+        return true;
+      }
+      setPersonalCameraError(
+        isAmharic ? "የፊት ካሜራ አልተገኘም።" : "Front camera unavailable on this device."
+      );
+      return false;
+    } catch {
+      setPersonalCameraError(
+        isAmharic
+          ? "የካሜራ ፍቃድ አልተሰጠም። ለFace Detection እባክዎ ካሜራ ይፍቀዱ።"
+          : "Front camera permission denied. Please allow camera access for Face Detection."
+      );
+      setIsPersonalCameraActive(false);
+      return false;
+    }
+  };
+
+  const stopPersonalCamera = () => {
+    if (personalMediaStreamRef.current) {
+      personalMediaStreamRef.current.getTracks().forEach(track => track.stop());
+      personalMediaStreamRef.current = null;
+    }
+    if (personalVideoRef.current) {
+      personalVideoRef.current.srcObject = null;
+    }
+    setIsPersonalCameraActive(false);
+  };
+
   // Switch camera when switching modes
   const handleModeChange = (mode: AttendanceSystemMode) => {
     setActiveSystemMode(mode);
     setConfirmationOverlay(null);
     if (mode === "face_camera") {
+      stopPersonalCamera();
       startCamera();
+    } else if (mode === "personal_mobile" && personalPhoneMode === "face_detection") {
+      stopCamera();
+      startPersonalCamera();
     } else {
       stopCamera();
+      stopPersonalCamera();
     }
   };
 
@@ -895,50 +990,186 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
   };
 
   // ==========================================
-  // 1. ACTION: EXECUTE MOBILE FACE SCAN
+  // 1. ACTION: EXECUTE REAL CAMERA FACE SCAN & ENROLLMENT
   // ==========================================
-  const handleFaceScanTrigger = () => {
+  const handleFaceEnrollCapture = async () => {
+    if (!activeSelectedWorker || isFaceScanning) return;
+    setIsFaceScanning(true);
+    setConfirmationOverlay(null);
+    playSound("scan");
+
+    try {
+      if (!isCameraActive) {
+        const opened = await startCamera();
+        if (!opened) {
+          setIsFaceScanning(false);
+          playSound("error");
+          setConfirmationOverlay({
+            status: "failed",
+            worker: activeSelectedWorker,
+            reason: isAmharic
+              ? "ፊትን ለመመዝገብ የቀጥታ ካሜራ መከፈት አለበት። እባክዎ የካሜራ ፍቃድ ይስጡ።"
+              : "Live camera access is required to enroll worker face profile.",
+            methodLabel: "Camera Permission Required",
+          });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 450));
+      }
+
+      if (!videoRef.current) {
+        setIsFaceScanning(false);
+        return;
+      }
+
+      const result = await captureAndVerifyLiveFace(videoRef.current);
+      if (!result.detected || !result.descriptor) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic ? result.reasonAm || "ፊት አልተገኘም" : result.reasonEn || "No face detected.",
+          methodLabel: "Face Enrollment Failed",
+        });
+        return;
+      }
+
+      setFaceConfidence(result.confidence);
+      if (result.snapshotDataUrl) {
+        setCapturedFaceSnapshot(result.snapshotDataUrl);
+      }
+
+      if (onUpdateWorker) {
+        await onUpdateWorker({
+          ...activeSelectedWorker,
+          faceRecognitionData: result.descriptor,
+          photo: result.snapshotDataUrl || activeSelectedWorker.photo,
+        });
+      }
+
+      playSound("success");
+      setTerminalLogs(prev => [
+        ...prev,
+        isAmharic
+          ? `✅ የ ${activeSelectedWorker.name} የፊት መለያ (Descriptor) ተመዝግቧል (${result.confidence}%)`
+          : `✅ Enrolled face template for ${activeSelectedWorker.name} (${result.confidence}% confidence)`,
+      ]);
+      setConfirmationOverlay({
+        status: "success",
+        worker: activeSelectedWorker,
+        time: new Date().toLocaleTimeString("en-US", { hour12: false }),
+        message: isAmharic
+          ? `የ ${activeSelectedWorker.name} የፊት መለያ ናሙና በተሳካ ሁኔታ ተቀምጧል! አሁን የፊት ስካን መዝገብ መሙላት ይችላሉ።`
+          : `Face biometric profile enrolled for ${activeSelectedWorker.name}! Subsequent scans will verify against this face.`,
+        methodLabel: "Face Profile Enrolled",
+      });
+    } finally {
+      setIsFaceScanning(false);
+    }
+  };
+
+  const handleFaceScanTrigger = async () => {
     if (!activeSelectedWorker || isFaceScanning) return;
     setIsFaceScanning(true);
     setFaceConfidence(0);
+    setConfirmationOverlay(null);
     playSound("scan");
 
     setTerminalLogs(prev => [
       ...prev,
-      isAmharic 
-        ? `📸 የስልኩ ካሜራ የፊት ገጽታ ቅኝት ተጀምሯል... የላንድማርክ ነጥቦች በመፈለግ ላይ...` 
-        : `📸 Smartphone Camera Facial Scan initiated... extracting biometric landmarks...`
+      isAmharic
+        ? `📸 የስልኩ ካሜራ የፊት ገጽታ ቅኝት ተጀምሯል...`
+        : `📸 Live Camera Face Detection started for ${activeSelectedWorker.name}...`,
     ]);
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 25;
-      setFaceConfidence(Math.min(99.4, 75 + Math.random() * 24.4));
-      playSound("scan");
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setIsFaceScanning(false);
-          // High-confidence match against worker photo
-          setCapturedFaceSnapshot(activeSelectedWorker.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop");
-          validateAndCommit(
-            activeSelectedWorker, 
-            AttendanceMethod.FACE_RECOGNITION, 
-            "Smartphone Camera (AI Vision)", 
-            simulatedGpsDistance, 
-            geofenceLat + 0.0001, 
-            geofenceLng + 0.0001
-          );
-        }, 200);
+    try {
+      if (!isCameraActive) {
+        const opened = await startCamera();
+        if (!opened) {
+          playSound("error");
+          setConfirmationOverlay({
+            status: "failed",
+            worker: activeSelectedWorker,
+            reason: isAmharic
+              ? "ካሜራው አልበራም። እባክዎ የካሜራ ፍቃድ ይስጡ እና 'የቀጥታ ካሜራ ክፈት' ይጫኑ።"
+              : "Camera is not active. Please grant camera permission to scan face.",
+            methodLabel: "Camera Offline",
+          });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 450));
       }
-    }, 120);
+
+      if (!videoRef.current) {
+        playSound("error");
+        return;
+      }
+
+      const faceResult = await captureAndVerifyLiveFace(
+        videoRef.current,
+        activeSelectedWorker.faceRecognitionData
+      );
+
+      if (!faceResult.detected || !faceResult.descriptor) {
+        playSound("error");
+        const reasonText = isAmharic
+          ? faceResult.reasonAm || "በካሜራው ውስጥ የሰው ፊት አልተገኘም።"
+          : faceResult.reasonEn || "No matching human face detected.";
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: reasonText,
+          methodLabel: "Face Verification Rejected",
+        });
+        setTerminalLogs(prev => [...prev, `❌ Face scan failed: ${reasonText}`]);
+        return;
+      }
+
+      setFaceConfidence(faceResult.confidence);
+      if (faceResult.snapshotDataUrl) {
+        setCapturedFaceSnapshot(faceResult.snapshotDataUrl);
+      }
+
+      // Auto-bind initial face descriptor on first verified live scan if worker has none
+      if (!activeSelectedWorker.faceRecognitionData?.startsWith("face-v1:") && onUpdateWorker) {
+        await onUpdateWorker({
+          ...activeSelectedWorker,
+          faceRecognitionData: faceResult.descriptor,
+          photo: faceResult.snapshotDataUrl || activeSelectedWorker.photo,
+        });
+      }
+
+      const gps = await resolveRealGps();
+      if (!gps) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic
+            ? "ፊት ተለይቷል (${faceResult.confidence}%) ነገር ግን ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።".replace("${faceResult.confidence}", String(faceResult.confidence))
+            : `Face matched (${faceResult.confidence}%), but live GPS location permission is required to record attendance.`,
+          methodLabel: "GPS Location Required",
+        });
+        return;
+      }
+
+      validateAndCommit(
+        activeSelectedWorker,
+        AttendanceMethod.FACE_RECOGNITION,
+        `Live Camera Face Detection (${faceResult.method || "vision"} • ${faceResult.confidence}%)`,
+        gps.distanceMeters,
+        gps.lat,
+        gps.lng
+      );
+    } finally {
+      setIsFaceScanning(false);
+    }
   };
 
   // ==========================================
   // 2. ACTION: EXECUTE QR CODE BADGE SCAN
   // ==========================================
-  const handleQrBadgeScan = (workerIdToScan?: string) => {
+  const handleQrBadgeScan = async (workerIdToScan?: string) => {
     const targetId = workerIdToScan || qrScanInput || activeSelectedWorker?.id;
     if (!targetId) {
       playSound("error");
@@ -962,96 +1193,209 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
     setIsQrScanning(true);
     playSound("scan");
 
-    setTimeout(() => {
-      setIsQrScanning(false);
+    try {
+      const gps = await resolveRealGps();
+      if (!gps) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: matched,
+          reason: isAmharic
+            ? "የQR ባጅ ተነቧል ነገር ግን የመገኛ ቦታ (GPS) ፍቃድ አልተገኘም።"
+            : "Location permission is required for GPS geofenced QR check-in.",
+          methodLabel: "GPS Required",
+        });
+        return;
+      }
+
       setQrScanInput("");
       validateAndCommit(
-        matched, 
-        AttendanceMethod.QR_CODE, 
-        "Mobile QR Camera Scanner", 
-        simulatedGpsDistance, 
-        geofenceLat + 0.00015, 
-        geofenceLng + 0.00012
+        matched,
+        AttendanceMethod.QR_CODE,
+        "Mobile QR Camera Scanner (Real GPS)",
+        gps.distanceMeters,
+        gps.lat,
+        gps.lng
       );
-    }, 300);
+    } finally {
+      setIsQrScanning(false);
+    }
   };
 
   // ==========================================
-  // 3. ACTION: EXECUTE PERSONAL MOBILE SELF CHECK-IN
+  // 3. ACTION: EXECUTE PERSONAL MOBILE REAL WEBAUTHN FINGERPRINT / TOUCHID
   // ==========================================
-  const handlePersonalMobileSelfCheckin = () => {
+  const handlePersonalMobileSelfCheckin = async () => {
     if (!activeSelectedWorker || isPersonalAuthenticating) return;
     setIsPersonalAuthenticating(true);
+    setConfirmationOverlay(null);
     playSound("scan");
 
     setTerminalLogs(prev => [
       ...prev,
-      isAmharic 
-        ? `📲 የግል ስልክ ባዮሜትሪክ (WebAuthn/TouchID) ጥያቄ ተልኳል...` 
-        : `📲 Personal phone device biometric credential prompt initiated...`
+      isAmharic
+        ? `📲 የስልክ ጣት አሻራ/ባዮሜትሪክ (WebAuthn) ማረጋገጫ ጥያቄ ተልኳል...`
+        : `📲 Requesting device WebAuthn TouchID / Fingerprint verification...`,
     ]);
 
-    setTimeout(() => {
-      setIsPersonalAuthenticating(false);
+    try {
+      let credId = getStoredCredentialId(activeSelectedWorker);
+      let authRes = credId
+        ? await verifyWorkerFingerprint(activeSelectedWorker)
+        : await enrollWorkerFingerprint(activeSelectedWorker, "platform");
+
+      if (!credId && authRes.success && authRes.templateString && onUpdateWorker) {
+        await onUpdateWorker({
+          ...activeSelectedWorker,
+          fingerprint: authRes.templateString,
+        });
+      }
+
+      if (!authRes.success) {
+        playSound("error");
+        const errMsg = isAmharic ? authRes.messageAm : authRes.message;
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: errMsg,
+          methodLabel: "Device Biometric Rejected",
+        });
+        setTerminalLogs(prev => [...prev, `❌ WebAuthn failed: ${errMsg}`]);
+        return;
+      }
+
+      const gps = await resolveRealGps();
+      if (!gps) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic
+            ? "የጣት አሻራ ተረጋግጧል ነገር ግን የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+            : "Fingerprint verified, but live GPS location permission is required.",
+          methodLabel: "GPS Location Required",
+        });
+        return;
+      }
+
       setPersonalBiometricVerified(true);
       playSound("success");
-
       validateAndCommit(
-        activeSelectedWorker, 
-        AttendanceMethod.GPS_GEOFENCE, 
-        `Personal Mobile (${activeSelectedWorker.name}'s Device)`, 
-        mobileGpsDeviation, 
-        geofenceLat + 0.0002, 
-        geofenceLng + 0.0001
+        activeSelectedWorker,
+        AttendanceMethod.FINGERPRINT,
+        `Device Biometric WebAuthn (${activeSelectedWorker.name})`,
+        gps.distanceMeters,
+        gps.lat,
+        gps.lng
       );
-    }, 500);
+    } finally {
+      setIsPersonalAuthenticating(false);
+    }
   };
 
   // ==========================================
-  // 3A. ACTION: PERSONAL MOBILE FACE DETECTION ATTENDANCE
+  // 3A. ACTION: PERSONAL MOBILE REAL FRONT-CAMERA FACE DETECTION ATTENDANCE
   // Rule: "ማንኛውም የሲስተሙ ተጠቃሚ በስልኩ face detection በመጠቀም የራሱን attendance መሙላት ይችላል"
   // ==========================================
-  const handlePersonalFaceDetectionClockIn = () => {
+  const handlePersonalFaceDetectionClockIn = async () => {
     if (!activeSelectedWorker || isPersonalFaceScanning) return;
     setIsPersonalFaceScanning(true);
     setPersonalFaceConfidence(0);
+    setConfirmationOverlay(null);
     playSound("scan");
 
     setTerminalLogs(prev => [
       ...prev,
-      isAmharic 
-        ? `📸 ሰራተኛው [${activeSelectedWorker.name}] በግል ስልኩ Face Detection ፊቱን በመቃኘት ላይ ነው...` 
-        : `📸 Mobile Front-Camera Face Detection active for [${activeSelectedWorker.name}]...`
+      isAmharic
+        ? `📸 ሰራተኛው [${activeSelectedWorker.name}] በግል ስልኩ ካሜራ Face Detection ፊቱን በመቃኘት ላይ ነው...`
+        : `📸 Running live front-camera Face Detection for [${activeSelectedWorker.name}]...`,
     ]);
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 25;
-      setPersonalFaceConfidence(Math.min(99.6, 82 + Math.random() * 17.4));
-      playSound("scan");
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setIsPersonalFaceScanning(false);
-          validateAndCommit(
-            activeSelectedWorker, 
-            AttendanceMethod.FACE_RECOGNITION, 
-            `Personal Mobile (${activeSelectedWorker.name}'s Smartphone - AI Face Detection)`, 
-            mobileGpsDeviation, 
-            geofenceLat + 0.0002, 
-            geofenceLng + 0.0001
-          );
-        }, 200);
+    try {
+      if (!isPersonalCameraActive) {
+        const opened = await startPersonalCamera();
+        if (!opened) {
+          playSound("error");
+          setConfirmationOverlay({
+            status: "failed",
+            worker: activeSelectedWorker,
+            reason: isAmharic
+              ? "የግል ስልክ ፊት መለያ ለመጠቀም የፊት ካሜራ ፍቃድ ያስፈልጋል።"
+              : "Front camera access is required for Personal Mobile Face Detection.",
+            methodLabel: "Camera Permission Denied",
+          });
+          return;
+        }
+        await new Promise(r => setTimeout(r, 450));
       }
-    }, 120);
+
+      if (!personalVideoRef.current) {
+        playSound("error");
+        return;
+      }
+
+      const faceResult = await captureAndVerifyLiveFace(
+        personalVideoRef.current,
+        activeSelectedWorker.faceRecognitionData
+      );
+
+      if (!faceResult.detected || !faceResult.descriptor) {
+        playSound("error");
+        const reasonMsg = isAmharic
+          ? faceResult.reasonAm || "በፊት ካሜራው ውስጥ ፊት አልተገኘም።"
+          : faceResult.reasonEn || "No face detected in front camera.";
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: reasonMsg,
+          methodLabel: "Face Detection Rejected",
+        });
+        setTerminalLogs(prev => [...prev, `❌ Personal Face Scan failed: ${reasonMsg}`]);
+        return;
+      }
+
+      setPersonalFaceConfidence(faceResult.confidence);
+
+      if (!activeSelectedWorker.faceRecognitionData?.startsWith("face-v1:") && onUpdateWorker) {
+        await onUpdateWorker({
+          ...activeSelectedWorker,
+          faceRecognitionData: faceResult.descriptor,
+          photo: faceResult.snapshotDataUrl || activeSelectedWorker.photo,
+        });
+      }
+
+      const gps = await resolveRealGps();
+      if (!gps) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic
+            ? "ፊት ተረጋግጧል ነገር ግን የመገኛ ቦታ (GPS) ፍቃድ አልተሰጠም።"
+            : "Face matched, but GPS location permission is required.",
+          methodLabel: "GPS Location Required",
+        });
+        return;
+      }
+
+      validateAndCommit(
+        activeSelectedWorker,
+        AttendanceMethod.FACE_RECOGNITION,
+        `Personal Mobile Front-Camera Face Detection (${faceResult.confidence}%)`,
+        gps.distanceMeters,
+        gps.lat,
+        gps.lng
+      );
+    } finally {
+      setIsPersonalFaceScanning(false);
+    }
   };
 
   // ==========================================
   // 3B. ACTION: PERSONAL MOBILE SCANS OWN QR BADGE
   // Rule: "ሰራተኛው በግል ስልኩ መሰረት የራሱን የQR ባጅ ስካን በማድረግ አቴንዳንሱን መሙላት አለበት።"
   // ==========================================
-  const handlePersonalScanOwnBadge = (badgeInputId?: string) => {
+  const handlePersonalScanOwnBadge = async (badgeInputId?: string) => {
     if (!activeSelectedWorker || isPersonalScanningBadge) return;
     const badgeIdToTest = (badgeInputId || personalScanBadgeInput || activeSelectedWorker.id).trim();
 
@@ -1060,17 +1404,14 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
 
     setTerminalLogs(prev => [
       ...prev,
-      isAmharic 
-        ? `📲 ሰራተኛው በግል ስልኩ የራሱን የQR ባጅ በማንበብ ላይ ነው [${badgeIdToTest}]...` 
-        : `📲 Personal mobile camera scanning worker's own QR badge [${badgeIdToTest}]...`
+      isAmharic
+        ? `📲 ሰራተኛው በግል ስልኩ የራሱን የQR ባጅ በማንበብ ላይ ነው [${badgeIdToTest}]...`
+        : `📲 Personal mobile validating worker's own QR badge [${badgeIdToTest}]...`,
     ]);
 
-    setTimeout(() => {
-      setIsPersonalScanningBadge(false);
-
-      // 1. Strict validation: Worker MUST scan THEIR OWN badge!
-      const isMatch = 
-        badgeIdToTest.toLowerCase() === activeSelectedWorker.id.toLowerCase() || 
+    try {
+      const isMatch =
+        badgeIdToTest.toLowerCase() === activeSelectedWorker.id.toLowerCase() ||
         badgeIdToTest === activeSelectedWorker.nationalId;
 
       if (!isMatch) {
@@ -1083,12 +1424,12 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
           status: "failed",
           worker: activeSelectedWorker,
           reason: mismatchError,
-          methodLabel: "Personal Badge Mismatch Block"
+          methodLabel: "Personal Badge Mismatch Block",
         });
 
         setTerminalLogs(prev => [
           ...prev,
-          `🚫 BLOCKED: Worker ${activeSelectedWorker.name} attempted to scan foreign badge [${badgeIdToTest}] on personal device.`
+          `🚫 BLOCKED: Worker ${activeSelectedWorker.name} attempted to scan foreign badge [${badgeIdToTest}] on personal device.`,
         ]);
 
         logBiometricAudit(
@@ -1096,7 +1437,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
           activeSelectedWorker.name,
           "Foreign Badge Scan Blocked on Personal Phone",
           "QR Code",
-          { lat: geofenceLat + 0.0002, lng: geofenceLng + 0.0001 },
+          liveGpsCoords || { lat: geofenceLat, lng: geofenceLng },
           "Inside Site",
           `Attempted scanning badge ${badgeIdToTest} which does not belong to logged-in user ${activeSelectedWorker.id}`
         );
@@ -1110,22 +1451,83 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
         return;
       }
 
-      // 2. Validate geofence & anti-buddy punching, then commit
+      const gps = await resolveRealGps();
+      if (!gps) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic
+            ? "የQR ባጅ ተዛምዷል ነገር ግን የመገኛ ቦታ (GPS) ፍቃድ አልተሰጠም።"
+            : "Location permission required for personal mobile check-in.",
+          methodLabel: "GPS Location Required",
+        });
+        return;
+      }
+
       validateAndCommit(
-        activeSelectedWorker, 
-        AttendanceMethod.QR_CODE, 
-        `Personal Mobile (${activeSelectedWorker.name}'s Phone - Own QR Badge Verified)`, 
-        mobileGpsDeviation, 
-        geofenceLat + 0.0002, 
-        geofenceLng + 0.0001
+        activeSelectedWorker,
+        AttendanceMethod.QR_CODE,
+        `Personal Mobile (${activeSelectedWorker.name}'s Phone - Own QR Badge Verified)`,
+        gps.distanceMeters,
+        gps.lat,
+        gps.lng
       );
-    }, 400);
+    } finally {
+      setIsPersonalScanningBadge(false);
+    }
   };
 
   // ==========================================
-  // 4. ACTION: EXECUTE HARDWARE OTG/USB SCAN
+  // 4. ACTION: EXECUTE REAL FINGERPRINT (WEBAUTHN PLATFORM / USB HARDWARE)
   // ==========================================
-  const handleOtgFingerprintScan = () => {
+  const handleEnrollWorkerFingerprintAction = async () => {
+    if (isScanning || !activeSelectedWorker) return;
+    setIsScanning(true);
+    setScanProgress(35);
+    setConfirmationOverlay(null);
+    playSound("scan");
+
+    try {
+      const res = await enrollWorkerFingerprint(activeSelectedWorker, "any");
+      setScanProgress(100);
+      if (!res.success || !res.templateString) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic ? res.messageAm : res.message,
+          methodLabel: "Fingerprint Enrollment Failed",
+        });
+        return;
+      }
+
+      if (onUpdateWorker) {
+        await onUpdateWorker({
+          ...activeSelectedWorker,
+          fingerprint: res.templateString,
+        });
+      }
+
+      playSound("success");
+      setTerminalLogs(prev => [
+        ...prev,
+        `✅ Fingerprint WebAuthn enrolled for ${activeSelectedWorker.name} (${res.credentialId?.slice(0, 10)}...)`,
+      ]);
+      setConfirmationOverlay({
+        status: "success",
+        worker: activeSelectedWorker,
+        time: new Date().toLocaleTimeString("en-US", { hour12: false }),
+        message: isAmharic ? res.messageAm : res.message,
+        methodLabel: "Fingerprint Enrolled",
+      });
+    } finally {
+      setIsScanning(false);
+      setScanProgress(0);
+    }
+  };
+
+  const handleOtgFingerprintScan = async () => {
     if (isScanning || !activeSelectedWorker) return;
 
     if (pinLockoutUntil && Date.now() < pinLockoutUntil) {
@@ -1134,37 +1536,111 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
       setConfirmationOverlay({
         status: "failed",
         reason: isAmharic
-          ? `በርካታ የተሳሳቱ ፒን ሙከራዎች ተደርገዋል። እባክዎን ${remainingSecs} ሰከንድ ይቆዩ።`
-          : `Too many failed attempts. Access locked for ${remainingSecs} seconds.`
+          ? `በርካታ የተሳሳቱ ሙከራዎች ተደርገዋል። እባክዎን ${remainingSecs} ሰከንድ ይቆዩ።`
+          : `Too many failed attempts. Access locked for ${remainingSecs} seconds.`,
       });
       return;
     }
 
     setIsScanning(true);
-    setScanProgress(0);
+    setScanProgress(30);
+    setConfirmationOverlay(null);
     playSound("scan");
 
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += 20;
-      setScanProgress(progress);
-      playSound("scan");
-
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setIsScanning(false);
-          validateAndCommit(
-            activeSelectedWorker, 
-            AttendanceMethod.FINGERPRINT, 
-            "USB-OTG-Biometric-Pad", 
-            simulatedGpsDistance, 
-            geofenceLat, 
-            geofenceLng
-          );
-        }, 150);
+    try {
+      // Check if an external USB/OTG hardware token was scanned via HID keyboard wedge
+      if (otgHardwareTokenInput.trim()) {
+        const matched = matchWorkerByToken(otgHardwareTokenInput, workers);
+        if (!matched) {
+          playSound("error");
+          setConfirmationOverlay({
+            status: "failed",
+            reason: isAmharic
+              ? `የUSB/OTG ሃርድዌር ኮድ [${otgHardwareTokenInput}] ከማንም ሰራተኛ ጋር አልተዛመደም።`
+              : `Hardware reader token [${otgHardwareTokenInput}] does not match any registered worker.`,
+            methodLabel: "Hardware Reader Mismatch",
+          });
+          return;
+        }
+        const gps = await resolveRealGps();
+        if (!gps) {
+          playSound("error");
+          setConfirmationOverlay({
+            status: "failed",
+            worker: matched,
+            reason: isAmharic
+              ? "የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+              : "GPS location permission required for attendance.",
+            methodLabel: "GPS Required",
+          });
+          return;
+        }
+        setOtgHardwareTokenInput("");
+        validateAndCommit(
+          matched,
+          AttendanceMethod.FINGERPRINT,
+          usbReaderName ? `USB-OTG (${usbReaderName})` : "USB-OTG-Hardware-Reader",
+          gps.distanceMeters,
+          gps.lat,
+          gps.lng
+        );
+        return;
       }
-    }, 120);
+
+      // Otherwise trigger real OS/FIDO2 Fingerprint biometric verification
+      const storedCred = getStoredCredentialId(activeSelectedWorker);
+      const authRes = storedCred
+        ? await verifyWorkerFingerprint(activeSelectedWorker)
+        : await enrollWorkerFingerprint(activeSelectedWorker, "any");
+
+      setScanProgress(85);
+
+      if (!authRes.success) {
+        playSound("error");
+        const errMsg = isAmharic ? authRes.messageAm : authRes.message;
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: errMsg,
+          methodLabel: "Fingerprint Verification Failed",
+        });
+        setTerminalLogs(prev => [...prev, `❌ Fingerprint scan rejected: ${errMsg}`]);
+        return;
+      }
+
+      if (!storedCred && authRes.templateString && onUpdateWorker) {
+        await onUpdateWorker({
+          ...activeSelectedWorker,
+          fingerprint: authRes.templateString,
+        });
+      }
+
+      const gps = await resolveRealGps();
+      if (!gps) {
+        playSound("error");
+        setConfirmationOverlay({
+          status: "failed",
+          worker: activeSelectedWorker,
+          reason: isAmharic
+            ? "አሻራው ተረጋግጧል ነገር ግን የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+            : "Fingerprint verified, but GPS location permission is required to record attendance.",
+          methodLabel: "GPS Location Required",
+        });
+        return;
+      }
+
+      validateAndCommit(
+        activeSelectedWorker,
+        AttendanceMethod.FINGERPRINT,
+        usbReaderName ? `USB-OTG (${usbReaderName})` : "Hardware Fingerprint / WebAuthn Sensor",
+        gps.distanceMeters,
+        gps.lat,
+        gps.lng
+      );
+    } finally {
+      setIsScanning(false);
+      setScanProgress(0);
+    }
   };
 
   // Filter the shared live attendance table
@@ -1794,20 +2270,28 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                       <div className="flex items-center justify-between">
                         <span className="text-xs font-black text-emerald-400 flex items-center gap-1.5">
                           <MapPin size={14} />
-                          <span>{isAmharic ? "የሳይት ጂኦ-አጥር ማረጋገጫ (Haversine GPS Lock)" : "Bole Heights GPS Geofence Telemetry"}</span>
+                          <span>{isAmharic ? "የሳይት ጂኦ-አጥር ማረጋገጫ (Live GPS Lock)" : "Live GPS Geofence Telemetry"}</span>
                         </span>
                         <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-300 font-bold">
-                          {simulatedGpsDistance <= allowedRadius ? "INSIDE (ተፈቅዷል)" : "BREACH (ተከልክሏል)"}
+                          {liveGpsDistance === null
+                            ? (isAmharic ? "በመጠበቅ ላይ" : "AWAITING GPS")
+                            : liveGpsDistance <= allowedRadius
+                            ? (isAmharic ? "INSIDE (ተፈቅዷል)" : "INSIDE (PASS)")
+                            : (isAmharic ? "BREACH (ተከልክሏል)" : "OUTSIDE SITE")}
                         </span>
                       </div>
                       <div className="flex items-center justify-between text-xs font-mono text-slate-300">
                         <span>{isAmharic ? "ከሳይት መሃል ያለ ርቀት፡" : "Distance to Site Center:"}</span>
-                        <span className="font-bold text-white">{simulatedGpsDistance}m (ከ {allowedRadius}m ውስጥ)</span>
+                        <span className="font-bold text-white">
+                          {liveGpsDistance !== null ? `${liveGpsDistance}m (limit ${allowedRadius}m)` : `-- (limit ${allowedRadius}m)`}
+                        </span>
                       </div>
                       <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-emerald-400 h-full transition-all" 
-                          style={{ width: `${Math.min(100, (simulatedGpsDistance / allowedRadius) * 100)}%` }}
+                        <div
+                          className="bg-emerald-400 h-full transition-all"
+                          style={{
+                            width: `${liveGpsDistance !== null ? Math.min(100, (liveGpsDistance / allowedRadius) * 100) : 0}%`
+                          }}
                         ></div>
                       </div>
                     </div>
@@ -1915,12 +2399,24 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                       <div className="flex items-center justify-between text-indigo-300 font-bold text-[11px]">
                         <span className="flex items-center gap-1">
                           <MapPin size={12} />
-                          <span>{isAmharic ? "የስልኩ GPS መገኛ" : "Phone GPS Lock"}</span>
+                          <span>{isAmharic ? "የስልኩ የቀጥታ GPS መገኛ" : "Live Phone GPS Lock"}</span>
                         </span>
-                        <span className="text-emerald-400 font-mono">34m in boundary</span>
+                        <button
+                          type="button"
+                          onClick={() => resolveRealGps()}
+                          className="text-[10px] font-mono text-emerald-400 hover:underline cursor-pointer"
+                        >
+                          {isFetchingGps
+                            ? (isAmharic ? "በመፈለግ ላይ..." : "Locating...")
+                            : liveGpsDistance !== null
+                            ? `${liveGpsDistance}m`
+                            : (isAmharic ? "GPS አረጋግጥ" : "Fetch GPS")}
+                        </button>
                       </div>
                       <p className="text-[10px] text-slate-300 font-mono">
-                        Bole Heights: 9.0051°N, 38.7785°E • Status: VERIFIED
+                        {liveGpsCoords
+                          ? `${liveGpsCoords.lat.toFixed(5)}°N, ${liveGpsCoords.lng.toFixed(5)}°E (±${liveGpsCoords.accuracy ?? 0}m)`
+                          : gpsStatusError || (isAmharic ? "ሲመዘገብ የስልኩን GPS በቀጥታ ያነባል" : "Live GPS checked on scan")}
                       </p>
                     </div>
 
@@ -1928,7 +2424,10 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                     <div className="grid grid-cols-2 gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800 text-[10px] font-mono font-bold">
                       <button
                         type="button"
-                        onClick={() => setPersonalPhoneMode("face_detection")}
+                        onClick={() => {
+                          setPersonalPhoneMode("face_detection");
+                          startPersonalCamera();
+                        }}
                         className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           personalPhoneMode === "face_detection"
                             ? "bg-red-600 text-white shadow-sm font-black"
@@ -1940,7 +2439,10 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                       </button>
                       <button
                         type="button"
-                        onClick={() => setPersonalPhoneMode("qr_badge")}
+                        onClick={() => {
+                          setPersonalPhoneMode("qr_badge");
+                          stopPersonalCamera();
+                        }}
                         className={`py-1.5 rounded-lg flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           personalPhoneMode === "qr_badge"
                             ? "bg-emerald-600 text-white shadow-sm font-black"
@@ -1952,30 +2454,45 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                       </button>
                     </div>
 
-                    {/* SUB-OPTION A: PERSONAL MOBILE FACE DETECTION */}
+                    {/* SUB-OPTION A: PERSONAL MOBILE LIVE FRONT-CAMERA FACE DETECTION */}
                     {personalPhoneMode === "face_detection" && (
                       <div className="bg-slate-950 p-3.5 rounded-2xl border border-red-500/40 space-y-2.5 text-left animate-fadeIn">
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase text-red-400 font-mono flex items-center gap-1">
                             <Camera size={13} />
-                            <span>{isAmharic ? "በስልክ ፊት መለያ (Self Face Detection)" : "Front Camera Face Detection"}</span>
+                            <span>{isAmharic ? "በስልክ ካሜራ ፊት መለያ" : "Live Front-Camera Face Detection"}</span>
                           </span>
-                          <span className="px-1.5 py-0.5 rounded text-[8px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                            {isPersonalFaceScanning ? "SCANNING..." : "READY"}
-                          </span>
+                          <button
+                            type="button"
+                            onClick={() => (isPersonalCameraActive ? stopPersonalCamera() : startPersonalCamera())}
+                            className="px-2 py-0.5 rounded text-[9px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 cursor-pointer"
+                          >
+                            {isPersonalCameraActive
+                              ? (isAmharic ? "🟢 ካሜራ አጥፋ" : "🟢 LIVE CAMERA")
+                              : (isAmharic ? "ካሜራ ክፈት" : "START CAMERA")}
+                          </button>
                         </div>
 
-                        {/* Front Camera Selfie Viewport */}
-                        <div className="relative w-full h-36 bg-slate-900 rounded-xl border border-red-500/30 flex flex-col items-center justify-center p-2 overflow-hidden shadow-inner group">
-                          {activeSelectedWorker?.photo ? (
-                            <img 
-                              src={activeSelectedWorker.photo} 
-                              alt={activeSelectedWorker.name} 
-                              className="w-24 h-24 rounded-full object-cover border-2 border-red-500 shadow-lg"
-                              referrerPolicy="no-referrer"
-                            />
-                          ) : (
-                            <Camera size={40} className="text-slate-600" />
+                        {/* Live Front Camera Selfie Viewport */}
+                        <div className="relative w-full h-44 bg-slate-900 rounded-xl border border-red-500/30 flex flex-col items-center justify-center overflow-hidden shadow-inner group">
+                          <video
+                            ref={personalVideoRef}
+                            autoPlay
+                            playsInline
+                            muted
+                            className={`absolute inset-0 w-full h-full object-cover ${
+                              isPersonalCameraActive ? "opacity-100" : "opacity-0 pointer-events-none"
+                            }`}
+                          />
+
+                          {!isPersonalCameraActive && (
+                            <div className="flex flex-col items-center justify-center p-3 text-center">
+                              <Camera size={32} className="text-slate-500 mb-1.5" />
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {personalCameraError ||
+                                  (isAmharic ? "ለፊት መለያ 'ካሜራ ክፈት' ይጫኑ" : "Tap Start Camera or Scan My Face")}
+                              </span>
+                            </div>
                           )}
 
                           {/* Face Landmark Tracking Box */}
@@ -1995,7 +2512,11 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                           <div className="absolute bottom-1 inset-x-2 bg-slate-950/90 px-2 py-0.5 rounded border border-white/10 flex items-center justify-between text-[9px] font-mono">
                             <span className="text-slate-400">Face Match:</span>
                             <span className="text-emerald-400 font-bold">
-                              {isPersonalFaceScanning ? `${Math.round(personalFaceConfidence)}%` : "99.4% Liveness Pass"}
+                              {isPersonalFaceScanning
+                                ? (isAmharic ? "በመለየት ላይ..." : "Detecting...")
+                                : personalFaceConfidence > 0
+                                ? `${Math.round(personalFaceConfidence)}%`
+                                : (isAmharic ? "ካሜራ ዝግጁ" : "Ready")}
                             </span>
                           </div>
                         </div>
@@ -2006,23 +2527,23 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                           onClick={handlePersonalFaceDetectionClockIn}
                           disabled={isPersonalFaceScanning}
                           className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                            isPersonalFaceScanning 
-                              ? "bg-slate-800 text-slate-500 cursor-not-allowed" 
+                            isPersonalFaceScanning
+                              ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                               : "bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 active:scale-[0.99]"
                           }`}
                         >
                           <ScanLine size={16} className={isPersonalFaceScanning ? "animate-spin" : ""} />
                           <span>
-                            {isPersonalFaceScanning 
-                              ? (isAmharic ? "ፊትን በማረጋገጥ ላይ..." : "SCANNING MY FACE...") 
+                            {isPersonalFaceScanning
+                              ? (isAmharic ? "ፊትን በማረጋገጥ ላይ..." : "VERIFYING LIVE FACE...")
                               : (isAmharic ? "ፊቴን ቃኝና መገኘቴን አረጋግጥ" : "Scan My Face & Clock-In")}
                           </span>
                         </button>
 
                         <p className="text-[9px] text-slate-400 italic leading-tight text-center">
-                          {isAmharic 
-                            ? "ማንኛውም የሲስተሙ ተጠቃሚ በስልኩ ካሜራ የራሱን ፊት ቃኝቶ መገኘቱን በቅጽበት ማረጋገጥ ይችላል!" 
-                            : "Any registered system user can clock-in using smartphone selfie face detection."}
+                          {isAmharic
+                            ? "ማንኛውም የሲስተሙ ተጠቃሚ በስልኩ ካሜራ የራሱን ፊት ቃኝቶ መገኘቱን በቅጽበት ማረጋገጥ ይችላል!"
+                            : "Captures real front-camera frame and verifies facial structure + live GPS."}
                         </p>
                       </div>
                     )}
@@ -2048,7 +2569,6 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                           </button>
                         </div>
 
-                        {/* Optical Camera Reticle Mockup on Phone Screen */}
                         <div className="relative w-full h-32 bg-slate-900 rounded-xl border border-emerald-500/30 flex flex-col items-center justify-center p-2 overflow-hidden shadow-inner">
                           <div className="relative w-24 h-24 border border-emerald-400/50 rounded-lg flex items-center justify-center">
                             <div className="absolute top-0 left-0 w-2.5 h-2.5 border-t-2 border-l-2 border-emerald-400"></div>
@@ -2056,7 +2576,7 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                             <div className="absolute bottom-0 left-0 w-2.5 h-2.5 border-b-2 border-l-2 border-emerald-400"></div>
                             <div className="absolute bottom-0 right-0 w-2.5 h-2.5 border-b-2 border-r-2 border-emerald-400"></div>
 
-                            <QRCodeSVG 
+                            <QRCodeSVG
                               value={JSON.stringify({
                                 workerId: activeSelectedWorker?.id,
                                 name: activeSelectedWorker?.name
@@ -2072,49 +2592,65 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                           </div>
 
                           <span className="text-[9px] font-mono text-slate-400 mt-1">
-                            {isPersonalScanningBadge 
-                              ? (isAmharic ? "ባጅ በማረጋገጥ ላይ..." : "Validating Own Badge...") 
-                              : (isAmharic ? "ካሜራውን ወደ ባጅዎ ያነጣጥሩ" : "Align camera with your physical badge")}
+                            {isPersonalScanningBadge
+                              ? (isAmharic ? "ባጅ በማረጋገጥ ላይ..." : "Validating Own Badge...")
+                              : (isAmharic ? "ካሜራውን ወደ ባጅዎ ያነጣጥሩ" : "Validate your own QR badge")}
                           </span>
                         </div>
+
+                        <input
+                          type="text"
+                          value={personalScanBadgeInput}
+                          onChange={(e) => setPersonalScanBadgeInput(e.target.value)}
+                          placeholder={isAmharic ? "የQR ባጅ ቁጥር (ባዶ ከሆነ የአሁኑ)" : "Badge ID (defaults to selected)"}
+                          className="w-full bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-[11px] font-mono text-white"
+                        />
 
                         {/* Primary Button: Scan Own QR Badge */}
                         <button
                           type="button"
-                          onClick={() => handlePersonalScanOwnBadge(activeSelectedWorker?.id)}
+                          onClick={() => handlePersonalScanOwnBadge(personalScanBadgeInput || activeSelectedWorker?.id)}
                           disabled={isPersonalScanningBadge}
                           className={`w-full py-3 rounded-xl font-black text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                            isPersonalScanningBadge 
-                              ? "bg-slate-800 text-slate-500 cursor-not-allowed" 
+                            isPersonalScanningBadge
+                              ? "bg-slate-800 text-slate-500 cursor-not-allowed"
                               : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/20 active:scale-[0.99]"
                           }`}
                         >
                           <QrCode size={16} className={isPersonalScanningBadge ? "animate-spin" : ""} />
                           <span>
-                            {isPersonalScanningBadge 
-                              ? (isAmharic ? "ባጁን በመቃኘት ላይ..." : "SCANNING MY BADGE...") 
+                            {isPersonalScanningBadge
+                              ? (isAmharic ? "ባጁን በመቃኘት ላይ..." : "SCANNING MY BADGE...")
                               : (isAmharic ? "የራሴን የQR ባጅ ቃኝና መዝግብ" : "Scan My Own QR Badge & Clock-In")}
                           </span>
                         </button>
 
                         <p className="text-[9px] text-slate-400 italic leading-tight text-center">
-                          {isAmharic 
-                            ? "* ሰራተኛው በግል ስልኩ የራሱን ባጅ ብቻ ነው መቃኘት የሚችለው፤ የሌላ ሰው ባጅ ሲቃኝ ወዲያውኑ ይታገዳል!" 
+                          {isAmharic
+                            ? "* ሰራተኛው በግል ስልኩ የራሱን ባጅ ብቻ ነው መቃኘት የሚችለው፤ የሌላ ሰው ባጅ ሲቃኝ ወዲያውኑ ይታገዳል!"
                             : "* Workers are restricted to scanning their OWN badge. Foreign badge proxy scans are blocked."}
                         </p>
                       </div>
                     )}
 
-                    {/* Secondary Fallback: Device WebAuthn Biometrics */}
+                    {/* Real WebAuthn TouchID / Fingerprint Button */}
                     <div className="pt-2 border-t border-slate-800">
                       <button
                         type="button"
                         onClick={handlePersonalMobileSelfCheckin}
                         disabled={isPersonalAuthenticating}
-                        className="w-full py-2 bg-slate-800 hover:bg-slate-750 text-slate-300 hover:text-white rounded-xl text-[10px] font-bold font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                        className={`w-full py-2.5 rounded-xl text-[11px] font-bold font-mono flex items-center justify-center gap-2 cursor-pointer transition-colors border ${
+                          personalBiometricVerified
+                            ? "bg-emerald-950/60 border-emerald-500/50 text-emerald-300"
+                            : "bg-slate-800 hover:bg-slate-750 border-slate-700 text-indigo-300 hover:text-white"
+                        }`}
                       >
-                        <Fingerprint size={14} className="text-indigo-400" />
-                        <span>{isAmharic ? "በስልክ TouchID/FaceID መዝግብ" : "Alternative: Device TouchID/FaceID"}</span>
+                        <Fingerprint size={15} className="text-indigo-400" />
+                        <span>
+                          {isPersonalAuthenticating
+                            ? (isAmharic ? "የስልክ አሻራ በማረጋገጥ ላይ..." : "Prompting Device Biometrics...")
+                            : (isAmharic ? "በስልክ የጣት አሻራ / FaceID (WebAuthn) መዝግብ" : "Verify Device Fingerprint / TouchID (WebAuthn)")}
+                        </span>
                       </button>
                     </div>
 
@@ -2124,15 +2660,44 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
             )}
 
             {/* ========================================================= */}
-            {/* MODE 4: EXTERNAL OTG/USB HARDWARE SCANNER */}
+            {/* MODE 4: REAL FINGERPRINT (WEBAUTHN SENSOR & USB/OTG SCANNER) */}
             {/* ========================================================= */}
             {activeSystemMode === "otg_fingerprint" && (
               <div className="space-y-4">
                 <div className="bg-slate-950 rounded-2xl border border-slate-800 p-6 flex flex-col items-center text-center space-y-4">
-                  
-                  {/* Central Hardware Sensor Touch Pad */}
+
+                  {/* Capability & USB Reader Status */}
+                  <div className="w-full flex flex-wrap items-center justify-between gap-2 text-[10px] font-mono bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2">
+                    <span className={biometricCaps.webAuthnSupported && biometricCaps.isSecureContext ? "text-emerald-400" : "text-amber-400"}>
+                      {biometricCaps.webAuthnSupported && biometricCaps.isSecureContext
+                        ? (isAmharic ? "🟢 WebAuthn የአሻራ ዳሳሽ ዝግጁ ነው" : "🟢 WebAuthn Biometric Sensor Ready")
+                        : (isAmharic ? "⚠️ WebAuthn HTTPS ይፈልጋል" : "⚠️ WebAuthn requires HTTPS/localhost")}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const res = await requestUsbScannerDevice();
+                        if (res.connected && res.deviceName) {
+                          setUsbReaderName(res.deviceName);
+                          getConnectedUsbHidCount().then(setUsbConnectedCount).catch(() => {});
+                        } else if (res.error) {
+                          setTerminalLogs(prev => [...prev, `USB/OTG: ${res.error}`]);
+                        }
+                      }}
+                      className="px-2.5 py-1 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 border border-amber-500/40 text-amber-300 font-bold cursor-pointer"
+                    >
+                      {usbReaderName
+                        ? `USB: ${usbReaderName}`
+                        : (isAmharic
+                            ? `የUSB አሻራ ማሽን አገናኝ (${usbConnectedCount.usb + usbConnectedCount.hid})`
+                            : `Connect USB/OTG Reader (${usbConnectedCount.usb + usbConnectedCount.hid})`)}
+                    </button>
+                  </div>
+
+                  {/* Central Fingerprint Touch Pad */}
                   <div className="relative">
                     <button
+                      type="button"
                       onClick={handleOtgFingerprintScan}
                       disabled={isScanning}
                       className={`relative w-40 h-40 rounded-full flex flex-col items-center justify-center transition-all duration-300 border shadow-2xl group cursor-pointer ${
@@ -2141,7 +2706,6 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                           : "bg-slate-950/80 hover:bg-slate-950 border-amber-600/40 hover:border-amber-500 hover:shadow-amber-500/10 active:scale-95"
                       }`}
                     >
-                      {/* Laser Beam */}
                       {isScanning && (
                         <div className="absolute w-36 h-0.5 bg-amber-500 left-2 shadow-[0_0_10px_rgba(245,158,11,0.9)] animate-[bounce_1.2s_infinite] z-20"></div>
                       )}
@@ -2149,21 +2713,25 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                         <div className="absolute inset-0 bg-amber-600/10 rounded-full animate-ping pointer-events-none"></div>
                       )}
 
-                      <Fingerprint 
-                        size={64} 
+                      <Fingerprint
+                        size={64}
                         className={`transition-transform duration-300 ${
                           isScanning ? "text-amber-400 scale-110 drop-shadow-[0_0_8px_rgba(245,158,11,0.6)]" : "text-amber-500 group-hover:scale-105"
                         }`}
                       />
 
                       <span className="text-[11px] font-black tracking-widest text-slate-300 mt-3 block uppercase font-mono group-hover:text-white">
-                        {isScanning 
-                          ? (isAmharic ? "አሻራ በማንበብ ላይ..." : "SCANNING MINUTIAE...") 
-                          : (isAmharic ? "የOTG አሻራ አንባቢ" : "OTG USB Sensor")}
+                        {isScanning
+                          ? (isAmharic ? "አሻራ በማረጋገጥ ላይ..." : "VERIFYING SENSOR...")
+                          : (isAmharic ? "በአሻራ መዝግብ" : "SCAN FINGERPRINT")}
                       </span>
-                      
+
                       <span className="text-[8px] text-slate-500 font-extrabold uppercase block tracking-widest mt-0.5">
-                        {isScanning ? (isAmharic ? "እባክዎን ይጠብቁ" : "Wait...") : (isAmharic ? "ጣትን ይንኩ" : "Touch Reader")}
+                        {isScanning
+                          ? (isAmharic ? "እባክዎን ይጠብቁ" : "Touch Sensor...")
+                          : getStoredCredentialId(activeSelectedWorker || undefined)
+                          ? (isAmharic ? "የተመዘገበ አሻራ" : "Enrolled Ready")
+                          : (isAmharic ? "መጀመሪያ ይመዘገባል" : "Tap to Enroll & Scan")}
                       </span>
                     </button>
                   </div>
@@ -2172,23 +2740,33 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                   {isScanning && (
                     <div className="w-56 text-center space-y-1.5 animate-fadeIn">
                       <div className="flex justify-between text-[10px] text-slate-400 font-mono font-bold">
-                        <span>{isAmharic ? "ባዮሜትሪክ ቅኝት" : "BIOMETRIC STREAM"}</span>
+                        <span>{isAmharic ? "የአሻራ ማረጋገጫ" : "BIOMETRIC PROMPT"}</span>
                         <span>{Math.round(scanProgress)}%</span>
                       </div>
                       <div className="w-full h-1 bg-slate-800 rounded-full overflow-hidden">
-                        <div 
-                          className="bg-amber-500 h-full transition-all duration-150" 
+                        <div
+                          className="bg-amber-500 h-full transition-all duration-150"
                           style={{ width: `${scanProgress}%` }}
                         ></div>
                       </div>
                     </div>
                   )}
 
-                  {/* Worker Selector for OTG Emulation */}
-                  <div className="w-full max-w-sm space-y-1 text-left">
-                    <label className="text-[10px] uppercase font-mono font-bold text-slate-400">
-                      {isAmharic ? "ጣቱን የሚያነበው ሰራተኛ" : "Worker Touching Hardware Pad:"}
-                    </label>
+                  {/* Worker Selector & Explicit Enrollment Action */}
+                  <div className="w-full max-w-sm space-y-2 text-left">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] uppercase font-mono font-bold text-slate-400">
+                        {isAmharic ? "ሰራተኛ ይምረጡ:" : "Selected Worker:"}
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleEnrollWorkerFingerprintAction}
+                        disabled={isScanning || !activeSelectedWorker}
+                        className="text-[10px] font-mono font-bold text-amber-400 hover:text-amber-300 underline cursor-pointer disabled:opacity-50"
+                      >
+                        {isAmharic ? "+ አዲስ የጣት አሻራ መዝግብ" : "+ Enroll / Re-Enroll Fingerprint"}
+                      </button>
+                    </div>
                     <select
                       value={selectedWorkerId}
                       onChange={e => setSelectedWorkerId(e.target.value)}
@@ -2196,10 +2774,43 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
                     >
                       {workers.map(w => (
                         <option key={w.id} value={w.id}>
-                          {w.name} ({w.id} - {w.trade})
+                          {w.name} ({w.id} - {w.trade}) {getStoredCredentialId(w) ? "✓" : ""}
                         </option>
                       ))}
                     </select>
+
+                    {/* Physical USB HID Keyboard-Wedge Scanner Input */}
+                    <div className="pt-2 border-t border-slate-800 space-y-1">
+                      <label className="text-[9px] uppercase font-mono font-bold text-slate-400 block">
+                        {isAmharic
+                          ? "ውጫዊ USB OTG/HID አሻራ ወይም ካርድ አንባቢ (ካለዎት)"
+                          : "External USB OTG / HID Reader Token (Optional):"}
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          value={otgHardwareTokenInput}
+                          onChange={e => setOtgHardwareTokenInput(e.target.value)}
+                          onKeyDown={e => {
+                            if (e.key === "Enter" && otgHardwareTokenInput.trim()) {
+                              e.preventDefault();
+                              handleOtgFingerprintScan();
+                            }
+                          }}
+                          placeholder={isAmharic ? "ከUSB አንባቢ የሚመጣ መለያ..." : "Scan via USB reader or enter ID..."}
+                          className="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-white"
+                        />
+                        {otgHardwareTokenInput.trim() && (
+                          <button
+                            type="button"
+                            onClick={handleOtgFingerprintScan}
+                            className="px-3 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold cursor-pointer"
+                          >
+                            {isAmharic ? "አረጋግጥ" : "Verify"}
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -2406,25 +3017,36 @@ export const FingerprintAttendanceBoard: React.FC<FingerprintAttendanceBoardProp
               </div>
             </div>
 
-            {/* Geofence Distance Slider */}
+            {/* Live GPS Location Verification Panel (No Fake Sliders) */}
             <div className="space-y-2 bg-slate-50 p-3 rounded-2xl border border-slate-100">
               <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-slate-700">{isAmharic ? "የፈተና ርቀት ከሳይት" : "Simulated Distance:"}</span>
-                <span className="font-mono font-bold text-red-600">{simulatedGpsDistance}m</span>
+                <span className="font-bold text-slate-700">{isAmharic ? "የቀጥታ GPS ርቀት ከሳይት:" : "Live GPS Distance:"}</span>
+                <span className="font-mono font-bold text-red-600">
+                  {liveGpsDistance !== null ? `${liveGpsDistance}m` : (isAmharic ? "አልተነበበም" : "Not fetched")}
+                </span>
               </div>
-              <input 
-                type="range" 
-                min="5" 
-                max="300" 
-                value={simulatedGpsDistance}
-                onChange={e => setSimulatedGpsDistance(parseInt(e.target.value) || 0)}
-                className="w-full accent-red-600 cursor-pointer"
-              />
+              <div className="flex items-center justify-between gap-2 text-[10px] font-mono text-slate-500">
+                <span>
+                  {liveGpsCoords
+                    ? `${liveGpsCoords.lat.toFixed(4)}°N, ${liveGpsCoords.lng.toFixed(4)}°E`
+                    : `${geofenceLat.toFixed(4)}°N, ${geofenceLng.toFixed(4)}°E`}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => resolveRealGps()}
+                  disabled={isFetchingGps}
+                  className="px-2.5 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-[10px] font-bold cursor-pointer disabled:opacity-50"
+                >
+                  {isFetchingGps ? (isAmharic ? "በመፈለግ ላይ..." : "Locating...") : (isAmharic ? "GPS አድስ" : "Refresh GPS")}
+                </button>
+              </div>
               <div className="flex justify-between text-[9px] font-mono text-slate-400">
-                <span>5m (Inside)</span>
-                <span className="text-amber-600 font-bold">{allowedRadius}m Boundary</span>
-                <span>300m (Out of bounds)</span>
+                <span>0m</span>
+                <span className="text-amber-600 font-bold">{allowedRadius}m Geofence Limit</span>
               </div>
+              {gpsStatusError && (
+                <p className="text-[10px] text-red-600 font-semibold">{gpsStatusError}</p>
+              )}
             </div>
 
             {/* Terminal Live Event Log */}

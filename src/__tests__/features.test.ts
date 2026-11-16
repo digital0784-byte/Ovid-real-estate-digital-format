@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { simulationsEnabled, blockedAsSimulation } from '../config/features';
+import { simulationsEnabled, blockedAsSimulation, SIMULATION_ONLY_TABS } from '../config/features';
 
 describe('features configuration & simulation gating', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it('keeps biometric, fingerprint, and kiosk tabs enabled in production builds', () => {
+    expect(SIMULATION_ONLY_TABS.has('biometricBoard')).toBe(false);
+    expect(SIMULATION_ONLY_TABS.has('fingerprintBoard')).toBe(false);
+    expect(SIMULATION_ONLY_TABS.has('biometricKiosk')).toBe(false);
   });
 
   it('disables simulations in production unless VITE_ENABLE_SIMULATIONS is "true"', () => {

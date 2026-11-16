@@ -1,17 +1,73 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { DbService } from "../services/db";
 import { authFetch } from "../services/authService";
-import { formatCurrency, formatNumber, parseMoney } from "../utils/formatters";
-import { 
-  ProjectZone, 
-  AttendanceRecord, 
-  Worker, 
-  AluminumFormworkPanel, 
-  PanelRepairRecord, 
+import { formatCurrency, parseMoney, safeString } from "../utils/formatters";
+import {
+  resolveUserFinancePermissions,
+  computeFinancialDashboardState,
+  DEFAULT_FINANCIAL_SETTINGS,
+  exportRowsToCsv,
+} from "../services/financeService";
+import { FinancialFilterBar } from "./finance/FinancialFilterBar";
+import { ExecutiveFinancialDashboard } from "./finance/ExecutiveFinancialDashboard";
+import { TransactionLedgers } from "./finance/TransactionLedgers";
+import { ReceivablesPayablesViews } from "./finance/ReceivablesPayablesViews";
+import { PlanningStatementsTreasuryViews } from "./finance/PlanningStatementsTreasuryViews";
+import { ReportsNotificationsSettingsViews } from "./finance/ReportsNotificationsSettingsViews";
+import { BudgetControlModule } from "./finance/BudgetControlModule";
+import { CashFlowForecastingModule, CashFlowSubTab } from "./finance/CashFlowForecastingModule";
+import { BankManagementModule, Part6BankSubTab } from "./finance/BankManagementModule";
+import { FinancialStatementsModule } from "./finance/FinancialStatementsModule";
+import {
+  computePart4BudgetControlState,
+  Part4FilterState,
+} from "../services/budgetControlService";
+import {
+  computePart5CashFlowState,
+  Part5FilterState,
+} from "../services/cashFlowForecastService";
+import {
+  computePart6BankState,
+  Part6BankFilterState,
+} from "../services/bankManagementService";
+import {
+  computePart7FinancialStatementsState,
+  PART7_REPORTING_COMPANY_DEFAULT,
+  Part7StatementsFilterState,
+} from "../services/financialStatementsService";
+import {
+  ProjectZone,
+  AttendanceRecord,
+  Worker,
+  AluminumFormworkPanel,
+  PanelRepairRecord,
   UserRole,
   Team,
   PayrollRecord,
-  DailyProgressLog
+  DailyProgressLog,
+  FinancialMenuModuleId,
+  FinancialFilterState,
+  FinancialInvoiceRecord,
+  Expense,
+  FinancialPaymentRecord,
+  CashTransactionRecord,
+  FinancialBudgetRecord,
+  MonthlyFinancialTarget,
+  MonthlyCollectionPlan,
+  MonthlyPaymentPlan,
+  FinancialAccount,
+  FinancialSettingsConfig,
+  ProjectBudgetPlan,
+  BudgetAllocationRecord,
+  BudgetRevisionRecord,
+  ActualCostEntry,
+  CashFlowForecastItem,
+  BankReconciliationRecord,
+  BankTransactionRecord,
+  ImmutableBankStatementRecord,
+  ChartAccountRecord,
+  JournalEntryRecord,
+  FinancialPeriodCloseRecord,
 } from "../types";
 import {
   DollarSign,
@@ -20,115 +76,41 @@ import {
   FileText,
   Layers,
   Plus,
-  Search,
-  AlertCircle,
+  AlertTriangle,
   CheckCircle,
   Calendar,
-  ArrowUpRight,
-  Percent,
   Printer,
   Clock,
   Briefcase,
-  AlertTriangle,
-  ChevronRight,
-  User,
   Users,
   ShieldCheck,
-  Zap,
   BarChart3,
   CreditCard,
   FileSpreadsheet,
-  Sliders,
   Package,
   Truck,
   Building2,
   Wrench,
-  Fuel,
   Cpu,
-  Download,
   ShieldAlert,
-  Database,
   RefreshCw,
-  Activity,
-  Award,
   CheckCircle2,
-  FileDown,
   Lock,
   Eye,
-  EyeOff,
-  Filter,
-  PieChart as PieIcon,
   Shield,
-  FileCheck,
-  Share2,
   Sparkles,
-  HelpCircle,
-  ArrowRightLeft
+  ArrowRightLeft,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Landmark,
+  Wallet,
+  Scale,
+  Bell,
+  Settings,
+  Receipt,
+  Menu,
+  X,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-  PieChart,
-  Pie,
-  Cell,
-  LineChart,
-  Line,
-  AreaChart,
-  Area
-} from "recharts";
-
-// --- INTERFACES & TYPES ---
-interface BudgetCategory {
-  id: string;
-  category: "Material" | "Labor" | "Equipment" | "Overhead" | "Subcontractor";
-  allocated: number;
-  committed: number;
-  actual: number;
-  project: string;
-  department: string;
-  description: string;
-  descriptionAm: string;
-}
-
-interface Expense {
-  id: string;
-  category: "Material" | "Labor" | "Equipment" | "Overhead" | "Subcontractor";
-  amount: number;
-  date: string;
-  vendor: string;
-  description: string;
-  project: string;
-  costCenter: string;
-  approvedBy: string;
-}
-
-interface Invoice {
-  id: string;
-  invoiceNumber: string;
-  project: string;
-  client: string;
-  amount: number;
-  status: "Draft" | "Pending" | "Approved" | "Paid" | "Rejected";
-  date: string;
-  dueDate: string;
-}
-
-interface Payment {
-  id: string;
-  invoiceId: string;
-  invoiceNumber: string;
-  amount: number;
-  date: string;
-  method: string;
-  reference: string;
-  project: string;
-}
 
 interface ProjectEvmData {
   id: string;
@@ -157,7 +139,7 @@ interface ProcurementRecord {
   importCost: number;
   customsTax: number;
   deliveryCost: number;
-  status: "PO Raised" | "In Transit" | "Customs Cleared" | "Paid";
+  status: string;
   date: string;
 }
 
@@ -165,7 +147,7 @@ interface EquipmentCostRecord {
   id: string;
   equipmentName: string;
   assetCode: string;
-  category: "Aluminum Formwork" | "Machinery" | "Heavy Equipment" | "Vehicle" | "Warehouse Asset" | "Office IT";
+  category: string;
   purchaseValue: number;
   currentValue: number;
   depreciation: number;
@@ -190,10 +172,34 @@ interface SecurityAuditItem {
   encrypted: boolean;
 }
 
+interface GeneratedPayrollSlip {
+  id: string;
+  workerId: string;
+  workerName: string;
+  trade: string;
+  department: string;
+  basicSalary: number;
+  daysWorked: number;
+  normalHours: number;
+  overtimeHours: number;
+  underTimeHours: number;
+  overtimePay: number;
+  allowances: number;
+  bonuses: number;
+  underTimeDeduction: number;
+  attendanceDeductions: number;
+  tax: number;
+  pension: number;
+  netSalary: number;
+  status: "Approved";
+  paymentMethod: string;
+}
+
 interface FinanceErpHubProps {
   isAmharic: boolean;
   currentUserRole?: UserRole;
   currentUserName?: string;
+  currentUserProfile?: any;
   workers?: Worker[];
   attendance?: AttendanceRecord[];
   teams?: Team[];
@@ -202,351 +208,722 @@ interface FinanceErpHubProps {
   onSwitchRole?: (newRole: UserRole) => void;
 }
 
-export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({ 
-  isAmharic, 
+const createDefaultFilters = (): FinancialFilterState => ({
+  periodPreset: "monthly",
+  startDate: "",
+  endDate: "",
+  project: "ALL",
+  department: "ALL",
+  customer: "ALL",
+  supplier: "ALL",
+  category: "ALL",
+  status: "ALL",
+  searchTerm: "",
+});
+
+const createDefaultPart4Filters = (): Part4FilterState => ({
+  project: "ALL",
+  budgetYear: "ALL",
+  budgetCategory: "ALL",
+  startDate: "",
+  endDate: "",
+  status: "ALL",
+  searchTerm: "",
+});
+
+const createDefaultPart5Filters = (): Part5FilterState => ({
+  project: "ALL",
+  bankAccountId: "ALL",
+  financialYear: "ALL",
+  granularity: "Monthly",
+  startDate: "",
+  endDate: "",
+  searchTerm: "",
+});
+
+const createDefaultPart6Filters = (): Part6BankFilterState => ({
+  accountId: "ALL",
+  project: "ALL",
+  transactionType: "ALL",
+  approvalStatus: "ALL",
+  startDate: "",
+  endDate: "",
+  searchTerm: "",
+});
+
+const createDefaultPart7Filters = (): Part7StatementsFilterState => ({
+  reportingFrequency: "Monthly",
+  financialYear: "ALL",
+  project: "ALL",
+  department: "ALL",
+  startDate: "",
+  endDate: "",
+  companyName: PART7_REPORTING_COMPANY_DEFAULT,
+});
+
+export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
+  isAmharic,
   currentUserRole = UserRole.FINANCE_MANAGER,
-  currentUserName = "System Admin (Finance Manager)",
+  currentUserName = "Finance Director",
+  currentUserProfile,
   workers = [],
   attendance = [],
-  teams = [],
   zones = [],
   onLogAction,
-  onSwitchRole
+  onSwitchRole,
 }) => {
-  // Navigation State across the 10 Master Modules
-  const [activeTab, setActiveTab] = useState<
-    | "dashboard"
-    | "project-mgmt"
-    | "payroll-mgmt"
-    | "formwork-assets"
-    | "warehouse-cost"
-    | "procurement-cost"
-    | "equipment-cost"
-    | "financial-reports"
-    | "ai-analytics"
-    | "integrations"
-  >("dashboard");
+  const [activeTab, setActiveTab] = useState<FinancialMenuModuleId>("financial-dashboard");
+  const [cashFlowSubTabIntent, setCashFlowSubTabIntent] = useState<CashFlowSubTab>("dashboard");
+  const [bankSubTabIntent, setBankSubTabIntent] = useState<Part6BankSubTab>("dashboard");
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [filters, setFilters] = useState<FinancialFilterState>(createDefaultFilters);
+  const [part4Filters, setPart4Filters] = useState<Part4FilterState>(createDefaultPart4Filters);
+  const [part5Filters, setPart5Filters] = useState<Part5FilterState>(createDefaultPart5Filters);
+  const [part6Filters, setPart6Filters] = useState<Part6BankFilterState>(createDefaultPart6Filters);
+  const [part7Filters, setPart7Filters] = useState<Part7StatementsFilterState>(createDefaultPart7Filters);
+  const [showLegacyTargetsPanel, setShowLegacyTargetsPanel] = useState(false);
 
-  const lang = isAmharic ? "am" : "en";
+  const actorUid = safeString(currentUserProfile?.uid || currentUserProfile?.id, "USR-FIN");
+  const permissions = useMemo(
+    () => resolveUserFinancePermissions(currentUserRole),
+    [currentUserRole]
+  );
 
-  // --- ROLE-BASED ACCESS CONTROL (RBAC) AUTHORIZATION RULES ---
-  const isFullAccess = currentUserRole === UserRole.FINANCE_MANAGER || currentUserRole === UserRole.SUPER_ADMIN;
-  const isExecutiveReadOnly = currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.AUDITOR;
-  const isWarehouseManager = currentUserRole === UserRole.WAREHOUSE_MANAGER || currentUserRole === UserRole.STORE_OWNER;
-  const isProjectManager = currentUserRole === UserRole.PROJECT_MANAGER;
+  // Role flags for ERP legacy submodules
+  const isFullAccess =
+    currentUserRole === UserRole.FINANCE_MANAGER ||
+    currentUserRole === UserRole.SUPER_ADMIN;
+  const isExecutiveReadOnly =
+    currentUserRole === UserRole.HEAD_OFFICE ||
+    currentUserRole === UserRole.AUDITOR;
+  const isWarehouseManager =
+    currentUserRole === UserRole.WAREHOUSE_MANAGER ||
+    currentUserRole === UserRole.STORE_OWNER;
+  const isHrManager =
+    currentUserRole === UserRole.HR || currentUserRole === UserRole.HR_MANAGER;
+  const isAuthorizedUser = permissions.canViewDashboard;
 
-  // Has access check
-  const isAuthorizedUser = isFullAccess || isExecutiveReadOnly || isWarehouseManager || isProjectManager;
+  // --- REAL-TIME FIRESTORE STATE (ZERO HARDCODED FINANCIAL DATA) ---
+  const [invoices, setInvoices] = useState<FinancialInvoiceRecord[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [paymentRecords, setPaymentRecords] = useState<FinancialPaymentRecord[]>([]);
+  const [cashTransactions, setCashTransactions] = useState<CashTransactionRecord[]>([]);
+  const [budgets, setBudgets] = useState<FinancialBudgetRecord[]>([]);
+  const [financialTargets, setFinancialTargets] = useState<MonthlyFinancialTarget[]>([]);
+  const [collectionPlans, setCollectionPlans] = useState<MonthlyCollectionPlan[]>([]);
+  const [paymentPlans, setPaymentPlans] = useState<MonthlyPaymentPlan[]>([]);
+  const [financialAccounts, setFinancialAccounts] = useState<FinancialAccount[]>([]);
+  const [financialSettings, setFinancialSettings] = useState<FinancialSettingsConfig>(
+    DEFAULT_FINANCIAL_SETTINGS
+  );
 
-  // Bilingual UI Dictionary
-  const dict: Record<string, Record<string, string>> = {
-    en: {
-      title: "BuildSync ERP – Finance Manager App",
-      subtitle: "Enterprise Financial Management, Budgeting, Asset Valuation, Automated Payroll & AI Risk Analytics",
-      overallSummary: "Financial Health Summary",
-      companyRevenue: "Total Revenue",
-      companyExpenses: "Monthly Expenses",
-      projectBudget: "Total Budget",
-      budgetUtilization: "Budget Utilization",
-      cashFlow: "Operating Cash Flow",
-      receivables: "Accounts Receivable",
-      payables: "Accounts Payable",
-      warehouseAssetVal: "Warehouse Asset Value",
-      formworkAssetVal: "Formwork Asset Value",
-      equipmentAssetVal: "Equipment Asset Value",
-      payrollCost: "Payroll Cost",
-      overtimeCost: "Overtime Cost",
-      procurementCost: "Procurement Cost",
-      maintenanceCost: "Maintenance Cost",
-      fuelCost: "Fuel Cost",
-      transportCost: "Transportation Cost",
-      profitLoss: "Net Profit & Loss",
-      financialKpis: "Financial KPIs",
-      savedAlert: "Financial record saved successfully!",
-      accessDenied: "Access Restricted – Finance Manager ERP Authorization Required",
-      accessMessage: "Your current user role does not possess permissions to view corporate financial ledgers."
-    },
-    am: {
-      title: "BuildSync ERP – የፋይናንስ አስተዳደር መተግበሪያ",
-      subtitle: "የኩባንያው አጠቃላይ ፋይናንስ፣ የበጀት፣ የሀብት ግምት፣ አውቶሜቲክ ደሞዝ እና AI የፋይናንስ ኦዲት",
-      overallSummary: "የፋይናንስ አጠቃላይ እይታ",
-      companyRevenue: "የኩባንያው ገቢ (Revenue)",
-      companyExpenses: "የወርሃዊ ወጪዎች (Expenses)",
-      projectBudget: "ጠቅላላ የፕሮጀክት በጀት",
-      budgetUtilization: "የበጀት አጠቃቀም (Utilization)",
-      cashFlow: "የጥሬ ገንዘብ ዝውውር (Cash Flow)",
-      receivables: "የሚሰበሰብ ሂሳብ (Receivables)",
-      payables: "የሚከፈል ሂሳብ (Payables)",
-      warehouseAssetVal: "የወርሃዊ መጋዘን ሀብት ዋጋ",
-      formworkAssetVal: "የፎርምወርክ ፓነል ሀብት ዋጋ",
-      equipmentAssetVal: "የማሽነሪዎች ሀብት ዋጋ",
-      payrollCost: "የሰራተኛ ደሞዝ ወጪ",
-      overtimeCost: "የትርፍ ሰዓት ወጪ",
-      procurementCost: "የግዢ ወጪ",
-      maintenanceCost: "የጥገና ወጪ",
-      fuelCost: "የነዳጅ ወጪ",
-      transportCost: "የማጓጓዣ ወጪ",
-      profitLoss: "የተጣራ ትርፍ እና ኪሳራ",
-      financialKpis: "የፋይናንስ መለኪያዎች (KPIs)",
-      savedAlert: "የፋይናንስ መረጃው በተሳካ ሁኔታ ተመዝግቧል!",
-      accessDenied: "መዳረሻ ተከልክሏል – የፋይናንስ አስተዳዳሪ ፈቃድ ያስፈልጋል",
-      accessMessage: "የአሁኑ የተጠቃሚ ሚናዎ የኩባንያውን የፋይናንስ ሰነዶች ለማየት ፈቃድ የለውም።"
-    }
-  };
+  // Part 4 Budget Management & Cost Control Collections
+  const [projectBudgetPlans, setProjectBudgetPlans] = useState<ProjectBudgetPlan[]>([]);
+  const [budgetAllocations, setBudgetAllocations] = useState<BudgetAllocationRecord[]>([]);
+  const [budgetRevisions, setBudgetRevisions] = useState<BudgetRevisionRecord[]>([]);
+  const [actualCostEntries, setActualCostEntries] = useState<ActualCostEntry[]>([]);
 
-  const t = (key: string): string => dict[lang][key] || key;
+  // Part 5 Cash Flow Forecasting & Bank Reconciliation Collections
+  const [cashFlowForecastItems, setCashFlowForecastItems] = useState<CashFlowForecastItem[]>([]);
+  const [bankReconciliations, setBankReconciliations] = useState<BankReconciliationRecord[]>([]);
 
-  // --- DATABASE-LINKED DYNAMIC STATES ---
-  const [zonesList, setZonesList] = useState<ProjectZone[]>(zones || []);
-  const [attendanceList, setAttendanceRecordList] = useState<AttendanceRecord[]>(attendance || []);
+  // Part 6 Bank Management & Immutable Bank Statements Collections
+  const [bankTransactions, setBankTransactions] = useState<BankTransactionRecord[]>([]);
+  const [bankStatements, setBankStatements] = useState<ImmutableBankStatementRecord[]>([]);
+
+  // Part 7 Financial Statements, Chart of Accounts & Period Closing Collections
+  const [chartOfAccounts, setChartOfAccounts] = useState<ChartAccountRecord[]>([]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntryRecord[]>([]);
+  const [financialPeriods, setFinancialPeriods] = useState<FinancialPeriodCloseRecord[]>([]);
+
+  // Master Construction ERP Linked Collections
+  const [rawProjectsList, setRawProjectsList] = useState<any[]>([]);
+  const [suppliersList, setSuppliersList] = useState<any[]>([]);
+  const [rawProgressLogs, setRawProgressLogs] = useState<DailyProgressLog[]>([]);
   const [workersList, setWorkersList] = useState<Worker[]>(workers || []);
+  const [attendanceList, setAttendanceRecordList] = useState<AttendanceRecord[]>(attendance || []);
   const [repairRecordsList, setRepairRecordsList] = useState<PanelRepairRecord[]>([]);
   const [formworkPanelsList, setFormworkPanelsList] = useState<AluminumFormworkPanel[]>([]);
-  const [loadingDbData, setLoadingDbData] = useState(false);
+  const [materialsList, setMaterialsList] = useState<any[]>([]);
+  const [procurements, setProcurements] = useState<ProcurementRecord[]>([]);
+  const [equipments, setEquipments] = useState<EquipmentCostRecord[]>([]);
+  const [auditLogsList, setAuditLogsList] = useState<SecurityAuditItem[]>([]);
   const [savedPayrollList, setSavedPayrollList] = useState<PayrollRecord[]>([]);
+  const [loadingDbData, setLoadingDbData] = useState(true);
+
   const [isSavingPayroll, setIsSavingPayroll] = useState(false);
   const [payrollSyncStatus, setPayrollSyncStatus] = useState<string | null>(null);
   const [selectedPayPeriod, setSelectedPayPeriod] = useState<string>("all");
+  const [selectedPayslip, setSelectedPayslip] = useState<GeneratedPayrollSlip | null>(null);
 
-  // Extract all unique pay periods (YYYY-MM) present in real attendance logs
-  const availablePeriods = useMemo(() => {
-    const periods = new Set<string>();
-    const currentMonth = new Date().toISOString().substring(0, 7);
-    periods.add(currentMonth);
-    attendanceList.forEach(a => {
-      if (a.date && a.date.length >= 7) {
-        periods.add(a.date.substring(0, 7));
-      }
-    });
-    return Array.from(periods).sort().reverse();
-  }, [attendanceList]);
-
-  // Fetch linked database files from DbService
-  useEffect(() => {
-    let active = true;
-    const fetchAllData = async () => {
-      try {
-        setLoadingDbData(true);
-        const [
-          z,
-          att,
-          wrk,
-          repairs,
-          panels,
-          dbExpenses,
-          dbPayroll,
-          dbBudgets,
-          dbInvoices,
-          dbPayments,
-          dbProcurements,
-          dbEquipments,
-          dbAuditLogs,
-          dbProjects,
-          dbProgressLogs
-        ] = await Promise.all([
-          DbService.getZones(),
-          DbService.getAttendance(),
-          DbService.getWorkers(),
-          DbService.getPanelRepairRecords(),
-          DbService.getFormworkPanels(),
-          DbService.getExpenses(),
-          DbService.getPayrollRecords(),
-          DbService.getProjectBudgets(budgets),
-          DbService.getInvoices(invoices),
-          DbService.getPaymentRecords(payments),
-          DbService.getFinanceProcurements(procurements),
-          DbService.getFinanceEquipments(equipments),
-          DbService.getAuditLogs(),
-          DbService.getProjects(),
-          DbService.getProgressLogs()
-        ]);
-        if (active) {
-          if (z && z.length > 0) setZonesList(z);
-          if (att && att.length > 0) setAttendanceRecordList(att);
-          if (wrk && wrk.length > 0) setWorkersList(wrk);
-          if (dbExpenses && dbExpenses.length > 0) setExpenses(dbExpenses);
-          if (dbPayroll && dbPayroll.length > 0) setSavedPayrollList(dbPayroll);
-          setRepairRecordsList(repairs || []);
-          setFormworkPanelsList(panels || []);
-          if (dbBudgets && dbBudgets.length > 0) setBudgets(dbBudgets);
-          if (dbInvoices && dbInvoices.length > 0) setInvoices(dbInvoices);
-          if (dbPayments && dbPayments.length > 0) setPayments(dbPayments);
-          if (dbProcurements && dbProcurements.length > 0) {
-            const mappedProcurements: ProcurementRecord[] = dbProcurements.map((p: any, idx: number) => {
-              const parsedPoAmount = typeof p.poAmount === "number" && !isNaN(p.poAmount)
-                ? p.poAmount
-                : parseMoney(p.poAmount ?? p.cost ?? p.amount ?? p.totalAmount);
-              const validPoAmount = parsedPoAmount !== null ? parsedPoAmount : undefined;
-              const rawCostNum = validPoAmount !== undefined ? validPoAmount : 500000;
-              return {
-                id: p.id || `PROC-${idx + 1}`,
-                poNumber: p.poNumber || p.id || `PO-2026-00${idx + 1}`,
-                supplier: p.supplier || "Supplier Partner",
-                materialItem: p.materialItem || p.item || "Construction Material",
-                poAmount: validPoAmount as any,
-                consumptionCost: typeof p.consumptionCost === "number" ? p.consumptionCost : Math.round(rawCostNum * 0.8),
-                transferCost: typeof p.transferCost === "number" ? p.transferCost : 50000,
-                lossCost: typeof p.lossCost === "number" ? p.lossCost : 10000,
-                damageCost: typeof p.damageCost === "number" ? p.damageCost : 5000,
-                importCost: typeof p.importCost === "number" ? p.importCost : 0,
-                customsTax: typeof p.customsTax === "number" ? p.customsTax : 0,
-                deliveryCost: typeof p.deliveryCost === "number" ? p.deliveryCost : 25000,
-                status: (p.status === "Paid" || p.status === "Payment Completed" || p.status === "Goods Received") ? "Paid" : (p.status || "In Transit"),
-                date: p.date || new Date().toISOString().split("T")[0]
-              };
-            });
-            setProcurements(mappedProcurements);
-          }
-          if (dbEquipments && dbEquipments.length > 0) {
-            const mappedEquipments: EquipmentCostRecord[] = dbEquipments.map((e: any, idx: number) => {
-              const defaultPurchase = typeof e.purchaseValue === "number"
-                ? e.purchaseValue
-                : (parseInt(String(e.cost || "").replace(/[^0-9]/g, ""), 10) || 20000000);
-              const defaultCurrent = typeof e.currentValue === "number" ? e.currentValue : Math.round(defaultPurchase * 0.85);
-              const fuelLitersNum = typeof e.fuelLiters === "number" ? e.fuelLiters : (parseInt(String(e.fuel || "").replace(/[^0-9]/g, ""), 10) || 150);
-              return {
-                id: e.id || `EQ-${idx + 1}`,
-                equipmentName: e.equipmentName || e.name || "Equipment Asset",
-                assetCode: e.assetCode || e.id || `EQ-0${idx + 1}`,
-                category: e.category || (e.name?.includes("Panel") ? "Aluminum Formwork" : "Heavy Equipment"),
-                purchaseValue: defaultPurchase,
-                currentValue: defaultCurrent,
-                depreciation: typeof e.depreciation === "number" ? e.depreciation : (defaultPurchase - defaultCurrent),
-                repairCost: typeof e.repairCost === "number" ? e.repairCost : 250000,
-                replacementCost: typeof e.replacementCost === "number" ? e.replacementCost : defaultPurchase * 1.1,
-                fuelLiters: fuelLitersNum,
-                fuelCost: typeof e.fuelCost === "number" ? e.fuelCost : (fuelLitersNum * 100),
-                maintenanceCost: typeof e.maintenanceCost === "number" ? e.maintenanceCost : 300000,
-                rentalCost: typeof e.rentalCost === "number" ? e.rentalCost : 500000,
-                operatingHours: typeof e.operatingHours === "number" ? e.operatingHours : (parseFloat(String(e.usage || "").replace(/[^0-9.]/g, "")) || 40)
-              };
-            });
-            setEquipments(mappedEquipments);
-          }
-          if (dbAuditLogs && dbAuditLogs.length > 0) {
-            const mappedLogs: SecurityAuditItem[] = dbAuditLogs.map(l => ({
-              id: l.id,
-              userName: l.userName || "System User",
-              userId: l.userId || "USR-01",
-              role: l.role || "Admin",
-              timestamp: l.timestamp || new Date().toISOString(),
-              device: (l as any).device || "ERP Web Client",
-              action: l.action || l.details || "System Activity",
-              financialImpact: (l as any).financialImpact || "N/A",
-              encrypted: true
-            }));
-            setAuditLogsList(mappedLogs);
-          }
-          if (dbProjects && dbProjects.length > 0) setRawProjectsList(dbProjects);
-          if (dbProgressLogs && dbProgressLogs.length > 0) setRawProgressLogs(dbProgressLogs);
-          setLoadingDbData(false);
-        }
-      } catch (err) {
-        console.error("Failure loading master ERP databases in Finance Module:", err);
-        if (active) setLoadingDbData(false);
-      }
-    };
-    fetchAllData();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Sync state if props update
+  // Sync worker/attendance props
   useEffect(() => {
     if (workers && workers.length > 0) setWorkersList(workers);
     if (attendance && attendance.length > 0) setAttendanceRecordList(attendance);
   }, [workers, attendance]);
 
-  // --- MASTER INITIAL DATA STORES ---
-  const [budgets, setBudgets] = useState<BudgetCategory[]>([
-    { id: "B-01", category: "Material", allocated: 48000000, committed: 42000000, actual: 38500000, project: "Bole Heights Phase I", department: "Structural & Material", description: "C30 Pre-mix Concrete & High-Tensile Steel Rebar", descriptionAm: "የኮንክሪትና ከፍተኛ ጥራት ያለው ብረት አቅርቦት" },
-    { id: "B-02", category: "Labor", allocated: 28000000, committed: 24000000, actual: 21800000, project: "Bole Heights Phase I", department: "Workforce & Payroll", description: "Formwork Gangs, Biometric Site Crews & Technicians", descriptionAm: "የፎርምወርክ ገጣጣሚዎች እና የሳይት ሰራተኞች ደሞዝ" },
-    { id: "B-03", category: "Equipment", allocated: 18000000, committed: 15500000, actual: 14200000, project: "Bole Heights Phase I", department: "Machinery & Logistics", description: "Tower Crane Leasing, Mobilization & Heavy Machinery", descriptionAm: "የታወር ክሬን ኪራይ፣ ማጓጓዣ እና የማሽነሪ ጥገና" },
-    { id: "B-04", category: "Overhead", allocated: 8000000, committed: 6200000, actual: 5800000, project: "Bole Heights Phase I", department: "Supervision & QA/QC", description: "Consultant Supervision, QA/QC Testing & Administration", descriptionAm: "የአማካሪ ምህንድስና፣ ጥራት ፍተሻ እና አስተዳደራዊ ወጪ" }
-  ]);
+  // Real-time Firestore subscriptions + ERP Master Data Fetch
+  useEffect(() => {
+    let active = true;
 
-  const [expenses, setExpenses] = useState<Expense[]>([
-    { id: "EXP-01", category: "Material", amount: 8500000, date: "2026-07-02", vendor: "Mugher Cement PLC", description: "C30 Pre-mix Bulk Supply Bole Site", project: "Bole Heights Phase I", costCenter: "CC-101 Material", approvedBy: "Site Engineering" },
-    { id: "EXP-02", category: "Labor", amount: 4200000, date: "2026-07-05", vendor: "BuildSync Payroll Ledger", description: "Formwork gang floor 4 assembly wages", project: "Bole Heights Phase I", costCenter: "CC-102 Workforce", approvedBy: "Finance Director" },
-    { id: "EXP-03", category: "Equipment", amount: 2800000, date: "2026-07-08", vendor: "Potain Cranes Ethiopia", description: "Tower crane monthly mobilization & lease", project: "Bole Heights Phase I", costCenter: "CC-103 Machinery", approvedBy: "Equipment Lead" },
-    { id: "EXP-04", category: "Overhead", amount: 1200000, date: "2026-07-10", vendor: "Tekle Consulting Engineers", description: "Consultant structural milestone inspection fee", project: "Bole Heights Phase I", costCenter: "CC-104 Supervision", approvedBy: "Project Lead" },
-    { id: "EXP-05", category: "Material", amount: 9400000, date: "2026-07-12", vendor: "Ethio Steel Mills", description: "High-Tensile Reinforcement Rebar 16mm & 20mm", project: "Yeka Hills Estate", costCenter: "CC-101 Material", approvedBy: "Procurement Lead" }
-  ]);
+    const unsubInvoices = DbService.subscribeInvoices((items) => {
+      if (active) setInvoices(items || []);
+    });
+    const unsubExpenses = DbService.subscribeExpenses((items) => {
+      if (active) setExpenses(items || []);
+    });
+    const unsubPayments = DbService.subscribePaymentRecords((items) => {
+      if (active) setPaymentRecords(items || []);
+    });
+    const unsubBudgets = DbService.subscribeProjectBudgets((items) => {
+      if (active) setBudgets(items || []);
+    });
+    const unsubTargets = DbService.subscribeFinancialTargets((items) => {
+      if (active) setFinancialTargets(items || []);
+    });
+    const unsubCollectionPlans = DbService.subscribeCollectionPlans((items) => {
+      if (active) setCollectionPlans(items || []);
+    });
+    const unsubPaymentPlans = DbService.subscribePaymentPlans((items) => {
+      if (active) setPaymentPlans(items || []);
+    });
+    const unsubAccounts = DbService.subscribeFinancialAccounts((items) => {
+      if (active) setFinancialAccounts(items || []);
+    });
+    const unsubCashTxs = DbService.subscribeCashTransactions((items) => {
+      if (active) setCashTransactions(items || []);
+    });
+    const unsubSettings = DbService.subscribeFinancialSettings((items) => {
+      if (active && items && items.length > 0) {
+        setFinancialSettings({ ...DEFAULT_FINANCIAL_SETTINGS, ...items[0] });
+      }
+    });
+    const unsubProjects = DbService.subscribeProjects((items) => {
+      if (active) setRawProjectsList(items || []);
+    });
+    const unsubPayroll = DbService.subscribePayrollRecords((items) => {
+      if (active) setSavedPayrollList(items || []);
+    });
+    const unsubPart4Plans = DbService.subscribeProjectBudgetPlans((items) => {
+      if (active) setProjectBudgetPlans(items || []);
+    });
+    const unsubPart4Allocations = DbService.subscribeBudgetAllocations((items) => {
+      if (active) setBudgetAllocations(items || []);
+    });
+    const unsubPart4Revisions = DbService.subscribeBudgetRevisions((items) => {
+      if (active) setBudgetRevisions(items || []);
+    });
+    const unsubPart4ActualCosts = DbService.subscribeActualCostEntries((items) => {
+      if (active) setActualCostEntries(items || []);
+    });
+    const unsubPart5Forecasts = DbService.subscribeCashFlowForecastItems((items) => {
+      if (active) setCashFlowForecastItems(items || []);
+    });
+    const unsubPart5Reconciliations = DbService.subscribeBankReconciliations((items) => {
+      if (active) setBankReconciliations(items || []);
+    });
+    const unsubPart6BankTxs = DbService.subscribeBankTransactions((items) => {
+      if (active) setBankTransactions(items || []);
+    });
+    const unsubPart6BankStatements = DbService.subscribeBankStatements((items) => {
+      if (active) setBankStatements(items || []);
+    });
+    const unsubPart7Coa = DbService.subscribeChartOfAccounts((items) => {
+      if (active) setChartOfAccounts(items || []);
+    });
+    const unsubPart7Journals = DbService.subscribeJournalEntries((items) => {
+      if (active) setJournalEntries(items || []);
+    });
+    const unsubPart7Periods = DbService.subscribeFinancialPeriods((items) => {
+      if (active) setFinancialPeriods(items || []);
+    });
 
-  const [invoices, setInvoices] = useState<Invoice[]>([
-    { id: "INV-01", invoiceNumber: "INV-2026-001", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 35000000, status: "Paid", date: "2026-05-15", dueDate: "2026-06-15" },
-    { id: "INV-02", invoiceNumber: "INV-2026-002", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 42000000, status: "Paid", date: "2026-06-10", dueDate: "2026-07-10" },
-    { id: "INV-03", invoiceNumber: "INV-2026-003", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 28000000, status: "Pending", date: "2026-07-01", dueDate: "2026-08-01" },
-    { id: "INV-04", invoiceNumber: "INV-2026-004", project: "Yeka Hills Estate", client: "Addis Real Estate Ltd", amount: 40000000, status: "Approved", date: "2026-07-05", dueDate: "2026-08-05" }
-  ]);
+    const loadMasterErpCollections = async () => {
+      try {
+        setLoadingDbData(true);
+        const [
+          wrk,
+          att,
+          repairs,
+          panels,
+          suppliers,
+          dbProcurements,
+          dbEquipments,
+          dbAuditLogs,
+          dbProgressLogs,
+          dbMaterials,
+        ] = await Promise.all([
+          DbService.getWorkers(),
+          DbService.getAttendance(),
+          DbService.getPanelRepairRecords(),
+          DbService.getFormworkPanels(),
+          DbService.getSuppliers(),
+          DbService.getFinanceProcurements([]),
+          DbService.getFinanceEquipments([]),
+          DbService.getAuditLogs(),
+          DbService.getProgressLogs(),
+          DbService.getMaterials([]),
+        ]);
 
-  const [payments, setPayments] = useState<Payment[]>([
-    { id: "PAY-01", invoiceId: "INV-01", invoiceNumber: "INV-2026-001", amount: 35000000, date: "2026-05-28", method: "Bank Transfer", reference: "CBE-TXN-90281", project: "Bole Heights Phase I" },
-    { id: "PAY-02", invoiceId: "INV-02", invoiceNumber: "INV-2026-002", amount: 42000000, date: "2026-06-25", method: "Bank Transfer", reference: "AWASH-TXN-11029", project: "Bole Heights Phase I" }
-  ]);
+        if (!active) return;
 
-  // Raw Projects and Progress Logs used to derive EVM metrics dynamically
-  const [rawProjectsList, setRawProjectsList] = useState<any[]>([
-    { id: "PRJ-01", name: "Bole Heights Phase I", budget: "ETB 65M", progress: 76.5 },
-    { id: "PRJ-02", name: "Yeka Hills Premium Estate", budget: "ETB 120M", progress: 54.5 },
-    { id: "PRJ-03", name: "Lemi National Cement Expansion", budget: "ETB 180M", progress: 27.1 }
-  ]);
-  const [rawProgressLogs, setRawProgressLogs] = useState<DailyProgressLog[]>([]);
+        if (wrk && wrk.length > 0) setWorkersList(wrk);
+        if (att && att.length > 0) setAttendanceRecordList(att);
+        setRepairRecordsList(repairs || []);
+        setFormworkPanelsList(panels || []);
+        setSuppliersList(suppliers || []);
+        setRawProgressLogs(dbProgressLogs || []);
+        setMaterialsList(dbMaterials || []);
 
-  // Project EVM List: Dynamically derived/computed view built from real projects + expenses + progressLogs + budgets
+        if (dbProcurements && dbProcurements.length > 0) {
+          const mappedProc: ProcurementRecord[] = dbProcurements.map((p: any, idx: number) => ({
+            id: p.id || `PROC-${idx + 1}`,
+            poNumber: p.poNumber || p.id || `PO-${idx + 1}`,
+            supplier: safeString(p.supplier, "Supplier"),
+            materialItem: safeString(p.materialItem || p.item, "Construction Material"),
+            poAmount: parseMoney(p.poAmount ?? p.cost ?? p.amount ?? p.totalAmount) ?? 0,
+            consumptionCost: parseMoney(p.consumptionCost) ?? 0,
+            transferCost: parseMoney(p.transferCost) ?? 0,
+            lossCost: parseMoney(p.lossCost) ?? 0,
+            damageCost: parseMoney(p.damageCost) ?? 0,
+            importCost: parseMoney(p.importCost) ?? 0,
+            customsTax: parseMoney(p.customsTax) ?? 0,
+            deliveryCost: parseMoney(p.deliveryCost) ?? 0,
+            status: safeString(p.status, "Pending"),
+            date: safeString(p.date, new Date().toISOString().slice(0, 10)),
+          }));
+          setProcurements(mappedProc);
+        }
+
+        if (dbEquipments && dbEquipments.length > 0) {
+          const mappedEquip: EquipmentCostRecord[] = dbEquipments.map((e: any, idx: number) => ({
+            id: e.id || `EQ-${idx + 1}`,
+            equipmentName: safeString(e.equipmentName || e.name, "Equipment Asset"),
+            assetCode: safeString(e.assetCode || e.id, `EQ-${idx + 1}`),
+            category: safeString(e.category, "Heavy Equipment"),
+            purchaseValue: parseMoney(e.purchaseValue ?? e.cost) ?? 0,
+            currentValue: parseMoney(e.currentValue) ?? 0,
+            depreciation: parseMoney(e.depreciation) ?? 0,
+            repairCost: parseMoney(e.repairCost) ?? 0,
+            replacementCost: parseMoney(e.replacementCost) ?? 0,
+            fuelLiters: Number(e.fuelLiters) || 0,
+            fuelCost: parseMoney(e.fuelCost) ?? 0,
+            maintenanceCost: parseMoney(e.maintenanceCost) ?? 0,
+            rentalCost: parseMoney(e.rentalCost) ?? 0,
+            operatingHours: Number(e.operatingHours) || 0,
+          }));
+          setEquipments(mappedEquip);
+        }
+
+        if (dbAuditLogs && dbAuditLogs.length > 0) {
+          const mappedLogs: SecurityAuditItem[] = dbAuditLogs.map((l) => ({
+            id: l.id,
+            userName: safeString(l.userName, "System User"),
+            userId: safeString(l.userId, "USR"),
+            role: safeString(l.role || l.userRole, "User"),
+            timestamp: safeString(l.timestamp),
+            device: safeString((l as any).device, "ERP Web Client"),
+            action: safeString(l.action || l.details, "Activity"),
+            financialImpact: safeString((l as any).financialImpact, l.category || "—"),
+            encrypted: true,
+          }));
+          setAuditLogsList(mappedLogs);
+        }
+      } catch (err) {
+        console.error("Failed loading master ERP collections for Finance:", err);
+      } finally {
+        if (active) setLoadingDbData(false);
+      }
+    };
+
+    loadMasterErpCollections();
+
+    return () => {
+      active = false;
+      unsubInvoices();
+      unsubExpenses();
+      unsubPayments();
+      unsubBudgets();
+      unsubTargets();
+      unsubCollectionPlans();
+      unsubPaymentPlans();
+      unsubAccounts();
+      unsubCashTxs();
+      unsubSettings();
+      unsubProjects();
+      unsubPayroll();
+      unsubPart4Plans();
+      unsubPart4Allocations();
+      unsubPart4Revisions();
+      unsubPart4ActualCosts();
+      unsubPart5Forecasts();
+      unsubPart5Reconciliations();
+      unsubPart6BankTxs();
+      unsubPart6BankStatements();
+      unsubPart7Coa();
+      unsubPart7Journals();
+      unsubPart7Periods();
+    };
+  }, []);
+
+  // --- COMPUTE LIVE FINANCIAL ENGINE STATE ---
+  const financeState = useMemo(
+    () =>
+      computeFinancialDashboardState({
+        invoices,
+        expenses,
+        cashTransactions,
+        paymentRecords,
+        financialTargets,
+        collectionPlans,
+        paymentPlans,
+        financialAccounts,
+        projectBudgets: budgets,
+        suppliers: suppliersList,
+        projects: rawProjectsList,
+        filterState: filters,
+        userRole: currentUserRole,
+        userProfile: currentUserProfile,
+        settings: financialSettings,
+      }),
+    [
+      invoices,
+      expenses,
+      cashTransactions,
+      paymentRecords,
+      financialTargets,
+      collectionPlans,
+      paymentPlans,
+      financialAccounts,
+      budgets,
+      suppliersList,
+      rawProjectsList,
+      filters,
+      currentUserRole,
+      currentUserProfile,
+      financialSettings,
+    ]
+  );
+
+  // --- COMPUTE PART 4 BUDGET MANAGEMENT & COST CONTROL STATE ---
+  const part4BudgetState = useMemo(
+    () =>
+      computePart4BudgetControlState({
+        budgetPlans: projectBudgetPlans,
+        legacyBudgets: budgets,
+        allocations: budgetAllocations,
+        revisions: budgetRevisions,
+        actualCostEntries,
+        expenses,
+        cashTransactions,
+        invoices,
+        payrollRecords: savedPayrollList,
+        procurements,
+        equipments,
+        projects: rawProjectsList,
+        filterState: part4Filters,
+        userRole: currentUserRole,
+        userProfile: currentUserProfile,
+      }),
+    [
+      projectBudgetPlans,
+      budgets,
+      budgetAllocations,
+      budgetRevisions,
+      actualCostEntries,
+      expenses,
+      cashTransactions,
+      invoices,
+      savedPayrollList,
+      procurements,
+      equipments,
+      rawProjectsList,
+      part4Filters,
+      currentUserRole,
+      currentUserProfile,
+    ]
+  );
+
+  // --- COMPUTE PART 5 CASH FLOW MANAGEMENT & FORECASTING STATE ---
+  const part5CashFlowState = useMemo(
+    () =>
+      computePart5CashFlowState({
+        cashTransactions,
+        paymentRecords,
+        invoices,
+        expenses,
+        collectionPlans,
+        paymentPlans,
+        payrollRecords: savedPayrollList,
+        projectBudgetPlans,
+        legacyBudgets: budgets,
+        budgetAllocations,
+        financialTargets,
+        financialAccounts,
+        explicitForecastItems: cashFlowForecastItems,
+        bankReconciliations,
+        bankTransactions,
+        projects: rawProjectsList,
+        filterState: part5Filters,
+        userRole: currentUserRole,
+        userProfile: currentUserProfile,
+        settings: financialSettings,
+      }),
+    [
+      cashTransactions,
+      paymentRecords,
+      invoices,
+      expenses,
+      collectionPlans,
+      paymentPlans,
+      savedPayrollList,
+      projectBudgetPlans,
+      budgets,
+      budgetAllocations,
+      financialTargets,
+      financialAccounts,
+      cashFlowForecastItems,
+      bankReconciliations,
+      bankTransactions,
+      rawProjectsList,
+      part5Filters,
+      currentUserRole,
+      currentUserProfile,
+      financialSettings,
+    ]
+  );
+
+  // --- COMPUTE PART 6 BANK MANAGEMENT & BANK RECONCILIATION STATE ---
+  const part6BankState = useMemo(
+    () =>
+      computePart6BankState({
+        financialAccounts,
+        bankTransactions,
+        cashTransactions,
+        bankReconciliations,
+        bankStatements,
+        projects: rawProjectsList,
+        filterState: part6Filters,
+        userRole: currentUserRole,
+        userProfile: currentUserProfile,
+        settings: financialSettings,
+      }),
+    [
+      financialAccounts,
+      bankTransactions,
+      cashTransactions,
+      bankReconciliations,
+      bankStatements,
+      rawProjectsList,
+      part6Filters,
+      currentUserRole,
+      currentUserProfile,
+      financialSettings,
+    ]
+  );
+
+  // --- COMPUTE PART 7 FINANCIAL STATEMENTS & DOUBLE-ENTRY LEDGER STATE ---
+  const part7StatementsState = useMemo(
+    () =>
+      computePart7FinancialStatementsState({
+        chartOfAccounts,
+        journalEntries,
+        financialPeriods,
+        invoices,
+        expenses,
+        cashTransactions,
+        bankTransactions,
+        paymentRecords,
+        financialAccounts,
+        payrollRecords: savedPayrollList,
+        actualCostEntries,
+        procurements,
+        projects: rawProjectsList,
+        filterState: part7Filters,
+        userRole: currentUserRole,
+        userProfile: currentUserProfile,
+        settings: financialSettings,
+      }),
+    [
+      chartOfAccounts,
+      journalEntries,
+      financialPeriods,
+      invoices,
+      expenses,
+      cashTransactions,
+      bankTransactions,
+      paymentRecords,
+      financialAccounts,
+      savedPayrollList,
+      actualCostEntries,
+      procurements,
+      rawProjectsList,
+      part7Filters,
+      currentUserRole,
+      currentUserProfile,
+      financialSettings,
+    ]
+  );
+
+  // Dispatch critical financial & budget alerts to Directors & Finance Manager (deduplicated per session)
+  const dispatchedAlertIdsRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!financialSettings.enableCriticalAlerts) return;
+    const nowIso = new Date().toISOString();
+
+    financeState.alerts
+      .filter((a) => a.severity === "CRITICAL")
+      .forEach((alertItem) => {
+        if (dispatchedAlertIdsRef.current.has(alertItem.id)) return;
+        dispatchedAlertIdsRef.current.add(alertItem.id);
+        DbService.addNotification({
+          id: `FIN-AUTO-${alertItem.id}-${nowIso.slice(0, 10)}`,
+          type: "Financial Alert",
+          title: alertItem.title,
+          titleAm: alertItem.titleAm,
+          message: alertItem.description,
+          description: alertItem.description,
+          descriptionAm: alertItem.descriptionAm,
+          category: "Finance Notifications",
+          priority: "Critical",
+          status: "Unread",
+          projectName: alertItem.project || "Corporate Finance",
+          sender: "Financial Control Engine",
+          senderRole: "System",
+          receiver: "Director & Finance Manager",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.FINANCE_MANAGER,
+          ],
+          date: nowIso.slice(0, 10),
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: Date.now(),
+          read: false,
+          actionTab: "financeErp",
+        }).catch(() => {});
+      });
+
+    part4BudgetState.alerts
+      .filter((a) => a.severity === "CRITICAL")
+      .forEach((alertItem) => {
+        const key = `P4-${alertItem.id}`;
+        if (dispatchedAlertIdsRef.current.has(key)) return;
+        dispatchedAlertIdsRef.current.add(key);
+        DbService.addNotification({
+          id: `FIN-P4-${alertItem.id}-${nowIso.slice(0, 10)}`,
+          type: "Budget Control Alert",
+          title: alertItem.title,
+          titleAm: alertItem.titleAm,
+          message: alertItem.description,
+          description: alertItem.description,
+          descriptionAm: alertItem.descriptionAm,
+          category: "Finance Notifications",
+          priority: "Critical",
+          status: "Unread",
+          projectName: alertItem.project || "Project Budget Control",
+          sender: "Budget & Cost Control Engine",
+          senderRole: "System",
+          receiver: "Director, Finance & Project Manager",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.FINANCE_MANAGER,
+            UserRole.PROJECT_MANAGER,
+          ],
+          date: nowIso.slice(0, 10),
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: Date.now(),
+          read: false,
+          actionTab: "financeErp",
+        }).catch(() => {});
+      });
+
+    part5CashFlowState.alerts
+      .filter((a) => a.severity === "CRITICAL")
+      .forEach((alertItem) => {
+        const key = `P5-${alertItem.id}`;
+        if (dispatchedAlertIdsRef.current.has(key)) return;
+        dispatchedAlertIdsRef.current.add(key);
+        DbService.addNotification({
+          id: `FIN-P5-${alertItem.id}-${nowIso.slice(0, 10)}`,
+          type: "Cash Flow Shortage Alert",
+          title: alertItem.title,
+          titleAm: alertItem.titleAm,
+          message: alertItem.description,
+          description: alertItem.description,
+          descriptionAm: alertItem.descriptionAm,
+          category: "Finance Notifications",
+          priority: "Critical",
+          status: "Unread",
+          projectName: alertItem.project || "Corporate Cash Flow",
+          sender: "Cash Flow Forecasting Engine",
+          senderRole: "System",
+          receiver: "Director & Finance Manager",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.FINANCE_MANAGER,
+          ],
+          date: nowIso.slice(0, 10),
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: Date.now(),
+          read: false,
+          actionTab: "financeErp",
+        }).catch(() => {});
+      });
+  }, [financeState.alerts, part4BudgetState.alerts, part5CashFlowState.alerts, financialSettings.enableCriticalAlerts]);
+
+  // --- CONSTRUCTION ERP SUB-MODULE CALCULATIONS (ALL FROM REAL DATA) ---
   const projectsEvm: ProjectEvmData[] = useMemo(() => {
-    return rawProjectsList.map(prj => {
-      const prjName = prj.name || prj.id;
-      
-      // Calculate approved budget
-      let budgetNum = 65000000;
-      if (typeof prj.budget === "number") {
+    const visibleProjects = financeState.permissions.isProjectScopedOnly
+      ? rawProjectsList.filter((prj) => {
+          const pName = safeString(prj?.name || prj?.id).toLowerCase();
+          return financeState.assignedProjects.some(
+            (ap) => pName === ap.toLowerCase() || pName.includes(ap.toLowerCase())
+          );
+        })
+      : rawProjectsList;
+
+    return visibleProjects.map((prj) => {
+      const prjName = safeString(prj.name || prj.id, "Project");
+      const matchingBudgets = budgets.filter(
+        (b) => b.project === prjName || b.project === prj.id
+      );
+      let budgetNum = 0;
+      if (matchingBudgets.length > 0) {
+        budgetNum = matchingBudgets.reduce((sum, b) => sum + (parseMoney(b.allocated) ?? 0), 0);
+      } else if (typeof prj.budget === "number") {
         budgetNum = prj.budget;
       } else if (typeof prj.budget === "string") {
         const parsed = parseFloat(prj.budget.replace(/[^0-9.]/g, ""));
         if (!isNaN(parsed)) {
-          budgetNum = prj.budget.toUpperCase().includes("M") ? parsed * 1000000 : parsed;
+          budgetNum = prj.budget.toUpperCase().includes("M") ? parsed * 1_000_000 : parsed;
         }
       }
-      const matchingBudgets = budgets.filter(b => b.project === prjName || b.project === prj.id);
-      if (matchingBudgets.length > 0) {
-        budgetNum = matchingBudgets.reduce((sum, b) => sum + b.allocated, 0);
+
+      const actualCost = expenses
+        .filter((e) => e.project === prjName || e.project === prj.id)
+        .reduce((sum, e) => sum + (parseMoney(e.amount) ?? 0), 0);
+
+      let progressPercent = typeof prj.progress === "number" ? prj.progress : 0;
+      const matchingLogs = rawProgressLogs.filter(
+        (l) => (l.building && l.building.includes(prjName)) || l.building === prj.id
+      );
+      if (matchingLogs.length > 0 && progressPercent === 0) {
+        progressPercent = Math.min(100, matchingLogs.length * 10);
       }
 
-      // Actual Cost (AC) computed from real expenses
-      const matchingExpenses = expenses.filter(e => e.project === prjName || e.project === prj.id);
-      const expenseSum = matchingExpenses.reduce((sum, e) => sum + e.amount, 0);
-      const actualCost = expenseSum > 0 ? expenseSum : Math.round(budgetNum * 0.58);
-
-      // Progress % from progressLogs or project progress
-      let progressPercent = typeof prj.progress === "number" ? prj.progress : 50;
-      const matchingLogs = rawProgressLogs.filter(l => (l.building && l.building.includes(prjName)) || l.building === prj.id);
-      if (matchingLogs.length > 0) {
-        progressPercent = Math.min(100, Math.max(10, matchingLogs.length * 15));
-      }
-
-      // Earned Value (EV) = Approved Budget * Progress %
       const earnedValue = Math.round(budgetNum * (progressPercent / 100));
-
-      // Planned Value (PV) = Approved Budget * Planned Progress %
-      const plannedPercent = Math.min(100, progressPercent + (prj.id === "PRJ-03" ? 5 : -2));
-      const plannedValue = Math.round(budgetNum * (plannedPercent / 100));
-
-      // Cost Performance Index (CPI) = EV / AC
-      const cpi = actualCost > 0 ? Number((earnedValue / actualCost).toFixed(2)) : 1.05;
-
-      // Schedule Performance Index (SPI) = EV / PV
+      const plannedValue = Math.round(budgetNum * (Math.min(100, progressPercent) / 100));
+      const cpi = actualCost > 0 ? Number((earnedValue / actualCost).toFixed(2)) : 1.0;
       const spi = plannedValue > 0 ? Number((earnedValue / plannedValue).toFixed(2)) : 1.0;
-
-      // Forecast Cost at Completion (EAC) = Approved Budget / CPI
       const forecastCost = cpi > 0 ? Math.round(budgetNum / cpi) : budgetNum;
-
-      // Schedule Variance in Days
-      const scheduleVarianceDays = spi < 1.0 ? -Math.round((1.0 - spi) * 30) : (spi > 1.0 ? 2 : 0);
+      const scheduleVarianceDays =
+        spi < 1.0 ? -Math.round((1.0 - spi) * 30) : spi > 1.0 ? 2 : 0;
 
       return {
-        id: prj.id,
+        id: safeString(prj.id, prjName),
         name: prjName,
         budget: budgetNum,
         approvedBudget: budgetNum,
@@ -556,96 +933,100 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         forecastCost,
         scheduleVarianceDays,
         cpi,
-        spi
+        spi,
       };
     });
-  }, [rawProjectsList, expenses, rawProgressLogs, budgets]);
+  }, [rawProjectsList, budgets, expenses, rawProgressLogs, financeState.permissions.isProjectScopedOnly, financeState.assignedProjects]);
 
-  // Procurement Records
-  const [procurements, setProcurements] = useState<ProcurementRecord[]>([
-    { id: "PROC-01", poNumber: "PO-2026-881", supplier: "Lianxin Aluminum Ltd (China)", materialItem: "6061-T6 Aluminum Panels 1200x600", poAmount: 18500000, consumptionCost: 14200000, transferCost: 650000, lossCost: 180000, damageCost: 120000, importCost: 1450000, customsTax: 2850000, deliveryCost: 650000, status: "Customs Cleared", date: "2026-07-01" },
-    { id: "PROC-02", poNumber: "PO-2026-882", supplier: "Mugher Cement Factory", materialItem: "Bulk Cement Type I (C30 Grade)", poAmount: 12000000, consumptionCost: 11800000, transferCost: 220000, lossCost: 140000, damageCost: 80000, importCost: 0, customsTax: 0, deliveryCost: 420000, status: "Paid", date: "2026-07-08" },
-    { id: "PROC-03", poNumber: "PO-2026-883", supplier: "Ethio Steel Mills", materialItem: "Deformed Steel Bar 16mm High Tensile", poAmount: 15400000, consumptionCost: 12500000, transferCost: 350000, lossCost: 210000, damageCost: 150000, importCost: 0, customsTax: 0, deliveryCost: 380000, status: "In Transit", date: "2026-07-14" }
-  ]);
+  // Pay periods from real attendance logs
+  const availablePeriods = useMemo(() => {
+    const periods = new Set<string>();
+    periods.add(new Date().toISOString().substring(0, 7));
+    attendanceList.forEach((a) => {
+      if (a?.date && a.date.length >= 7) {
+        periods.add(a.date.substring(0, 7));
+      }
+    });
+    return Array.from(periods).sort().reverse();
+  }, [attendanceList]);
 
-  // Equipment Cost & Asset Valuation Records
-  const [equipments, setEquipments] = useState<EquipmentCostRecord[]>([
-    { id: "EQ-01", equipmentName: "Aluminum Formwork Panels Set (1,250 Panels)", assetCode: "FW-ALU-01", category: "Aluminum Formwork", purchaseValue: 45000000, currentValue: 38500000, depreciation: 6500000, repairCost: 850000, replacementCost: 48000000, fuelLiters: 0, fuelCost: 0, maintenanceCost: 850000, rentalCost: 0, operatingHours: 1420 },
-    { id: "EQ-02", equipmentName: "Potain Tower Crane MC235", assetCode: "TC-01", category: "Machinery", purchaseValue: 32000000, currentValue: 28000000, depreciation: 4000000, repairCost: 340000, replacementCost: 35000000, fuelLiters: 1850, fuelCost: 185000, maintenanceCost: 340000, rentalCost: 1800000, operatingHours: 210 },
-    { id: "EQ-03", equipmentName: "Putzmeister Concrete Pump Truck 36m", assetCode: "CP-02", category: "Heavy Equipment", purchaseValue: 24000000, currentValue: 21000000, depreciation: 3000000, repairCost: 280000, replacementCost: 26000000, fuelLiters: 2400, fuelCost: 240000, maintenanceCost: 280000, rentalCost: 1200000, operatingHours: 185 },
-    { id: "EQ-04", equipmentName: "CAT Excavator 330D Heavy Duty", assetCode: "EX-03", category: "Heavy Equipment", purchaseValue: 18000000, currentValue: 15200000, depreciation: 2800000, repairCost: 450000, replacementCost: 20000000, fuelLiters: 3100, fuelCost: 310000, maintenanceCost: 450000, rentalCost: 1400000, operatingHours: 240 },
-    { id: "EQ-05", equipmentName: "Main Central Warehouse Inventory Racks & Pallets", assetCode: "WH-INV-01", category: "Warehouse Asset", purchaseValue: 12500000, currentValue: 11200000, depreciation: 1300000, repairCost: 150000, replacementCost: 13500000, fuelLiters: 0, fuelCost: 0, maintenanceCost: 150000, rentalCost: 0, operatingHours: 8760 }
-  ]);
-
-  // Security Audit Log Store
-  const [auditLogsList, setAuditLogsList] = useState<SecurityAuditItem[]>([
-    { id: "AUD-1001", userName: currentUserName, userId: "FIN-01", role: currentUserRole, timestamp: "2026-07-22 08:30:15", device: "Chrome 126.0 (Macintosh)", action: "Accessed Corporate Finance Dashboard", financialImpact: "N/A", encrypted: true },
-    { id: "AUD-1002", userName: "Procurement Manager", userId: "PROC-02", role: "Procurement Manager", timestamp: "2026-07-22 07:15:42", device: "BuildSync Mobile POS", action: "Approved PO-2026-882 Cement Purchase", financialImpact: "ETB 12,000,000", encrypted: true },
-    { id: "AUD-1003", userName: "Site Project Manager", userId: "PM-01", role: "Project Manager", timestamp: "2026-07-21 16:45:00", device: "Windows 11 Workstation", action: "Requested Budget Variance Adjustment", financialImpact: "ETB 3,500,000", encrypted: true }
-  ]);
-
-  // --- AUTOMATED PAYROLL ENGINE GENERATION ---
-  // Calculates live attendance-driven payroll for every real worker in the "workers" collection
-  // who has at least one attendance record in the selected pay period.
-  const generatedPayroll = useMemo(() => {
-    // 1. Filter real workers from workersList who have at least one attendance record in the selected period
-    const targetWorkers = workersList.filter(w => {
+  // Attendance-driven payroll calculation
+  const generatedPayroll: GeneratedPayrollSlip[] = useMemo(() => {
+    const targetWorkers = workersList.filter((w) => {
       if (!w || !w.id) return false;
-      const workerAtt = attendanceList.filter(a => {
+      const workerAtt = attendanceList.filter((a) => {
         if (!a) return false;
-        const matchId = (a.workerId && (a.workerId === w.id || a.workerId === (w as any).employeeId)) || 
-                        ((a as any).employeeId && ((a as any).employeeId === w.id));
-        const matchName = a.workerName && w.name && a.workerName.trim().toLowerCase() === w.name.trim().toLowerCase();
-        const belongsToWorker = Boolean(matchId || matchName);
-        if (!belongsToWorker) return false;
-
+        const matchId =
+          (a.workerId &&
+            (a.workerId === w.id || a.workerId === (w as any).employeeId)) ||
+          ((a as any).employeeId && (a as any).employeeId === w.id);
+        const matchName =
+          a.workerName &&
+          w.name &&
+          a.workerName.trim().toLowerCase() === w.name.trim().toLowerCase();
+        if (!matchId && !matchName) return false;
         if (selectedPayPeriod && selectedPayPeriod !== "all") {
-          return a.date && a.date.startsWith(selectedPayPeriod);
+          return Boolean(a.date && a.date.startsWith(selectedPayPeriod));
         }
         return true;
       });
       return workerAtt.length > 0;
     });
 
-    // 2. Cross-reference real attendance and calculate exact pay using real basicMonthlySalary
     return targetWorkers.map((w) => {
-      // Find all attendance records for this worker in the period
-      const workerAtt = attendanceList.filter(a => {
+      const workerAtt = attendanceList.filter((a) => {
         if (!a) return false;
-        const matchId = (a.workerId && (a.workerId === w.id || a.workerId === (w as any).employeeId)) || 
-                        ((a as any).employeeId && ((a as any).employeeId === w.id));
-        const matchName = a.workerName && w.name && a.workerName.trim().toLowerCase() === w.name.trim().toLowerCase();
-        const belongsToWorker = Boolean(matchId || matchName);
-        if (!belongsToWorker) return false;
-
+        const matchId =
+          (a.workerId &&
+            (a.workerId === w.id || a.workerId === (w as any).employeeId)) ||
+          ((a as any).employeeId && (a as any).employeeId === w.id);
+        const matchName =
+          a.workerName &&
+          w.name &&
+          a.workerName.trim().toLowerCase() === w.name.trim().toLowerCase();
+        if (!matchId && !matchName) return false;
         if (selectedPayPeriod && selectedPayPeriod !== "all") {
-          return a.date && a.date.startsWith(selectedPayPeriod);
+          return Boolean(a.date && a.date.startsWith(selectedPayPeriod));
         }
         return true;
       });
 
-      // Calculate attendance days and working hours
-      const daysWorked = workerAtt.filter(a => a.status === "Present" || a.status === "Late" || Boolean(a.checkIn)).length || workerAtt.length;
-      const normalHours = workerAtt.reduce((sum, a) => sum + (Number(a.workingHours) || 8), 0);
-      const totalOvertimeHrs = workerAtt.reduce((sum, a) => sum + (Number(a.overtime) || 0), 0);
-      const totalUnderTimeHrs = workerAtt.reduce((sum, a) => sum + (Number(a.underTime) || 0), 0);
+      const daysWorked =
+        workerAtt.filter(
+          (a) => a.status === "Present" || a.status === "Late" || Boolean(a.checkIn)
+        ).length || workerAtt.length;
+      const normalHours = workerAtt.reduce(
+        (sum, a) => sum + (Number(a.workingHours) || 8),
+        0
+      );
+      const totalOvertimeHrs = workerAtt.reduce(
+        (sum, a) => sum + (Number(a.overtime) || 0),
+        0
+      );
+      const totalUnderTimeHrs = workerAtt.reduce(
+        (sum, a) => sum + (Number(a.underTime) || 0),
+        0
+      );
 
-      // Real basicMonthlySalary from enrolled worker record
-      const basicSalary = Number(w.basicMonthlySalary) || (w.hourlyRate ? w.hourlyRate * 208 : 0) || (w.employmentType?.toLowerCase().includes("daily") ? 650 * 26 : 18000);
+      const basicSalary =
+        Number(w.basicMonthlySalary) ||
+        (w.hourlyRate ? w.hourlyRate * 208 : 0) ||
+        (w.employmentType?.toLowerCase().includes("daily") ? 650 * 26 : 0);
       const dailyRate = Math.round((basicSalary / 26) * 100) / 100;
       const hourlyRate = w.hourlyRate || Math.round((dailyRate / 8) * 100) / 100;
 
-      // Base pay earned
-      const basePayForDaysWorked = daysWorked >= 24 ? basicSalary : Math.round(dailyRate * daysWorked);
+      const basePayForDaysWorked =
+        daysWorked >= 24 ? basicSalary : Math.round(dailyRate * daysWorked);
       const overtimePay = Math.round(totalOvertimeHrs * hourlyRate * 1.5);
-      const allowances = Number((w as any).allowance) || Number((w as any).allowances) || (daysWorked > 0 ? (w.allowances || 0) : 0);
-      const bonuses = 0;
+      const allowances =
+        Number((w as any).allowance) ||
+        Number((w as any).allowances) ||
+        0;
       const underTimeDeduction = Math.round(totalUnderTimeHrs * hourlyRate);
-
-      const grossEarned = basePayForDaysWorked + overtimePay + allowances + bonuses - underTimeDeduction;
-      const tax = Math.round(grossEarned * 0.15); // Ethiopian Income Tax estimation (15%)
-      const pension = Math.round(basePayForDaysWorked * 0.07); // 7% Employee Pension
-
+      const grossEarned =
+        basePayForDaysWorked + overtimePay + allowances - underTimeDeduction;
+      const tax = Math.round(grossEarned * 0.15);
+      const pension = Math.round(basePayForDaysWorked * 0.07);
       const netSalary = Math.max(0, grossEarned - (tax + pension));
 
       return {
@@ -661,35 +1042,39 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         underTimeHours: totalUnderTimeHrs,
         overtimePay,
         allowances,
-        bonuses,
+        bonuses: 0,
         underTimeDeduction,
         attendanceDeductions: underTimeDeduction,
         tax,
         pension,
         netSalary,
-        status: "Approved" as const,
-        paymentMethod: w.bankName ? `${w.bankName} (${w.bankAccountNumber || "Direct Deposit"})` : (w.mobileMoneyType ? `${w.mobileMoneyType} (${w.mobileMoneyNumber || w.phoneNumber || "Mobile"})` : "CBE Direct Deposit")
+        status: "Approved",
+        paymentMethod: w.bankName
+          ? `${w.bankName} (${w.bankAccountNumber || "Direct"})`
+          : w.mobileMoneyType
+          ? `${w.mobileMoneyType} (${w.mobileMoneyNumber || w.phoneNumber || "Mobile"})`
+          : "Bank Direct Deposit",
       };
     });
   }, [workersList, attendanceList, selectedPayPeriod]);
 
-  // Save generated/processed payroll records directly to Firestore
   const handleSavePayrollToFirestore = async () => {
-    if (generatedPayroll.length === 0) {
-      alert("No active workers with attendance records to save.");
-      return;
-    }
+    if (generatedPayroll.length === 0 || !permissions.canManageTransactions) return;
     setIsSavingPayroll(true);
     try {
-      const recordsToPersist: PayrollRecord[] = generatedPayroll.map(p => ({
+      const periodStr =
+        selectedPayPeriod !== "all"
+          ? selectedPayPeriod
+          : new Date().toISOString().substring(0, 7);
+      const recordsToPersist: PayrollRecord[] = generatedPayroll.map((p) => ({
         id: p.id,
         workerId: p.workerId,
         employeeId: p.workerId,
         workerName: p.workerName,
         position: p.trade,
-        department: p.department || "Operations & Site Construction",
-        team: "Bole Heights Construction Team",
-        project: "Digital Bole Heights",
+        department: p.department || "Operations",
+        team: "Site Team",
+        project: financeState.assignedProjects[0] || rawProjectsList[0]?.name || "General",
         employmentType: "Permanent",
         basicSalary: p.basicSalary,
         attendanceDays: p.daysWorked,
@@ -703,61 +1088,77 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         netSalary: p.netSalary,
         status: "Approved",
         grade: "Grade A",
-        period: selectedPayPeriod !== "all" ? selectedPayPeriod : new Date().toISOString().substring(0, 7),
+        period: periodStr,
         createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
+        updatedAt: new Date().toISOString(),
       }));
-
       await DbService.savePayrollRecords(recordsToPersist);
       setSavedPayrollList(recordsToPersist);
-      setPayrollSyncStatus(`Payroll saved & synchronized ${recordsToPersist.length} worker records to Firestore!`);
-      onLogAction?.("Process Payroll Batch", `Saved & Approved payroll batch for ${recordsToPersist.length} workers to Firestore`);
+      setPayrollSyncStatus(
+        isAmharic
+          ? `${recordsToPersist.length} የደሞዝ መዝገቦች ወደ Firestore ተቀምጠዋል።`
+          : `Synchronized ${recordsToPersist.length} payroll records to Firestore.`
+      );
+      onLogAction?.(
+        "Process Payroll Batch",
+        `Saved ${recordsToPersist.length} payroll records to Firestore`
+      );
       setTimeout(() => setPayrollSyncStatus(null), 4000);
     } catch (err) {
-      console.error("Failed to save payroll to Firestore:", err);
-      alert("Failed to save payroll to Firestore.");
+      console.error("Failed to save payroll:", err);
     } finally {
       setIsSavingPayroll(false);
     }
   };
 
-  // --- MASTER FINANCIAL CALCULATIONS ---
-  const companyRevenue = useMemo(() => invoices.reduce((sum, i) => sum + i.amount, 0), [invoices]);
-  const companyExpenses = useMemo(() => expenses.reduce((sum, e) => sum + e.amount, 0), [expenses]);
-  const totalProjectBudget = useMemo(() => budgets.reduce((sum, b) => sum + b.allocated, 0), [budgets]);
-  const budgetUtilization = useMemo(() => totalProjectBudget > 0 ? (companyExpenses / totalProjectBudget) * 100 : 0, [companyExpenses, totalProjectBudget]);
-
-  const accountsReceivable = useMemo(() => {
-    const paidSum = payments.reduce((sum, p) => sum + p.amount, 0);
-    return companyRevenue - paidSum;
-  }, [companyRevenue, payments]);
-
-  const accountsPayable = useMemo(() => {
-    return procurements.filter(p => p.status !== "Paid").reduce((sum, p) => sum + (p.poAmount || 0) + (p.customsTax || 0) + (p.deliveryCost || 0), 0);
-  }, [procurements]);
-
-  // Asset Values
-  const warehouseAssetVal = 42500000;
+  // Real-data Asset & Construction Cost Metrics
   const formworkAssetVal = useMemo(() => {
-    const totalPanels = formworkPanelsList.length || 1250;
-    return totalPanels * 12500; // 12,500 ETB average replacement value per panel
+    return formworkPanelsList.reduce(
+      (sum, panel) =>
+        sum + (Number(panel.quantity) || 1) * (Number(panel.unitPriceEtb) || 12500),
+      0
+    );
   }, [formworkPanelsList]);
-  const equipmentAssetVal = useMemo(() => equipments.reduce((sum, e) => sum + (e.currentValue || 0), 0), [equipments]);
 
-  // Total Payroll Cost
-  const totalPayrollCost = useMemo(() => generatedPayroll.reduce((sum, p) => sum + (p.netSalary || 0) + (p.tax || 0) + (p.pension || 0), 0), [generatedPayroll]);
+  const formworkDepreciation = useMemo(
+    () =>
+      equipments
+        .filter((e) => e.category === "Aluminum Formwork")
+        .reduce((s, e) => s + (e.depreciation || 0), 0),
+    [equipments]
+  );
 
-  // Breakdown Costs
-  const procurementCost = useMemo(() => procurements.reduce((sum, p) => sum + (p.poAmount || 0) + (p.importCost || 0) + (p.customsTax || 0) + (p.deliveryCost || 0), 0), [procurements]);
-  const maintenanceCost = useMemo(() => equipments.reduce((sum, e) => sum + (e.maintenanceCost || 0) + (e.repairCost || 0), 0) + repairRecordsList.reduce((sum, r) => sum + (r.cost || 0), 0), [equipments, repairRecordsList]);
-  const fuelCost = useMemo(() => equipments.reduce((sum, e) => sum + (e.fuelCost || 0), 0), [equipments]);
+  const maintenanceCost = useMemo(
+    () =>
+      equipments.reduce((s, e) => s + (e.maintenanceCost || 0) + (e.repairCost || 0), 0) +
+      repairRecordsList.reduce((s, r) => s + (Number(r.cost) || 0), 0),
+    [equipments, repairRecordsList]
+  );
 
-  const netProfitVal = companyRevenue - companyExpenses;
+  const warehouseInventoryVal = useMemo(() => {
+    const matVal = materialsList.reduce(
+      (s, m) => s + (parseMoney(m.totalValue ?? m.value) ?? (Number(m.quantity) || 0) * (parseMoney(m.unitCost ?? m.unitPrice) ?? 0)),
+      0
+    );
+    const whEquipVal = equipments
+      .filter((e) => e.category === "Warehouse Asset")
+      .reduce((s, e) => s + (e.currentValue || 0), 0);
+    return matVal + whEquipVal;
+  }, [materialsList, equipments]);
 
-  // AI Analysis State
+  const warehouseTransferCost = useMemo(
+    () => procurements.reduce((s, p) => s + (p.transferCost || 0), 0),
+    [procurements]
+  );
+
+  const warehouseWastageCost = useMemo(
+    () => procurements.reduce((s, p) => s + (p.lossCost || 0) + (p.damageCost || 0), 0),
+    [procurements]
+  );
+
+  // AI Risk Analytics
   const [aiLoading, setAiLoading] = useState(false);
   const [aiData, setAiData] = useState<any>(null);
-
   const handleRunAiAnalysis = async () => {
     setAiLoading(true);
     try {
@@ -765,18 +1166,21 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          budgetData: budgets,
-          expenseData: expenses,
+          budgetData: financeState.scopedBudgets,
+          expenseData: financeState.scopedExpenses,
           payrollData: generatedPayroll,
           procurementData: procurements,
           assetData: equipments,
-          projectsData: projectsEvm
-        })
+          projectsData: projectsEvm,
+        }),
       });
       const resData = await response.json();
       if (resData.success && resData.data) {
         setAiData(resData.data);
-        onLogAction?.("Run AI Financial Analysis", "Generated predictive cash flow and fraud detection report");
+        onLogAction?.(
+          "Run AI Financial Analysis",
+          "Generated predictive cash flow and anomaly analysis"
+        );
       }
     } catch (err) {
       console.error("AI Analysis fetch error:", err);
@@ -785,866 +1189,1257 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     }
   };
 
-  // Form Modals
-  const [showBudgetForm, setShowBudgetForm] = useState(false);
-  const [budgetForm, setBudgetForm] = useState({ category: "Material" as const, allocated: 0, project: "Bole Heights Phase I", department: "Structural", description: "", descriptionAm: "" });
+  // --- 17 CORE FINANCIAL MANAGEMENT MODULES + EXTENDED ERP TOOLS ---
+  const rawCoreMenuModules: {
+    id: FinancialMenuModuleId;
+    num: number;
+    labelEn: string;
+    labelAm: string;
+    icon: React.FC<{ size?: number; className?: string }>;
+    badgeCount?: number;
+    allowed: boolean;
+  }[] = [
+    {
+      id: "financial-dashboard",
+      num: 1,
+      labelEn: "Financial Dashboard",
+      labelAm: "የፋይናንስ ዳሽቦርድ",
+      icon: Layers,
+      allowed: true,
+    },
+    {
+      id: "revenue-management",
+      num: 2,
+      labelEn: "Revenue Management",
+      labelAm: "የገቢ አስተዳደር",
+      icon: TrendingUp,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "expense-management",
+      num: 3,
+      labelEn: "Expense Management",
+      labelAm: "የወጪ አስተዳደር",
+      icon: TrendingDown,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "cash-collection",
+      num: 4,
+      labelEn: "Cash Collection",
+      labelAm: "የጥሬ ገንዘብ መሰብሰብ",
+      icon: ArrowDownLeft,
+      badgeCount: financeState.pendingApprovalTransactions.filter((t) => t.type === "Collection").length,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "cash-payment",
+      num: 5,
+      labelEn: "Cash Payment",
+      labelAm: "የጥሬ ገንዘብ ክፍያ",
+      icon: ArrowUpRight,
+      badgeCount: financeState.pendingApprovalTransactions.filter((t) => t.type === "Payment").length,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "accounts-receivable",
+      num: 6,
+      labelEn: "Accounts Receivable",
+      labelAm: "የሚሰበሰብ ሂሳብ (AR)",
+      icon: Receipt,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "accounts-payable",
+      num: 7,
+      labelEn: "Accounts Payable",
+      labelAm: "የሚከፈል ሂሳብ (AP)",
+      icon: CreditCard,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "aging-receivables",
+      num: 8,
+      labelEn: "Aging Receivables",
+      labelAm: "የሚሰበሰብ ዕድሜ ትንተና",
+      icon: Clock,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "aging-payables",
+      num: 9,
+      labelEn: "Aging Payables",
+      labelAm: "የሚከፈል ዕድሜ ትንተና",
+      icon: Clock,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "budget-management",
+      num: 10,
+      labelEn: "Budget Management",
+      labelAm: "የበጀት አስተዳደር",
+      icon: Briefcase,
+      badgeCount: part4BudgetState.alerts.length,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "profit-and-loss",
+      num: 11,
+      labelEn: "Financial Statements & P&L",
+      labelAm: "የፋይናንስ መግለጫዎች እና ትርፍ/ኪሳራ",
+      icon: BarChart3,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "cash-flow",
+      num: 12,
+      labelEn: "Cash Flow Management",
+      labelAm: "የገንዘብ ፍሰት አስተዳደር",
+      icon: RefreshCw,
+      badgeCount: part5CashFlowState.alerts.length,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "cash-and-bank",
+      num: 13,
+      labelEn: "Bank & Reconciliation",
+      labelAm: "ባንክ እና የባንክ ማስታረቂያ",
+      icon: Landmark,
+      badgeCount: part6BankState.kpis.pendingApprovalCount + part6BankState.alerts.length,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "liquidity-management",
+      num: 14,
+      labelEn: "Liquidity Management",
+      labelAm: "የፈሳሽ ገንዘብ (Liquidity)",
+      icon: Scale,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "financial-reports",
+      num: 15,
+      labelEn: "Financial Reports",
+      labelAm: "የፋይናንስ ሪፖርቶች",
+      icon: FileText,
+      allowed: !isWarehouseManager,
+    },
+    {
+      id: "financial-notifications",
+      num: 16,
+      labelEn: "Financial Notifications",
+      labelAm: "የፋይናንስ ማስጠንቀቂያዎች",
+      icon: Bell,
+      badgeCount:
+        financeState.alerts.length +
+        part4BudgetState.alerts.length +
+        part5CashFlowState.alerts.length +
+        part6BankState.alerts.length,
+      allowed: !isWarehouseManager,
+    },
+    {
+      id: "financial-settings",
+      num: 17,
+      labelEn: "Financial Settings",
+      labelAm: "የፋይናንስ ቅንብሮች",
+      icon: Settings,
+      allowed: permissions.isDirector || permissions.isFinanceManager || isExecutiveReadOnly,
+    },
+  ];
+  const coreMenuModules = rawCoreMenuModules.filter((m) => m.allowed);
 
-  const [showExpenseForm, setShowExpenseForm] = useState(false);
-  const [expenseForm, setExpenseForm] = useState({ category: "Material" as const, amount: 0, date: "2026-07-22", vendor: "", description: "", project: "Bole Heights Phase I", costCenter: "CC-101 Material" });
+  const rawExtendedErpModules: {
+    id: FinancialMenuModuleId;
+    labelEn: string;
+    labelAm: string;
+    icon: React.FC<{ size?: number; className?: string }>;
+    allowed: boolean;
+  }[] = [
+    {
+      id: "project-mgmt",
+      labelEn: "Project EVM Control",
+      labelAm: "የፕሮጀክት EVM ወጪ",
+      icon: Briefcase,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "payroll-mgmt",
+      labelEn: "Payroll System",
+      labelAm: "የደሞዝ አስተዳደር",
+      icon: Users,
+      allowed: isFullAccess || isExecutiveReadOnly || isHrManager,
+    },
+    {
+      id: "formwork-assets",
+      labelEn: "Formwork Accounting",
+      labelAm: "የፎርምወርክ ሀብት",
+      icon: Package,
+      allowed: !isHrManager,
+    },
+    {
+      id: "warehouse-cost",
+      labelEn: "Warehouse Cost",
+      labelAm: "የመጋዘን ወጪ",
+      icon: Building2,
+      allowed: !isHrManager,
+    },
+    {
+      id: "procurement-cost",
+      labelEn: "Procurement Cost",
+      labelAm: "የግዢና ጉምሩክ ወጪ",
+      icon: CreditCard,
+      allowed: !isHrManager,
+    },
+    {
+      id: "equipment-cost",
+      labelEn: "Equipment & Fuel",
+      labelAm: "የማሽነሪና ነዳጅ ወጪ",
+      icon: Truck,
+      allowed: !isHrManager,
+    },
+    {
+      id: "ai-analytics",
+      labelEn: "AI Risk Analytics",
+      labelAm: "AI የፋይናንስ ትንበያ",
+      icon: Cpu,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "integrations",
+      labelEn: "ERP Sync Matrix",
+      labelAm: "የስርዓት ትስስር",
+      icon: Wallet,
+      allowed: true,
+    },
+  ];
+  const extendedErpModules = rawExtendedErpModules.filter((m) => m.allowed);
 
-  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
-  const [invoiceForm, setInvoiceForm] = useState({ invoiceNumber: "", project: "Bole Heights Phase I", client: "Federal Housing Corp", amount: 0, status: "Pending" as const, date: "2026-07-22", dueDate: "2026-08-22" });
-
-  const [selectedPayslip, setSelectedPayslip] = useState<PayrollRecord | null>(null);
-  const [selectedReportType, setSelectedReportType] = useState<"income" | "balance" | "cashflow" | "payroll" | "asset" | "procurement">("income");
-
-  const handleAddBudget = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFullAccess) return;
-    const newAlloc: BudgetCategory = {
-      id: `B-${Date.now()}`,
-      category: budgetForm.category,
-      allocated: Number(budgetForm.allocated),
-      committed: Math.round(Number(budgetForm.allocated) * 0.85),
-      actual: Math.round(Number(budgetForm.allocated) * 0.75),
-      project: budgetForm.project,
-      department: budgetForm.department,
-      description: budgetForm.description,
-      descriptionAm: budgetForm.descriptionAm || budgetForm.description
-    };
-    try {
-      await DbService.addProjectBudget(newAlloc);
-    } catch (err) {
-      console.error("Failed to persist budget allocation to Firestore:", err);
-    }
-    setBudgets(prev => [...prev, newAlloc]);
-    setShowBudgetForm(false);
-    onLogAction?.("Allocate Budget", `Added ETB ${newAlloc.allocated} to ${newAlloc.category}`);
+  const handleSelectModule = (id: FinancialMenuModuleId) => {
+    setCashFlowSubTabIntent("dashboard");
+    setBankSubTabIntent("dashboard");
+    setActiveTab(id);
+    setMobileMenuOpen(false);
   };
 
-  const handleAddExpense = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFullAccess) return;
-    const newExp: Expense = {
-      id: `EXP-${Date.now()}`,
-      category: expenseForm.category,
-      amount: Number(expenseForm.amount),
-      date: expenseForm.date,
-      vendor: expenseForm.vendor,
-      description: expenseForm.description,
-      project: expenseForm.project,
-      costCenter: expenseForm.costCenter,
-      approvedBy: currentUserName
-    };
-    try {
-      await DbService.addExpense(newExp);
-    } catch (err) {
-      console.error("Failed to persist expense:", err);
-    }
-    setExpenses(prev => [newExp, ...prev]);
-    setShowExpenseForm(false);
-    onLogAction?.("Log Expense", `Recorded cost of ETB ${newExp.amount} from ${newExp.vendor}`);
-  };
-
-  const handleCreateInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!isFullAccess) return;
-    const newInv: Invoice = {
-      id: `INV-${Date.now()}`,
-      invoiceNumber: invoiceForm.invoiceNumber,
-      project: invoiceForm.project,
-      client: invoiceForm.client,
-      amount: Number(invoiceForm.amount),
-      status: invoiceForm.status,
-      date: invoiceForm.date,
-      dueDate: invoiceForm.dueDate
-    };
-    try {
-      await DbService.addInvoice(newInv);
-    } catch (err) {
-      console.error("Failed to persist invoice to Firestore:", err);
-    }
-    setInvoices(prev => [newInv, ...prev]);
-    setShowInvoiceForm(false);
-    onLogAction?.("Generate Invoice", `Created invoice ${newInv.invoiceNumber} for ETB ${newInv.amount}`);
-  };
-
-  // CSV Export Helper
-  const handleExportCsv = (title: string, dataRows: any[]) => {
-    if (!dataRows || dataRows.length === 0) return;
-    const keys = Object.keys(dataRows[0]);
-    let csv = keys.join(",") + "\n";
-    dataRows.forEach(row => {
-      csv += keys.map(k => `"${String(row[k]).replace(/"/g, '""')}"`).join(",") + "\n";
-    });
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${title.toLowerCase().replace(/\s+/g, "_")}_${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    onLogAction?.("Export Report Excel/CSV", `Exported ${title} dataset to CSV file`);
-  };
-
-  // --- RESTRICTED ACCESS SCREEN FOR UNAUTHORIZED ROLES ---
+  // --- RESTRICTED ACCESS VIEW ---
   if (!isAuthorizedUser) {
     return (
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-slate-100 shadow-2xl max-w-4xl mx-auto space-y-8 my-8 text-center" id="finance-erp-unauthorized">
-        <div className="w-20 h-20 bg-red-950/80 border-2 border-red-500/50 rounded-3xl flex items-center justify-center mx-auto text-red-500 shadow-2xl shadow-red-950/50 animate-pulse">
-          <ShieldAlert size={40} />
+      <div
+        className="bg-slate-900 border border-slate-800 rounded-3xl p-8 text-slate-100 shadow-2xl max-w-4xl mx-auto space-y-6 my-8 text-center"
+        id="finance-erp-unauthorized"
+      >
+        <div className="w-16 h-16 bg-red-950/80 border border-red-500/40 rounded-2xl flex items-center justify-center mx-auto text-red-500">
+          <ShieldAlert size={34} />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-black text-white">
+            {isAmharic
+              ? "መዳረሻ ተከልክሏል – የፋይናንስ ERP ፈቃድ ያስፈልጋል"
+              : "Access Restricted – Financial Management Authorization Required"}
+          </h2>
+          <p className="text-xs text-slate-400 max-w-xl mx-auto leading-relaxed">
+            {isAmharic
+              ? "የአሁኑ የተጠቃሚ ሚናዎ የድርጅቱን የፋይናንስ መዝገቦች ለማየት ፈቃድ የለውም።"
+              : "Your current role does not hold permissions for the Corporate Financial Management system."}
+          </p>
         </div>
 
-        <div className="space-y-3">
-          <h2 className="text-2xl font-black tracking-tight text-white">{t("accessDenied")}</h2>
-          <p className="text-sm text-slate-400 max-w-xl mx-auto leading-relaxed">{t("accessMessage")}</p>
-        </div>
-
-        {/* Role Matrix Explanation */}
-        <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800/80 text-left space-y-4 max-w-2xl mx-auto text-xs">
-          <div className="flex items-center space-x-2 border-b border-slate-800 pb-3">
-            <Lock size={16} className="text-amber-400" />
-            <span className="font-bold uppercase tracking-wider text-amber-300">Enterprise Role Security Governance Policy</span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-slate-300">
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="font-bold text-emerald-400 block mb-1">✓ Full Access:</span>
-              <span>Finance Manager, Super Admin</span>
-            </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="font-bold text-blue-400 block mb-1">👁 Executive Read-Only:</span>
-              <span>Head Office, Managing Director, CEO</span>
-            </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="font-bold text-purple-400 block mb-1">📦 Limited Asset Scope:</span>
-              <span>Warehouse Manager (Materials & Formwork Assets Only)</span>
-            </div>
-            <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
-              <span className="font-bold text-amber-400 block mb-1">🏗 {isAmharic ? "የተወሰነ የፕሮጀክት ወሰን:" : "Limited Project Scope:"}</span>
-              <span>{isAmharic ? "የፕሮጀክት ስራ አስኪያጅ (የተመደበ በጀት እና ወጪ ብቻ)" : "Project Manager (Assigned Project Budget & Cost Only)"}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Role Switcher Tester for Interactive Review */}
-        {onSwitchRole && (
-          <div className="pt-4 border-t border-slate-800 space-y-3">
-            <span className="text-xs text-slate-400 font-bold uppercase tracking-wider">
-              {isAmharic ? "የፍቃድ እይታዎችን ለመፈተሽ ሚና በፍጥነት ይቀይሩ:" : "Quick Switch Role for Testing Permission Views:"}
+        <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-left grid grid-cols-1 md:grid-cols-2 gap-3 text-xs max-w-2xl mx-auto">
+          <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span className="font-bold text-emerald-400 block mb-1">
+              Director & Finance Manager:
             </span>
-            <div className="flex flex-wrap justify-center gap-2">
-              <button
-                onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)}
-                className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
-              >
-                <ShieldCheck size={14} />
-                <span>{isAmharic ? "ወደ ፋይናንስ ስራ አስኪያጅ (ሙሉ ፈቃድ) ቀይር" : "Switch to Finance Manager (Full Access)"}</span>
-              </button>
+            <span className="text-slate-300">
+              Super Admin, Head Office, Finance Manager
+            </span>
+          </div>
+          <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span className="font-bold text-blue-400 block mb-1">Accountant:</span>
+            <span className="text-slate-300">
+              Revenue, Expense, Cash Collections, Payments & Bank Ledger
+            </span>
+          </div>
+          <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span className="font-bold text-amber-400 block mb-1">Project Manager:</span>
+            <span className="text-slate-300">Assigned Project Financial Data Only</span>
+          </div>
+          <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+            <span className="font-bold text-slate-300 block mb-1">Auditor / Warehouse:</span>
+            <span className="text-slate-400">Read-Only Audit / Warehouse Valuation</span>
+          </div>
+        </div>
 
-              <button
-                onClick={() => onSwitchRole(UserRole.HEAD_OFFICE)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
-              >
-                <Eye size={14} />
-                <span>{isAmharic ? "ወደ ዋና መስሪያ ቤት (ንባብ ብቻ) ቀይር" : "Switch to Head Office (Read-Only)"}</span>
-              </button>
-
-              <button
-                onClick={() => onSwitchRole(UserRole.WAREHOUSE_MANAGER)}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
-              >
-                <Package size={14} />
-                <span>{isAmharic ? "ወደ መጋዘን አስተዳዳሪ ቀይር" : "Switch to Warehouse Manager"}</span>
-              </button>
-
-              <button
-                onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs transition cursor-pointer flex items-center space-x-1.5"
-              >
-                <Briefcase size={14} />
-                <span>{isAmharic ? "ወደ ፕሮጀክት ስራ አስኪያጅ ቀይር" : "Switch to Project Manager"}</span>
-              </button>
-            </div>
+        {onSwitchRole && (
+          <div className="flex flex-wrap justify-center gap-2 pt-2">
+            <button
+              type="button"
+              onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)}
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Finance Manager
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchRole(UserRole.ACCOUNTANT)}
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Accountant
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchRole(UserRole.HEAD_OFFICE)}
+              className="px-3.5 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Head Office (Director)
+            </button>
+            <button
+              type="button"
+              onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-xs cursor-pointer"
+            >
+              Project Manager
+            </button>
           </div>
         )}
       </div>
     );
   }
 
+  const showFilterBar =
+    activeTab !== "financial-settings" &&
+    activeTab !== "integrations" &&
+    activeTab !== "budget-management" &&
+    activeTab !== "profit-and-loss";
+
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-4 sm:p-6 text-slate-100 shadow-2xl max-w-7xl mx-auto space-y-8" id="finance-erp-root">
-      
-      {/* HEADER BAR */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 pb-6 gap-4">
-        <div className="flex items-center space-x-3">
-          <div className="p-3 bg-red-600 rounded-2xl shadow-lg shadow-red-500/20 text-white">
-            <DollarSign size={26} className="animate-pulse" />
+    <div
+      className="bg-slate-900 border border-slate-800 rounded-2xl text-slate-100 shadow-2xl max-w-[1600px] mx-auto overflow-hidden"
+      id="finance-erp-root"
+    >
+      {/* TOP BAR HEADER */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-800 bg-slate-950/70 px-4 sm:px-6 py-4 gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="lg:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white cursor-pointer"
+            aria-label="Toggle Financial Menu"
+          >
+            {mobileMenuOpen ? <X size={18} /> : <Menu size={18} />}
+          </button>
+          <div className="p-2.5 bg-red-600 rounded-xl text-white">
+            <DollarSign size={22} />
           </div>
           <div>
-            <div className="flex items-center space-x-2">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">{t("title")}</h1>
-              <span className={`px-2.5 py-0.5 text-[10px] font-black uppercase rounded-md tracking-wider border ${
-                isFullAccess ? "bg-emerald-950 text-emerald-400 border-emerald-800" :
-                isExecutiveReadOnly ? "bg-blue-950 text-blue-400 border-blue-800" :
-                isWarehouseManager ? "bg-purple-950 text-purple-400 border-purple-800" :
-                "bg-amber-950 text-amber-400 border-amber-800"
-              }`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-lg sm:text-xl font-black tracking-tight text-white">
+                {isAmharic
+                  ? "ዲጂታል ኮንስትራክሽን ERP — የፋይናንስ አስተዳደር"
+                  : "Digital Construction ERP — Financial Management"}
+              </h1>
+              <span
+                className={`px-2 py-0.5 text-[10px] font-bold uppercase rounded border ${
+                  permissions.isDirector || permissions.isFinanceManager
+                    ? "bg-emerald-950 text-emerald-400 border-emerald-800"
+                    : permissions.isAccountant
+                    ? "bg-blue-950 text-blue-400 border-blue-800"
+                    : permissions.isProjectScopedOnly
+                    ? "bg-amber-950 text-amber-400 border-amber-800"
+                    : "bg-slate-800 text-slate-300 border-slate-700"
+                }`}
+              >
                 {currentUserRole}
               </span>
             </div>
-            <p className="text-xs text-slate-400 mt-1">{t("subtitle")}</p>
+            <p className="text-[11px] text-slate-400 mt-0.5">
+              {isAmharic
+                ? "ቀጥተኛ የFirestore የሂሳብ መዝገብ፣ የገቢና ወጪ ቁጥጥር፣ የጥሬ ገንዘብ ፍሰት፣ AR/AP እና የአመራር ዳሽቦርድ"
+                : "Live Firestore General Ledger, Revenue & Expense Control, Treasury, AR/AP Aging & Executive Dashboard"}
+            </p>
           </div>
         </div>
 
-        {/* Action Controls */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Executive Read Only Badge */}
-          {isExecutiveReadOnly && (
-            <div className="bg-blue-950 px-3 py-1.5 rounded-xl border border-blue-800 flex items-center space-x-2 text-blue-300 text-xs font-bold">
-              <Eye size={14} />
-              <span>{isAmharic ? "የአመራር ንባብ ብቻ ሁነታ" : "Executive Read-Only Mode"}</span>
+        <div className="flex flex-wrap items-center gap-2">
+          {permissions.isProjectScopedOnly && (
+            <div className="bg-amber-950/60 px-3 py-1.5 rounded-lg border border-amber-800/80 flex items-center gap-1.5 text-amber-300 text-[11px] font-bold">
+              <Lock size={13} />
+              <span>
+                {isAmharic
+                  ? `የተመደቡ ፕሮጀክቶች (${financeState.assignedProjects.length})`
+                  : `Project Scope (${financeState.assignedProjects.length})`}
+              </span>
             </div>
           )}
 
-          {/* Warehouse Limited Badge */}
-          {isWarehouseManager && (
-            <div className="bg-purple-950 px-3 py-1.5 rounded-xl border border-purple-800 flex items-center space-x-2 text-purple-300 text-xs font-bold">
-              <Package size={14} />
-              <span>{isAmharic ? "የመጋዘን ማቴሪያል እና ንብረት ወሰን" : "Warehouse Material & Asset Scope"}</span>
+          {permissions.isReadOnly && (
+            <div className="bg-slate-900 px-3 py-1.5 rounded-lg border border-slate-700 flex items-center gap-1.5 text-slate-300 text-[11px] font-bold">
+              <Eye size={13} />
+              <span>{isAmharic ? "ንባብ ብቻ" : "Read-Only"}</span>
             </div>
           )}
 
-          {/* Project Manager Limited Badge */}
-          {isProjectManager && (
-            <div className="bg-amber-950 px-3 py-1.5 rounded-xl border border-amber-800 flex items-center space-x-2 text-amber-300 text-xs font-bold">
-              <Briefcase size={14} />
-              <span>{isAmharic ? "የፕሮጀክት በጀት ወሰን" : "Project Budget Scope"}</span>
-            </div>
-          )}
-
-          <div className="bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800 flex items-center space-x-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-[10px] font-mono font-bold text-slate-300 uppercase">
-              {isAmharic ? "Firebase ሪል-ታይም ተገናኝቷል" : "Firebase Cloud Synced"}
-            </span>
-          </div>
-
-          {/* Role Switcher Button for Testing */}
           {onSwitchRole && (
             <div className="relative group">
-              <button className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer">
-                <ArrowRightLeft size={14} />
+              <button
+                type="button"
+                className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 rounded-lg text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <ArrowRightLeft size={13} />
                 <span>{isAmharic ? "ሚና ቀይር" : "Switch Role"}</span>
               </button>
-              <div className="absolute right-0 top-full mt-2 w-56 bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl p-2 hidden group-hover:block z-50 space-y-1 text-xs">
-                <button onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-emerald-400">{isAmharic ? "የፋይናንስ ስራ አስኪያጅ" : "Finance Manager"}</button>
-                <button onClick={() => onSwitchRole(UserRole.HEAD_OFFICE)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-blue-400">{isAmharic ? "ዋና መስሪያ ቤት" : "Head Office"}</button>
-                <button onClick={() => onSwitchRole(UserRole.WAREHOUSE_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-purple-400">{isAmharic ? "የመጋዘን አስተዳዳሪ" : "Warehouse Manager"}</button>
-                <button onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-amber-400">{isAmharic ? "የፕሮጀክት ስራ አስኪያጅ" : "Project Manager"}</button>
-                <button onClick={() => onSwitchRole(UserRole.WORKER)} className="w-full text-left px-3 py-2 hover:bg-slate-800 rounded-xl font-bold text-red-400">{isAmharic ? "የሳይት ሰራተኛ (የተከለከለ)" : "Site Worker (Blocked)"}</button>
+              <div className="absolute right-0 top-full mt-1.5 w-56 bg-slate-950 border border-slate-800 rounded-xl shadow-2xl p-1.5 hidden group-hover:block z-50 space-y-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => onSwitchRole(UserRole.FINANCE_MANAGER)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded-lg font-bold text-emerald-400 cursor-pointer"
+                >
+                  Finance Manager
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchRole(UserRole.HEAD_OFFICE)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded-lg font-bold text-cyan-400 cursor-pointer"
+                >
+                  Head Office (Director)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchRole(UserRole.ACCOUNTANT)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded-lg font-bold text-blue-400 cursor-pointer"
+                >
+                  Accountant
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded-lg font-bold text-amber-400 cursor-pointer"
+                >
+                  Project Manager
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchRole(UserRole.AUDITOR)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded-lg font-bold text-slate-300 cursor-pointer"
+                >
+                  Auditor (Read-Only)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSwitchRole(UserRole.WAREHOUSE_MANAGER)}
+                  className="w-full text-left px-3 py-1.5 hover:bg-slate-800 rounded-lg font-bold text-purple-400 cursor-pointer"
+                >
+                  Warehouse Manager
+                </button>
               </div>
             </div>
           )}
 
           <button
-            onClick={() => setActiveTab("financial-reports")}
-            className="px-4 py-2 bg-gradient-to-r from-red-600 to-amber-600 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 shadow-md hover:opacity-95 transition cursor-pointer"
+            type="button"
+            onClick={() => handleSelectModule("financial-notifications")}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold border flex items-center gap-1.5 cursor-pointer ${
+              financeState.alerts.length +
+                part4BudgetState.alerts.length +
+                part5CashFlowState.alerts.length +
+                part6BankState.alerts.length >
+              0
+                ? "bg-red-950/70 border-red-800 text-red-300 hover:bg-red-950"
+                : "bg-slate-900 border-slate-800 text-slate-300 hover:bg-slate-800"
+            }`}
           >
-            <Printer size={14} />
-            <span>{isAmharic ? "የፋይናንስ ሪፖርት ማውጫ" : "Reports Center"}</span>
+            <Bell size={13} />
+            <span className="tabular-nums">
+              {financeState.alerts.length +
+                part4BudgetState.alerts.length +
+                part5CashFlowState.alerts.length +
+                part6BankState.alerts.length}
+            </span>
           </button>
         </div>
       </div>
 
-      {/* TOP NAVIGATION TABS (10 MASTER MODULES) */}
-      <div className="flex flex-wrap border-b border-slate-800 gap-1.5 overflow-x-auto pb-1">
-        {[
-          { id: "dashboard", label: isAmharic ? "አጠቃላይ ዳሽቦርድ" : "Dashboard", icon: Layers, allowed: true },
-          { id: "project-mgmt", label: isAmharic ? "የፕሮጀክት EVM ወጪ" : "Project EVM", icon: Briefcase, allowed: !isWarehouseManager },
-          { id: "payroll-mgmt", label: isAmharic ? "የደሞዝ አስተዳደር" : "Payroll System", icon: Users, allowed: isFullAccess || isExecutiveReadOnly },
-          { id: "formwork-assets", label: isAmharic ? "የፎርምወርክ ሀብት" : "Formwork Accounting", icon: Package, allowed: true },
-          { id: "warehouse-cost", label: isAmharic ? "የመጋዘን ወጪ" : "Warehouse Cost", icon: Building2, allowed: true },
-          { id: "procurement-cost", label: isAmharic ? "የግዢና ጉምሩክ ወጪ" : "Procurement Cost", icon: CreditCard, allowed: true },
-          { id: "equipment-cost", label: isAmharic ? "የማሽነሪና ነዳጅ ወጪ" : "Equipment & Fuel", icon: Truck, allowed: true },
-          { id: "financial-reports", label: isAmharic ? "የፋይናንስ ሪፖርቶች" : "Financial Reports", icon: BarChart3, allowed: !isWarehouseManager },
-          { id: "ai-analytics", label: isAmharic ? "AI የፋይናንስ ትንበያ" : "AI Risk Analytics", icon: Cpu, allowed: !isWarehouseManager },
-          { id: "integrations", label: isAmharic ? "የስርዓት ትስስር" : "ERP Sync Matrix", icon: RefreshCw, allowed: true }
-        ].filter(t => t.allowed).map(tab => {
-          const Icon = tab.icon;
-          const active = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={`px-3.5 py-2.5 flex items-center space-x-1.5 text-[11px] font-extrabold uppercase tracking-wider rounded-t-xl transition cursor-pointer whitespace-nowrap ${
-                active
-                  ? "bg-red-600 text-white shadow-lg shadow-red-600/20"
-                  : "text-slate-400 hover:text-white hover:bg-slate-800/50"
-              }`}
-            >
-              <Icon size={14} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-
-      {/* VIEWPORT ROUTER */}
-      <div className="transition-all duration-300">
-
-        {/* 1. EXECUTIVE DASHBOARD MODULE */}
-        {activeTab === "dashboard" && (
-          <div className="space-y-6">
-            
-            {/* Top KPI Cards Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              
-              {/* Card 1: Total Budget */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                      {isProjectManager ? (isAmharic ? "የተመደበ የፕሮጀክት በጀት" : "Assigned Project Budget") : t("projectBudget")}
-                    </span>
-                    <span className="text-xl sm:text-2xl font-black text-white mt-1 block">
-                      ETB {(totalProjectBudget / 1000000).toFixed(1)}M
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      ${(totalProjectBudget / 55 / 1000000).toFixed(2)}M USD
-                    </span>
-                  </div>
-                  <div className="p-2.5 bg-blue-950/80 border border-blue-800 rounded-xl text-blue-400">
-                    <Briefcase size={20} />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                  <span className="text-slate-400">{isAmharic ? "አጠቃቀም:" : "Utilization:"}</span>
-                  <span className="font-bold text-emerald-400">{budgetUtilization.toFixed(1)}%</span>
-                </div>
-              </div>
-
-              {/* Card 2: Monthly Expenses */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t("companyExpenses")}</span>
-                    <span className="text-xl sm:text-2xl font-black text-red-400 mt-1 block">
-                      ETB {(companyExpenses / 1000000).toFixed(1)}M
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      {isAmharic ? "ትክክለኛ የወጣ ወጪ" : "Actual Field Incurred"}
-                    </span>
-                  </div>
-                  <div className="p-2.5 bg-red-950/80 border border-red-800 rounded-xl text-red-400">
-                    <TrendingDown size={20} />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                  <span className="text-slate-400">{isAmharic ? "የማቴሪያል ድርሻ:" : "Material Share:"}</span>
-                  <span className="font-bold text-slate-200">54%</span>
-                </div>
-              </div>
-
-              {/* Card 3: Revenue & Accounts Receivable (Hidden for Warehouse Manager) */}
-              {!isWarehouseManager ? (
-                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t("companyRevenue")}</span>
-                      <span className="text-xl sm:text-2xl font-black text-emerald-400 mt-1 block">
-                        ETB {(companyRevenue / 1000000).toFixed(1)}M
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                        {isAmharic ? "የስራ ምዕራፍ ግምት" : "Milestone Valuations"}
-                      </span>
-                    </div>
-                    <div className="p-2.5 bg-emerald-950/80 border border-emerald-800 rounded-xl text-emerald-400">
-                      <TrendingUp size={20} />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                    <span className="text-slate-400">{isAmharic ? "የሚሰበሰብ:" : "Receivable:"}</span>
-                    <span className="font-bold text-amber-400">ETB {(accountsReceivable/1000000).toFixed(1)}M</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{isAmharic ? "የማቴሪያል ግዢ ዋጋ" : "Material Purchase Value"}</span>
-                      <span className="text-xl sm:text-2xl font-black text-purple-400 mt-1 block">
-                        ETB {(procurementCost / 1000000).toFixed(1)}M
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                        {isAmharic ? "የመጋዘን ገቢ ዕቃዎች" : "Warehouse Goods Inward"}
-                      </span>
-                    </div>
-                    <div className="p-2.5 bg-purple-950/80 border border-purple-800 rounded-xl text-purple-400">
-                      <CreditCard size={20} />
-                    </div>
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                    <span className="text-slate-400">{isAmharic ? "በመጠባበቅ ላይ ያለ:" : "Pending Goods:"}</span>
-                    <span className="font-bold text-amber-400">ETB {(accountsPayable/1000000).toFixed(1)}M</span>
-                  </div>
-                </div>
-              )}
-
-              {/* Card 4: Formwork & Asset Valuation */}
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 relative overflow-hidden group hover:border-slate-700 transition">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">{t("formworkAssetVal")}</span>
-                    <span className="text-xl sm:text-2xl font-black text-amber-400 mt-1 block">
-                      ETB {(formworkAssetVal / 1000000).toFixed(1)}M
-                    </span>
-                    <span className="text-[10px] font-mono text-slate-400 mt-1 block">
-                      {formworkPanelsList.length || 1250} {isAmharic ? "ንቁ ፓነሎች" : "Active Panels"}
-                    </span>
-                  </div>
-                  <div className="p-2.5 bg-amber-950/80 border border-amber-800 rounded-xl text-amber-400">
-                    <Package size={20} />
-                  </div>
-                </div>
-                <div className="mt-3 flex items-center justify-between text-xs border-t border-slate-900 pt-2">
-                  <span className="text-slate-400">{isAmharic ? "የመጋዘን ዋጋ ግምት:" : "Warehouse Valuation:"}</span>
-                  <span className="font-bold text-slate-200">ETB {(warehouseAssetVal/1000000).toFixed(1)}M</span>
-                </div>
-              </div>
-
+      {/* MAIN TWO-PANE WORKSPACE: SIDEBAR MENU (1-17) + MODULE VIEWPORT */}
+      <div className="flex flex-col lg:flex-row">
+        {/* LEFT SIDEBAR NAVIGATION (17 Core Modules + Construction ERP Finance) */}
+        <aside
+          className={`${
+            mobileMenuOpen ? "block" : "hidden"
+          } lg:block w-full lg:w-64 xl:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-slate-800 bg-slate-950/60 p-3 space-y-5 max-h-none lg:max-h-[calc(100vh-140px)] lg:overflow-y-auto`}
+          aria-label="Financial Management Main Menu"
+        >
+          <div>
+            <div className="px-2.5 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+              {isAmharic ? "የፋይናንስ አስተዳደር ዋና ዝርዝር (1-17)" : "Financial Management Menu (1–17)"}
             </div>
-
-            {/* Financial Visual Charts */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              
-              {/* Main Cash Flow vs Expenses Trend */}
-              <div className="lg:col-span-2 bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-                <div className="flex justify-between items-center">
-                  <div>
-                    <h3 className="text-base font-bold text-white flex items-center space-x-2">
-                      <BarChart3 size={18} className="text-red-500" />
-                      <span>{isAmharic ? "የገቢና ወጪ ወርሃዊ ንፅፅር" : "Corporate Revenue vs Expense Performance"}</span>
-                    </h3>
-                    <p className="text-xs text-slate-400">
-                      {isAmharic ? "በግንባታ ዑደት ውስጥ ያለው የቀጥታ የገንዘብ እንቅስቃሴ" : "Real-time financial movement across construction cycles"}
-                    </p>
-                  </div>
-                  <div className="flex items-center space-x-2 text-xs">
-                    <span className="flex items-center space-x-1 text-emerald-400 font-bold">
-                      <span className="w-3 h-3 bg-emerald-500 rounded-full inline-block"></span>
-                      <span>{isAmharic ? "ገቢ" : "Revenue"}</span>
-                    </span>
-                    <span className="flex items-center space-x-1 text-red-400 font-bold">
-                      <span className="w-3 h-3 bg-red-500 rounded-full inline-block"></span>
-                      <span>{isAmharic ? "ወጪ" : "Expense"}</span>
-                    </span>
-                  </div>
-                </div>
-
-                <div className="h-64">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={[
-                      { month: isAmharic ? "ጥር" : "Jan", Revenue: 28, Expense: 18 },
-                      { month: isAmharic ? "የካ" : "Feb", Revenue: 32, Expense: 21 },
-                      { month: isAmharic ? "መጋ" : "Mar", Revenue: 35, Expense: 24 },
-                      { month: isAmharic ? "ሚያ" : "Apr", Revenue: 40, Expense: 26 },
-                      { month: isAmharic ? "ግን" : "May", Revenue: 35, Expense: 22 },
-                      { month: isAmharic ? "ሰኔ" : "Jun", Revenue: 42, Expense: 28 },
-                      { month: isAmharic ? "ሐም" : "Jul", Revenue: 38, Expense: 25 }
-                    ]}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                      <XAxis dataKey="month" stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} />
-                      <YAxis stroke="#64748b" tick={{ fill: '#94a3b8', fontSize: 11 }} unit="M" />
-                      <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px" }} />
-                      <Bar dataKey="Revenue" name={isAmharic ? "ገቢ" : "Revenue"} fill="#10b981" radius={[6, 6, 0, 0]} />
-                      <Bar dataKey="Expense" name={isAmharic ? "ወጪ" : "Expense"} fill="#ef4444" radius={[6, 6, 0, 0]} />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* Expense Allocation Breakdown */}
-              <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-                <h3 className="text-base font-bold text-white flex items-center space-x-2">
-                  <PieIcon size={18} className="text-amber-500" />
-                  <span>{isAmharic ? "የወጪ ማዕከላት ድልድል" : "Cost Center Allocation"}</span>
-                </h3>
-
-                <div className="h-48">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={[
-                          { name: isAmharic ? "ማቴሪያል" : "Material", value: 48, color: "#ef4444" },
-                          { name: isAmharic ? "የሰራተኛ ደሞዝ" : "Labor Payroll", value: 28, color: "#3b82f6" },
-                          { name: isAmharic ? "ማሽነሪ" : "Equipment", value: 18, color: "#f59e0b" },
-                          { name: isAmharic ? "አስተዳደራዊ" : "Overhead", value: 8, color: "#10b981" }
-                        ]}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={4}
-                        dataKey="value"
-                      >
-                        {[
-                          { color: "#ef4444" },
-                          { color: "#3b82f6" },
-                          { color: "#f59e0b" },
-                          { color: "#10b981" }
-                        ].map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", borderRadius: "12px" }} />
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-900 pt-3">
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500"></span>
-                    <span className="text-slate-300">{isAmharic ? "ማቴሪያል (48%)" : "Material (48%)"}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
-                    <span className="text-slate-300">{isAmharic ? "ደሞዝ (28%)" : "Labor (28%)"}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                    <span className="text-slate-300">{isAmharic ? "ማሽነሪ (18%)" : "Equipment (18%)"}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                    <span className="text-slate-300">{isAmharic ? "አስተዳደራዊ (8%)" : "Overhead (8%)"}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Quick Action Tables Summary */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="flex justify-between items-center">
-                <h3 className="text-base font-bold text-white flex items-center space-x-2">
-                  <DollarSign size={18} className="text-emerald-500" />
-                  <span>{isAmharic ? "የቅርብ ጊዜ የፋይናንስ እንቅስቃሴዎች መዝገብ" : "Recent Financial Transactions Ledger"}</span>
-                </h3>
-                {isFullAccess && (
-                  <button
-                    onClick={() => setShowExpenseForm(true)}
-                    className="px-3.5 py-1.5 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
-                  >
-                    <Plus size={14} />
-                    <span>{isAmharic ? "ወጪ መዝግብ" : "Log Expense"}</span>
-                  </button>
-                )}
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "የግብይት መለያ" : "Transaction ID"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ዘርፍ" : "Category"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "አቅራቢ / ተከፋይ" : "Vendor / Payee"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "መጠን (ብር)" : "Amount (ETB)"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ፕሮጀክት" : "Project"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ቀን" : "Date"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ያፀደቀው" : "Approved By"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {expenses.slice(0, 5).map(exp => (
-                      <tr key={exp.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-slate-400">{exp.id}</td>
-                        <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-800 text-slate-200 border border-slate-700">
-                            {exp.category}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 font-medium text-white">{exp.vendor}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-red-400">ETB {(exp.amount ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 text-slate-400">{exp.project}</td>
-                        <td className="py-3 px-3 text-slate-400">{exp.date}</td>
-                        <td className="py-3 px-3 text-emerald-400 font-medium">{exp.approvedBy}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-
-          </div>
-        )}
-
-        {/* 2. PROJECT EVM COST CONTROL MODULE */}
-        {activeTab === "project-mgmt" && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                  <Briefcase size={20} className="text-blue-500" />
-                  <span>{isAmharic ? "የተገኘ ዋጋ አስተዳደር (EVM) እና የበጀት ቁጥጥር" : "Earned Value Management (EVM) & Project Budget Control"}</span>
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isAmharic ? "የወጪ አፈፃፀም (CPI) እና የጊዜ ሰሌዳ አፈፃፀም (SPI) ክትትል" : "Cost Performance Index (CPI) and Schedule Performance Index (SPI) tracking"}
-                </p>
-              </div>
-
-              {isFullAccess && (
-                <button
-                  onClick={() => setShowBudgetForm(true)}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
-                >
-                  <Plus size={14} />
-                  <span>{isAmharic ? "አዲስ የበጀት ድልድል መዝግብ" : "Add Budget Allocation"}</span>
-                </button>
-              )}
-            </div>
-
-            {/* EVM Projects Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {projectsEvm.map(prj => {
-                const cpiStatus = prj.cpi >= 1.0 ? "text-emerald-400" : "text-red-400";
-                const spiStatus = prj.spi >= 1.0 ? "text-emerald-400" : "text-amber-400";
+            <nav className="space-y-1">
+              {coreMenuModules.map((mod) => {
+                const Icon = mod.icon;
+                const active = activeTab === mod.id;
                 return (
-                  <div key={prj.id} className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4">
-                    <div className="flex justify-between items-start border-b border-slate-900 pb-3">
-                      <div>
-                        <span className="text-[10px] font-mono text-slate-400 uppercase">{prj.id}</span>
-                        <h3 className="font-bold text-white text-sm">{prj.name}</h3>
-                      </div>
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-blue-950 text-blue-400 border border-blue-800">
-                        {isAmharic ? "EVM ጤናማ" : "EVM Healthy"}
+                  <button
+                    key={mod.id}
+                    type="button"
+                    onClick={() => handleSelectModule(mod.id)}
+                    className={`w-full flex items-center justify-between px-2.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                      active
+                        ? "bg-red-600 text-white border-red-500"
+                        : "bg-transparent text-slate-300 border-transparent hover:bg-slate-900 hover:text-white"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className={`text-[10px] font-mono w-4 shrink-0 ${
+                          active ? "text-white/90" : "text-slate-500"
+                        }`}
+                      >
+                        {mod.num}.
                       </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
-                        <span className="text-[10px] text-slate-400 block">{isAmharic ? "CPI (የወጪ መለኪያ)" : "CPI (Cost)"}</span>
-                        <span className={`text-base font-mono font-bold ${cpiStatus}`}>{prj.cpi.toFixed(2)}</span>
-                      </div>
-                      <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800/80">
-                        <span className="text-[10px] text-slate-400 block">{isAmharic ? "SPI (የጊዜ መለኪያ)" : "SPI (Schedule)"}</span>
-                        <span className={`text-base font-mono font-bold ${spiStatus}`}>{prj.spi.toFixed(2)}</span>
-                      </div>
-                    </div>
-
-                    <div className="space-y-2 text-xs border-t border-slate-900 pt-3">
-                      <div className="flex justify-between text-slate-400">
-                        <span>{isAmharic ? "የተፈቀደ በጀት:" : "Approved Budget:"}</span>
-                        <span className="font-mono text-slate-200">ETB {(prj.approvedBudget/1000000).toFixed(1)}M</span>
-                      </div>
-                      <div className="flex justify-between text-slate-400">
-                        <span>{isAmharic ? "ትክክለኛ የወጣ ወጪ (AC):" : "Actual Cost (AC):"}</span>
-                        <span className="font-mono text-red-400">ETB {(prj.actualCost/1000000).toFixed(1)}M</span>
-                      </div>
-                      <div className="flex justify-between text-slate-400">
-                        <span>{isAmharic ? "የተገኘ ዋጋ (EV):" : "Earned Value (EV):"}</span>
-                        <span className="font-mono text-emerald-400">ETB {(prj.earnedValue/1000000).toFixed(1)}M</span>
-                      </div>
-                      <div className="flex justify-between text-slate-400 font-bold">
-                        <span>{isAmharic ? "በማጠናቀቂያ የሚጠበቅ ወጪ (EAC):" : "Forecast Completion (EAC):"}</span>
-                        <span className="font-mono text-amber-400">ETB {(prj.forecastCost/1000000).toFixed(1)}M</span>
-                      </div>
-                    </div>
-                  </div>
+                      <Icon size={14} className="shrink-0" />
+                      <span className="truncate">
+                        {isAmharic ? mod.labelAm : mod.labelEn}
+                      </span>
+                    </span>
+                    {mod.badgeCount !== undefined && mod.badgeCount > 0 && (
+                      <span
+                        className={`px-1.5 py-0.5 text-[10px] font-bold rounded tabular-nums ${
+                          active
+                            ? "bg-slate-950/40 text-white"
+                            : "bg-red-950 text-red-400 border border-red-800"
+                        }`}
+                      >
+                        {mod.badgeCount}
+                      </span>
+                    )}
+                  </button>
                 );
               })}
-            </div>
-
-            {/* Budget Categories Table */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white">
-                {isAmharic ? "የወጪ ማዕከላት በጀት፣ የታቀደ እና የወጣ ወጪ ንፅፅር" : "Cost Center Budget vs Committed vs Actual"}
-              </h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "ዘርፍ" : "Category"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ዝርዝር መግለጫ" : "Description"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የተመደበ በጀት" : "Allocated Budget"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የተያዘ ወጪ" : "Committed Cost"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ትክክለኛ ወጪ" : "Actual Incurred"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የቀረ በጀት" : "Remaining"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ልዩነት" : "Variance"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {budgets.map(b => {
-                      const remaining = b.allocated - b.actual;
-                      const variancePct = b.allocated > 0 ? ((b.actual - b.allocated) / b.allocated) * 100 : 0;
-                      return (
-                        <tr key={b.id} className="hover:bg-slate-900/50 transition">
-                          <td className="py-3 px-3 font-bold text-white">{b.category}</td>
-                          <td className="py-3 px-3 text-slate-400">{isAmharic ? b.descriptionAm : b.description}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-blue-400">ETB {(b.allocated ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-amber-400">ETB {(b.committed ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-red-400">ETB {(b.actual ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {(remaining ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-bold">
-                            <span className={variancePct <= 0 ? "text-emerald-400" : "text-red-400"}>
-                              {variancePct.toFixed(1)}%
-                            </span>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            </nav>
           </div>
-        )}
 
-        {/* 3. AUTOMATED PAYROLL SUBSYSTEM */}
-        {activeTab === "payroll-mgmt" && (
-          <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                  <Users size={20} className="text-emerald-500" />
-                  <span>{isAmharic ? "በአውቶማቲክ መገኘት የሚሰላ የደሞዝ ማኔጅመንት ሲስተም" : "Automated Attendance-Driven Payroll Processing System"}</span>
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isAmharic 
-                    ? "መሰረታዊ ደሞዝ፣ የትርፍ ሰዓት፣ ቅናሾች፣ የገቢ ግብርና ፔንሽን ከባዮሜትሪክ መረጃ በቀጥታ ያሰላል" 
-                    : "Calculates Basic, Overtime, Under time, Deductions, Income Tax & Pension automatically from Site Biometrics"}
-                </p>
+          {extendedErpModules.length > 0 && (
+            <div className="pt-3 border-t border-slate-800">
+              <div className="px-2.5 pb-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                {isAmharic ? "ተጨማሪ የኮንስትራክሽን ERP ሞጁሎች" : "Construction ERP Finance"}
               </div>
+              <nav className="space-y-1">
+                {extendedErpModules.map((mod) => {
+                  const Icon = mod.icon;
+                  const active = activeTab === mod.id;
+                  return (
+                    <button
+                      key={mod.id}
+                      type="button"
+                      onClick={() => handleSelectModule(mod.id)}
+                      className={`w-full flex items-center gap-2 px-2.5 py-2 rounded-lg text-xs font-semibold transition cursor-pointer border ${
+                        active
+                          ? "bg-red-600 text-white border-red-500"
+                          : "bg-transparent text-slate-400 border-transparent hover:bg-slate-900 hover:text-white"
+                      }`}
+                    >
+                      <Icon size={14} className="shrink-0" />
+                      <span className="truncate">
+                        {isAmharic ? mod.labelAm : mod.labelEn}
+                      </span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+          )}
+        </aside>
 
-              <div className="flex flex-wrap items-center gap-3">
-                <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
-                  <Calendar size={14} className="text-emerald-400" />
-                  <span className="text-slate-400 font-medium">{isAmharic ? "የክፍያ ወቅት:" : "Pay Period:"}</span>
-                  <select
-                    value={selectedPayPeriod}
-                    onChange={(e) => setSelectedPayPeriod(e.target.value)}
-                    className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
+        {/* RIGHT MAIN CONTENT WORKSPACE */}
+        <main className="flex-1 min-w-0 p-4 sm:p-6 space-y-5">
+          {/* Dynamic Period & Dimension Filter Bar */}
+          {showFilterBar && (
+            <FinancialFilterBar
+              isAmharic={isAmharic}
+              filters={filters}
+              onChange={setFilters}
+              onReset={() => setFilters(createDefaultFilters())}
+              options={financeState.filterOptions}
+              isProjectScopedOnly={financeState.permissions.isProjectScopedOnly}
+              assignedProjects={financeState.assignedProjects}
+              resolvedPeriodLabel={financeState.resolvedRange.label}
+              resolvedRangeDates={{
+                startDate: financeState.resolvedRange.startDate,
+                endDate: financeState.resolvedRange.endDate,
+              }}
+            />
+          )}
+
+          {/* 1. EXECUTIVE FINANCIAL DASHBOARD */}
+          {activeTab === "financial-dashboard" && (
+            <ExecutiveFinancialDashboard
+              isAmharic={isAmharic}
+              state={financeState}
+              onNavigateModule={handleSelectModule}
+            />
+          )}
+
+          {/* 2–5. TRANSACTION LEDGERS (Revenue, Expense, Cash Collection, Cash Payment) */}
+          {(activeTab === "revenue-management" ||
+            activeTab === "expense-management" ||
+            activeTab === "cash-collection" ||
+            activeTab === "cash-payment") && (
+            <TransactionLedgers
+              mode={activeTab}
+              isAmharic={isAmharic}
+              state={financeState}
+              rawInvoices={invoices}
+              rawExpenses={expenses}
+              rawAccounts={financialAccounts}
+              rawCashTransactions={cashTransactions}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 6–9. ACCOUNTS RECEIVABLE, PAYABLE & AGING SCHEDULES */}
+          {(activeTab === "accounts-receivable" ||
+            activeTab === "accounts-payable" ||
+            activeTab === "aging-receivables" ||
+            activeTab === "aging-payables") && (
+            <ReceivablesPayablesViews
+              mode={activeTab}
+              isAmharic={isAmharic}
+              state={financeState}
+              rawInvoices={invoices}
+              rawExpenses={expenses}
+              rawAccounts={financialAccounts}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 10. PART 4 BUDGET MANAGEMENT & COST CONTROL + LEGACY MONTHLY TARGETS ACCESS */}
+          {activeTab === "budget-management" && (
+            <div className="space-y-4">
+              <BudgetControlModule
+                isAmharic={isAmharic}
+                budgetState={part4BudgetState}
+                filterState={part4Filters}
+                onFilterChange={setPart4Filters}
+                onResetFilters={() => setPart4Filters(createDefaultPart4Filters())}
+                rawBudgetPlans={projectBudgetPlans}
+                rawAllocations={budgetAllocations}
+                rawRevisions={budgetRevisions}
+                rawActualCosts={actualCostEntries}
+                projectsList={rawProjectsList}
+                currency={financialSettings.defaultCurrency || "ETB"}
+                actorName={currentUserName}
+                actorRole={currentUserRole}
+                actorUid={actorUid}
+                onLogAction={onLogAction}
+              />
+
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h3 className="text-xs font-extrabold text-slate-200">
+                      {isAmharic
+                        ? "ወርሃዊ የፋይናንስ እቅዶች እና ቀደምት የወጪ ማዕከላት (Part 1 Targets)"
+                        : "Monthly Financial Targets & Legacy Cost Center Budgets"}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      {isAmharic
+                        ? "የExecutive Dashboard ወርሃዊ የገቢ፣ የወጪ እና የጥሬ ገንዘብ እቅዶችን ያስተዳድሩ"
+                        : "Manage monthly Planned Revenue, Expenses, Collection, and Payment targets linked to the Executive Financial Dashboard."}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowLegacyTargetsPanel((prev) => !prev)}
+                    className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-xs font-bold text-slate-200 cursor-pointer"
                   >
-                    <option value="all" className="bg-slate-900 text-white">{isAmharic ? "ሁሉም የክፍያ ወቅቶች (ሙሉ መዝገብ)" : "All Pay Periods (All Records)"}</option>
-                    {availablePeriods.map(p => (
-                      <option key={p} value={p} className="bg-slate-900 text-white">{p}</option>
-                    ))}
-                  </select>
+                    {showLegacyTargetsPanel
+                      ? isAmharic
+                        ? "ዝርዝሩን ደብቅ"
+                        : "Hide Monthly Targets"
+                      : isAmharic
+                      ? "ወርሃዊ እቅዶችን ክፈት"
+                      : "Open Monthly Targets & Cost Centers"}
+                  </button>
                 </div>
 
-                <button
-                  onClick={() => handleExportCsv("Company_Payroll_Disbursement", generatedPayroll)}
-                  disabled={generatedPayroll.length === 0}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-40"
-                >
-                  <FileSpreadsheet size={14} className="text-emerald-400" />
-                  <span>{isAmharic ? "የባንክ ክፍያ ፋይል አውርድ (Excel/CSV)" : "Export Bank Disbursement (Excel/CSV)"}</span>
-                </button>
-
-                {isFullAccess && (
-                  <button
-                    onClick={handleSavePayrollToFirestore}
-                    disabled={isSavingPayroll || generatedPayroll.length === 0}
-                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer disabled:opacity-50"
-                  >
-                    <CheckCircle2 size={14} />
-                    <span>{isSavingPayroll ? (isAmharic ? "ወደ Firestore በመመዝገብ ላይ..." : "Saving to Firestore...") : (isAmharic ? "ደሞዝ አጽድቅና ወደ Firestore መዝግብ" : "Approve & Save Payroll to Firestore")}</span>
-                  </button>
+                {showLegacyTargetsPanel && (
+                  <PlanningStatementsTreasuryViews
+                    mode="budget-management"
+                    isAmharic={isAmharic}
+                    state={financeState}
+                    rawAccounts={financialAccounts}
+                    actorName={currentUserName}
+                    actorRole={currentUserRole}
+                    actorUid={actorUid}
+                    onLogAction={onLogAction}
+                  />
                 )}
               </div>
             </div>
+          )}
 
-            {payrollSyncStatus && (
-              <div className="bg-emerald-950/80 border border-emerald-500/40 text-emerald-200 px-4 py-3 rounded-2xl text-xs font-bold flex items-center justify-between shadow-lg">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle size={16} className="text-emerald-400 animate-pulse" />
+          {/* 12. PART 5 CASH FLOW MANAGEMENT & FINANCIAL FORECASTING */}
+          {activeTab === "cash-flow" && (
+            <CashFlowForecastingModule
+              key={cashFlowSubTabIntent}
+              isAmharic={isAmharic}
+              cashFlowState={part5CashFlowState}
+              filterState={part5Filters}
+              onFilterChange={setPart5Filters}
+              onResetFilters={() => setPart5Filters(createDefaultPart5Filters())}
+              rawAccounts={financialAccounts}
+              rawCashTransactions={cashTransactions}
+              rawForecastItems={cashFlowForecastItems}
+              rawReconciliations={bankReconciliations}
+              defaultSubTab={cashFlowSubTabIntent}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onNavigateModule={handleSelectModule}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 13. PART 6 BANK MANAGEMENT & BANK RECONCILIATION */}
+          {activeTab === "cash-and-bank" && (
+            <BankManagementModule
+              key={bankSubTabIntent}
+              isAmharic={isAmharic}
+              bankState={part6BankState}
+              filterState={part6Filters}
+              onFilterChange={setPart6Filters}
+              onResetFilters={() => setPart6Filters(createDefaultPart6Filters())}
+              rawAccounts={financialAccounts}
+              rawBankTransactions={bankTransactions}
+              rawCashTransactions={cashTransactions}
+              rawStatements={bankStatements}
+              rawReconciliations={bankReconciliations}
+              rawInvoices={invoices}
+              rawExpenses={expenses}
+              rawPayroll={savedPayrollList}
+              defaultSubTab={bankSubTabIntent}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 11. PART 7 FINANCIAL STATEMENTS, DOUBLE-ENTRY LEDGER & REPORTING */}
+          {activeTab === "profit-and-loss" && (
+            <FinancialStatementsModule
+              isAmharic={isAmharic}
+              statementsState={part7StatementsState}
+              filterState={part7Filters}
+              onFilterChange={setPart7Filters}
+              onResetFilters={() => setPart7Filters(createDefaultPart7Filters())}
+              rawJournalEntries={journalEntries}
+              rawPeriods={financialPeriods}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 14. LIQUIDITY & TREASURY MANAGEMENT */}
+          {activeTab === "liquidity-management" && (
+            <PlanningStatementsTreasuryViews
+              mode="liquidity-management"
+              isAmharic={isAmharic}
+              state={financeState}
+              rawAccounts={financialAccounts}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onOpenReconciliation={() => {
+                setBankSubTabIntent("reconciliation");
+                setActiveTab("cash-and-bank");
+                setMobileMenuOpen(false);
+              }}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 15–17. REPORTS, NOTIFICATIONS & SETTINGS */}
+          {(activeTab === "financial-reports" ||
+            activeTab === "financial-notifications" ||
+            activeTab === "financial-settings") && (
+            <ReportsNotificationsSettingsViews
+              mode={activeTab}
+              isAmharic={isAmharic}
+              state={financeState}
+              budgetState={part4BudgetState}
+              cashFlowState={part5CashFlowState}
+              bankState={part6BankState}
+              statementsState={part7StatementsState}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onNavigateModule={handleSelectModule}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* EXTENDED 1: PROJECT EVM COST CONTROL */}
+          {activeTab === "project-mgmt" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Briefcase size={20} className="text-blue-400" />
+                    <span>
+                      {isAmharic
+                        ? "የፕሮጀክት የተገኘ ዋጋ (EVM) እና የወጪ ቁጥጥር"
+                        : "Project Earned Value Management (EVM) & Cost Control"}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {isAmharic
+                      ? "ከFirestore ፕሮጀክቶች፣ በጀቶች እና ወጪዎች በቀጥታ የተሰላ CPI እና SPI"
+                      : "Derived live from Firestore Projects, Budgets, Expenses, and Progress Logs"}
+                  </p>
+                </div>
+                {permissions.canManageBudgets && (
+                  <button
+                    type="button"
+                    onClick={() => handleSelectModule("budget-management")}
+                    className="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <Plus size={14} />
+                    <span>{isAmharic ? "በጀት አስተዳድር" : "Manage Project Budgets"}</span>
+                  </button>
+                )}
+              </div>
+
+              {projectsEvm.length === 0 ? (
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-10 text-center text-xs text-slate-400">
+                  {loadingDbData
+                    ? isAmharic
+                      ? "የፕሮጀክት መረጃ በመጫን ላይ..."
+                      : "Loading project EVM records..."
+                    : isAmharic
+                    ? "በFirestore ውስጥ የተመዘገቡ ፕሮጀክቶች የሉም።"
+                    : "No registered projects found in Firestore yet."}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {projectsEvm.map((prj) => {
+                    const cpiStatus = prj.cpi >= 1.0 ? "text-emerald-400" : "text-red-400";
+                    const spiStatus = prj.spi >= 1.0 ? "text-emerald-400" : "text-amber-400";
+                    return (
+                      <div
+                        key={prj.id}
+                        className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-4"
+                      >
+                        <div className="flex justify-between items-start border-b border-slate-900 pb-3">
+                          <div>
+                            <span className="text-[10px] font-mono text-slate-500 uppercase">
+                              {prj.id}
+                            </span>
+                            <h3 className="font-bold text-white text-sm">{prj.name}</h3>
+                          </div>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-900 text-blue-400 border border-slate-800">
+                            {prj.cpi >= 1 ? "On Budget" : "Watch"}
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-3 text-xs">
+                          <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-400 block">CPI</span>
+                            <span className={`text-base font-mono font-bold tabular-nums ${cpiStatus}`}>
+                              {prj.cpi.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="p-2.5 bg-slate-900 rounded-xl border border-slate-800">
+                            <span className="text-[10px] text-slate-400 block">SPI</span>
+                            <span className={`text-base font-mono font-bold tabular-nums ${spiStatus}`}>
+                              {prj.spi.toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 text-xs border-t border-slate-900 pt-3">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Approved Budget</span>
+                            <span className="font-mono tabular-nums text-slate-200">
+                              {formatCurrency(prj.approvedBudget)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Actual Cost (AC)</span>
+                            <span className="font-mono tabular-nums text-red-400">
+                              {formatCurrency(prj.actualCost)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Earned Value (EV)</span>
+                            <span className="font-mono tabular-nums text-emerald-400">
+                              {formatCurrency(prj.earnedValue)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between font-bold">
+                            <span className="text-slate-300">Forecast (EAC)</span>
+                            <span className="font-mono tabular-nums text-amber-400">
+                              {formatCurrency(prj.forecastCost)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* EXTENDED 2: AUTOMATED ATTENDANCE-DRIVEN PAYROLL */}
+          {activeTab === "payroll-mgmt" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Users size={20} className="text-emerald-400" />
+                    <span>
+                      {isAmharic
+                        ? "በባዮሜትሪክ መገኘት የሚሰላ የደሞዝ ስርዓት"
+                        : "Automated Attendance-Driven Payroll Processing"}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {isAmharic
+                      ? "መሰረታዊ ደሞዝ፣ ትርፍ ሰዓት፣ ግብር እና ጡረታ ከተመዘገበ የመገኘት መረጃ ይሰላል"
+                      : "Calculates Basic, Overtime, Under-time, Income Tax (15%) & Pension (7%) from live attendance"}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
+                    <Calendar size={14} className="text-emerald-400" />
+                    <select
+                      value={selectedPayPeriod}
+                      onChange={(e) => setSelectedPayPeriod(e.target.value)}
+                      className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
+                    >
+                      <option value="all" className="bg-slate-900 text-white">
+                        {isAmharic ? "ሁሉም ወቅቶች" : "All Pay Periods"}
+                      </option>
+                      {availablePeriods.map((p) => (
+                        <option key={p} value={p} className="bg-slate-900 text-white">
+                          {p}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (generatedPayroll.length > 0) {
+                        exportRowsToCsv("company_payroll_disbursement", generatedPayroll as any);
+                      }
+                    }}
+                    disabled={generatedPayroll.length === 0}
+                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                  >
+                    <FileSpreadsheet size={14} className="text-emerald-400" />
+                    <span>{isAmharic ? "CSV አውርድ" : "Export CSV"}</span>
+                  </button>
+
+                  {permissions.canManageTransactions && (
+                    <button
+                      type="button"
+                      onClick={handleSavePayrollToFirestore}
+                      disabled={isSavingPayroll || generatedPayroll.length === 0}
+                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      <CheckCircle2 size={14} />
+                      <span>
+                        {isSavingPayroll
+                          ? isAmharic
+                            ? "በመመዝገብ ላይ..."
+                            : "Saving..."
+                          : isAmharic
+                          ? "ደሞዝ ወደ Firestore አጽድቅ"
+                          : "Approve & Save Payroll"}
+                      </span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {payrollSyncStatus && (
+                <div className="bg-emerald-950/80 border border-emerald-700 text-emerald-200 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2">
+                  <CheckCircle size={15} className="text-emerald-400" />
                   <span>{payrollSyncStatus}</span>
                 </div>
-                <span className="text-[10px] font-mono text-emerald-400 bg-emerald-900/60 px-2 py-0.5 rounded-full">Firestore Collection: "payroll"</span>
-              </div>
-            )}
+              )}
 
-            {/* Payroll Summary Header */}
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 bg-slate-950 p-5 rounded-2xl border border-slate-800 text-xs">
-              <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ተሳታፊ ሰራተኞች" : "Active Workforce"}</span>
-                <span className="text-xl font-black text-white">{generatedPayroll.length} {isAmharic ? "ሰራተኛ" : (generatedPayroll.length === 1 ? "Worker" : "Workers")}</span>
-                <span className="text-[10px] text-slate-500 block mt-0.5">{workersList.length} {isAmharic ? "በዳታቤዝ የተመዘገቡ ጠቅላላ" : "Total Enrolled in DB"}</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                    {isAmharic ? "ተሳታፊ ሰራተኞች" : "Active Payroll Workers"}
+                  </span>
+                  <span className="text-xl font-black text-white tabular-nums">
+                    {generatedPayroll.length}
+                  </span>
+                </div>
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                    {isAmharic ? "ጠቅላላ መሰረታዊ ደሞዝ" : "Gross Basic Salary"}
+                  </span>
+                  <span className="text-xl font-black text-blue-400 font-mono tabular-nums">
+                    {formatCurrency(generatedPayroll.reduce((s, p) => s + p.basicSalary, 0))}
+                  </span>
+                </div>
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                    {isAmharic ? "የትርፍ ሰዓት ክፍያ" : "Overtime Cost"}
+                  </span>
+                  <span className="text-xl font-black text-amber-400 font-mono tabular-nums">
+                    {formatCurrency(generatedPayroll.reduce((s, p) => s + p.overtimePay, 0))}
+                  </span>
+                </div>
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
+                    {isAmharic ? "ጠቅላላ የተጣራ ክፍያ" : "Net Payroll Disbursement"}
+                  </span>
+                  <span className="text-xl font-black text-emerald-400 font-mono tabular-nums">
+                    {formatCurrency(generatedPayroll.reduce((s, p) => s + p.netSalary, 0))}
+                  </span>
+                </div>
               </div>
-              <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ መሰረታዊ ደሞዝ" : "Total Gross Basic Salary"}</span>
-                <span className="text-xl font-black text-blue-400">ETB {generatedPayroll.reduce((sum, p) => sum + (p.basicSalary || 0), 0).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ የትርፍ ሰዓት ወጪ" : "Total Overtime Cost"}</span>
-                <span className="text-xl font-black text-amber-400">ETB {generatedPayroll.reduce((sum, p) => sum + (p.overtimePay || 0), 0).toLocaleString()}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block uppercase font-bold text-[10px]">{isAmharic ? "ጠቅላላ የተጣራ የደሞዝ ክፍያ" : "Total Net Payroll Disbursement"}</span>
-                <span className="text-xl font-black text-emerald-400">ETB {generatedPayroll.reduce((sum, p) => sum + (p.netSalary || 0), 0).toLocaleString()}</span>
-              </div>
-            </div>
 
-            {/* Payroll Table */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="overflow-x-auto">
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "የሰራተኛ መለያ / ስም" : "Worker ID / Name"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የሙያ ዘርፍ" : "Trade"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "መሰረታዊ (ብር)" : "Basic (ETB)"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የትርፍ ሰዓት" : "OT Hours"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የትርፍ ሰዓት ክፍያ" : "OT Pay"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "አበል" : "Allowances"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ቅናሾች" : "Deductions"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ግብር (15%)" : "Tax (15%)"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ጡረታ (7%)" : "Pension (7%)"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የተጣራ ደሞዝ" : "Net Salary"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "እርምጃ" : "Action"}</th>
+                      <th className="py-3 px-3">Worker</th>
+                      <th className="py-3 px-3">Trade</th>
+                      <th className="py-3 px-3">Basic</th>
+                      <th className="py-3 px-3">OT Hrs</th>
+                      <th className="py-3 px-3">OT Pay</th>
+                      <th className="py-3 px-3">Tax (15%)</th>
+                      <th className="py-3 px-3">Pension (7%)</th>
+                      <th className="py-3 px-3">Net Salary</th>
+                      <th className="py-3 px-3">Slip</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
                     {generatedPayroll.length > 0 ? (
-                      generatedPayroll.map(p => (
-                        <tr key={p.id} className="hover:bg-slate-900/50 transition">
+                      generatedPayroll.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-900/50">
                           <td className="py-3 px-3">
-                            <span className="font-mono text-[10px] text-slate-500 block">{p.workerId}</span>
+                            <span className="font-mono text-[10px] text-slate-500 block">
+                              {p.workerId}
+                            </span>
                             <span className="font-bold text-white">{p.workerName}</span>
                           </td>
                           <td className="py-3 px-3 text-slate-400">{p.trade}</td>
-                          <td className="py-3 px-3 font-mono text-slate-200">ETB {(p.basicSalary ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-bold text-amber-400">+{p.overtimeHours ?? 0}h</td>
-                          <td className="py-3 px-3 font-mono text-amber-400">ETB {(p.overtimePay ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-emerald-400">ETB {(p.allowances ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-red-400">ETB {((p.attendanceDeductions ?? 0) + (p.underTimeDeduction ?? 0)).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-slate-400">ETB {(p.tax ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono text-slate-400">ETB {(p.pension ?? 0).toLocaleString()}</td>
-                          <td className="py-3 px-3 font-mono font-black text-emerald-400 text-sm">ETB {(p.netSalary ?? 0).toLocaleString()}</td>
+                          <td className="py-3 px-3 font-mono tabular-nums">
+                            {formatCurrency(p.basicSalary)}
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-amber-400">
+                            +{p.overtimeHours}h
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-amber-400">
+                            {formatCurrency(p.overtimePay)}
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-slate-400">
+                            {formatCurrency(p.tax)}
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-slate-400">
+                            {formatCurrency(p.pension)}
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums font-bold text-emerald-400">
+                            {formatCurrency(p.netSalary)}
+                          </td>
                           <td className="py-3 px-3">
                             <button
+                              type="button"
                               onClick={() => setSelectedPayslip(p)}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg text-[10px] font-bold flex items-center space-x-1 cursor-pointer transition"
+                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-white cursor-pointer"
                             >
-                              <FileText size={12} />
-                              <span>{isAmharic ? "ፔይስሊፕ" : "Payslip"}</span>
+                              Payslip
                             </button>
                           </td>
                         </tr>
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={11} className="py-12 text-center text-slate-500">
-                          <Users className="mx-auto mb-2 opacity-40 text-slate-400" size={32} />
-                          <p className="font-bold text-slate-300 text-sm">{isAmharic ? "ምንም የመገኘት መዝገብ ያለው ሰራተኛ አልተገኘም" : "No Active Workers with Attendance Records Found"}</p>
-                          <p className="text-xs text-slate-500 mt-1 max-w-md mx-auto">
-                            {selectedPayPeriod === "all"
-                              ? (isAmharic ? "ሰራተኞችን በባዮሜትሪክ ኪዮስክ መገኘት ያስመዝግቡ ወይም አዲስ የመገኘት መዝገብ ያስገቡ።" : "Clock in workers at the Biometric Kiosk or register attendance to automatically compute payroll disbursements.")
-                              : (isAmharic ? `ለተመረጠው ወቅት "${selectedPayPeriod}" ምንም መዝገብ የለም። "ሁሉም የክፍያ ወቅቶች" የሚለውን ይምረጡ።` : `No attendance records logged for period "${selectedPayPeriod}". Switch the filter to "All Pay Periods" or record attendance.`)}
-                          </p>
+                        <td colSpan={9} className="py-10 text-center text-slate-500">
+                          {isAmharic
+                            ? "ለተመረጠው ወቅት የመገኘት መዝገብ ያለው ሰራተኛ አልተገኘም።"
+                            : "No attendance-verified workers found for this pay period."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {selectedPayslip && (
+                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4">
+                    <div className="flex justify-between items-start border-b border-slate-800 pb-3">
+                      <div>
+                        <h3 className="text-lg font-black text-white">
+                          {selectedPayslip.workerName}
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          {selectedPayslip.trade} | {selectedPayslip.workerId}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPayslip(null)}
+                        className="p-1.5 bg-slate-800 rounded-lg text-slate-300 cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Days Worked</span>
+                        <span className="font-bold text-white tabular-nums">
+                          {selectedPayslip.daysWorked}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Basic Monthly Salary</span>
+                        <span className="font-mono tabular-nums">
+                          {formatCurrency(selectedPayslip.basicSalary)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Overtime Pay</span>
+                        <span className="font-mono tabular-nums text-amber-400">
+                          +{formatCurrency(selectedPayslip.overtimePay)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Income Tax (15%)</span>
+                        <span className="font-mono tabular-nums text-red-400">
+                          -{formatCurrency(selectedPayslip.tax)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-slate-400">Pension (7%)</span>
+                        <span className="font-mono tabular-nums text-red-400">
+                          -{formatCurrency(selectedPayslip.pension)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between pt-2 border-t border-slate-800 font-black text-sm">
+                        <span className="text-white">Net Salary</span>
+                        <span className="font-mono tabular-nums text-emerald-400">
+                          {formatCurrency(selectedPayslip.netSalary)}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-2">
+                      <button
+                        type="button"
+                        onClick={() => window.print()}
+                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Printer size={14} />
+                        <span>{isAmharic ? "አትም" : "Print Payslip"}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* EXTENDED 3: FORMWORK ASSET ACCOUNTING */}
+          {activeTab === "formwork-assets" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Package size={20} className="text-amber-400" />
+                  <span>
+                    {isAmharic
+                      ? "የአሉሚኒየም ፎርምወርክ ፓነል ሀብት ግምት"
+                      : "Aluminum Formwork Valuation & Asset Depreciation"}
+                  </span>
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {isAmharic ? "የፎርምወርክ ሀብት ዋጋ" : "Formwork Asset Value"}
+                  </span>
+                  <span className="text-2xl font-black text-amber-400 block font-mono tabular-nums">
+                    {formatCurrency(formworkAssetVal)}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {formworkPanelsList.length} {isAmharic ? "የተመዘገቡ ፓነሎች" : "registered panels"}
+                  </span>
+                </div>
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {isAmharic ? "የእርጅና ቅናሽ" : "Cumulative Depreciation"}
+                  </span>
+                  <span className="text-2xl font-black text-red-400 block font-mono tabular-nums">
+                    {formatCurrency(formworkDepreciation)}
+                  </span>
+                </div>
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    {isAmharic ? "የጥገና ወጪ" : "Maintenance & Repairs"}
+                  </span>
+                  <span className="text-2xl font-black text-blue-400 block font-mono tabular-nums">
+                    {formatCurrency(maintenanceCost)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Asset Code</th>
+                      <th className="py-3 px-3">Item</th>
+                      <th className="py-3 px-3">Purchase</th>
+                      <th className="py-3 px-3">Current</th>
+                      <th className="py-3 px-3">Depreciation</th>
+                      <th className="py-3 px-3">Repair Cost</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900 text-slate-300">
+                    {equipments.filter((e) => e.category === "Aluminum Formwork").length > 0 ? (
+                      equipments
+                        .filter((e) => e.category === "Aluminum Formwork")
+                        .map((eq) => (
+                          <tr key={eq.id} className="hover:bg-slate-900/50">
+                            <td className="py-3 px-3 font-mono font-bold text-amber-400">
+                              {eq.assetCode}
+                            </td>
+                            <td className="py-3 px-3 font-bold text-white">{eq.equipmentName}</td>
+                            <td className="py-3 px-3 font-mono tabular-nums">
+                              {formatCurrency(eq.purchaseValue)}
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums text-emerald-400">
+                              {formatCurrency(eq.currentValue)}
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums text-red-400">
+                              {formatCurrency(eq.depreciation)}
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums text-blue-400">
+                              {formatCurrency(eq.repairCost)}
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          No formwork equipment valuation records in Firestore yet.
                         </td>
                       </tr>
                     )}
@@ -1652,767 +2447,341 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
                 </table>
               </div>
             </div>
+          )}
 
-            {/* Individual Payslip Modal Popup */}
-            {selectedPayslip && (
-              <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-lg w-full space-y-6 shadow-2xl text-slate-100">
-                  <div className="flex justify-between items-start border-b border-slate-800 pb-4">
-                    <div>
-                      <span className="text-[10px] font-mono font-bold text-red-500 uppercase">{isAmharic ? "የቢልድሲንክ ERP ይፋዊ የደሞዝ ወረቀት" : "BuildSync ERP Official Payslip"}</span>
-                      <h3 className="text-xl font-black text-white">{selectedPayslip.workerName}</h3>
-                      <p className="text-xs text-slate-400">{selectedPayslip.trade} | ID: {selectedPayslip.workerId}</p>
-                    </div>
-                    <button
-                      onClick={() => setSelectedPayslip(null)}
-                      className="p-1.5 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-400 hover:text-white cursor-pointer"
-                    >
-                      ✕
-                    </button>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? "የተሰራባቸው ቀናት:" : "Days Worked:"}</span>
-                      <span className="font-bold text-slate-200">{selectedPayslip.daysWorked} {isAmharic ? "ቀናት" : "Days"}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? "መሰረታዊ ወርሃዊ ደሞዝ:" : "Basic Monthly Wage:"}</span>
-                      <span className="font-mono text-slate-200">ETB {(selectedPayslip.basicSalary ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? `የትርፍ ሰዓት ክፍያ (${selectedPayslip.overtimeHours ?? 0} ሰዓት):` : `Overtime Pay (${selectedPayslip.overtimeHours ?? 0} hours):`}</span>
-                      <span className="font-mono text-amber-400">+ETB {(selectedPayslip.overtimePay ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? "የሳይት እና የትራንስፖርት አበል:" : "Site & Transport Allowance:"}</span>
-                      <span className="font-mono text-emerald-400">+ETB {(selectedPayslip.allowances ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? "የገቢ ግብር (15%):" : "Income Tax (15%):"}</span>
-                      <span className="font-mono text-red-400">-ETB {(selectedPayslip.tax ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between border-b border-slate-800/80 pb-2">
-                      <span className="text-slate-400">{isAmharic ? "የሰራተኛ ጡረታ (7%):" : "Employee Pension (7%):"}</span>
-                      <span className="font-mono text-red-400">-ETB {(selectedPayslip.pension ?? 0).toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 text-base font-black">
-                      <span className="text-white">{isAmharic ? "የተጣራ የሚከፈል ደሞዝ:" : "Net Salary Disbursed:"}</span>
-                      <span className="font-mono text-emerald-400">ETB {(selectedPayslip.netSalary ?? 0).toLocaleString()}</span>
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end space-x-2 border-t border-slate-800 pt-4">
-                    <button
-                      onClick={() => {
-                        window.print();
-                        onLogAction?.("Print Payslip", `Printed official payslip for worker ${selectedPayslip.workerName}`);
-                      }}
-                      className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold text-xs rounded-xl flex items-center space-x-1.5 cursor-pointer"
-                    >
-                      <Printer size={14} />
-                      <span>{isAmharic ? "ይፋዊ ፔይስሊፕ አትም" : "Print Official Payslip"}</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-          </div>
-        )}
-
-        {/* 4. FORMWORK & ASSET ACCOUNTING */}
-        {activeTab === "formwork-assets" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                <Package size={20} className="text-amber-500" />
-                <span>{isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነል ሀብት ግምትና የእርጅና ቅናሽ ሂሳብ" : "Aluminum Formwork Panel Valuation & Asset Depreciation Accounting"}</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {isAmharic 
-                  ? "የአሉሚኒየም ፓነሎች፣ ፕሮፖች፣ ታይ ሮድ እና የጥገና ወጪዎች የቀጥታ የፋይናንስ ክትትል" 
-                  : "Real-time financial tracking of aluminum panels, props, tie rods, replacement values, and maintenance costs"}
-              </p>
-            </div>
-
-            {/* Asset Valuation Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የፎርምወርክ የተጣራ ሀብት ዋጋ" : "Formwork Asset Net Value"}</span>
-                <span className="text-2xl font-black text-amber-400 block">ETB {(formworkAssetVal/1000000).toFixed(1)}M</span>
-                <p className="text-xs text-slate-400">
-                  {isAmharic ? "በስራ ላይ ባሉ 1,250 6061-T6 የአሉሚኒየም ፓነሎች ላይ የተሰላ ግምት" : "Valuation calculated across 1,250 6061-T6 aluminum panels in circulation"}
-                </p>
-              </div>
-
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "አጠቃላይ የፓነል እርጅና ቅናሽ" : "Cumulative Panel Depreciation"}</span>
-                <span className="text-2xl font-black text-red-400 block">ETB 6.5M</span>
-                <p className="text-xs text-slate-400">
-                  {isAmharic ? "ቀጥተኛ የ5 ዓመት የእርጅና ቅናሽ ሞዴል (በዓመት 20%)" : "Straight-line 5-year depreciation model (20% annual amortization)"}
-                </p>
-              </div>
-
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የጥገና እና የብየዳ ወጪዎች" : "Maintenance & Welding Repairs"}</span>
-                <span className="text-2xl font-black text-blue-400 block">ETB {(maintenanceCost/1000000).toFixed(2)}M</span>
-                <p className="text-xs text-slate-400">
-                  {isAmharic ? "የፓነል ፊት ጽዳት፣ የማዕዘን ማስተካከል እና የፒን ቀዳዳ ብየዳ" : "Panel face polishing, corner straightening & pin slot welding"}
-                </p>
-              </div>
-            </div>
-
-            {/* Asset Table */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white">{isAmharic ? "የፎርምወርክ ሀብት መዝገብ" : "Formwork Asset Ledger"}</h3>
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "የንብረት ኮድ" : "Asset Code"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የፎርምወርክ እቃ" : "Formwork Item"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የተገዛበት ዋጋ" : "Purchase Value"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የአሁኑ ዋጋ" : "Current Value"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የእርጅና ቅናሽ" : "Depreciation"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የጥገና ወጪ" : "Repair Cost"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የምትክ ዋጋ" : "Replacement Cost"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {equipments.filter(e => e.category === "Aluminum Formwork").map(eq => (
-                      <tr key={eq.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{eq.assetCode || eq.id}</td>
-                        <td className="py-3 px-3 font-bold text-white">{eq.equipmentName || (eq as any).name}</td>
-                        <td className="py-3 px-3 font-mono text-slate-200">ETB {(eq.purchaseValue ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">ETB {(eq.currentValue ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {(eq.depreciation ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-blue-400">ETB {(eq.repairCost ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-slate-400">ETB {(eq.replacementCost ?? 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 5. WAREHOUSE COST MODULE */}
-        {activeTab === "warehouse-cost" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                <Building2 size={20} className="text-purple-500" />
-                <span>{isAmharic ? "የመጋዘን ክምችት ግምት እና የዝውውር ወጪ ሂሳብ" : "Warehouse Inventory Valuation & Transfer Cost Accounting"}</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {isAmharic ? "ከመጋዘን እና ሳይት ስቶር አቃቤ መተግበሪያ ጋር የተመሳሰለ" : "Synchronized with Warehouse Manager App & Store Owner App"}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የመጋዘን ማቴሪያል ክምችት ዋጋ" : "Warehouse Material Inventory Value"}</span>
-                <span className="text-2xl font-black text-purple-400">ETB 42.5M</span>
-                <p className="text-xs text-slate-400">{isAmharic ? "የሲሚንቶ ቦርሳዎች፣ ብረት፣ ኬሚካሎች፣ ፕሮፕ ጃኮች" : "Cement bags, rebar, chemical additives, prop jacks"}</p>
-              </div>
-
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የሳይቶች መካከል ዝውውር ወጪ" : "Inter-Site Transfer Cost"}</span>
-                <span className="text-2xl font-black text-blue-400">ETB 1.2M</span>
-                <p className="text-xs text-slate-400">{isAmharic ? "በቦሌ ሃይትስ እና በየካ ሂልስ መካከል የትራንስፖርት እና የሎጅስቲክስ ወጪ" : "Trucking and logistics between Bole Heights and Yeka Hills"}</p>
-              </div>
-
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
-                <span className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የማቴሪያል ብክነትና ጉዳት ወጪ" : "Material Wastage & Loss Cost"}</span>
-                <span className="text-2xl font-black text-red-400">ETB 530,000</span>
-                <p className="text-xs text-slate-400">{isAmharic ? "የተጎዱ የሲሚንቶ ቦርሳዎች እና የተቆረጡ የብረት ፍርፋሪዎች" : "Damaged cement bags and scrap rebar cut-offs"}</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 6. PROCUREMENT COST MODULE */}
-        {activeTab === "procurement-cost" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                <CreditCard size={20} className="text-blue-500" />
-                <span>{isAmharic ? "የግዢ፣ የትዕዛዝ እና የጉምሩክ ቀረጥ ወጪ ማዕከል" : "Procurement, Purchase Orders & Customs Duty Cost Center"}</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {isAmharic 
-                  ? "ዓለም አቀፍ የአሉሚኒየም ግዢ፣ የጉምሩክ ክሊራንስ፣ ጭነት እና የአገር ውስጥ አቅራቢዎች ሂሳብ" 
-                  : "Tracks international aluminum imports, customs clearance, freight, and domestic supplier invoices"}
-              </p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "የትዕዛዝ ቁጥር (PO)" : "PO Number"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "አቅራቢ ድርጅት" : "Supplier"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የማቴሪያል አይነት" : "Material Item"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የትዕዛዝ መጠን (ብር)" : "PO Amount"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የጉምሩክ ቀረጥ" : "Customs Tax"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የትራንስፖርት ወጪ" : "Freight Cost"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ሁኔታ" : "Status"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ቀን" : "Date"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {procurements.map(p => (
-                      <tr key={p.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-blue-400">{p.poNumber || p.id}</td>
-                        <td className="py-3 px-3 font-bold text-white">{p.supplier || "-"}</td>
-                        <td className="py-3 px-3 text-slate-300">{p.materialItem || (p as any).item || "-"}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">{formatCurrency(p.poAmount, "ETB", "ETB —")}</td>
-                        <td className="py-3 px-3 font-mono text-red-400">{formatCurrency(p.customsTax, "ETB", "ETB 0")}</td>
-                        <td className="py-3 px-3 font-mono text-amber-400">{formatCurrency(p.deliveryCost, "ETB", "ETB 0")}</td>
-                        <td className="py-3 px-3">
-                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
-                            p.status === "Paid" ? "bg-emerald-950 text-emerald-400 border border-emerald-800" : "bg-amber-950 text-amber-400 border border-amber-800"
-                          }`}>
-                            {p.status}
-                          </span>
-                        </td>
-                        <td className="py-3 px-3 text-slate-400">{p.date}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 7. EQUIPMENT & FUEL COST MODULE */}
-        {activeTab === "equipment-cost" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                <Truck size={20} className="text-amber-500" />
-                <span>{isAmharic ? "የከባድ ማሽነሪዎች፣ የታወር ክሬኖች እና የናፍጣ ነዳጅ ወጪ ቁጥጥር" : "Heavy Machinery, Tower Cranes & Diesel Fuel Expense Control"}</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {isAmharic 
-                  ? "የስራ ሰዓታት፣ የናፍጣ ነዳጅ ፍጆታ በሊትር፣ የጥገና እና የኪራይ ወጪዎች" 
-                  : "Tracks operating hours, diesel fuel consumption in liters, maintenance, and rental costs"}
-              </p>
-            </div>
-
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "የማሽነሪ መለያ ኮድ" : "Asset Code"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የማሽነሪው ስም" : "Equipment Name"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የሰራበት ሰዓት" : "Operating Hours"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ነዳጅ (ሊትር)" : "Fuel (Liters)"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የነዳጅ ወጪ" : "Fuel Cost"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የጥገና ወጪ" : "Maintenance"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የኪራይ ወጪ" : "Lease Rental"}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {equipments.filter(e => e.category !== "Aluminum Formwork" && e.category !== "Warehouse Asset").map(eq => (
-                      <tr key={eq.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{eq.assetCode || eq.id}</td>
-                        <td className="py-3 px-3 font-bold text-white">{eq.equipmentName || (eq as any).name}</td>
-                        <td className="py-3 px-3 font-mono text-slate-200">{eq.operatingHours ?? 0} hrs</td>
-                        <td className="py-3 px-3 font-mono text-amber-400">{eq.fuelLiters ?? 0} L</td>
-                        <td className="py-3 px-3 font-mono text-red-400">ETB {(eq.fuelCost ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-blue-400">ETB {(eq.maintenanceCost ?? 0).toLocaleString()}</td>
-                        <td className="py-3 px-3 font-mono text-slate-300">ETB {(eq.rentalCost ?? 0).toLocaleString()}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 8. FINANCIAL REPORTS MODULE */}
-        {activeTab === "financial-reports" && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
+          {/* EXTENDED 4: WAREHOUSE COST */}
+          {activeTab === "warehouse-cost" && (
+            <div className="space-y-6">
               <div>
-                <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                  <BarChart3 size={20} className="text-red-500" />
-                  <span>{isAmharic ? "የአመራር የፋይናንስ መግለጫዎች እና ሪፖርት ማውጫ ማዕከል" : "Executive Financial Statements & Report Generation Center"}</span>
-                </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isAmharic 
-                    ? "ከፍተኛ ጥራት ያላቸው የPDF መግለጫዎች እና የExcel CSV መረጃዎች ለኦዲተሮችና ዋና መ/ቤት" 
-                    : "Export high-resolution PDF statements and Excel CSV datasets for auditors and Head Office"}
-                </p>
-              </div>
-
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => handleExportCsv(selectedReportType, expenses)}
-                  className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
-                >
-                  <FileSpreadsheet size={14} className="text-emerald-400" />
-                  <span>{isAmharic ? "ወደ Excel / CSV አውርድ" : "Export to Excel / CSV"}</span>
-                </button>
-
-                <button
-                  onClick={() => {
-                    window.print();
-                    onLogAction?.("Export PDF Report", `Generated PDF report for ${selectedReportType}`);
-                  }}
-                  className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center space-x-1.5 transition cursor-pointer"
-                >
-                  <Printer size={14} />
-                  <span>{isAmharic ? "የተዘጋጀ የPDF ሪፖርት አትም" : "Print Formatted PDF Report"}</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Report Selector Tabs */}
-            <div className="flex space-x-2 border-b border-slate-800 pb-2">
-              {[
-                { id: "income", label: isAmharic ? "የትርፍና ኪሳራ መግለጫ" : "Profit & Loss Statement" },
-                { id: "balance", label: isAmharic ? "የሀብትና እዳ ሚዛን መግለጫ" : "Balance Sheet & Asset Valuation" },
-                { id: "cashflow", label: isAmharic ? "የገንዘብ ፍሰት መግለጫ" : "Operating Cash Flow Statement" },
-                { id: "payroll", label: isAmharic ? "የደሞዝ እና አበል ማጠቃለያ" : "Payroll & Salary Summary" },
-                { id: "procurement", label: isAmharic ? "የግዢና የወጪ ማዕከላት ሪፖርት" : "Procurement & Cost Center Report" }
-              ].map(rep => (
-                <button
-                  key={rep.id}
-                  onClick={() => setSelectedReportType(rep.id as any)}
-                  className={`px-3.5 py-2 rounded-xl text-xs font-bold transition cursor-pointer ${
-                    selectedReportType === rep.id ? "bg-slate-800 text-white border border-slate-700" : "text-slate-400 hover:bg-slate-900"
-                  }`}
-                >
-                  {rep.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Printable Formatted Report Viewport */}
-            <div className="bg-white text-slate-900 p-8 rounded-2xl shadow-2xl space-y-6 font-sans border border-slate-200">
-              
-              {/* Corporate Report Header */}
-              <div className="flex justify-between items-start border-b-2 border-slate-900 pb-4">
-                <div>
-                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">BUILDsync SMART CONSTRUCTION ERP</h2>
-                  <p className="text-xs font-bold text-slate-600 uppercase">
-                    {isAmharic ? "የድርጅቱ ፋይናንስ እና የሀብት ሂሳብ ክፍል" : "Corporate Finance Division & Asset Accounting"}
-                  </p>
-                  <p className="text-[11px] text-slate-500">Bole Heights Tower Site B1 | P.O. Box 9021, Addis Ababa, Ethiopia</p>
-                </div>
-                <div className="text-right">
-                  <span className="text-xs font-black uppercase text-red-600 block">
-                    {isAmharic ? "ምስጢራዊ የኦዲት ሪፖርት" : "CONFIDENTIAL AUDIT REPORT"}
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Building2 size={20} className="text-purple-400" />
+                  <span>
+                    {isAmharic
+                      ? "የመጋዘን ክምችት ግምት እና የዝውውር ወጪ"
+                      : "Warehouse Inventory Valuation & Transfer Costs"}
                   </span>
-                  <span className="text-xs text-slate-600 block">{isAmharic ? "ቀን: " : "Date: "}{new Date().toLocaleDateString(isAmharic ? "am-ET" : "en-US", { year: 'numeric', month: 'long', day: 'numeric' })}</span>
-                  <span className="text-[10px] font-mono text-slate-400 block">Report Ref: FIN-REP-2026-0722</span>
-                </div>
-              </div>
-
-              {/* Dynamic Statement Body */}
-              <div className="space-y-4">
-                <h3 className="text-base font-black text-slate-900 uppercase tracking-wide border-b border-slate-300 pb-1">
-                  {selectedReportType === "income" && (isAmharic ? "የትርፍና ኪሳራ መግለጫ (Q3 2026)" : "Profit & Loss Statement (Q3 2026)")}
-                  {selectedReportType === "balance" && (isAmharic ? "የሀብት ግምት እና እዳዎች መግለጫ" : "Statement of Asset Valuation & Liabilities")}
-                  {selectedReportType === "cashflow" && (isAmharic ? "የስራ ማስኬጃ የገንዘብ ፍሰት መግለጫ" : "Statement of Operating Cash Flows")}
-                  {selectedReportType === "payroll" && (isAmharic ? "የሰራተኞች ዋና የደሞዝ እና ካሳ ሪፖርት" : "Master Payroll & Workforce Compensation Report")}
-                  {selectedReportType === "procurement" && (isAmharic ? "የግዢ፣ የጉምሩክ እና ማቴሪያል ወጪ ኦዲት" : "Procurement, Customs & Material Cost Audit")}
-                </h3>
-
-                <div className="grid grid-cols-2 gap-4 text-xs font-semibold text-slate-700">
-                  <div>
-                    <span className="block text-slate-400 text-[10px] uppercase font-bold">{isAmharic ? "ጠቅላላ የኮንትራት ገቢ" : "Gross Contracting Revenue"}</span>
-                    <span className="text-lg font-mono font-black text-slate-900">ETB {(companyRevenue ?? 0).toLocaleString()}</span>
-                  </div>
-                  <div>
-                    <span className="block text-slate-400 text-[10px] uppercase font-bold">{isAmharic ? "ጠቅላላ የወጣ ቀጥተኛ ወጪ" : "Total Incurred Direct Expenses"}</span>
-                    <span className="text-lg font-mono font-black text-red-600">ETB {(companyExpenses ?? 0).toLocaleString()}</span>
-                  </div>
-                </div>
-
-                <div className="border border-slate-300 rounded-xl overflow-hidden">
-                  <table className="w-full text-left text-xs border-collapse">
-                    <thead className="bg-slate-100 text-slate-800 font-bold uppercase border-b border-slate-300">
-                      <tr>
-                        <th className="py-2 px-3">{isAmharic ? "ዝርዝር / የወጪ ማዕከል" : "Item / Cost Center"}</th>
-                        <th className="py-2 px-3">{isAmharic ? "የተመደበ በጀት" : "Allocated Budget"}</th>
-                        <th className="py-2 px-3">{isAmharic ? "ትክክለኛ የወጣ" : "Actual Incurred"}</th>
-                        <th className="py-2 px-3">{isAmharic ? "ልዩነት (ብር)" : "Variance (ETB)"}</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-200">
-                      {budgets.map(b => (
-                        <tr key={b.id}>
-                          <td className="py-2.5 px-3 font-bold">{b.category} - {isAmharic ? b.descriptionAm : b.description}</td>
-                          <td className="py-2.5 px-3 font-mono">ETB {(b.allocated ?? 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-red-600">ETB {(b.actual ?? 0).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 font-mono font-bold text-emerald-600">ETB {((b.allocated ?? 0) - (b.actual ?? 0)).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-                  <h4 className="text-xs font-bold text-slate-900 uppercase">
-                    {isAmharic ? "የዋና የፋይናንስ ኦፊሰር የኦዲት ማጠቃለያ" : "Chief Financial Officer Audit Summary"}
-                  </h4>
-                  <p className="text-xs text-slate-600 leading-relaxed">
-                    {isAmharic 
-                      ? "በዚህ ሪፖርት የቀረቡት ሁሉም የፋይናንስ መግለጫዎች በቀጥታ ከተረጋገጡ የFirestore ደመና መዝገቦች እና የባዮሜትሪክ መገኘት ዳታ የተሰሉ ናቸው። የፋይናንስ ቁጥጥሮች፣ የሚከፈሉ ሂሳቦች እና የንብረት እርጅና ቅናሾች ከኢትዮጵያ የፋይናንስ ሪፖርት አቀራረብ ደረጃዎች (EFRS) ጋር ሙሉ በሙሉ የሚጣጣሙ ናቸው።"
-                      : "All financial statements presented herein have been calculated directly from authenticated Firestore cloud ledgers and biometric attendance logs. Financial controls, accounts payable, and asset depreciation schedules comply fully with Ethiopian Financial Reporting Standards (EFRS)."}
-                  </p>
-                </div>
-
-                {/* Signature & Stamp Footer */}
-                <div className="pt-8 grid grid-cols-2 gap-8 text-xs font-bold border-t border-slate-300">
-                  <div>
-                    <p className="text-slate-500 text-[10px] uppercase">{isAmharic ? "ያዘጋጀው:" : "Prepared By:"}</p>
-                    <p className="text-slate-900 mt-4">{currentUserName}</p>
-                    <p className="text-slate-500 font-normal">{isAmharic ? "የፋይናንስ ስራ አስኪያጅ፣ BuildSync ERP" : "Finance Manager, BuildSync ERP"}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-slate-500 text-[10px] uppercase">{isAmharic ? "ያፀደቀውና ማህተም ያረገው:" : "Approved & Sealed By:"}</p>
-                    <p className="text-slate-900 mt-4">{isAmharic ? "የዋና መስሪያ ቤት ማኔጂንግ ዳይሬክተር" : "Head Office Managing Director"}</p>
-                    <p className="text-slate-500 font-normal">{isAmharic ? "BuildSync ስማርት ኮንስትራክሽን" : "BuildSync Smart Construction"}</p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        )}
-
-        {/* 9. AI FINANCIAL ANALYSIS & FRAUD DETECTION MODULE */}
-        {activeTab === "ai-analytics" && (
-          <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <div>
-                <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                  <Cpu size={20} className="text-amber-500 animate-pulse" />
-                  <span>{isAmharic ? "የአርቴፊሻል ኢንተለጀንስ (AI) የፋይናንስ ትንበያ፣ አጠራጣሪ ወጪ እና ማጭበርበር መለያ ሞተር" : "AI Financial Forecast, Anomaly Detection & Fraud Intelligence Engine"}</span>
                 </h2>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isAmharic 
-                    ? "በGemini 2.5 Flash API የሚሰራ የወጪ ትንበያ፣ የገንዘብ ፍሰት እና የደሞዝ አጠራጣሪ እንቅስቃሴ መቆጣጠሪያ" 
-                    : "Powered by Gemini 2.5 Flash API for expense prediction, cash flow forecasting & payroll anomaly alerts"}
-                </p>
               </div>
 
-              <button
-                onClick={handleRunAiAnalysis}
-                disabled={aiLoading}
-                className="px-4 py-2.5 bg-gradient-to-r from-amber-500 to-red-600 text-slate-950 font-black rounded-xl text-xs uppercase tracking-wider flex items-center space-x-2 shadow-lg hover:opacity-95 transition cursor-pointer disabled:opacity-50"
-              >
-                <Sparkles size={16} />
-                <span>{aiLoading ? (isAmharic ? "AI በመተንተን ላይ ነው..." : "Running AI Audit...") : (isAmharic ? "የAI ኦዲት ሞተር አስጀምር" : "Run AI Audit Engine")}</span>
-              </button>
-            </div>
-
-            {/* AI Output Viewport */}
-            {aiData ? (
-              <div className="space-y-6 animate-fadeIn">
-                
-                {/* Executive AI Summary Box */}
-                <div className="bg-amber-950/40 border border-amber-800/80 p-6 rounded-2xl space-y-3">
-                  <div className="flex items-center space-x-2 text-amber-400">
-                    <Sparkles size={18} />
-                    <span className="font-bold text-sm uppercase tracking-wider">{isAmharic ? "የAI የአመራር ኢንተለጀንስ ሪፖርት" : "AI Executive Intelligence Report"}</span>
-                  </div>
-                  <div className="text-xs text-slate-200 leading-relaxed whitespace-pre-line font-sans">
-                    {aiData.executiveSummaryMarkdown}
-                  </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    Warehouse Material & Asset Value
+                  </span>
+                  <span className="text-2xl font-black text-purple-400 font-mono tabular-nums block">
+                    {formatCurrency(warehouseInventoryVal)}
+                  </span>
+                  <span className="text-xs text-slate-400">
+                    {materialsList.length} material items tracked
+                  </span>
                 </div>
-
-                {/* Predictive Cards Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  
-                  {/* Spending Anomalies Alert Card */}
-                  <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                    <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                      <AlertTriangle size={16} className="text-red-400" />
-                      <span>{isAmharic ? "ያልተለመዱ ወጪዎች እና የወጪ ማዕከል አጠራጣሪ ሁኔታዎች" : "Unusual Spending & Cost Center Anomalies"}</span>
-                    </h3>
-                    <div className="space-y-2">
-                      {aiData.unusualSpendingAlerts?.map((a: any) => (
-                        <div key={a.id} className="p-3 bg-slate-900 rounded-xl border border-slate-800/80 space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="font-bold text-white">{a.category}</span>
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-red-950 text-red-400 border border-red-800">
-                              {a.riskLevel} {isAmharic ? "አደጋ" : "Risk"}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">{a.reason}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Payroll Anomalies Card */}
-                  <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3">
-                    <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                      <Users size={16} className="text-amber-400" />
-                      <span>{isAmharic ? "የባዮሜትሪክ ደሞዝ አጠራጣሪ ሁኔታዎች ማስጠንቀቂያ" : "Biometric Payroll Anomaly Alerts"}</span>
-                    </h3>
-                    <div className="space-y-2">
-                      {aiData.payrollAnomalies?.map((p: any, idx: number) => (
-                        <div key={idx} className="p-3 bg-slate-900 rounded-xl border border-slate-800/80 space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="font-bold text-white">{p.name} ({p.workerId})</span>
-                            <span className="font-mono text-amber-400 font-bold text-[10px]">{p.anomalyType}</span>
-                          </div>
-                          <p className="text-[11px] text-slate-400">{p.description}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    Inter-Site Transfer Cost
+                  </span>
+                  <span className="text-2xl font-black text-blue-400 font-mono tabular-nums block">
+                    {formatCurrency(warehouseTransferCost)}
+                  </span>
                 </div>
-
-              </div>
-            ) : (
-              <div className="bg-slate-950 p-12 rounded-3xl border border-slate-800 text-center space-y-4">
-                <div className="w-16 h-16 bg-amber-950/50 border border-amber-800/80 rounded-2xl flex items-center justify-center mx-auto text-amber-400">
-                  <Sparkles size={32} />
-                </div>
-                <div className="max-w-md mx-auto space-y-2">
-                  <h3 className="text-base font-bold text-white">{isAmharic ? "የAI ፋይናንስ ኢንተለጀንስ ዝግጁ ነው" : "AI Financial Intelligence Standby"}</h3>
-                  <p className="text-xs text-slate-400">
-                    {isAmharic 
-                      ? "የወጪ ትንበያዎችን፣ የ3 ወራት የጥሬ ገንዘብ ፍሰት እና የባዮሜትሪክ ማጭበርበር ምርመራን ለማስጀመር 'የAI ኦዲት ሞተር አስጀምር' የሚለውን ይጫኑ።" 
-                      : "Click \"Run AI Audit Engine\" to launch predictive expense curves, 3-month cash flow forecasting, and biometric fraud detection analysis."}
-                  </p>
+                <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-1">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">
+                    Wastage & Damage Loss
+                  </span>
+                  <span className="text-2xl font-black text-red-400 font-mono tabular-nums block">
+                    {formatCurrency(warehouseWastageCost)}
+                  </span>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* 10. SYSTEM INTEGRATION MATRIX & AUDIT LOGS */}
-        {activeTab === "integrations" && (
-          <div className="space-y-6">
-            <div>
-              <h2 className="text-lg font-bold text-white flex items-center space-x-2">
-                <RefreshCw size={20} className="text-blue-500" />
-                <span>{isAmharic ? "የኢንተርፕራይዝ ERP ሞጁሎች ማመሳሰያ እና የደህንነት ኦዲት መዝገብ" : "Enterprise ERP Module Synchronization & Security Audit Ledger"}</span>
-              </h2>
-              <p className="text-xs text-slate-400 mt-1">
-                {isAmharic 
-                  ? "የቀጥታ የመተግበሪያዎች መረጃ ማመሳሰል እና የተመሰጠረ የግብይቶች ኦዲት ዱካ" 
-                  : "Real-time cross-app data synchronization and encrypted transaction audit trail"}
-              </p>
             </div>
+          )}
 
-            {/* Sync Matrix Modules Grid */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-              {[
-                { name: isAmharic ? "የአድሚን መተግበሪያ" : "Admin App", status: "Synced", icon: ShieldCheck },
-                { name: isAmharic ? "የዋና መስሪያ ቤት መተግበሪያ" : "Head Office App", status: "Synced", icon: Building2 },
-                { name: isAmharic ? "የመገኘት ሲስተም" : "Attendance System", status: "Synced", icon: Users },
-                { name: isAmharic ? "የመጋዘን መተግበሪያ" : "Warehouse App", status: "Synced", icon: Package },
-                { name: isAmharic ? "የስቶር አቃቤ መተግበሪያ" : "Store Owner App", status: "Synced", icon: Package },
-                { name: isAmharic ? "የግዢ መተግበሪያ" : "Procurement App", status: "Synced", icon: CreditCard },
-                { name: isAmharic ? "የደሞዝ ሲስተም" : "Payroll System", status: "Synced", icon: FileText },
-                { name: isAmharic ? "የፕሮጀክት ማናጀር መተግበሪያ" : "Project Manager App", status: "Synced", icon: Briefcase },
-                { name: isAmharic ? "የንብረት አስተዳደር" : "Asset Management", status: "Synced", icon: Wrench }
-              ].map((mod, idx) => {
-                const Icon = mod.icon;
-                return (
-                  <div key={idx} className="p-3 bg-slate-950 rounded-xl border border-slate-800 flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      <Icon size={14} className="text-emerald-400" />
-                      <span className="text-[11px] font-bold text-slate-200">{mod.name}</span>
-                    </div>
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                  </div>
-                );
-              })}
-            </div>
+          {/* EXTENDED 5: PROCUREMENT COST */}
+          {activeTab === "procurement-cost" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <CreditCard size={20} className="text-blue-400" />
+                  <span>
+                    {isAmharic
+                      ? "የግዢ እና የጉምሩክ ወጪ ማዕከል"
+                      : "Procurement, Purchase Orders & Customs Cost Center"}
+                  </span>
+                </h2>
+              </div>
 
-            {/* Security Audit Trail */}
-            <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 space-y-4">
-              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
-                <Shield size={16} className="text-emerald-400" />
-                <span>{isAmharic ? "በAES-256 የተመሰጠረ የፋይናንስ ተግባራት የኦዲት ዱካ" : "AES-256 Encrypted Financial Action Audit Trail"}</span>
-              </h3>
-
-              <div className="overflow-x-auto">
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">{isAmharic ? "የኦዲት መለያ" : "Audit ID"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የተጠቃሚ ስም" : "User Name"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ሚና" : "Role"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "ጊዜ" : "Timestamp"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "መሳሪያ / ክላይንት" : "Device / Client"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የተከናወነ ተግባር" : "Action Performed"}</th>
-                      <th className="py-3 px-3">{isAmharic ? "የፋይናንስ ተፅዕኖ" : "Financial Impact"}</th>
+                      <th className="py-3 px-3">PO Number</th>
+                      <th className="py-3 px-3">Supplier</th>
+                      <th className="py-3 px-3">Material</th>
+                      <th className="py-3 px-3">PO Amount</th>
+                      <th className="py-3 px-3">Customs Tax</th>
+                      <th className="py-3 px-3">Freight</th>
+                      <th className="py-3 px-3">Status</th>
+                      <th className="py-3 px-3">Date</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {auditLogsList.map(log => (
-                      <tr key={log.id} className="hover:bg-slate-900/50 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-emerald-400">{log.id}</td>
-                        <td className="py-3 px-3 font-bold text-white">{log.userName}</td>
-                        <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-300 border border-slate-700">
-                            {log.role}
-                          </span>
+                    {procurements.length > 0 ? (
+                      procurements.map((p) => (
+                        <tr key={p.id} className="hover:bg-slate-900/50">
+                          <td className="py-3 px-3 font-mono font-bold text-blue-400">
+                            {p.poNumber}
+                          </td>
+                          <td className="py-3 px-3 font-bold text-white">{p.supplier}</td>
+                          <td className="py-3 px-3">{p.materialItem}</td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-emerald-400">
+                            {formatCurrency(p.poAmount)}
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-red-400">
+                            {formatCurrency(p.customsTax)}
+                          </td>
+                          <td className="py-3 px-3 font-mono tabular-nums text-amber-400">
+                            {formatCurrency(p.deliveryCost)}
+                          </td>
+                          <td className="py-3 px-3">{p.status}</td>
+                          <td className="py-3 px-3 text-slate-400">{p.date}</td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-500">
+                          No procurement financial records in Firestore yet.
                         </td>
-                        <td className="py-3 px-3 font-mono text-slate-400">{log.timestamp}</td>
-                        <td className="py-3 px-3 text-slate-400">{log.device}</td>
-                        <td className="py-3 px-3 text-slate-200">{log.action}</td>
-                        <td className="py-3 px-3 font-mono font-bold text-amber-400">{log.financialImpact}</td>
                       </tr>
-                    ))}
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+          )}
 
-          </div>
-        )}
+          {/* EXTENDED 6: EQUIPMENT & FUEL COST */}
+          {activeTab === "equipment-cost" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Truck size={20} className="text-amber-400" />
+                  <span>
+                    {isAmharic
+                      ? "የማሽነሪዎች እና የነዳጅ ወጪ ቁጥጥር"
+                      : "Heavy Machinery & Fuel Expense Control"}
+                  </span>
+                </h2>
+              </div>
 
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Asset Code</th>
+                      <th className="py-3 px-3">Equipment Name</th>
+                      <th className="py-3 px-3">Hours</th>
+                      <th className="py-3 px-3">Fuel (L)</th>
+                      <th className="py-3 px-3">Fuel Cost</th>
+                      <th className="py-3 px-3">Maintenance</th>
+                      <th className="py-3 px-3">Rental</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900 text-slate-300">
+                    {equipments.filter(
+                      (e) =>
+                        e.category !== "Aluminum Formwork" &&
+                        e.category !== "Warehouse Asset"
+                    ).length > 0 ? (
+                      equipments
+                        .filter(
+                          (e) =>
+                            e.category !== "Aluminum Formwork" &&
+                            e.category !== "Warehouse Asset"
+                        )
+                        .map((eq) => (
+                          <tr key={eq.id} className="hover:bg-slate-900/50">
+                            <td className="py-3 px-3 font-mono font-bold text-amber-400">
+                              {eq.assetCode}
+                            </td>
+                            <td className="py-3 px-3 font-bold text-white">
+                              {eq.equipmentName}
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums">
+                              {eq.operatingHours} hrs
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums text-amber-400">
+                              {eq.fuelLiters} L
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums text-red-400">
+                              {formatCurrency(eq.fuelCost)}
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums text-blue-400">
+                              {formatCurrency(eq.maintenanceCost)}
+                            </td>
+                            <td className="py-3 px-3 font-mono tabular-nums">
+                              {formatCurrency(eq.rentalCost)}
+                            </td>
+                          </tr>
+                        ))
+                    ) : (
+                      <tr>
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
+                          No machinery cost records in Firestore yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* EXTENDED 7: AI RISK ANALYTICS */}
+          {activeTab === "ai-analytics" && (
+            <div className="space-y-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                    <Cpu size={20} className="text-amber-400" />
+                    <span>
+                      {isAmharic
+                        ? "AI የፋይናንስ ትንበያ እና አጠራጣሪ ወጪ መለያ"
+                        : "AI Financial Forecast & Anomaly Detection"}
+                    </span>
+                  </h2>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRunAiAnalysis}
+                  disabled={aiLoading}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                >
+                  <Sparkles size={15} />
+                  <span>
+                    {aiLoading
+                      ? isAmharic
+                        ? "AI በመተንተን ላይ..."
+                        : "Running AI Audit..."
+                      : isAmharic
+                      ? "የAI ኦዲት አስጀምር"
+                      : "Run AI Audit Engine"}
+                  </span>
+                </button>
+              </div>
+
+              {aiData ? (
+                <div className="space-y-4">
+                  <div className="bg-amber-950/30 border border-amber-800/70 p-5 rounded-2xl space-y-2">
+                    <div className="text-xs font-bold text-amber-400 uppercase">
+                      AI Executive Intelligence Summary
+                    </div>
+                    <div className="text-xs text-slate-200 whitespace-pre-line leading-relaxed">
+                      {aiData.executiveSummaryMarkdown}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
+                      <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <AlertTriangle size={14} className="text-red-400" />
+                        <span>Spending Anomalies</span>
+                      </h3>
+                      {(aiData.unusualSpendingAlerts || []).map((a: any, i: number) => (
+                        <div
+                          key={a.id || i}
+                          className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs"
+                        >
+                          <div className="font-bold text-white">{a.category}</div>
+                          <div className="text-slate-400">{a.reason}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-2">
+                      <h3 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Users size={14} className="text-amber-400" />
+                        <span>Payroll Anomalies</span>
+                      </h3>
+                      {(aiData.payrollAnomalies || []).map((p: any, i: number) => (
+                        <div
+                          key={i}
+                          className="p-3 bg-slate-900 rounded-xl border border-slate-800 text-xs"
+                        >
+                          <div className="font-bold text-white">
+                            {p.name} ({p.workerId})
+                          </div>
+                          <div className="text-slate-400">{p.description}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-slate-950 p-10 rounded-2xl border border-slate-800 text-center space-y-2">
+                  <Sparkles size={28} className="mx-auto text-amber-400" />
+                  <p className="text-xs text-slate-400 max-w-md mx-auto">
+                    {isAmharic
+                      ? "የFirestore የሂሳብ መረጃን መሰረት በማድረግ ትንበያ ለማግኘት ከላይ ያለውን አዝራር ይጫኑ።"
+                      : "Click Run AI Audit Engine to analyze live Firestore budgets, expenses, cash flow, and payroll."}
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* EXTENDED 8: ERP SYNC MATRIX & AUDIT TRAIL */}
+          {activeTab === "integrations" && (
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <Shield size={20} className="text-emerald-400" />
+                  <span>
+                    {isAmharic
+                      ? "የERP ስርዓት ትስስር እና የፋይናንስ ኦዲት መዝገብ"
+                      : "Enterprise ERP Sync Matrix & Financial Audit Ledger"}
+                  </span>
+                </h2>
+              </div>
+
+              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                      <th className="py-3 px-3">Audit ID</th>
+                      <th className="py-3 px-3">User</th>
+                      <th className="py-3 px-3">Role</th>
+                      <th className="py-3 px-3">Timestamp</th>
+                      <th className="py-3 px-3">Action</th>
+                      <th className="py-3 px-3">Impact / Category</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-900 text-slate-300">
+                    {auditLogsList.length > 0 ? (
+                      auditLogsList.slice(0, 50).map((log) => (
+                        <tr key={log.id} className="hover:bg-slate-900/50">
+                          <td className="py-3 px-3 font-mono font-bold text-emerald-400">
+                            {log.id}
+                          </td>
+                          <td className="py-3 px-3 font-bold text-white">{log.userName}</td>
+                          <td className="py-3 px-3 text-slate-300">{log.role}</td>
+                          <td className="py-3 px-3 font-mono text-slate-400">{log.timestamp}</td>
+                          <td className="py-3 px-3 text-slate-200">{log.action}</td>
+                          <td className="py-3 px-3 font-mono text-amber-400">
+                            {log.financialImpact}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={6} className="py-8 text-center text-slate-500">
+                          No security audit entries recorded yet.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
-
-      {/* MODAL 1: ADD BUDGET ALLOCATION */}
-      {showBudgetForm && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">{isAmharic ? "የወጪ ማዕከል በጀት መመደቢያ" : "Allocate Cost Center Budget"}</h3>
-            <form onSubmit={handleAddBudget} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "የወጪ ዘርፍ" : "Cost Category"}</label>
-                <select
-                  value={budgetForm.category}
-                  onChange={(e) => setBudgetForm(prev => ({ ...prev, category: e.target.value as any }))}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-bold"
-                >
-                  <option value="Material">{isAmharic ? "ማቴሪያል" : "Material"}</option>
-                  <option value="Labor">{isAmharic ? "የሰራተኛ ደሞዝ" : "Labor Payroll"}</option>
-                  <option value="Equipment">{isAmharic ? "ማሽነሪ እና መሣሪያዎች" : "Equipment & Machinery"}</option>
-                  <option value="Overhead">{isAmharic ? "አስተዳደራዊ እና ቁጥጥር" : "Overhead & Administration"}</option>
-                  <option value="Subcontractor">{isAmharic ? "ንዑስ ተቋራጭ" : "Subcontractor"}</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "የተመደበ መጠን (ብር)" : "Allocated Amount (ETB)"}</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="e.g. 15000000"
-                  value={budgetForm.allocated || ""}
-                  onChange={(e) => setBudgetForm(prev => ({ ...prev, allocated: Number(e.target.value) }))}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "መግለጫ / ማብራሪያ" : "Description (English)"}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={isAmharic ? "ለምሳሌ: የሲ30 ኮንክሪት እና የብረት ክምችት" : "e.g. C30 Concrete & Rebar Stock"}
-                  value={budgetForm.description}
-                  onChange={(e) => setBudgetForm(prev => ({ ...prev, description: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-medium"
-                />
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowBudgetForm(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl cursor-pointer"
-                >
-                  {isAmharic ? "ሰርዝ" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-blue-600 text-white font-bold rounded-xl cursor-pointer hover:bg-blue-500"
-                >
-                  {isAmharic ? "የበጀት ድልድል መዝግብ" : "Save Budget Allocation"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL 2: LOG EXPENSE */}
-      {showExpenseForm && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 text-slate-100 shadow-2xl">
-            <h3 className="text-lg font-bold text-white">{isAmharic ? "የሳይት ወጪ ግብይት መመዝገቢያ" : "Log Field Expense Transaction"}</h3>
-            <form onSubmit={handleAddExpense} className="space-y-3 text-xs">
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "አቅራቢ / ተከፋይ" : "Vendor / Payee"}</label>
-                <input
-                  type="text"
-                  required
-                  placeholder={isAmharic ? "ለምሳሌ: ሙገር ሲሚንቶ ፋብሪካ" : "e.g. Mugher Cement PLC"}
-                  value={expenseForm.vendor}
-                  onChange={(e) => setExpenseForm(prev => ({ ...prev, vendor: e.target.value }))}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-medium"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "መጠን (ብር)" : "Amount (ETB)"}</label>
-                <input
-                  type="number"
-                  required
-                  placeholder="e.g. 4500000"
-                  value={expenseForm.amount || ""}
-                  onChange={(e) => setExpenseForm(prev => ({ ...prev, amount: Number(e.target.value) }))}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-mono font-bold"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 mb-1 font-bold">{isAmharic ? "ዘርፍ" : "Category"}</label>
-                <select
-                  value={expenseForm.category}
-                  onChange={(e) => setExpenseForm(prev => ({ ...prev, category: e.target.value as any }))}
-                  className="w-full bg-slate-950 border border-slate-800 p-2.5 rounded-xl text-white font-bold"
-                >
-                  <option value="Material">{isAmharic ? "ማቴሪያል" : "Material"}</option>
-                  <option value="Labor">{isAmharic ? "ደሞዝ" : "Labor"}</option>
-                  <option value="Equipment">{isAmharic ? "ማሽነሪ" : "Equipment"}</option>
-                  <option value="Overhead">{isAmharic ? "አስተዳደራዊ" : "Overhead"}</option>
-                  <option value="Subcontractor">{isAmharic ? "ንዑስ ተቋራጭ" : "Subcontractor"}</option>
-                </select>
-              </div>
-
-              <div className="flex justify-end space-x-2 pt-3 border-t border-slate-800">
-                <button
-                  type="button"
-                  onClick={() => setShowExpenseForm(false)}
-                  className="px-4 py-2 bg-slate-800 text-slate-300 font-bold rounded-xl cursor-pointer"
-                >
-                  {isAmharic ? "ሰርዝ" : "Cancel"}
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-red-600 text-white font-bold rounded-xl cursor-pointer hover:bg-red-500"
-                >
-                  {isAmharic ? "ወጪ መዝግብ" : "Record Expense"}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
     </div>
   );
 };

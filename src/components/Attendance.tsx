@@ -36,8 +36,16 @@ import { BreakExceptionsHub } from "./BreakExceptionsHub";
 import { PayrollHub } from "./PayrollHub";
 import { DailyAttendanceReportsHub } from "./DailyAttendanceReportsHub";
 import { AttendanceSecurityRbacHub } from "./AttendanceSecurityRbacHub";
-import { Lock, ShieldAlert, Key } from "lucide-react";
+import { Lock, ShieldAlert, Key, Video, VideoOff, Scan } from "lucide-react";
 import { offlineSyncService } from "../services/offlineSyncService";
+import {
+  captureAndVerifyLiveFace,
+  enrollWorkerFingerprint,
+  verifyWorkerFingerprint,
+  getStoredCredentialId,
+  getCurrentGpsPosition,
+  calculateDistanceMeters
+} from "../services/biometricService";
 
 interface AttendanceProps {
   workers: Worker[];
@@ -47,6 +55,7 @@ interface AttendanceProps {
   t: (key: string) => string;
   currentUserRole: UserRole;
   onAddWorker: (worker: Worker) => void;
+  onUpdateWorker?: (worker: Worker) => void | Promise<void>;
   onDeleteWorker: (id: string) => void;
   evaluations: PerformanceEvaluation[];
   onAddEvaluation: (evaluation: PerformanceEvaluation) => void;
@@ -64,6 +73,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
   t,
   currentUserRole,
   onAddWorker,
+  onUpdateWorker,
   onDeleteWorker,
   evaluations,
   onAddEvaluation,
@@ -106,6 +116,10 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [enrollIsScanningFace, setEnrollIsScanningFace] = useState(false);
   const [enrollIsScanningFingerprint, setEnrollIsScanningFingerprint] = useState(false);
   const [enrollPhoto, setEnrollPhoto] = useState("");
+  const [enrollBioError, setEnrollBioError] = useState("");
+  const [isEnrollCameraOn, setIsEnrollCameraOn] = useState(false);
+  const enrollVideoRef = useRef<HTMLVideoElement | null>(null);
+  const enrollStreamRef = useRef<MediaStream | null>(null);
   
   // Offline Simulation State
   const [isOffline, setIsOffline] = useState(false);
@@ -521,6 +535,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
   const [simBiometric, setSimBiometric] = useState<"success" | "mismatch" | "sensor_error">("success");
   const [simTimeMode, setSimTimeMode] = useState<"ontime" | "late" | "overtime">("ontime");
   const [simDeviceId, setSimDeviceId] = useState("Device-Digital Construction ERP-TK01");
+  const [verifiedBioScore, setVerifiedBioScore] = useState<number | null>(null);
+  const [verifiedGpsInfo, setVerifiedGpsInfo] = useState<{ lat: number; lng: number; dist: number } | null>(null);
 
   // --- REJECTION / VERIFICATION ERROR ---
   const [verificationError, setVerificationError] = useState<string | null>(null);
@@ -532,98 +548,206 @@ export const Attendance: React.FC<AttendanceProps> = ({
     { id: "A-3", type: "Face or Fingerprint Verification Failure", message: "Biometric validation mismatch reported on Device-Digital Construction ERP-TK01.", timestamp: "2026-07-01 07:35", read: false }
   ]);
 
-  const handleStartCamera = async () => {
-    setIsCameraActive(true);
+  const handleVerifyLiveCameraFace = async () => {
+    if (!selectedWorkerId || !videoRef.current) return;
+    const worker = workers.find(w => w.id === selectedWorkerId);
+    if (!worker) return;
+
     setScanStatus("scanning");
     setVerificationError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
-    } catch (err) {
-      console.warn("Camera access unverified or simulation overlay only.", err);
+    const faceRes = await captureAndVerifyLiveFace(videoRef.current, worker.faceRecognitionData);
+    handleStopCamera();
+
+    if (!faceRes.detected || !faceRes.descriptor) {
+      setScanStatus("failed");
+      const errMsg = isAmharic
+        ? (faceRes.reasonAm || "የፊት መለያ ፍተሻ አልተሳካም።")
+        : (faceRes.reasonEn || "Live face detection failed.");
+      setVerificationError(errMsg);
+      setAlerts(prev => [{
+        id: `A-${Date.now()}`,
+        type: "Face or Fingerprint Verification Failure",
+        message: `${worker.name} (${worker.id}) failed live face detection on ${simDeviceId}.`,
+        timestamp: new Date().toISOString().replace("T", " ").slice(0, 16),
+        read: false
+      }, ...prev]);
+      return;
     }
-    
-    setTimeout(() => {
-      handleStopCamera();
-      
-      // RUN RIGOROUS VERIFICATION CHECKS
-      if (!selectedWorkerId) {
-        setScanStatus("failed");
-        setVerificationError("No worker selected.");
-        return;
-      }
-      const worker = workers.find(w => w.id === selectedWorkerId);
-      if (!worker) {
-        setScanStatus("failed");
-        setVerificationError("Employee registration record not found.");
-        return;
-      }
 
-      // Check Profile Activation State (Mandatory Biometric Enrollment)
-      if (worker.status !== "Active") {
+    if (!worker.faceRecognitionData?.startsWith("face-v1:") && onUpdateWorker) {
+      await onUpdateWorker({
+        ...worker,
+        faceRecognitionData: faceRes.descriptor,
+        photo: faceRes.snapshotDataUrl || worker.photo
+      });
+    }
+
+    try {
+      const gps = await getCurrentGpsPosition(10000);
+      const dist = Math.round(calculateDistanceMeters(gps.lat, gps.lng, geofenceLat, geofenceLng));
+      if (dist > allowedRadius) {
         setScanStatus("failed");
-        const errMsg = isAmharic 
-          ? `የባዮሜትሪክ መዝገብ አልተገኘም፡ ሰራተኛ ${worker.name} (${worker.id}) ባዮሜትሪክ መረጃ አልተመዘገበም። እባክዎን መጀመሪያ ባዮሜትሪክስ መመዝገቢያSuite ላይ ያስመዝግቡት!`
-          : `Security Lockout: Employee ${worker.name} (${worker.id}) has not completed mandatory biometric enrollment. Profile is Inactive. Verification blocked.`;
+        const errMsg = isAmharic
+          ? `የጂፒኤስ ክልል ጥሰት፡ ከፕሮጀክቱ ${dist}ሜ ርቀት ላይ ነዎት (ከፍተኛው ${allowedRadius}ሜ)።`
+          : `GPS Location Violation: Device is ${dist}m from site center (limit ${allowedRadius}m). Clock attempt rejected.`;
         setVerificationError(errMsg);
-        return;
-      }
-
-      // Check 1: Biometric Matching
-      if (simBiometric === "mismatch") {
-        setScanStatus("failed");
-        const errMsg = `Biometric Template Mismatch: Sensor similarity score 32% below the required 85% threshold for worker ${worker.name}. Entry denied.`;
-        setVerificationError(errMsg);
-        
-        // Log to Alerts
-        const newAlert = {
-          id: `A-${Date.now()}`,
-          type: "Face or Fingerprint Verification Failure",
-          message: `Worker ${worker.name} (${worker.id}) failed biometric match on ${simDeviceId}.`,
-          timestamp: new Date().toISOString().replace("T", " ").slice(0, 16),
-          read: false
-        };
-        setAlerts(prev => [newAlert, ...prev]);
-        return;
-      }
-
-      if (simBiometric === "sensor_error") {
-        setScanStatus("failed");
-        setVerificationError("Hardware Interface Error: Biometric sensor failed to return a valid template stream. Please clean lens and retry.");
-        return;
-      }
-
-      // Check 2: GPS Geofencing
-      if (simLocation !== "on-site") {
-        setScanStatus("failed");
-        const deviation = simLocation === "airport" ? "4.1km" : "12.4km";
-        const errMsg = `GPS Location Violation: Current tracking indicates a ${deviation} deviation from authorized Digital Construction ERP site center (Lat: ${geofenceLat}, Lng: ${geofenceLng}). Clock attempt rejected.`;
-        setVerificationError(errMsg);
-
-        // Log to Alerts
-        const newAlert = {
+        setAlerts(prev => [{
           id: `A-${Date.now()}`,
           type: "GPS Outside Authorized Area",
-          message: `Worker ${worker.name} (${worker.id}) rejected: GPS coordinates outside authorized geofence.`,
+          message: `Worker ${worker.name} (${worker.id}) rejected at ${dist}m outside geofence.`,
           timestamp: new Date().toISOString().replace("T", " ").slice(0, 16),
           read: false
-        };
-        setAlerts(prev => [newAlert, ...prev]);
+        }, ...prev]);
         return;
       }
-
-      // Check 3: Check-In is within allowed shift window (simulated clock checks)
+      setVerifiedBioScore(faceRes.similarityScore ?? faceRes.confidence);
+      setVerifiedGpsInfo({ lat: gps.lat, lng: gps.lng, dist });
       setScanStatus("success");
-    }, 1800);
+    } catch (gpsErr: any) {
+      setScanStatus("failed");
+      setVerificationError(
+        isAmharic
+          ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+          : (gpsErr?.message || "Location permission required for attendance.")
+      );
+    }
+  };
+
+  const handleStartCamera = async () => {
+    setVerificationError(null);
+    setVerifiedBioScore(null);
+    setVerifiedGpsInfo(null);
+
+    if (!selectedWorkerId) {
+      setScanStatus("failed");
+      setVerificationError(isAmharic ? "እባክዎ መጀመሪያ ሰራተኛ ይምረጡ።" : "No worker selected.");
+      return;
+    }
+    const worker = workers.find(w => w.id === selectedWorkerId);
+    if (!worker) {
+      setScanStatus("failed");
+      setVerificationError(isAmharic ? "የሰራተኛ መዝገብ አልተገኘም።" : "Employee registration record not found.");
+      return;
+    }
+    if (worker.status !== "Active") {
+      setScanStatus("failed");
+      setVerificationError(
+        isAmharic
+          ? `የባዮሜትሪክ መዝገብ አልተገኘም፡ ሰራተኛ ${worker.name} (${worker.id}) ያልነቃ ነው።`
+          : `Security Lockout: Employee ${worker.name} (${worker.id}) profile is Inactive. Activate biometrics first.`
+      );
+      return;
+    }
+
+    // Mode 1: Real Camera Face Recognition
+    if (selectedMethod === AttendanceMethod.FACE_RECOGNITION) {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+        setScanStatus("failed");
+        setVerificationError(isAmharic ? "ካሜራ በዚህ አሳሽ አይደገፍም።" : "Camera API unavailable in this browser.");
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        setIsCameraActive(true);
+        setScanStatus("scanning");
+        setTimeout(() => {
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+            void videoRef.current.play().catch(() => {});
+          }
+        }, 50);
+      } catch (err: any) {
+        setScanStatus("failed");
+        setIsCameraActive(false);
+        setVerificationError(
+          isAmharic
+            ? "የካሜራ ፍቃድ ተከልክሏል ወይም ካሜራ አልተገኘም።"
+            : (err?.message || "Camera access denied or camera not detected.")
+        );
+      }
+      return;
+    }
+
+    // Mode 2: Real WebAuthn Hardware Fingerprint Verification
+    if (selectedMethod === AttendanceMethod.FINGERPRINT) {
+      setScanStatus("scanning");
+      const hasCred = Boolean(getStoredCredentialId(worker));
+      const bioRes = hasCred
+        ? await verifyWorkerFingerprint(worker)
+        : await enrollWorkerFingerprint(worker);
+      if (!bioRes.success) {
+        setScanStatus("failed");
+        setVerificationError(isAmharic ? bioRes.messageAm : bioRes.message);
+        setAlerts(prev => [{
+          id: `A-${Date.now()}`,
+          type: "Face or Fingerprint Verification Failure",
+          message: `Worker ${worker.name} (${worker.id}) failed WebAuthn fingerprint check on ${simDeviceId}.`,
+          timestamp: new Date().toISOString().replace("T", " ").slice(0, 16),
+          read: false
+        }, ...prev]);
+        return;
+      }
+      if (!hasCred && bioRes.templateString && onUpdateWorker) {
+        await onUpdateWorker({ ...worker, fingerprint: bioRes.templateString });
+      }
+      try {
+        const gps = await getCurrentGpsPosition(10000);
+        const dist = Math.round(calculateDistanceMeters(gps.lat, gps.lng, geofenceLat, geofenceLng));
+        if (dist > allowedRadius) {
+          setScanStatus("failed");
+          setVerificationError(
+            isAmharic
+              ? `የጂፒኤስ ክልል ጥሰት፡ ${dist}ሜ ከሳይቱ ውጭ (ከፍተኛው ${allowedRadius}ሜ)።`
+              : `GPS Location Violation: ${dist}m outside site boundary (max ${allowedRadius}m).`
+          );
+          return;
+        }
+        setVerifiedBioScore(100);
+        setVerifiedGpsInfo({ lat: gps.lat, lng: gps.lng, dist });
+        setScanStatus("success");
+      } catch (gpsErr: any) {
+        setScanStatus("failed");
+        setVerificationError(
+          isAmharic
+            ? "ለስራ መግቢያ የመገኛ ቦታ (GPS) ፍቃድ ያስፈልጋል።"
+            : (gpsErr?.message || "Location permission required for attendance.")
+        );
+      }
+      return;
+    }
+
+    // Mode 3: QR / NFC / GPS Geofence real GPS check
+    setScanStatus("scanning");
+    try {
+      const gps = await getCurrentGpsPosition(10000);
+      const dist = Math.round(calculateDistanceMeters(gps.lat, gps.lng, geofenceLat, geofenceLng));
+      if (dist > allowedRadius) {
+        setScanStatus("failed");
+        setVerificationError(
+          isAmharic
+            ? `የጂፒኤስ ክልል ጥሰት፡ ${dist}ሜ ከሳይቱ ውጭ።`
+            : `GPS Location Violation: ${dist}m outside authorized site boundary.`
+        );
+        return;
+      }
+      setVerifiedBioScore(95);
+      setVerifiedGpsInfo({ lat: gps.lat, lng: gps.lng, dist });
+      setScanStatus("success");
+    } catch (gpsErr: any) {
+      setScanStatus("failed");
+      setVerificationError(
+        isAmharic
+          ? "የጂፒኤስ መገኛ ቦታ አልተገኘም።"
+          : (gpsErr?.message || "Unable to verify live GPS coordinates.")
+      );
+    }
   };
 
   const handleStopCamera = () => {
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       stream.getTracks().forEach(track => track.stop());
+      videoRef.current.srcObject = null;
     }
     setIsCameraActive(false);
   };
@@ -633,19 +757,9 @@ export const Attendance: React.FC<AttendanceProps> = ({
     const worker = workers.find(w => w.id === selectedWorkerId);
     if (!worker) return;
 
-    const todayDate = new Date().toISOString().split("T")[0];
-    
-    // Set simulated clock times based on selected test mode
-    let simulatedTime = "07:45:00";
-    if (type === "In") {
-      if (simTimeMode === "ontime") simulatedTime = "07:45:00";
-      else if (simTimeMode === "late") simulatedTime = "08:35:00";
-      else simulatedTime = "07:30:00";
-    } else {
-      if (simTimeMode === "ontime") simulatedTime = "17:05:00";
-      else if (simTimeMode === "overtime") simulatedTime = "20:30:00";
-      else simulatedTime = "17:00:00";
-    }
+    const now = new Date();
+    const todayDate = now.toISOString().split("T")[0];
+    const simulatedTime = now.toLocaleTimeString("en-US", { hour12: false });
 
     const existingIndex = attendance.findIndex(a => a.workerId === worker.id && a.date === todayDate);
 
@@ -725,10 +839,10 @@ export const Attendance: React.FC<AttendanceProps> = ({
         workingHours: 0,
         overtime: 0,
         status: status,
-        gpsCoordinates: { lat: geofenceLat, lng: geofenceLng },
+        gpsCoordinates: verifiedGpsInfo ? { lat: verifiedGpsInfo.lat, lng: verifiedGpsInfo.lng } : { lat: geofenceLat, lng: geofenceLng },
         deviceUsed: simDeviceId,
         verifiedBy: currentUserRole === UserRole.TIME_KEEPER ? "Time Keeper Abebe" : "Foreman Fikru",
-        gpsLocationString: `Bole Heights Tower 1 FL ${selectedFloor} (${simLocation === "on-site" ? "On-Site" : "Off-Site"})`
+        gpsLocationString: verifiedGpsInfo ? `Bole Heights (${verifiedGpsInfo.dist}m)` : `Bole Heights Tower 1 FL ${selectedFloor}`
       };
 
       // Add custom system fields for billing/reports and offline timestamps
@@ -2720,11 +2834,34 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
               {/* Render Active Stream Camera or Screen Overlay */}
               {isCameraActive ? (
-                <video 
-                  ref={videoRef} 
-                  referrerPolicy="no-referrer"
-                  className="absolute inset-0 w-full h-full object-cover rounded-2xl animate-[pulse_3s_infinite]"
-                ></video>
+                <div className="relative w-full h-full min-h-[360px]">
+                  <video 
+                    ref={videoRef} 
+                    autoPlay
+                    playsInline
+                    muted
+                    referrerPolicy="no-referrer"
+                    className="absolute inset-0 w-full h-full object-cover rounded-2xl"
+                  ></video>
+                  <div className="absolute inset-8 border-2 border-dashed border-emerald-400/70 rounded-2xl pointer-events-none" />
+                  <div className="absolute bottom-4 inset-x-4 flex gap-2 z-30">
+                    <button
+                      type="button"
+                      onClick={() => void handleVerifyLiveCameraFace()}
+                      className="flex-1 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold rounded-xl text-xs shadow-lg cursor-pointer flex items-center justify-center gap-1.5"
+                    >
+                      <Scan size={15} />
+                      <span>{isAmharic ? "ፊት ፈትሽ እና አረጋግጥ" : "Capture & Verify Face"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { handleStopCamera(); setScanStatus("idle"); }}
+                      className="px-4 py-2.5 bg-slate-900/90 hover:bg-slate-800 text-white font-bold rounded-xl text-xs cursor-pointer"
+                    >
+                      <VideoOff size={14} />
+                    </button>
+                  </div>
+                </div>
               ) : (
                 <div className="absolute inset-0 bg-slate-950 flex flex-col items-center justify-center space-y-4 rounded-2xl p-6 text-center">
                   
@@ -2739,7 +2876,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                         {selectedMethod === AttendanceMethod.GPS_GEOFENCE && <MapPin size={32} />}
                       </div>
                       <p className="text-xs text-slate-400 font-mono">
-                        {isAmharic ? "ማረጋገጫ ለመጀመር የሰራተኛ ስም ይምረጡና 'ፍተሻ አስጀምር' ይጫኑ" : "Select an employee and trigger the biometric tool."}
+                        {isAmharic ? "ማረጋገጫ ለመጀመር የሰራተኛ ስም ይምረጡና 'ፍተሻ አስጀምር' ይጫኑ" : "Select an employee and trigger biometric verification."}
                       </p>
                     </div>
                   )}
@@ -2774,8 +2911,8 @@ export const Attendance: React.FC<AttendanceProps> = ({
                       <div className="bg-slate-900 border border-slate-800 p-3 rounded-lg space-y-1.5 text-left text-[11px]">
                         <div className="flex justify-between"><span className="text-slate-400">Worker:</span> <span className="font-bold text-white">{workers.find(w => w.id === selectedWorkerId)?.name}</span></div>
                         <div className="flex justify-between"><span className="text-slate-400">Position:</span> <span className="font-bold text-white font-mono">{workers.find(w => w.id === selectedWorkerId)?.trade}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">GPS Status:</span> <span className="font-bold text-emerald-400">Within Geofence (0m deviation)</span></div>
-                        <div className="flex justify-between"><span className="text-slate-400">Biometric Score:</span> <span className="font-bold text-emerald-400">98.4% Match Verified</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">GPS Status:</span> <span className="font-bold text-emerald-400">Within Geofence ({verifiedGpsInfo?.dist ?? 0}m)</span></div>
+                        <div className="flex justify-between"><span className="text-slate-400">Biometric Score:</span> <span className="font-bold text-emerald-400">{verifiedBioScore ?? 100}% Match Verified</span></div>
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 pt-1">
@@ -2799,7 +2936,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
               )}
 
               {/* Scanning Active Laser overlay */}
-              {scanStatus === "scanning" && (
+              {scanStatus === "scanning" && !isCameraActive && (
                 <div className="absolute left-0 right-0 h-0.5 bg-red-600 shadow-[0_0_8px_#ef4444] animate-bounce z-20"></div>
               )}
             </div>
@@ -2966,9 +3103,14 @@ export const Attendance: React.FC<AttendanceProps> = ({
               )}
             </div>
 
-            {/* Column 2: Biometric Inputs (Face ID & Thumbprint) */}
+            {/* Column 2: Biometric Inputs (Real Face ID Camera & WebAuthn Fingerprint) */}
             <div className="space-y-4 text-xs">
-              
+              {enrollBioError && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-[11px] font-bold">
+                  {enrollBioError}
+                </div>
+              )}
+
               {/* Step 2: Face Enrollment */}
               <div className="bg-white p-5 rounded-2xl border border-slate-200 space-y-4">
                 <h4 className="font-extrabold text-slate-800 uppercase tracking-wider border-b border-slate-100 pb-2 flex justify-between items-center">
@@ -2980,34 +3122,77 @@ export const Attendance: React.FC<AttendanceProps> = ({
                   )}
                 </h4>
 
-                {enrollIsScanningFace ? (
-                  <div className="bg-slate-950 rounded-xl relative overflow-hidden aspect-video flex flex-col items-center justify-center text-slate-200 border border-slate-800 p-4">
-                    {/* Pulsing Face Frame Scanning Overlay */}
-                    <div className="absolute inset-4 border-2 border-dashed border-red-500 rounded-lg animate-pulse pointer-events-none flex items-center justify-center">
-                      <div className="w-24 h-24 border-2 border-red-500 rounded-full animate-ping"></div>
+                {isEnrollCameraOn ? (
+                  <div className="space-y-2">
+                    <div className="bg-slate-950 rounded-xl relative overflow-hidden aspect-video border border-slate-800">
+                      <video ref={enrollVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                      <div className="absolute inset-4 border-2 border-dashed border-emerald-400/70 rounded-lg pointer-events-none" />
                     </div>
-                    <div className="absolute top-2 left-2 bg-red-600/80 px-2 py-0.5 rounded text-[8px] font-mono tracking-widest animate-pulse">LIVENESS CAM ON</div>
-                    <ScanLine size={36} className="text-red-500 animate-bounce" />
-                    <span className="mt-2 text-[10px] font-mono tracking-wider animate-pulse text-red-400">ANALYZING FACIAL POINTS (68 NODES)...</span>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        disabled={enrollIsScanningFace}
+                        onClick={async () => {
+                          if (!enrollVideoRef.current) return;
+                          setEnrollIsScanningFace(true);
+                          setEnrollBioError("");
+                          const res = await captureAndVerifyLiveFace(enrollVideoRef.current);
+                          setEnrollIsScanningFace(false);
+                          if (!res.detected || !res.descriptor) {
+                            setEnrollBioError(isAmharic ? (res.reasonAm || "ፊት አልተለየም።") : (res.reasonEn || "No face detected."));
+                            return;
+                          }
+                          setEnrollFaceTemplate(res.descriptor);
+                          if (res.snapshotDataUrl) setEnrollPhoto(res.snapshotDataUrl);
+                          if (enrollStreamRef.current) {
+                            enrollStreamRef.current.getTracks().forEach(t => t.stop());
+                            enrollStreamRef.current = null;
+                          }
+                          setIsEnrollCameraOn(false);
+                        }}
+                        className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-[10px] uppercase cursor-pointer"
+                      >
+                        {enrollIsScanningFace ? (isAmharic ? "በመለየት ላይ..." : "Detecting...") : (isAmharic ? "ፊት አንሳ (Capture)" : "Capture Face Template")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (enrollStreamRef.current) {
+                            enrollStreamRef.current.getTracks().forEach(t => t.stop());
+                            enrollStreamRef.current = null;
+                          }
+                          setIsEnrollCameraOn(false);
+                        }}
+                        className="px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-[10px] uppercase cursor-pointer"
+                      >
+                        {isAmharic ? "ዝጋ" : "Close"}
+                      </button>
+                    </div>
                   </div>
                 ) : enrollFaceTemplate ? (
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center space-x-3">
                     <div className="relative">
-                      <img 
-                        src={enrollPhoto || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces"} 
-                        alt="Face ID Preview" 
-                        className="w-12 h-12 rounded-xl object-cover border border-slate-300"
-                        referrerPolicy="no-referrer"
-                      />
+                      {enrollPhoto ? (
+                        <img
+                          src={enrollPhoto}
+                          alt="Face ID Preview"
+                          className="w-12 h-12 rounded-xl object-cover border border-slate-300"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+                          <ScanLine size={20} />
+                        </div>
+                      )}
                       <div className="absolute -bottom-1 -right-1 p-0.5 bg-emerald-600 rounded-full text-white">
                         <Check size={10} />
                       </div>
                     </div>
                     <div className="flex-grow min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Facial Verification Token</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Facial Descriptor Template</span>
                       <span className="font-mono text-[10px] text-slate-600 block truncate font-semibold">{enrollFaceTemplate}</span>
                     </div>
-                    <button 
+                    <button
+                      type="button"
                       onClick={() => { setEnrollFaceTemplate(""); setEnrollPhoto(""); }}
                       className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
                     >
@@ -3018,26 +3203,40 @@ export const Attendance: React.FC<AttendanceProps> = ({
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                     <Camera size={26} className="mx-auto text-slate-400 mb-2" />
                     <p className="text-[11px] text-slate-500 leading-normal mb-3">
-                      {isAmharic 
-                        ? "በመግብያው ካሜራ አማካኝነት የሰራተኛውን ሙሉ የፊት ገፅታ እና የዓይን ብሌን መለያ ይመዝግቡ" 
-                        : "Initialize high-fidelity optical camera scanner to catalog liveness checks and facial landmarks."}
+                      {isAmharic
+                        ? "በመግብያው ካሜራ አማካኝነት የሰራተኛውን ሙሉ የፊት ገፅታ መለያ ይመዝግቡ"
+                        : "Initialize live camera scanner to capture real facial landmarks and liveness checks."}
                     </p>
                     <button
                       type="button"
                       disabled={!selectedEnrollWorkerId}
-                      onClick={() => {
-                        setEnrollIsScanningFace(true);
-                        setTimeout(() => {
-                          setEnrollIsScanningFace(false);
-                          const randomFaceHash = `sha256-face-983b${Math.floor(1000 + Math.random() * 9000)}`;
-                          setEnrollFaceTemplate(randomFaceHash);
-                          const worker = workers.find(w => w.id === selectedEnrollWorkerId);
-                          setEnrollPhoto(worker?.photo || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces");
-                        }, 2500);
+                      onClick={async () => {
+                        setEnrollBioError("");
+                        if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+                          setEnrollBioError(isAmharic ? "ካሜራ በዚህ አሳሽ አይደገፍም።" : "Camera API unsupported in this browser.");
+                          return;
+                        }
+                        try {
+                          const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+                          enrollStreamRef.current = stream;
+                          setIsEnrollCameraOn(true);
+                          setTimeout(() => {
+                            if (enrollVideoRef.current) {
+                              enrollVideoRef.current.srcObject = stream;
+                              void enrollVideoRef.current.play().catch(() => {});
+                            }
+                          }, 50);
+                        } catch (err: any) {
+                          setEnrollBioError(
+                            isAmharic
+                              ? "የካሜራ ፍቃድ ተከልክሏል ወይም ካሜራ አልተገኘም።"
+                              : (err?.message || "Camera access denied.")
+                          );
+                        }
                       }}
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider text-[10px]"
                     >
-                      {isAmharic ? "ካሜራ አስጀምር (Face Scan)" : "Initialize Camera & Capture"}
+                      {isAmharic ? "ካሜራ አስጀምር (Face Scan)" : "Start Camera & Capture"}
                     </button>
                   </div>
                 )}
@@ -3056,11 +3255,10 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
                 {enrollIsScanningFingerprint ? (
                   <div className="bg-slate-950 rounded-xl relative overflow-hidden aspect-video flex flex-col items-center justify-center text-slate-200 border border-slate-800 p-4">
-                    <Fingerprint size={36} className="text-red-500 animate-[pulse_1s_infinite]" />
-                    <div className="absolute inset-x-0 bottom-4 h-1.5 bg-slate-900 overflow-hidden mx-8 rounded-full">
-                      <div className="h-full bg-red-600 animate-[loading_2.5s_infinite] w-1/2"></div>
-                    </div>
-                    <span className="mt-2 text-[10px] font-mono tracking-wider animate-pulse text-red-400 uppercase">Scanning ridge flow & minutiae points...</span>
+                    <Fingerprint size={36} className="text-red-500 animate-pulse" />
+                    <span className="mt-2 text-[10px] font-mono tracking-wider text-red-400 uppercase">
+                      {isAmharic ? "የመሳሪያውን የጣት አሻራ ዳሳሽ ያረጋግጡ..." : "Waiting for hardware WebAuthn fingerprint prompt..."}
+                    </span>
                   </div>
                 ) : enrollFingerprintTemplate ? (
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex items-center space-x-3">
@@ -3068,10 +3266,11 @@ export const Attendance: React.FC<AttendanceProps> = ({
                       <Fingerprint size={20} />
                     </div>
                     <div className="flex-grow min-w-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">Fingerprint Hash Template</span>
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block tracking-wider">WebAuthn Credential Template</span>
                       <span className="font-mono text-[10px] text-slate-600 block truncate font-semibold">{enrollFingerprintTemplate}</span>
                     </div>
-                    <button 
+                    <button
+                      type="button"
                       onClick={() => setEnrollFingerprintTemplate("")}
                       className="p-1 text-slate-400 hover:text-red-600 cursor-pointer"
                     >
@@ -3082,24 +3281,29 @@ export const Attendance: React.FC<AttendanceProps> = ({
                   <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
                     <Fingerprint size={26} className="mx-auto text-slate-400 mb-2" />
                     <p className="text-[11px] text-slate-500 leading-normal mb-3">
-                      {isAmharic 
-                        ? "ጣት ወደ ዩኤስቢ ባዮሜትሪክ ሴንሰሩ እንዲጠጋ በማድረግ የጣት አሻራ ዝርዝር ይመዝግቡ" 
-                        : "Connect and initialize external USB biometric scanner to secure high-contrast ridge templates."}
+                      {isAmharic
+                        ? "የስልኩን ወይም የዩኤስቢ ባዮሜትሪክ ዳሳሹን በመንካት የሰራተኛውን የጣት አሻራ ይመዝግቡ"
+                        : "Use device hardware sensor (TouchID / Android Fingerprint / USB WebAuthn) to enroll credential."}
                     </p>
                     <button
                       type="button"
                       disabled={!selectedEnrollWorkerId}
-                      onClick={() => {
+                      onClick={async () => {
+                        const worker = workers.find(w => w.id === selectedEnrollWorkerId);
+                        if (!worker) return;
+                        setEnrollBioError("");
                         setEnrollIsScanningFingerprint(true);
-                        setTimeout(() => {
-                          setEnrollIsScanningFingerprint(false);
-                          const randomFingerprintHash = `sha256-finger-290a${Math.floor(1000 + Math.random() * 9000)}`;
-                          setEnrollFingerprintTemplate(randomFingerprintHash);
-                        }, 2500);
+                        const res = await enrollWorkerFingerprint(worker);
+                        setEnrollIsScanningFingerprint(false);
+                        if (!res.success || !res.templateString) {
+                          setEnrollBioError(isAmharic ? res.messageAm : res.message);
+                          return;
+                        }
+                        setEnrollFingerprintTemplate(res.templateString);
                       }}
                       className="px-4 py-2 bg-slate-900 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-lg cursor-pointer transition-all uppercase tracking-wider text-[10px]"
                     >
-                      {isAmharic ? "አሻራ አንባቢ አስጀምር (Finger Scan)" : "Initialize Hardware Sensor"}
+                      {isAmharic ? "አሻራ አንባቢ አስጀምር (Finger Scan)" : "Enroll Hardware Fingerprint"}
                     </button>
                   </div>
                 )}
@@ -3112,7 +3316,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                 {isAmharic ? "4. ማግበርና መለያ QR ኮድ" : "Step 4: Activation & QR Identity Code"}
               </h4>
 
-              {selectedEnrollWorkerId && enrollFaceTemplate && enrollFingerprintTemplate ? (
+              {selectedEnrollWorkerId && (enrollFaceTemplate || enrollFingerprintTemplate) ? (
                 (() => {
                   const worker = workers.find(w => w.id === selectedEnrollWorkerId);
                   if (!worker) return null;
@@ -3124,16 +3328,9 @@ export const Attendance: React.FC<AttendanceProps> = ({
                         <span className="text-[10px] uppercase font-bold tracking-widest text-slate-400 block">Digital Construction ERP GROUP SECURE ID</span>
                         
                         <div className="bg-slate-100 p-3 rounded-lg border border-slate-200">
-                          {/* High fidelity HTML mock QR code with real hashes */}
                           <div className="relative w-28 h-28 border border-slate-300 bg-white p-1.5 flex items-center justify-center">
-                            <div className="absolute inset-1.5 grid grid-cols-4 gap-1 opacity-70">
-                              <div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-100"></div><div className="bg-slate-900 rounded-xs"></div>
-                              <div className="bg-slate-100"></div><div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-100"></div>
-                              <div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-100"></div><div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-900 rounded-xs"></div>
-                              <div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-900 rounded-xs"></div><div className="bg-slate-100"></div><div className="bg-slate-900 rounded-xs"></div>
-                            </div>
-                            <div className="w-10 h-10 bg-white border-2 border-red-600 rounded-md shadow-sm z-10 flex items-center justify-center font-black text-red-600 text-[10px] font-mono">
-                              Digital Construction ERP
+                            <div className="w-20 h-20 bg-white border-2 border-red-600 rounded-md shadow-sm z-10 flex items-center justify-center font-black text-red-600 text-[10px] font-mono">
+                              {worker.id}
                             </div>
                           </div>
                         </div>
@@ -3146,7 +3343,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                         
                         <button 
                           type="button" 
-                          onClick={() => alert(`Downloading high-fidelity print card PDF package for ${worker.name}...`)}
+                          onClick={() => window.print()}
                           className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded font-semibold text-[9px] flex items-center space-x-1 uppercase transition-all"
                         >
                           <Download size={11} /> <span>{isAmharic ? "QR ካርድ አውርድ" : "Print ID Card"}</span>
@@ -3161,32 +3358,36 @@ export const Attendance: React.FC<AttendanceProps> = ({
                         </div>
                         <p className="text-[11px] text-emerald-800 leading-relaxed font-medium">
                           {isAmharic 
-                            ? "ካሜራ እና የጣት አሻራ መረጃ በተሳካ ሁኔታ ተመስጥሯል። ሰራተኛውን አሁን በይፋ ማግበርና ወደ ስራ ማሰማራት ይችላሉ።" 
-                            : "Both high-fidelity biometric keys matched successfully. Proceed to officially activate this worker profile."}
+                            ? "ካሜራ እና የጣት አሻራ መረጃ በተሳካ ሁኔታ ተመዝግቧል። ሰራተኛውን አሁን ማግበር ይችላሉ።" 
+                            : "Biometric template recorded. Proceed to activate this worker profile."}
                         </p>
                       </div>
 
                       {/* Activate Action Button */}
                       <button
                         type="button"
-                        onClick={() => {
+                        onClick={async () => {
                           const worker = workers.find(w => w.id === selectedEnrollWorkerId);
                           if (!worker) return;
 
                           const updatedWorker: Worker = {
                             ...worker,
-                            faceRecognitionData: enrollFaceTemplate,
-                            fingerprint: enrollFingerprintTemplate,
-                            status: "Active" // Activate!
+                            ...(enrollPhoto ? { photo: enrollPhoto } : {}),
+                            ...(enrollFaceTemplate ? { faceRecognitionData: enrollFaceTemplate } : {}),
+                            ...(enrollFingerprintTemplate ? { fingerprint: enrollFingerprintTemplate } : {}),
+                            status: "Active"
                           };
 
-                          onAddWorker(updatedWorker); // Replace worker state in Parent App.tsx
+                          if (onUpdateWorker) {
+                            await onUpdateWorker(updatedWorker);
+                          } else {
+                            onAddWorker(updatedWorker);
+                          }
 
                           setRegSuccessMsg(isAmharic 
                             ? `ሰራተኛ ${worker.name} በተሳካ ሁኔታ የባዮሜትሪክ ምዝገባውን አጠናቆ ስራው ገቢር ሆኗል!` 
                             : `Employee ${worker.name} (${worker.id}) biometrics verified & profile activated successfully!`);
                           
-                          // Reset enrollment states
                           setSelectedEnrollWorkerId("");
                           setEnrollFaceTemplate("");
                           setEnrollFingerprintTemplate("");
@@ -3196,7 +3397,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
                           setTimeout(() => {
                             setRegSuccessMsg("");
-                            setActiveSubTab("directory"); // Return to directory!
+                            setActiveSubTab("directory");
                           }, 3000);
                         }}
                         className="w-full py-3 bg-red-600 hover:bg-red-700 text-white text-xs font-black rounded-xl shadow-md hover:shadow-lg transition-all flex items-center justify-center space-x-1.5 cursor-pointer uppercase tracking-wider"

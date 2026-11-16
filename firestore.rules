@@ -144,6 +144,14 @@ service cloud.firestore {
       return hasRole('Finance Manager');
     }
 
+    function isAccountant() {
+      return hasRole('Accountant');
+    }
+
+    function isFinanceStaff() {
+      return isAdminOrHeadOffice() || isFinanceManager() || isAccountant();
+    }
+
     function isAuditor() {
       return hasRole('Auditor');
     }
@@ -776,26 +784,26 @@ service cloud.firestore {
 
     // 13. Expenses, Invoices, & Contracts (MFA enforced on writes for sensitive roles)
     match /expenses/{expenseId} {
-      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
-      allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
       allow delete: if isAdminOrHeadOffice() && mfaSafe();
     }
 
     match /invoices/{invoiceId} {
-      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
-      allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
       allow delete: if isAdminOrHeadOffice() && mfaSafe();
     }
 
     match /contracts/{contractId} {
-      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
       allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
       allow delete: if isAdminOrHeadOffice() && mfaSafe();
     }
 
-    // 14. Audit Logs (read for Admin/HR/Finance/Auditor, create for approved users, immutable)
+    // 14. Audit Logs (read for Admin/HR/Finance/Accountant/Auditor, create for approved users, immutable)
     match /auditLogs/{logId} {
-      allow read: if isAdminOrHeadOffice() || isHRManager() || isFinanceManager() || isAuditor();
+      allow read: if isAdminOrHeadOffice() || isHRManager() || isFinanceManager() || isAccountant() || isAuditor();
       allow create: if isApprovedUser() && (
         !('userId' in incoming()) ||
         incoming().userId == request.auth.uid ||
@@ -948,15 +956,140 @@ service cloud.firestore {
     // 21. Finance ERP Collections (MFA enforced on writes for sensitive roles)
     // 21.1 projectBudgets
     match /projectBudgets/{budgetId} {
-      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
       allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
       allow delete: if isAdminOrHeadOffice() && mfaSafe();
     }
 
     // 21.2 paymentRecords
     match /paymentRecords/{paymentId} {
-      allow read: if isAdminOrHeadOffice() || isFinanceManager() || isProjectManager();
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.3 financialTargets (Monthly Planned Revenue, Expense, Collection, Payment)
+    match /financialTargets/{targetId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
       allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.4 financialAccounts (Cash & Bank Accounts)
+    match /financialAccounts/{accountId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.5 cashTransactions (Posted Cash Collections, Payments & Transfers)
+    match /cashTransactions/{txId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.6 financialSettings (Currency, Fiscal Year & Threshold Alerts)
+    match /financialSettings/{settingId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.7 collectionPlans (Monthly Planned Cash Collections)
+    match /collectionPlans/{planId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.8 paymentPlans (Monthly Planned Cash Payments)
+    match /paymentPlans/{planId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.9 projectBudgetPlans (Part 4 Master Project Budgets & 12-Category Line Items)
+    match /projectBudgetPlans/{planId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isFinanceStaff() || isProjectManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.10 budgetAllocations (Part 4 Monthly/Quarterly/Annual Budget Allocations)
+    match /budgetAllocations/{allocationId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isFinanceStaff() || isProjectManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.11 budgetRevisions (Part 4 Budget Revision Requests & Approval History)
+    match /budgetRevisions/{revisionId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isFinanceStaff() || isProjectManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.12 actualCostEntries (Part 4 Verified Actual Cost Ledger Entries)
+    match /actualCostEntries/{costId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isFinanceStaff() || isProjectManager()) && mfaSafe();
+      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+    }
+
+    // 21.13 cashFlowForecastItems (Part 5 Cash Flow Forecast Entries)
+    match /cashFlowForecastItems/{forecastId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if (isFinanceStaff() || isProjectManager()) && mfaSafe();
+      allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+    }
+
+    // 21.14 bankReconciliations (Part 5 & 6 Bank & Cash Account Reconciliations)
+    match /bankReconciliations/{recId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
+      allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+    }
+
+    // 21.15 bankTransactions (Part 6 Bank Transactions Ledger)
+    match /bankTransactions/{txId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
+      allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+    }
+
+    // 21.16 bankStatements (Part 6 Immutable Uploaded Bank Statements - Never Overwrite or Delete)
+    match /bankStatements/{statementId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create: if isFinanceStaff() && mfaSafe();
+      allow update, delete: if false; // Immutable original bank statements
+    }
+
+    // 21.17 chartOfAccounts (Part 7 Double-Entry Chart of Accounts)
+    match /chartOfAccounts/{accountId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe();
+      allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+    }
+
+    // 21.18 journalEntries (Part 7 Double-Entry Journal Vouchers with balanced Debit == Credit & MFA controls)
+    match /journalEntries/{entryId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe() &&
+        incoming().isBalanced == true &&
+        incoming().totalDebit is number &&
+        incoming().totalCredit is number &&
+        incoming().totalDebit == incoming().totalCredit;
+      allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+    }
+
+    // 21.19 financialPeriods (Part 7 Financial Period Closing & Statement Approval Signatures)
+    match /financialPeriods/{periodId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe() && (
+        incoming().status != 'Closed' || isAdminOrHeadOffice() || isFinanceManager()
+      );
       allow delete: if isAdminOrHeadOffice() && mfaSafe();
     }
 

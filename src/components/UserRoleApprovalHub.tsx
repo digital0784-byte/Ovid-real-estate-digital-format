@@ -58,6 +58,7 @@ const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.STORE_MANAGER, nameEn: "Store Manager", nameAm: "የስቶር ሥራ አስኪያጅ" },
   { role: UserRole.STORE_OWNER, nameEn: "Store Owner", nameAm: "የሳይት ስቶር አቃቤ" },
   { role: UserRole.FINANCE_MANAGER, nameEn: "Finance Manager", nameAm: "የሒሳብና ፋይናንስ ሥራ አስኪያጅ" },
+  { role: UserRole.ACCOUNTANT, nameEn: "Accountant", nameAm: "የሒሳብ ባለሙያ (Accountant)" },
   { role: UserRole.AUDITOR, nameEn: "Auditor", nameAm: "ኦዲተር" },
   { role: UserRole.SUPERVISOR, nameEn: "Supervisor", nameAm: "የግንባታ ተቆጣጣሪ" },
   { role: UserRole.SITE_ENGINEER, nameEn: "Site Engineer", nameAm: "የሳይት መሐንዲስ" },

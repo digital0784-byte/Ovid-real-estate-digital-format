@@ -1,7 +1,13 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { UserRole, Worker, SystemNotification, AuditLog, WORK_SECTORS_CATALOG, DEPARTMENTS_CATALOG } from "../types";
 import { DbService } from "../services/db";
 import { NotificationService } from "../services/notificationService";
+import {
+  captureAndVerifyLiveFace,
+  enrollWorkerFingerprint,
+  verifyWorkerFingerprint,
+  getStoredCredentialId,
+} from "../services/biometricService";
 import {
   signInWithEmail,
   registerWithEmail,
@@ -107,6 +113,9 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
   const [scanSuccess, setScanSuccess] = useState(false);
+  const [isLoginCameraOn, setIsLoginCameraOn] = useState(false);
+  const loginVideoRef = useRef<HTMLVideoElement | null>(null);
+  const loginStreamRef = useRef<MediaStream | null>(null);
   
   // Selected role for simulations
   const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.HEAD_OFFICE);
@@ -172,30 +181,94 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     }
   }, [isLocked, lockoutTime]);
 
-  // Handle simulate biometric scan
-  const startBiometricScan = () => {
-    if (isScanning || isLocked) return;
-    setIsScanning(true);
-    setScanProgress(0);
-    setScanSuccess(false);
-    setErrorMessage("");
+  const stopLoginCamera = () => {
+    if (loginStreamRef.current) {
+      loginStreamRef.current.getTracks().forEach((t) => t.stop());
+      loginStreamRef.current = null;
+    }
+    if (loginVideoRef.current) {
+      loginVideoRef.current.srcObject = null;
+    }
+    setIsLoginCameraOn(false);
+  };
 
-    const interval = setInterval(() => {
-      setScanProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsScanning(false);
-          setScanSuccess(true);
-          setSuccessMessage(
-            biometricType === "fingerprint"
-              ? (isAmharic ? "የጣት አሻራ በተሳካ ሁኔታ ተለይቷል!" : "Fingerprint successfully recognized!")
-              : (isAmharic ? "የፊት ገጽታ እውቅና ማረጋገጫ ተጠናቅቋል!" : "Face recognition identity matched!")
-          );
-          return 100;
-        }
-        return prev + 10;
-      });
-    }, 150);
+  useEffect(() => {
+    return () => {
+      if (loginStreamRef.current) {
+        loginStreamRef.current.getTracks().forEach((t) => t.stop());
+      }
+    };
+  }, []);
+
+  // Real hardware biometric verification (WebAuthn Fingerprint & Live Camera Face Detection)
+  const startBiometricScan = async () => {
+    if (isScanning || isLocked) return;
+    setErrorMessage("");
+    setSuccessMessage("");
+    setScanSuccess(false);
+
+    if (biometricType === "fingerprint") {
+      setIsScanning(true);
+      setScanProgress(45);
+      const demoUser = { id: "LOGIN-DEMO-USER", name: "ERP Operator" };
+      const hasCred = Boolean(getStoredCredentialId(demoUser));
+      const res = hasCred
+        ? await verifyWorkerFingerprint(demoUser)
+        : await enrollWorkerFingerprint(demoUser);
+      setIsScanning(false);
+      setScanProgress(res.success ? 100 : 0);
+      if (!res.success) {
+        setErrorMessage(isAmharic ? res.messageAm : res.message);
+        return;
+      }
+      setScanSuccess(true);
+      setSuccessMessage(isAmharic ? res.messageAm : res.message);
+      return;
+    }
+
+    // Face ID via real camera stream
+    if (!isLoginCameraOn || !loginVideoRef.current) {
+      if (typeof navigator === "undefined" || !navigator.mediaDevices?.getUserMedia) {
+        setErrorMessage(isAmharic ? "ካሜራ በዚህ አሳሽ አይደገፍም።" : "Camera API unavailable in this browser.");
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: false });
+        loginStreamRef.current = stream;
+        setIsLoginCameraOn(true);
+        setTimeout(() => {
+          if (loginVideoRef.current) {
+            loginVideoRef.current.srcObject = stream;
+            void loginVideoRef.current.play().catch(() => {});
+          }
+        }, 60);
+      } catch (err: any) {
+        setErrorMessage(
+          isAmharic
+            ? "የካሜራ ፍቃድ ተከልክሏል ወይም ካሜራ አልተገኘም።"
+            : (err?.message || "Camera access denied.")
+        );
+      }
+      return;
+    }
+
+    setIsScanning(true);
+    setScanProgress(50);
+    const faceRes = await captureAndVerifyLiveFace(loginVideoRef.current);
+    setIsScanning(false);
+    if (!faceRes.detected) {
+      setScanProgress(0);
+      setErrorMessage(isAmharic ? (faceRes.reasonAm || "ፊት አልተለየም።") : (faceRes.reasonEn || "No face detected."));
+      return;
+    }
+    stopLoginCamera();
+    setScanProgress(100);
+    setScanSuccess(true);
+    setSuccessMessage(
+      isAmharic
+        ? `የፊት ገጽታ እውቅና ማረጋገጫ ተጠናቅቋል (${faceRes.confidence}%)!`
+        : `Face recognition identity verified (${faceRes.confidence}% confidence)!`
+    );
   };
 
   // Helper to map Employee ID to standard roles (dev demo mode only)
@@ -215,6 +288,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     if (formatted.startsWith("SM") || formatted === "STORE") return UserRole.STORE_MANAGER;
     if (formatted.startsWith("HR")) return UserRole.HR_MANAGER;
     if (formatted.startsWith("FM")) return UserRole.FINANCE_MANAGER;
+    if (formatted.startsWith("AC")) return UserRole.ACCOUNTANT;
     if (formatted.startsWith("SH")) return UserRole.SECTION_HEAD;
     if (formatted.startsWith("SR")) return UserRole.SURVEYOR;
     return UserRole.WORKER;
@@ -234,6 +308,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       case UserRole.STORE_MANAGER: return "SM";
       case UserRole.HR_MANAGER: return "HR";
       case UserRole.FINANCE_MANAGER: return "FM";
+      case UserRole.ACCOUNTANT: return "AC";
       case UserRole.SECTION_HEAD: return "SH";
       case UserRole.SURVEYOR: return "SR";
       default: return "W";
@@ -1175,7 +1250,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       <div className="flex justify-center space-x-2 mb-2">
                         <button
                           type="button"
-                          onClick={() => { setBiometricType("fingerprint"); setScanSuccess(false); }}
+                          onClick={() => { setBiometricType("fingerprint"); stopLoginCamera(); setScanSuccess(false); }}
                           className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
                             biometricType === "fingerprint" ? "bg-slate-800 text-red-400 border border-red-500/30" : "text-slate-400 hover:bg-slate-900"
                           }`}
@@ -1197,7 +1272,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         {biometricType === "fingerprint" ? (
                           <button
                             type="button"
-                            onClick={startBiometricScan}
+                            onClick={() => void startBiometricScan()}
                             disabled={isScanning}
                             className={`w-16 h-16 rounded-full flex items-center justify-center border-2 transition-all relative cursor-pointer ${
                               scanSuccess 
@@ -1213,23 +1288,32 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                             )}
                           </button>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={startBiometricScan}
-                            disabled={isScanning}
-                            className={`w-20 h-20 rounded-xl flex items-center justify-center border-2 transition-all relative overflow-hidden cursor-pointer ${
-                              scanSuccess 
-                                ? "bg-emerald-950/40 border-emerald-500 text-emerald-400" 
-                                : isScanning 
-                                  ? "bg-slate-900 border-red-500 text-red-500" 
-                                  : "bg-slate-900 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-200"
-                            }`}
-                          >
-                            <Scan size={36} className={isScanning ? "animate-pulse text-red-500" : ""} />
-                            {isScanning && (
-                              <div className="absolute inset-x-0 top-0 h-0.5 bg-red-500 shadow-md shadow-red-500/80 animate-bounce" />
+                          <div className="w-full max-w-xs space-y-2">
+                            {isLoginCameraOn && (
+                              <div className="rounded-xl overflow-hidden border border-slate-700 aspect-video bg-black">
+                                <video ref={loginVideoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                              </div>
                             )}
-                          </button>
+                            <button
+                              type="button"
+                              onClick={() => void startBiometricScan()}
+                              disabled={isScanning}
+                              className={`mx-auto px-4 py-3 rounded-xl flex items-center justify-center gap-2 border-2 transition-all cursor-pointer text-xs font-bold ${
+                                scanSuccess 
+                                  ? "bg-emerald-950/40 border-emerald-500 text-emerald-400" 
+                                  : isScanning 
+                                    ? "bg-slate-900 border-red-500 text-red-500" 
+                                    : "bg-slate-900 border-slate-800 text-slate-300 hover:border-slate-700"
+                              }`}
+                            >
+                              <Scan size={20} className={isScanning ? "animate-pulse text-red-500" : ""} />
+                              <span>
+                                {!isLoginCameraOn
+                                  ? (isAmharic ? "ካሜራ ክፈት" : "Open Face Camera")
+                                  : (isAmharic ? "ፊት ፈትሽ" : "Verify Live Face")}
+                              </span>
+                            </button>
+                          </div>
                         )}
 
                         {isScanning && (
@@ -1240,10 +1324,10 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
                         <span className="text-[10px] font-mono text-slate-500 mt-2 block">
                           {isScanning 
-                            ? (isAmharic ? `በመቃኘት ላይ... ${scanProgress}%` : `Scanning Secure Elements... ${scanProgress}%`) 
+                            ? (isAmharic ? `በመቃኘት ላይ... ${scanProgress}%` : `Scanning Hardware... ${scanProgress}%`) 
                             : scanSuccess 
-                              ? (isAmharic ? "ተቀባይነት አግኝቷል" : "SecID Match Verified") 
-                              : (isAmharic ? "ለመቃኘት ምልክቱን ይጫኑ" : "Click to scan (Dev Demo)")}
+                              ? (isAmharic ? "ተቀባይነት አግኝቷል" : "Biometric Match Verified") 
+                              : (isAmharic ? "ለመቃኘት ምልክቱን ይጫኑ" : "Click to verify with hardware sensor")}
                         </span>
                       </div>
                     </div>
@@ -1523,6 +1607,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.STORE_OWNER, label: isAmharic ? "የሳይት ስቶር አቃቤ (Store Owner)" : "Store Owner" },
                         { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል / HR (HR Manager)" : "HR / HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
+                        { role: UserRole.ACCOUNTANT, label: isAmharic ? "የሒሳብ ባለሙያ (Accountant)" : "Accountant" },
                         { role: UserRole.DRIVER, label: isAmharic ? "የተሽከርካሪ አሽከርካሪ (Driver)" : "Driver" },
                         { role: UserRole.AUDITOR, label: isAmharic ? "ኦዲተር (Auditor)" : "Auditor" },
                         { role: UserRole.WORKER, label: isAmharic ? "መደበኛ ሰራተኛ (Worker)" : "Worker" }

@@ -10,6 +10,7 @@ export enum UserRole {
   STORE_MANAGER = "Store Manager",
   STORE_OWNER = "Store Owner",
   FINANCE_MANAGER = "Finance Manager",
+  ACCOUNTANT = "Accountant",
   AUDITOR = "Auditor",
   SUPERVISOR = "Supervisor",
   SITE_ENGINEER = "Site Engineer",
@@ -47,7 +48,8 @@ export enum AttendanceMethod {
   NFC = "NFC",
   FINGERPRINT = "Fingerprint",
   FACE_RECOGNITION = "Face Recognition",
-  GPS_GEOFENCE = "GPS Geofence"
+  GPS_GEOFENCE = "GPS Geofence",
+  MANUAL_ENTRY = "Manual Entry"
 }
 
 export interface Worker {
@@ -101,17 +103,51 @@ export interface Team {
 
 export interface Expense {
   id: string;
-  category: "Material" | "Labor" | "Equipment" | "Overhead" | "Subcontractor";
-  amount: number;
+  payableId?: string; // Auto-generated AP-YYYYMMDD-XXXX
+  referenceNo?: string;
+  billNumber?: string;
+  purchaseOrderNumber?: string;
+  contractNumber?: string;
+  category: "Material" | "Labor" | "Equipment" | "Overhead" | "Subcontractor" | "Logistics" | "Utilities" | "Administrative" | string;
+  payableCategory?: PayableCategory | string;
+  subtotalAmount?: number; // Invoice amount before tax
+  taxAmount?: number;
+  amount: number; // Total Payable Amount
+  paidAmount?: number;
   date: string;
+  invoiceDate?: string;
+  dueDate?: string;
+  paymentTerms?: string;
   vendor: string;
+  supplier?: string;
   description: string;
   project: string;
+  projectId?: string;
+  department?: string;
   costCenter: string;
+  responsibleOfficer?: string;
   approvedBy: string;
+  approvedAt?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  docsVerifiedBy?: string;
+  docsVerifiedAt?: string;
+  workflowStage?: PayableWorkflowStage;
+  isDisputed?: boolean;
+  disputeReason?: string;
+  supportingDocuments?: SupportingDocMeta[];
+  authorizedAdjustmentAmount?: number;
+  authorizedAdjustmentReason?: string;
+  auditHistory?: ArApAuditEntry[];
+  status?: FinancialTransactionStatus | string;
   unitCost?: number;
   quantity?: number;
   unit?: string;
+  paymentMethod?: string;
+  createdBy?: string;
+  createdById?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface AttendanceRecord {
@@ -2115,4 +2151,1287 @@ export interface TaskFilterPreferences {
   sortField: "createdAt" | "taskName" | "dueDate" | "updatedAt" | "priority" | "status" | "completionDate";
   sortDirection: "asc" | "desc";
 }
+
+// ============================================================================
+// FINANCIAL MANAGEMENT SYSTEM (PART 1 FOUNDATION & EXECUTIVE DASHBOARD)
+// ============================================================================
+
+export type FinancialMenuModuleId =
+  | "financial-dashboard"
+  | "revenue-management"
+  | "expense-management"
+  | "cash-collection"
+  | "cash-payment"
+  | "accounts-receivable"
+  | "accounts-payable"
+  | "aging-receivables"
+  | "aging-payables"
+  | "budget-management"
+  | "profit-and-loss"
+  | "cash-flow"
+  | "cash-and-bank"
+  | "liquidity-management"
+  | "financial-reports"
+  | "financial-notifications"
+  | "financial-settings"
+  // Preserved Extended Construction ERP Finance Tools
+  | "project-mgmt"
+  | "payroll-mgmt"
+  | "formwork-assets"
+  | "warehouse-cost"
+  | "procurement-cost"
+  | "equipment-cost"
+  | "ai-analytics"
+  | "integrations";
+
+export type FinancialPeriodPreset =
+  | "daily"
+  | "weekly"
+  | "monthly"
+  | "bimonthly"
+  | "quarterly"
+  | "semiannual"
+  | "annual"
+  | "custom";
+
+export type FinancialTransactionStatus =
+  | "Draft"
+  | "Pending"
+  | "Approved"
+  | "Sent"
+  | "Partially Paid"
+  | "Paid"
+  | "Overdue"
+  | "Rejected"
+  | "Cancelled";
+
+export type CashPlanApprovalStatus =
+  | "Draft"
+  | "Pending Approval"
+  | "Approved"
+  | "Rejected";
+
+export type CollectionPlanScope =
+  | "Company"
+  | "Project"
+  | "Customer"
+  | "Department";
+
+export type PaymentPlanningCategory =
+  | "Supplier Payments"
+  | "Material Suppliers"
+  | "Vehicle Rental"
+  | "Equipment Rental"
+  | "Restaurant and Food"
+  | "Labor Payments"
+  | "Salary Payments"
+  | "Transportation"
+  | "Tax Payments"
+  | "Administration"
+  | "Other Payments";
+
+export type CashCollectionTxStatus =
+  | "Pending Verification"
+  | "Verified & Confirmed"
+  | "Posted"
+  | "Rejected"
+  | "Reversed";
+
+export type CashPaymentTxStatus =
+  | "Pending Approval"
+  | "Director Approval Required"
+  | "Confirmed & Paid"
+  | "Posted"
+  | "Rejected"
+  | "Reversed";
+
+export interface CashTransactionApprovalEntry {
+  timestamp: string;
+  action: "Submitted" | "Verified" | "Approved" | "Director Approved" | "Rejected" | "Reversed" | "Posted";
+  actorName: string;
+  actorRole: string;
+  notes?: string;
+}
+
+export interface MonthlyCollectionPlan {
+  id: string;
+  planNumber: string;
+  financialYear: string;
+  month: string; // YYYY-MM
+  targetScope: CollectionPlanScope;
+  project: string;
+  customer: string;
+  department: string;
+  contractNumber: string;
+  invoiceNumber: string;
+  plannedAmount: number;
+  expectedDate: string; // YYYY-MM-DD
+  responsiblePerson: string;
+  notes?: string;
+  approvalStatus: CashPlanApprovalStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedReason?: string;
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MonthlyPaymentPlan {
+  id: string;
+  planNumber: string;
+  financialYear: string;
+  month: string; // YYYY-MM
+  project: string;
+  department: string;
+  supplierOrPayee: string;
+  expenseCategory: PaymentPlanningCategory | string;
+  invoiceNumber: string;
+  plannedAmount: number;
+  expectedDate: string; // YYYY-MM-DD
+  responsiblePerson: string;
+  approvalStatus: CashPlanApprovalStatus;
+  notes?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedReason?: string;
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ReceivableCategory =
+  | "Client Contract Receivables"
+  | "Certified Payment Receivables"
+  | "Retention Money Receivables"
+  | "Advance Payment Receivables"
+  | "Variation Order Receivables"
+  | "Other Receivables";
+
+export type ReceivableLifecycleStatus =
+  | "Not Yet Due"
+  | "Due Today"
+  | "Overdue"
+  | "Partially Collected"
+  | "Fully Collected"
+  | "Disputed";
+
+export type ReceivableWorkflowStage =
+  | "Registered"
+  | "Finance Review"
+  | "Verified"
+  | "Completed";
+
+export type PayableCategory =
+  | "Material Supplier Payables"
+  | "Subcontractor Payables"
+  | "Consultant Payables"
+  | "Equipment Rental Payables"
+  | "Employee Payables"
+  | "Operational Expenses"
+  | "Tax Payables"
+  | "Other Payables";
+
+export type PayableLifecycleStatus =
+  | "Not Yet Due"
+  | "Due Today"
+  | "Overdue"
+  | "Partially Paid"
+  | "Fully Paid"
+  | "Disputed";
+
+export type PayableWorkflowStage =
+  | "Registered"
+  | "Finance Review"
+  | "Supporting Docs Verified"
+  | "Approved"
+  | "Paid";
+
+export interface SupportingDocMeta {
+  id: string;
+  name: string;
+  fileType?: string;
+  sizeBytes?: number;
+  uploadedAt: string;
+  uploadedBy: string;
+  dataUrl?: string; // Compact preview/attachment within Firestore limits
+}
+
+export interface ArApAuditEntry {
+  timestamp: string;
+  action: string;
+  actorName: string;
+  actorRole: string;
+  stage?: string;
+  notes?: string;
+}
+
+export interface FinancialInvoiceRecord {
+  id: string;
+  receivableId?: string; // Auto-generated AR-YYYYMMDD-XXXX
+  referenceNo?: string;
+  invoiceNumber: string;
+  contractNumber?: string;
+  project: string;
+  projectId?: string;
+  department?: string;
+  category?: string;
+  receivableCategory?: ReceivableCategory | string;
+  client: string;
+  clientName?: string;
+  description?: string;
+  subtotalAmount?: number; // Invoice Amount before tax
+  taxAmount?: number;
+  amount: number; // Total Invoice Amount
+  paidAmount?: number;
+  currency?: string;
+  paymentTerms?: string;
+  responsibleOfficer?: string;
+  supportingDocuments?: SupportingDocMeta[];
+  workflowStage?: ReceivableWorkflowStage;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  isDisputed?: boolean;
+  disputeReason?: string;
+  authorizedAdjustmentAmount?: number;
+  authorizedAdjustmentReason?: string;
+  auditHistory?: ArApAuditEntry[];
+  status: FinancialTransactionStatus | string;
+  date: string;
+  dueDate: string;
+  createdBy?: string;
+  createdById?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface FinancialPaymentRecord {
+  id: string;
+  referenceNo?: string;
+  reference?: string;
+  invoiceId?: string;
+  invoiceNumber?: string;
+  expenseId?: string;
+  type?: "Collection" | "Payment";
+  amount: number;
+  date: string;
+  method?: string;
+  accountId?: string;
+  project: string;
+  department?: string;
+  counterparty?: string;
+  status?: string;
+  createdBy?: string;
+  createdAt?: string;
+}
+
+export type BankAccountSubtype =
+  | "Checking"
+  | "Savings"
+  | "Project Escrow"
+  | "Payroll"
+  | "Overdraft"
+  | "Cash Vault";
+
+export interface FinancialAccount {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountType: "Cash" | "Bank";
+  bankAccountSubtype?: BankAccountSubtype | string;
+  bankName?: string;
+  accountNumber?: string;
+  branch?: string;
+  swiftOrIban?: string;
+  currency: string;
+  openingBalance: number;
+  currentBalance: number;
+  minimumThreshold: number;
+  project?: string;
+  department?: string;
+  lastReconciledDate?: string;
+  lastReconciledBalance?: number;
+  status: "Active" | "Inactive" | "Frozen" | "Closed";
+  createdBy?: string;
+  updatedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CashTransactionRecord {
+  id: string;
+  referenceNo: string;
+  type: "Collection" | "Payment" | "Transfer";
+  date: string;
+  amount: number;
+  currency?: string;
+  accountId: string;
+  accountName: string;
+  toAccountId?: string;
+  toAccountName?: string;
+  project: string;
+  department: string;
+  category: string;
+  counterparty: string; // Customer for Collection, Supplier/Payee for Payment
+  contractNumber?: string;
+  invoiceNumber?: string;
+  bankReferenceNumber?: string;
+  receiptNumber?: string;
+  paymentVoucherNumber?: string;
+  linkedDocumentType?: "Invoice" | "Expense" | "Payroll" | "Direct";
+  linkedDocumentId?: string;
+  linkedReferenceNo?: string;
+  paymentMethod: "Cash" | "Bank Transfer" | "Mobile Banking" | "Cheque" | "Telebirr" | "CBE Birr" | "CPO" | string;
+  status: CashCollectionTxStatus | CashPaymentTxStatus | "Pending" | "Cancelled" | string;
+  description?: string;
+  notes?: string;
+  supportingDocName?: string;
+  supportingDocUrl?: string;
+  supportingDocuments?: SupportingDocMeta[];
+  expectedAmount?: number;
+  previouslyPaidAmount?: number;
+  remainingBalanceAfter?: number;
+  isAuthorizedAdjustment?: boolean;
+  adjustmentReason?: string;
+  recordedBy?: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedReason?: string;
+  reversedBy?: string;
+  reversedAt?: string;
+  reversalReason?: string;
+  requiresDirectorApproval?: boolean;
+  approvalHistory?: CashTransactionApprovalEntry[];
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FinancialBudgetRecord {
+  id: string;
+  project: string;
+  projectId?: string;
+  department: string;
+  category: string;
+  period?: string; // e.g., "2026-07" or "2026" or "Annual"
+  fiscalYear?: string;
+  allocated: number;
+  committed: number;
+  actual: number;
+  description: string;
+  descriptionAm?: string;
+  status?: "Active" | "Locked" | "Exceeded";
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface MonthlyFinancialTarget {
+  id: string;
+  period: string; // YYYY-MM
+  project: string;
+  department: string;
+  category: string;
+  plannedRevenue: number;
+  plannedExpense: number;
+  plannedCollection: number;
+  plannedPayment: number;
+  notes?: string;
+  updatedBy?: string;
+  updatedAt: string;
+}
+
+export interface FinancialSettingsConfig {
+  id: string;
+  defaultCurrency: string; // "ETB"
+  fiscalYearStartMonth: number; // 1 = Jan, 7 = Hamle (July)
+  defaultPaymentTermsDays: number;
+  lowCashAlertThresholdEtb: number;
+  budgetOverrunAlertPct: number;
+  overdueAlertGraceDays: number;
+  requireDirectorApprovalAboveEtb: number;
+  enableCriticalAlerts: boolean;
+  updatedBy?: string;
+  updatedAt?: string;
+}
+
+export interface FinancialFilterState {
+  periodPreset: FinancialPeriodPreset;
+  startDate: string;
+  endDate: string;
+  project: string;
+  department: string;
+  customer: string;
+  supplier: string;
+  category: string;
+  status: string;
+  searchTerm?: string;
+}
+
+export type AgingCategoryLabel =
+  | "Not Yet Due"
+  | "1–30 Days Overdue"
+  | "31–60 Days Overdue"
+  | "61–90 Days Overdue"
+  | "Above 90 Days Overdue";
+
+export interface AgingBucketRow {
+  label: AgingCategoryLabel;
+  count: number;
+  amount: number;
+}
+
+export type AgingPerformanceColor = "Green" | "Yellow" | "Red";
+
+export type AgingPerformanceTier =
+  | "Above +20%"
+  | "+15% to +20%"
+  | "0% to +15%"
+  | "0% to -20%"
+  | "Below -20%";
+
+export interface AgingPerformanceIndicator {
+  domain: "AR" | "AP";
+  percentageChange: number;
+  color: AgingPerformanceColor;
+  tier: AgingPerformanceTier;
+  statusLabel: string;
+  statusLabelAm: string;
+  currentOverdueAmount: number;
+  previousOverdueAmount: number;
+  currentOutstandingAmount: number;
+  previousOutstandingAmount: number;
+  currentOverdueRatioPct: number;
+  previousOverdueRatioPct: number;
+  liquidityWarning: boolean;
+  narrative: string;
+  narrativeAm: string;
+}
+
+export interface FinancialAlertItem {
+  id: string;
+  title: string;
+  titleAm: string;
+  description: string;
+  descriptionAm: string;
+  severity: "INFO" | "WARNING" | "CRITICAL";
+  moduleTarget: FinancialMenuModuleId;
+  project?: string;
+  amountEtb?: number;
+  timestamp: string;
+}
+
+export interface FinancialDashboardMetrics {
+  // 1. Revenue
+  plannedRevenue: number;
+  actualRevenue: number;
+  revenueDifference: number;
+  // 2. Expenses
+  plannedExpenses: number;
+  actualExpenses: number;
+  expenseDifference: number;
+  // 3. Cash Collection
+  plannedCashCollection: number;
+  actualCashCollection: number;
+  collectionDifference: number;
+  collectionAchievementPct: number;
+  outstandingCollectionTarget: number;
+  // 4. Cash Payment
+  plannedCashPayment: number;
+  actualCashPayment: number;
+  paymentDifference: number;
+  paymentAchievementPct: number;
+  outstandingPlannedPayments: number;
+  // 5. Accounts Receivable (Part 1 + Part 3)
+  totalReceivables: number;
+  totalCollectedReceivables: number;
+  outstandingReceivables: number;
+  overdueReceivables: number;
+  receivablesDueThisMonth: number;
+  collectionRatePct: number;
+  // 6. Accounts Payable (Part 1 + Part 3)
+  totalPayables: number;
+  totalPaidPayables: number;
+  outstandingPayables: number;
+  overduePayables: number;
+  payablesDueThisMonth: number;
+  paymentRatePct: number;
+  totalOverdueAmount: number;
+  netReceivablePosition: number;
+  arAgingPerformance: AgingPerformanceIndicator;
+  apAgingPerformance: AgingPerformanceIndicator;
+  // 7. Profit and Loss
+  plannedProfit: number;
+  actualProfitOrLoss: number;
+  profitMarginPct: number;
+  // 8. Cash and Liquidity
+  availableCashBalance: number;
+  totalBankBalance: number;
+  netCashFlow: number;
+  currentLiquidityPosition: number;
+  netWorkingLiquidity: number;
+  liquidityRatio: number | null;
+  // 9. Budgets
+  totalBudgetAllocated: number;
+  budgetUtilizationPct: number;
+}
+
+export type CashReportTypeId =
+  | "daily-cash-collection"
+  | "weekly-cash-collection"
+  | "monthly-cash-collection"
+  | "daily-cash-payment"
+  | "weekly-cash-payment"
+  | "monthly-cash-payment"
+  | "project-wise-collection"
+  | "project-wise-payment"
+  | "customer-wise-collection"
+  | "supplier-wise-payment"
+  | "collection-variance"
+  | "payment-variance"
+  | "outstanding-collection"
+  | "upcoming-payment";
+
+export type ArApReportTypeId =
+  | "accounts-receivable-report"
+  | "accounts-payable-report"
+  | "client-outstanding-balance-report"
+  | "supplier-outstanding-balance-report"
+  | "project-receivable-report"
+  | "project-payable-report"
+  | "aging-receivable-report"
+  | "aging-payable-report"
+  | "monthly-collection-report"
+  | "monthly-payment-report"
+  | "overdue-receivable-report"
+  | "overdue-payable-report";
+
+// ============================================================================
+// PART 4: BUDGET MANAGEMENT & COST CONTROL SYSTEM TYPES
+// ============================================================================
+
+export type Part4BudgetCategory =
+  | "Material Costs"
+  | "Labor Costs"
+  | "Equipment Costs"
+  | "Subcontractor Costs"
+  | "Consultant Costs"
+  | "Transportation Costs"
+  | "Administrative Costs"
+  | "Site Overhead Costs"
+  | "Utilities Costs"
+  | "Tax and Duties"
+  | "Contingency"
+  | "Other Project Costs";
+
+export type ProjectBudgetStatus =
+  | "Draft"
+  | "Submitted"
+  | "Under Review"
+  | "Approved"
+  | "Rejected"
+  | "Revised"
+  | "Closed";
+
+export type ProjectBudgetWorkflowStage =
+  | "Budget Preparation"
+  | "Finance Review"
+  | "Project Manager Review"
+  | "Management Approval"
+  | "Budget Activation";
+
+export type BudgetAllocationStatus =
+  | "Draft"
+  | "Pending Verification"
+  | "Finance Verified"
+  | "Approved"
+  | "Rejected";
+
+export type BudgetRevisionStatus =
+  | "Requested"
+  | "Finance Review"
+  | "PM Review"
+  | "Approved"
+  | "Rejected";
+
+export type ActualCostVerificationStatus =
+  | "Registered"
+  | "Source Verified"
+  | "Budget Classified"
+  | "Validated"
+  | "Rejected";
+
+export type ActualCostSourceModule =
+  | "Procurement"
+  | "Material Management"
+  | "Inventory"
+  | "Payroll"
+  | "Equipment Management"
+  | "Subcontractor Management"
+  | "Accounts Payable"
+  | "Petty Cash"
+  | "Direct Entry";
+
+export type BudgetUtilizationColor = "Green" | "Yellow" | "Orange" | "Red";
+
+export interface BudgetAuditEntry {
+  timestamp: string;
+  action: string;
+  actorName: string;
+  actorRole: string;
+  stage?: string;
+  notes?: string;
+}
+
+export interface ProjectBudgetItem {
+  id: string;
+  budgetItemId: string;
+  projectName: string;
+  budgetCategory: Part4BudgetCategory;
+  subcategory: string;
+  itemDescription: string;
+  unitOfMeasurement: string;
+  plannedQuantity: number;
+  unitPrice: number;
+  totalPlannedCost: number;
+  remarks?: string;
+}
+
+export interface ProjectBudgetPlan {
+  id: string;
+  budgetId: string;
+  projectName: string;
+  projectId?: string;
+  projectCode: string;
+  contractNumber: string;
+  clientName: string;
+  projectManager: string;
+  department?: string;
+  budgetPreparationDate: string;
+  budgetPeriod: string;
+  budgetYear: string;
+  projectStartDate: string;
+  projectCompletionDate: string;
+  originalContractAmount: number;
+  originalApprovedBudget: number;
+  approvedProjectBudget: number;
+  contingencyBudget: number;
+  currency: string;
+  lineItems: ProjectBudgetItem[];
+  budgetPreparedBy: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  pmReviewedBy?: string;
+  pmReviewedAt?: string;
+  approvedBy?: string;
+  approvalDate?: string;
+  rejectionReason?: string;
+  supportingDocuments?: SupportingDocMeta[];
+  budgetStatus: ProjectBudgetStatus;
+  workflowStage: ProjectBudgetWorkflowStage;
+  auditHistory?: BudgetAuditEntry[];
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetAllocationRecord {
+  id: string;
+  allocationId: string;
+  projectBudgetPlanId: string;
+  projectName: string;
+  projectCode?: string;
+  budgetYear: string;
+  budgetMonth: string; // YYYY-MM
+  budgetCategory: Part4BudgetCategory;
+  budgetItem?: string;
+  budgetItemId?: string;
+  allocatedAmount: number;
+  previouslyAllocatedAmount: number;
+  remainingUnallocatedBudget: number;
+  preparedBy: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  approvalStatus: BudgetAllocationStatus;
+  notes?: string;
+  auditHistory?: BudgetAuditEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface BudgetRevisionRecord {
+  id: string;
+  revisionId: string;
+  projectBudgetPlanId: string;
+  projectName: string;
+  projectCode?: string;
+  affectedCategory?: Part4BudgetCategory | "All Categories";
+  originalApprovedBudget: number;
+  previousRevisedBudget: number;
+  proposedRevisedBudget: number;
+  budgetChangeAmount: number; // + increase, - decrease
+  revisionReason: string;
+  supportingDocuments?: SupportingDocMeta[];
+  requestedBy: string;
+  requestedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  pmReviewedBy?: string;
+  pmReviewedAt?: string;
+  approvedBy?: string;
+  approvalDate?: string;
+  rejectionReason?: string;
+  revisionStatus: BudgetRevisionStatus;
+  auditHistory?: BudgetAuditEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActualCostEntry {
+  id: string;
+  costTransactionId: string;
+  projectName: string;
+  projectCode?: string;
+  transactionDate: string;
+  budgetCategory: Part4BudgetCategory;
+  budgetItem?: string;
+  budgetItemId?: string;
+  costDescription: string;
+  quantity: number;
+  unitPrice: number;
+  totalCost: number;
+  paidAmount?: number;
+  supplierOrPayee: string;
+  invoiceNumber?: string;
+  paymentVoucherNumber?: string;
+  sourceModule: ActualCostSourceModule;
+  sourceRecordId?: string;
+  supportingDocuments?: SupportingDocMeta[];
+  recordedBy: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  validatedBy?: string;
+  validatedAt?: string;
+  rejectionReason?: string;
+  verificationStatus: ActualCostVerificationStatus;
+  auditHistory?: BudgetAuditEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BudgetReportTypeId =
+  | "project-budget-report"
+  | "monthly-budget-allocation-report"
+  | "actual-cost-report"
+  | "budget-vs-actual-cost-report"
+  | "budget-utilization-report"
+  | "cost-variance-report"
+  | "project-cost-breakdown-report"
+  | "budget-revision-history-report"
+  | "monthly-expenditure-report"
+  | "quarterly-expenditure-report"
+  | "annual-project-cost-report"
+  | "projects-over-budget-report"
+  | "remaining-budget-report"
+  | "project-financial-performance-report";
+
+export interface BudgetPerformanceIndicatorInfo {
+  utilizationPct: number;
+  color: BudgetUtilizationColor;
+  tierLabel: string;
+  tierLabelAm: string;
+  varianceAmount: number;
+  varianceStatus: "Under Budget" | "On Budget" | "Over Budget";
+  overrunAmount: number;
+}
+
+// ============================================================================
+// PART 5: CASH FLOW MANAGEMENT, FINANCIAL FORECASTING & BANK RECONCILIATION
+// ============================================================================
+
+export type CashInflowCategory =
+  | "Client Payments"
+  | "Advance Payments"
+  | "Certified Payments"
+  | "Other Project Income";
+
+export type CashOutflowCategory =
+  | "Material Payments"
+  | "Salary and Wages"
+  | "Subcontractor Payments"
+  | "Equipment Costs"
+  | "Operational Expenses"
+  | "Tax Payments"
+  | "Other Expenses";
+
+export type CashFlowForecastGranularity =
+  | "Daily"
+  | "Monthly"
+  | "Quarterly"
+  | "Annual";
+
+export type CashFlowForecastStatus =
+  | "Draft"
+  | "Submitted"
+  | "Approved"
+  | "Rejected";
+
+export type CashFlowForecastSource =
+  | "Manual Forecast"
+  | "Expected Client Collection"
+  | "Outstanding Receivable"
+  | "Scheduled Supplier Payment"
+  | "Payroll Obligation"
+  | "Approved Project Budget"
+  | "Planned Project Expenditure";
+
+export interface CashFlowAuditEntry {
+  timestamp: string;
+  action: string;
+  actorName: string;
+  actorRole: string;
+  notes?: string;
+}
+
+export interface CashFlowForecastItem {
+  id: string;
+  forecastRef: string;
+  direction: "Inflow" | "Outflow";
+  category: CashInflowCategory | CashOutflowCategory;
+  project: string;
+  projectId?: string;
+  accountId?: string;
+  accountName?: string;
+  expectedDate: string; // YYYY-MM-DD
+  financialYear: string;
+  amount: number;
+  currency: string;
+  counterparty: string;
+  sourceType: CashFlowForecastSource;
+  linkedDocumentId?: string;
+  linkedReferenceNo?: string;
+  probabilityPct?: number; // 0-100 confidence
+  isRecurring?: boolean;
+  recurrenceInterval?: "Monthly" | "Quarterly";
+  approvalStatus: CashFlowForecastStatus;
+  notes?: string;
+  preparedBy: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedReason?: string;
+  auditHistory?: CashFlowAuditEntry[];
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BankStatementMatchStatus =
+  | "Matched"
+  | "Unmatched"
+  | "Missing in ERP"
+  | "Duplicate"
+  | "Outstanding Deposit"
+  | "Unpresented Cheque"
+  | "Bank Charge Not Recorded";
+
+export interface BankStatementLineItem {
+  id: string;
+  lineNumber?: number;
+  statementDate: string; // YYYY-MM-DD
+  valueDate?: string;
+  bankReferenceNo: string;
+  chequeNumber?: string;
+  description: string;
+  direction: "Credit" | "Debit"; // Credit = Deposit/Inflow, Debit = Withdrawal/Outflow
+  amount: number;
+  depositAmount?: number;
+  withdrawalAmount?: number;
+  runningBalance?: number;
+  matchedCashTxId?: string;
+  matchedCashTxRef?: string;
+  matchedBankTxId?: string;
+  matchedBankTxRef?: string;
+  matchType?: "Auto" | "Manual";
+  matchStatus: BankStatementMatchStatus | "Matched" | "Unmatched";
+  classificationNote?: string;
+  correctedBy?: string;
+  correctedAt?: string;
+}
+
+export type BankReconciliationStatus =
+  | "Draft"
+  | "Submitted"
+  | "Finance Review"
+  | "Reconciled"
+  | "Disputed";
+
+export type BankReconciliationWorkflowStage =
+  | "Statement Upload"
+  | "Transaction Matching"
+  | "Difference Identification"
+  | "Finance Review"
+  | "Reconciliation Approval"
+  | "Final Report";
+
+export interface BankReconciliationRecord {
+  id: string;
+  reconciliationNo: string;
+  accountId: string;
+  accountName: string;
+  accountCode?: string;
+  bankName?: string;
+  accountNumber?: string;
+  statementId?: string;
+  statementNo?: string;
+  periodStart: string; // YYYY-MM-DD
+  periodEnd: string; // YYYY-MM-DD
+  statementOpeningBalance: number;
+  statementClosingBalance: number;
+  bookOpeningBalance: number;
+  bookClosingBalance: number;
+  reconciledInflowsTotal: number;
+  reconciledOutflowsTotal: number;
+  unreconciledBookCount: number;
+  unreconciledBookNet: number;
+  unmatchedStatementNet: number;
+  discrepancyAmount: number;
+  outstandingDepositsTotal?: number;
+  unpresentedChequesTotal?: number;
+  bankChargesNotRecordedTotal?: number;
+  duplicateCount?: number;
+  missingInErpCount?: number;
+  matchedCount?: number;
+  unmatchedCount?: number;
+  reconciledTxIds: string[];
+  statementLines: BankStatementLineItem[];
+  workflowStage?: BankReconciliationWorkflowStage;
+  approvalStatus: BankReconciliationStatus;
+  preparedBy: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+  auditHistory?: CashFlowAuditEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type CashFlowReportTypeId =
+  | "daily-cash-flow"
+  | "monthly-cash-flow-statement"
+  | "quarterly-cash-flow"
+  | "annual-cash-flow"
+  | "cash-forecast-report"
+  | "bank-reconciliation-report"
+  | "cash-shortage-report";
+
+// ============================================================================
+// PART 6: BANK MANAGEMENT & BANK RECONCILIATION SYSTEM TYPES
+// ============================================================================
+
+export type BankTransactionType =
+  | "Deposits"
+  | "Withdrawals"
+  | "Client Payments"
+  | "Supplier Payments"
+  | "Salary Payments"
+  | "Bank Transfers"
+  | "Bank Charges"
+  | "Interest Income"
+  | "Other Transactions";
+
+export type BankTransactionApprovalStatus =
+  | "Pending Verification"
+  | "Pending Approval"
+  | "Approved"
+  | "Rejected"
+  | "Reversed";
+
+export interface BankTransactionRecord {
+  id: string;
+  transactionNo: string;
+  accountId: string;
+  accountName: string;
+  bankName?: string;
+  accountNumber?: string;
+  toAccountId?: string;
+  toAccountName?: string;
+  transactionType: BankTransactionType;
+  direction: "Credit" | "Debit"; // Credit = Inflow/Deposit, Debit = Outflow/Withdrawal
+  transactionDate: string; // YYYY-MM-DD
+  valueDate?: string;
+  amount: number;
+  currency: string;
+  referenceNo: string;
+  chequeNumber?: string;
+  project: string;
+  department?: string;
+  counterparty: string;
+  description: string;
+  paymentMethod?: string;
+  linkedDocumentType?: "Invoice" | "Expense" | "Payroll" | "CashTransaction" | "Direct";
+  linkedDocumentId?: string;
+  linkedReferenceNo?: string;
+  linkedCashTxId?: string;
+  sourceChannel: "Manual" | "Statement Import" | "Cash Module" | "AR" | "AP" | "Payroll";
+  importedStatementId?: string;
+  importedStatementLineId?: string;
+  approvalStatus: BankTransactionApprovalStatus;
+  reconciliationStatus?: "Unreconciled" | "Matched" | "Reconciled";
+  reconciliationId?: string;
+  isDuplicateFlag?: boolean;
+  recordedBy: string;
+  verifiedBy?: string;
+  verifiedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedBy?: string;
+  rejectedReason?: string;
+  reversedBy?: string;
+  reversedAt?: string;
+  reversalReason?: string;
+  auditHistory?: CashFlowAuditEntry[];
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ImmutableBankStatementLine {
+  id: string;
+  lineNumber: number;
+  transactionDate: string;
+  description: string;
+  referenceNo: string;
+  chequeNumber?: string;
+  depositAmount: number;
+  withdrawalAmount: number;
+  runningBalance?: number;
+  direction: "Credit" | "Debit";
+  amount: number;
+  wasManuallyCorrected?: boolean;
+  originalRawText?: string;
+}
+
+export interface ImmutableBankStatementRecord {
+  id: string;
+  statementNo: string;
+  accountId: string;
+  accountName: string;
+  bankName: string;
+  accountNumber: string;
+  currency: string;
+  fileName: string;
+  fileFormat: "Excel" | "CSV" | "PDF";
+  fileSizeBytes: number;
+  fileChecksum: string;
+  periodStart: string;
+  periodEnd: string;
+  openingBalance: number;
+  closingBalance: number;
+  totalDeposits: number;
+  totalWithdrawals: number;
+  lineCount: number;
+  isImmutable: true; // Original uploaded statement snapshot, never overwritten
+  originalLines: ImmutableBankStatementLine[];
+  uploadedBy: string;
+  uploadedById: string;
+  uploadedByRole: string;
+  uploadedAt: string;
+  notes?: string;
+}
+
+export type Part6BankReportTypeId =
+  | "bank-account-report"
+  | "bank-transaction-report"
+  | "monthly-bank-statement"
+  | "bank-reconciliation-report"
+  | "unmatched-transaction-report"
+  | "bank-charges-report"
+  | "cash-and-bank-position-report";
+
+// ============================================================================
+// PART 7: FINANCIAL STATEMENTS, DOUBLE-ENTRY LEDGER & PERIOD CLOSING TYPES
+// ============================================================================
+
+export type ChartAccountType =
+  | "Asset"
+  | "Liability"
+  | "Equity"
+  | "Revenue"
+  | "Cost of Construction"
+  | "Operating Expense"
+  | "Administrative Expense";
+
+export type ChartAccountSubType =
+  | "Current Asset"
+  | "Non-Current Asset"
+  | "Current Liability"
+  | "Non-Current Liability"
+  | "Owner Capital"
+  | "Retained Earnings"
+  | "Dividends / Drawings"
+  | "Project Revenue"
+  | "Other Income"
+  | "Direct Construction Cost"
+  | "Operating Expense"
+  | "Administrative Expense";
+
+export interface ChartAccountRecord {
+  id: string;
+  accountCode: string;
+  accountName: string;
+  accountNameAm?: string;
+  accountType: ChartAccountType;
+  subType: ChartAccountSubType;
+  normalBalance: "Debit" | "Credit";
+  cashFlowSection: "Operating" | "Investing" | "Financing" | "Non-Cash";
+  isSystemAccount: boolean;
+  isActive: boolean;
+  openingBalance: number;
+  currency: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface JournalEntryLine {
+  lineNo: number;
+  accountCode: string;
+  accountName: string;
+  accountType: ChartAccountType;
+  subType?: ChartAccountSubType;
+  debit: number;
+  credit: number;
+  memo?: string;
+  project?: string;
+  department?: string;
+}
+
+export type JournalEntryStatus =
+  | "Draft"
+  | "Submitted"
+  | "Posted"
+  | "Rejected"
+  | "Reversed";
+
+export type JournalEntryType =
+  | "Standard"
+  | "Opening Balance"
+  | "Adjusting"
+  | "Closing"
+  | "Auto-Sync";
+
+export interface JournalEntryAuditItem {
+  timestamp: string;
+  action: string;
+  actorName: string;
+  actorRole: string;
+  notes?: string;
+}
+
+export interface JournalEntryRecord {
+  id: string;
+  journalNo: string;
+  entryDate: string; // YYYY-MM-DD
+  fiscalYear: string;
+  periodMonth: string; // YYYY-MM
+  project: string;
+  department: string;
+  referenceNo: string;
+  description: string;
+  entryType: JournalEntryType;
+  sourceModule:
+    | "Accounts Receivable"
+    | "Accounts Payable"
+    | "Cash Management"
+    | "Bank Management"
+    | "Payroll"
+    | "Procurement"
+    | "Project Cost Control"
+    | "Equipment & Assets"
+    | "Inventory"
+    | "Manual Journal"
+    | "Period Closing";
+  sourceRecordId?: string;
+  sourceKey?: string;
+  lines: JournalEntryLine[];
+  totalDebit: number;
+  totalCredit: number;
+  isBalanced: boolean;
+  status: JournalEntryStatus;
+  preparedBy: string;
+  preparedById: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectedReason?: string;
+  periodId?: string;
+  auditHistory?: JournalEntryAuditItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type FinancialPeriodCloseStatus =
+  | "Open"
+  | "Under Review"
+  | "Closed"
+  | "Reopened";
+
+export interface FinancialPeriodCloseRecord {
+  id: string;
+  periodKey: string; // e.g., "2026-07", "2026-Q3", "FY2026"
+  periodLabel: string;
+  periodType: "Daily" | "Monthly" | "Quarterly" | "Annual";
+  financialYear: string;
+  startDate: string;
+  endDate: string;
+  status: FinancialPeriodCloseStatus;
+  totalRevenueSnapshot: number;
+  totalExpensesSnapshot: number;
+  netProfitSnapshot: number;
+  totalAssetsSnapshot: number;
+  totalLiabilitiesSnapshot: number;
+  totalEquitySnapshot: number;
+  isTrialBalanceBalanced: boolean;
+  isBalanceSheetBalanced: boolean;
+  closingJournalEntryId?: string;
+  preparedBy: string;
+  preparedAt?: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  reopenedBy?: string;
+  reopenedAt?: string;
+  reopenedReason?: string;
+  notes?: string;
+  auditHistory?: JournalEntryAuditItem[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type Part7StatementTypeId =
+  | "income-statement"
+  | "balance-sheet"
+  | "cash-flow-statement"
+  | "changes-in-equity"
+  | "trial-balance"
+  | "general-ledger"
+  | "accounts-receivable-report"
+  | "accounts-payable-report";
 
