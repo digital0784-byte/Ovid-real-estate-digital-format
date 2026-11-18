@@ -1324,14 +1324,17 @@ service cloud.firestore {
       ]) &&
       incoming().keys().hasOnly([
         'id', 'deviceId', 'deviceName', 'biometricUserId', 'eventTime', 'punchType',
-        'workLocationType', 'projectName', 'status', 'resolvedMappingId',
+        'workLocationType', 'projectName', 'status', 'exceptionCategory', 'resolvedMappingId',
         'resolvedEmployeeId', 'resolvedAttendanceId', 'resolvedBy', 'resolvedAt',
         'rawEventMeta', 'createdAt', 'updatedAt', 'capturedAt', 'serverReceivedAt'
       ]) &&
       incoming().deviceId is string && incoming().deviceId.size() >= 1 && incoming().deviceId.size() <= 128 &&
       incoming().biometricUserId is string && incoming().biometricUserId.size() >= 1 && incoming().biometricUserId.size() <= 64 &&
       incoming().eventTime is string && incoming().eventTime.size() >= 8 && incoming().eventTime.size() <= 64 &&
-      incoming().status in ['Unmapped', 'Resolved', 'Ignored'];
+      incoming().status in ['Unmapped', 'Resolved', 'Ignored'] &&
+      (!('exceptionCategory' in incoming()) || incoming().exceptionCategory in [
+        'Unmatched Biometric ID', 'Unauthorized Device', 'Inactive Device', 'Inactive Employee'
+      ]);
     }
 
     // 21C.1 biometricDevices (Registered biometric hardware terminals; zero secrets stored)

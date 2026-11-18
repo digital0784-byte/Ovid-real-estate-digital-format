@@ -122,6 +122,8 @@ export interface Worker {
     unpaidUsed: number;
   };
   currentSite?: string;
+  workLocationType?: "Head Office" | "Construction Site";
+  defaultScheduleId?: string;
   recruitmentRequestId?: string;
   userId?: string; // Linked Firebase Auth UID for employee self-service access
 }
@@ -224,6 +226,15 @@ export interface AttendanceRecord {
   biometricUserId?: string;
   biometricMappingId?: string;
   biometricSourceProtocol?: string;
+  workLocationType?: "Head Office" | "Construction Site";
+  punchCompleteness?: "Complete" | "Missing Check-Out" | "Missing Check-In";
+  missingPunchType?: "Missing Check-Out" | "Missing Check-In" | "None";
+  overtimeCandidateHours?: number;
+  hrReviewStatus?: "Not Required" | "Pending HR Review" | "Approved" | "Rejected";
+  hrReviewedBy?: string;
+  hrReviewedAt?: string;
+  hrReviewNotes?: string;
+  exceptionReason?: string;
 }
 
 export interface PerformanceEvaluation {
@@ -3632,10 +3643,19 @@ export interface RecruitmentRequestRecord {
 export interface WorkScheduleConfig {
   id: string;
   scheduleName: string;
+  scopeType?: "Company" | "Project" | "Department" | "Employee";
+  workLocationType?: "ALL" | "Head Office" | "Construction Site";
   project: string; // "ALL" or specific project
   department: string; // "ALL" or specific department
+  workerId?: string; // Specific employee doc ID when scopeType === "Employee"
+  employeeId?: string; // Specific employee ID e.g. OVID-EMP-2026-0001
+  employeeName?: string;
+  schedulePeriodType?: "Weekly" | "Monthly" | "Fixed";
+  effectiveFrom?: string; // YYYY-MM-DD
+  effectiveTo?: string; // YYYY-MM-DD
   shiftStartTime: string; // e.g. "08:00"
   shiftEndTime: string; // e.g. "17:00"
+  isNightShift?: boolean; // Explicitly shifts crossing midnight (or shiftEnd <= shiftStart)
   breakMinutes: number;
   standardDailyHours: number; // e.g. 8
   graceMinutesLate: number; // e.g. 15
@@ -3698,6 +3718,8 @@ export interface EmployeeTransferRecord {
   employeeId: string;
   workerId: string;
   workerName: string;
+  fromWorkLocationType?: "Head Office" | "Construction Site";
+  toWorkLocationType?: "Head Office" | "Construction Site";
   fromProject: string;
   toProject: string;
   fromDepartment: string;
@@ -3999,6 +4021,11 @@ export interface UnmappedBiometricEvent {
   workLocationType?: BiometricDeviceWorkLocationType;
   projectName?: string;
   status: "Unmapped" | "Resolved" | "Ignored";
+  exceptionCategory?:
+    | "Unmatched Biometric ID"
+    | "Unauthorized Device"
+    | "Inactive Device"
+    | "Inactive Employee";
   resolvedMappingId?: string;
   resolvedEmployeeId?: string;
   resolvedAttendanceId?: string;

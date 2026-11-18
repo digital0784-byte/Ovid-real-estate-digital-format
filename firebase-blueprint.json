@@ -91,7 +91,16 @@
         "biometricDeviceName": { "type": "string" },
         "biometricUserId": { "type": "string" },
         "biometricMappingId": { "type": "string" },
-        "biometricSourceProtocol": { "type": "string" }
+        "biometricSourceProtocol": { "type": "string" },
+        "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "punchCompleteness": { "type": "string", "enum": ["Complete", "Missing Check-Out", "Missing Check-In"] },
+        "missingPunchType": { "type": "string", "enum": ["Missing Check-Out", "Missing Check-In", "None"] },
+        "overtimeCandidateHours": { "type": "number" },
+        "hrReviewStatus": { "type": "string", "enum": ["Not Required", "Pending HR Review", "Approved", "Rejected"] },
+        "hrReviewedBy": { "type": "string" },
+        "hrReviewedAt": { "type": "string" },
+        "hrReviewNotes": { "type": "string" },
+        "exceptionReason": { "type": "string" }
       },
       "required": ["id", "workerId", "workerName", "date", "status"]
     },
@@ -1093,15 +1102,27 @@
     },
     "WorkSchedule": {
       "title": "WorkSchedule",
-      "description": "Project/department work shifts, grace periods, rest days, and statutory holiday calendars.",
+      "description": "Company, project/site, location, department, or employee-specific shifts (including night shifts), grace periods, breaks, rest days, and statutory holiday calendars.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "scheduleName": { "type": "string" },
+        "scopeType": { "type": "string", "enum": ["Company", "Project", "Department", "Employee"] },
+        "workLocationType": { "type": "string", "enum": ["ALL", "Head Office", "Construction Site"] },
         "project": { "type": "string" },
+        "department": { "type": "string" },
+        "workerId": { "type": "string" },
+        "employeeId": { "type": "string" },
+        "employeeName": { "type": "string" },
+        "schedulePeriodType": { "type": "string", "enum": ["Weekly", "Monthly", "Fixed"] },
+        "effectiveFrom": { "type": "string" },
+        "effectiveTo": { "type": "string" },
         "shiftStartTime": { "type": "string" },
         "shiftEndTime": { "type": "string" },
-        "standardDailyHours": { "type": "number" }
+        "isNightShift": { "type": "boolean" },
+        "breakMinutes": { "type": "number" },
+        "standardDailyHours": { "type": "number" },
+        "graceMinutesLate": { "type": "number" }
       },
       "required": ["id", "scheduleName", "project", "shiftStartTime", "shiftEndTime"]
     },
@@ -1135,13 +1156,17 @@
     },
     "EmployeeTransfer": {
       "title": "EmployeeTransfer",
-      "description": "Site-to-site employee transfers and role reassignments.",
+      "description": "Head Office and site-to-site employee transfers, work location changes, and position history.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "workerId": { "type": "string" },
+        "fromWorkLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "toWorkLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
         "fromProject": { "type": "string" },
         "toProject": { "type": "string" },
+        "fromDepartment": { "type": "string" },
+        "toDepartment": { "type": "string" },
         "effectiveDate": { "type": "string" },
         "status": { "type": "string" }
       },
@@ -1333,6 +1358,7 @@
         "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
         "projectName": { "type": "string", "maxLength": 140 },
         "status": { "type": "string", "enum": ["Unmapped", "Resolved", "Ignored"] },
+        "exceptionCategory": { "type": "string", "enum": ["Unmatched Biometric ID", "Unauthorized Device", "Inactive Device", "Inactive Employee"] },
         "resolvedMappingId": { "type": "string", "maxLength": 128 },
         "resolvedEmployeeId": { "type": "string", "maxLength": 100 },
         "resolvedAttendanceId": { "type": "string", "maxLength": 128 },

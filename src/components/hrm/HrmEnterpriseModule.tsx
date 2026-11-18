@@ -95,6 +95,7 @@ import {
   downloadHrmPayslipPdf,
   exportHrmReport,
   generateNextEmployeeId,
+  inferWorkerWorkLocationType,
   maskSensitiveValue,
   recalculatePayrollRunLineItem,
   resolveHrmPermissions,
@@ -103,6 +104,13 @@ import {
   submitRecruitmentRequestWithManpowerCheck,
   validateEmployeeRegistrationAuthorization,
 } from "../../services/hrmService";
+import {
+  AttendancePeriodMode,
+  computeAttendanceWorkflowDashboard,
+  detectMissingPunchType,
+  reviewAttendanceException,
+  WorkLocationFilterType,
+} from "../../services/attendanceWorkflowService";
 
 interface HrmEnterpriseModuleProps {
   isAmharic?: boolean;
@@ -642,6 +650,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     trade: "Site Engineer",
     employmentType: "Permanent",
     assignedProject: projectNames[0] || "Bole Tower",
+    workLocationType: "Construction Site" as "Head Office" | "Construction Site",
     qualifications: "",
     experienceYears: 3,
     experienceSummary: "",
@@ -683,6 +692,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       setEmpForm({
         ...base,
         assignedProject: targetRec.project,
+        workLocationType: inferWorkerWorkLocationType({ assignedProject: targetRec.project }),
         department: targetRec.department,
         position: targetRec.jobPosition,
         trade: targetRec.jobPosition,
@@ -715,6 +725,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       trade: w.trade || w.position || "Staff",
       employmentType: String(w.employmentType || "Permanent"),
       assignedProject: w.assignedProject || w.currentSite || projectNames[0] || "Bole Tower",
+      workLocationType: inferWorkerWorkLocationType(w),
       qualifications: w.qualifications || "",
       experienceYears: Number(w.experienceYears || 0),
       experienceSummary: w.experienceSummary || "",
@@ -893,6 +904,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       employmentType: empForm.employmentType,
       assignedProject: empForm.assignedProject,
       currentSite: empForm.assignedProject,
+      workLocationType: empForm.workLocationType,
       qualifications: empForm.qualifications,
       experienceYears: Number(empForm.experienceYears || 0),
       experienceSummary: empForm.experienceSummary,
@@ -973,7 +985,9 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   // ============================================================
   // 3. ATTENDANCE, SCHEDULE, LEAVE, OVERTIME & TRANSFER STATE
   // ============================================================
-  const [attSubView, setAttSubView] = useState<"board" | "schedules" | "leaves" | "overtime" | "transfers">("board");
+  const [attSubView, setAttSubView] = useState<
+    "board" | "exceptions" | "schedules" | "leaves" | "overtime" | "transfers"
+  >("board");
   const [quickClock, setQuickClock] = useState({
     workerId: "",
     date: new Date().toISOString().slice(0, 10),
@@ -983,10 +997,16 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     qrOrEmpInput: "",
     biometricVerifiedNote: "",
     method: AttendanceMethod.MANUAL_ENTRY,
-    attViewMode: "daily" as "daily" | "monthly",
+    attViewMode: "daily" as AttendancePeriodMode,
     dailyFilterDate: new Date().toISOString().slice(0, 10),
     dailyFilterProject: "ALL",
+    filterDepartment: "ALL",
+    filterEmployeeId: "ALL",
+    filterWorkLocation: "ALL" as WorkLocationFilterType,
   });
+  const [exceptionDrafts, setExceptionDrafts] = useState<
+    Record<string, { time: string; notes: string }>
+  >({});
   const [syncingBioQueue, setSyncingBioQueue] = useState(false);
   const [bioClockForm, setBioClockForm] = useState({
     deviceId: "",
@@ -996,10 +1016,17 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const [schedForm, setSchedForm] = useState({
     scheduleName: "Standard Construction Day Shift",
+    scopeType: "Company" as "Company" | "Project" | "Department" | "Employee",
+    workLocationType: "ALL" as "ALL" | "Head Office" | "Construction Site",
     project: "ALL",
     department: "ALL",
+    workerId: "",
+    schedulePeriodType: "Weekly" as "Weekly" | "Monthly" | "Fixed",
+    effectiveFrom: new Date().toISOString().slice(0, 10),
+    effectiveTo: "",
     shiftStartTime: "08:00",
     shiftEndTime: "17:00",
+    isNightShift: false,
     breakMinutes: 60,
     standardDailyHours: 8,
     graceMinutesLate: 15,
@@ -1030,12 +1057,57 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const [transferForm, setTransferForm] = useState({
     workerId: "",
+    toWorkLocationType: "Construction Site" as "Head Office" | "Construction Site",
     toProject: projectNames[0] || "CMC Residential",
     toDepartment: "Construction",
     toPosition: "",
     effectiveDate: new Date().toISOString().slice(0, 10),
     reason: "",
   });
+
+  const departmentOptions = useMemo(() => {
+    const set = new Set<string>(["Engineering", "Construction", "Operations", "Finance", "HR", "Administration"]);
+    workers.forEach((w) => w.department && set.add(w.department));
+    return Array.from(set);
+  }, [workers]);
+
+  const attDashboard = useMemo(
+    () =>
+      computeAttendanceWorkflowDashboard({
+        workers,
+        attendance,
+        schedules: workSchedules,
+        leaveRequests,
+        overtimeRequests,
+        devices: biometricDevices,
+        unmappedEvents: unmappedBiometricEvents,
+        filters: {
+          periodMode: quickClock.attViewMode,
+          anchorDate: quickClock.dailyFilterDate,
+          selectedMonth,
+          employeeFilter: quickClock.filterEmployeeId,
+          departmentFilter: quickClock.filterDepartment,
+          projectFilter: quickClock.dailyFilterProject,
+          workLocationFilter: quickClock.filterWorkLocation,
+        },
+      }),
+    [
+      workers,
+      attendance,
+      workSchedules,
+      leaveRequests,
+      overtimeRequests,
+      biometricDevices,
+      unmappedBiometricEvents,
+      quickClock.attViewMode,
+      quickClock.dailyFilterDate,
+      quickClock.filterEmployeeId,
+      quickClock.filterDepartment,
+      quickClock.dailyFilterProject,
+      quickClock.filterWorkLocation,
+      selectedMonth,
+    ]
+  );
 
   const handleQrQuickScan = () => {
     const token = quickClock.qrOrEmpInput.trim().toLowerCase();
@@ -1091,14 +1163,21 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     e.preventDefault();
     const w = workers.find((x) => x.id === quickClock.workerId) || workers[0];
     if (!w) return showToast("error", "No registered employee selected.");
-    const siteName = w.assignedProject || w.currentSite || "Main Site";
-    const schedule = resolveWorkerSchedule(w, workSchedules);
+    const siteName = w.assignedProject || w.currentSite || "Head Office";
+    const workLocType = inferWorkerWorkLocationType(w);
+    const schedule = resolveWorkerSchedule(w, workSchedules, quickClock.date);
+    const cleanIn = quickClock.explicitStatus === "Absent" ? null : quickClock.checkIn.trim() || null;
+    const cleanOut = quickClock.explicitStatus === "Absent" ? null : quickClock.checkOut.trim() || null;
+
     const metrics = computeScheduleAttendanceMetrics({
       date: quickClock.date,
-      checkIn: quickClock.explicitStatus === "Absent" ? null : quickClock.checkIn,
-      checkOut: quickClock.explicitStatus === "Absent" ? null : quickClock.checkOut || null,
+      checkIn: cleanIn,
+      checkOut: cleanOut,
       explicitStatus: quickClock.explicitStatus === "Auto" ? undefined : quickClock.explicitStatus,
       schedule,
+      approvedLeaves: leaveRequests,
+      workerId: w.id,
+      employeeId: w.employeeId,
     });
 
     const rec: AttendanceRecord = {
@@ -1108,18 +1187,26 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       department: w.department || "Operations",
       trade: w.trade || w.position || "Staff",
       company: w.company || "OVID Real Estate",
-      building: "Main",
+      building: siteName,
       floor: 0,
       zone: siteName,
+      workLocationType: workLocType,
       date: quickClock.date,
-      checkIn: quickClock.explicitStatus === "Absent" ? null : quickClock.checkIn,
-      checkOut: quickClock.explicitStatus === "Absent" ? null : quickClock.checkOut || null,
+      checkIn: cleanIn,
+      checkOut: cleanOut,
       status: metrics.status,
       workingHours: metrics.workingHours,
       overtime: metrics.overtime,
+      overtimeCandidateHours: metrics.overtimeCandidateHours,
       underTime: metrics.underTime,
       lateArrivalMinutes: metrics.lateArrivalMinutes,
       earlyDepartureMinutes: metrics.earlyDepartureMinutes,
+      punchCompleteness: metrics.punchCompleteness,
+      missingPunchType: metrics.missingPunchType,
+      hrReviewStatus: metrics.hrReviewStatus,
+      ...(metrics.missingPunchType !== "None"
+        ? { exceptionReason: `${metrics.missingPunchType} logged — hours held at 0h pending HR verification` }
+        : {}),
       scheduleId: schedule?.id,
       recordedByUid: actorUid,
       method: quickClock.method,
@@ -1140,11 +1227,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     await onAddAttendance(rec);
     onLogAction(
       "HRM Attendance Recorded",
-      `${w.name} (${rec.date}) -> ${rec.status} | Late: ${metrics.lateArrivalMinutes}m | Early Exit: ${metrics.earlyDepartureMinutes}m | Hours: ${metrics.workingHours}h + ${metrics.overtime}h OT`
+      `${w.name} (${rec.date}) -> ${rec.status} | Completeness: ${metrics.punchCompleteness} | Hours: ${metrics.workingHours}h + ${metrics.overtime}h OT`
     );
     showToast(
-      "success",
-      `Logged ${w.name}: ${metrics.status} (${metrics.workingHours}h regular, ${metrics.overtime}h OT, ${metrics.lateArrivalMinutes}m late).`
+      metrics.missingPunchType !== "None" ? "info" : "success",
+      metrics.missingPunchType !== "None"
+        ? `Logged ${w.name} with ${metrics.missingPunchType} (hours held at 0h and queued for HR Review).`
+        : `Logged ${w.name}: ${metrics.status} (${metrics.workingHours}h regular, ${metrics.overtimeCandidateHours}h OT candidate, ${metrics.lateArrivalMinutes}m late).`
     );
   };
 
@@ -1156,6 +1245,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         mappings: biometricDeviceMappings,
         workers,
         schedules: workSchedules,
+        approvedLeaves: leaveRequests,
         existingAttendance: attendance,
         existingUnmappedEvents: unmappedBiometricEvents,
         onSaveAttendance: onAddAttendance,
@@ -1199,6 +1289,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         mappings: biometricDeviceMappings,
         workers,
         schedules: workSchedules,
+        approvedLeaves: leaveRequests,
         existingAttendance: attendance,
         existingUnmappedEvents: unmappedBiometricEvents,
         onSaveAttendance: onAddAttendance,
@@ -1231,19 +1322,88 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     }
   };
 
+  const handleResolveAttendanceException = async (
+    record: AttendanceRecord,
+    action: "Complete Missing Punch" | "Approve Overtime" | "Reject Overtime" | "Acknowledge Exception"
+  ) => {
+    const draft = exceptionDrafts[record.id] || { time: "", notes: "" };
+    if (!draft.notes.trim()) {
+      return showToast("error", "Enter an HR review note / justification for audit compliance.");
+    }
+    const missingType = detectMissingPunchType(record);
+    try {
+      const worker = workers.find(
+        (w) => w.id === record.workerId || w.employeeId === record.workerId
+      );
+      const res = await reviewAttendanceException({
+        record,
+        action,
+        verifiedCheckIn: missingType === "Missing Check-In" ? draft.time : undefined,
+        verifiedCheckOut: missingType === "Missing Check-Out" ? draft.time : undefined,
+        reviewNotes: draft.notes,
+        worker,
+        schedules: workSchedules,
+        approvedLeaves: leaveRequests,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveAttendance: onAddAttendance,
+      });
+      onLogAction(
+        `HRM Attendance Exception (${action})`,
+        `${res.updatedRecord.workerName} (${res.updatedRecord.date}) -> ${res.updatedRecord.workingHours}h reg / ${res.updatedRecord.overtime}h OT`
+      );
+      showToast(
+        "success",
+        res.createdOvertimeRequest
+          ? `Approved ${res.updatedRecord.workerName} overtime (${res.updatedRecord.overtime}h) and linked ${res.createdOvertimeRequest.requestNo} to payroll.`
+          : `Resolved attendance exception for ${res.updatedRecord.workerName} (${res.updatedRecord.workingHours}h worked).`
+      );
+      setExceptionDrafts((p) => {
+        const next = { ...p };
+        delete next[record.id];
+        return next;
+      });
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to resolve attendance exception.");
+    }
+  };
+
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees && !perms.isOperationManager) {
+    if (!perms.canManageEmployees && !perms.isOperationManager && !perms.isProjectManager) {
       return showToast("error", "Insufficient permission to edit work schedules.");
     }
+    const targetWorker =
+      schedForm.scopeType === "Employee"
+        ? workers.find((w) => w.id === (schedForm.workerId || workers[0]?.id))
+        : undefined;
     const nowIso = new Date().toISOString();
     const cfg: WorkScheduleConfig = {
       id: `WSC-${Date.now()}`,
-      scheduleName: schedForm.scheduleName,
-      project: schedForm.project,
-      department: schedForm.department,
+      scheduleName: schedForm.scheduleName.trim() || "Work Shift Policy",
+      scopeType: schedForm.scopeType,
+      workLocationType:
+        schedForm.scopeType === "Project"
+          ? schedForm.project.toLowerCase().includes("head office")
+            ? "Head Office"
+            : "Construction Site"
+          : schedForm.workLocationType,
+      project: schedForm.scopeType === "Project" ? schedForm.project : "ALL",
+      department: schedForm.scopeType === "Department" ? schedForm.department : "ALL",
+      ...(targetWorker
+        ? {
+            workerId: targetWorker.id,
+            employeeId: targetWorker.employeeId || targetWorker.id,
+            employeeName: targetWorker.name,
+          }
+        : {}),
+      schedulePeriodType: schedForm.schedulePeriodType,
+      effectiveFrom: schedForm.effectiveFrom || undefined,
+      effectiveTo: schedForm.effectiveTo || undefined,
       shiftStartTime: schedForm.shiftStartTime,
       shiftEndTime: schedForm.shiftEndTime,
+      isNightShift: Boolean(schedForm.isNightShift) || schedForm.shiftEndTime <= schedForm.shiftStartTime,
       breakMinutes: Number(schedForm.breakMinutes),
       standardDailyHours: Number(schedForm.standardDailyHours),
       graceMinutesLate: Number(schedForm.graceMinutesLate),
@@ -1258,8 +1418,11 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       updatedAt: nowIso,
     };
     await DbService.saveWorkSchedule(cfg);
-    onLogAction("HRM Schedule Configured", `${cfg.scheduleName} (${cfg.shiftStartTime}-${cfg.shiftEndTime})`);
-    showToast("success", "Work schedule, rest days & overtime rules saved.");
+    onLogAction(
+      "HRM Schedule Configured",
+      `${cfg.scheduleName} [${cfg.scopeType}${cfg.employeeName ? `: ${cfg.employeeName}` : ""}] (${cfg.shiftStartTime}-${cfg.shiftEndTime}${cfg.isNightShift ? " Night" : ""})`
+    );
+    showToast("success", `Work schedule "${cfg.scheduleName}" saved (${cfg.scopeType} scope).`);
   };
 
   const handleSubmitLeave = async (e: React.FormEvent) => {
@@ -1414,12 +1577,19 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     if (!w) return showToast("error", "Select an employee to transfer.");
     const nowIso = new Date().toISOString();
     const nextPos = transferForm.toPosition.trim() || w.position || w.trade || "Staff";
+    const fromLoc = inferWorkerWorkLocationType(w);
+    const toLoc =
+      transferForm.toProject.toLowerCase().includes("head office")
+        ? "Head Office"
+        : transferForm.toWorkLocationType;
     const rec: EmployeeTransferRecord = {
       id: `TRF-${Date.now()}`,
       transferNo: `TR-${nowIso.slice(0, 7)}-${Math.floor(100 + Math.random() * 900)}`,
       employeeId: w.employeeId || w.id,
       workerId: w.id,
       workerName: w.name,
+      fromWorkLocationType: fromLoc,
+      toWorkLocationType: toLoc,
       fromProject: w.assignedProject || w.currentSite || "Unassigned",
       toProject: transferForm.toProject,
       fromDepartment: w.department || "Operations",
@@ -1439,12 +1609,16 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       ...w,
       assignedProject: rec.toProject,
       currentSite: rec.toProject,
+      workLocationType: rec.toWorkLocationType,
       department: rec.toDepartment,
       position: rec.toPosition,
       trade: rec.toPosition,
     });
-    onLogAction("HRM Site Transfer Executed", `${w.name}: ${rec.fromProject} -> ${rec.toProject}`);
-    showToast("success", `Transferred ${w.name} to ${rec.toProject}.`);
+    onLogAction(
+      "HRM Site Transfer Executed",
+      `${w.name}: ${rec.fromWorkLocationType} (${rec.fromProject}) -> ${rec.toWorkLocationType} (${rec.toProject})`
+    );
+    showToast("success", `Transferred ${w.name} to ${rec.toWorkLocationType} — ${rec.toProject}.`);
   };
 
   // ============================================================
@@ -2995,7 +3169,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             <div className="flex flex-wrap gap-2">
               {(
                 [
-                  { id: "board", label: isAmharic ? "የሰዓት ቁጥጥር እና ባዮሜትሪክ" : "Attendance Summary & Biometric Sync" },
+                  { id: "board", label: isAmharic ? "የሰዓት ቁጥጥር እና ባዮሜትሪክ" : "Attendance Dashboard & Sync" },
+                  {
+                    id: "exceptions",
+                    label: isAmharic
+                      ? `የሰዓት ግድፈቶች እና HR ማጽደቂያ (${attDashboard.exceptionItems.length})`
+                      : `Exceptions & HR Review (${attDashboard.exceptionItems.length})`,
+                  },
                   {
                     id: "schedules",
                     label: isAmharic ? `የሥራ ፈረቃ እና በዓላት (${workSchedules.length})` : `Work Shifts & Holidays (${workSchedules.length})`,
@@ -3053,7 +3233,59 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
           {attSubView === "board" && (
             <div className="space-y-5">
-              {/* Biometric Mapping & ZKTeco Hardware Attendance Sync */}
+              {/* Attendance Dashboard 8 KPI Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Present Employees</div>
+                  <div className="text-xl font-black text-emerald-400 font-mono mt-1">{attDashboard.presentCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">{attDashboard.filteredWorkers.length} in scope</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Absent Employees</div>
+                  <div className="text-xl font-black text-red-400 font-mono mt-1">{attDashboard.absentCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Unexcused on {quickClock.dailyFilterDate}</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Late Employees</div>
+                  <div className="text-xl font-black text-amber-400 font-mono mt-1">{attDashboard.lateCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Beyond shift grace</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Early Departures</div>
+                  <div className="text-xl font-black text-orange-400 font-mono mt-1">{attDashboard.earlyDepartureCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">Left before shift end</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Missing Punches</div>
+                  <div className="text-xl font-black text-rose-400 font-mono mt-1">{attDashboard.missingPunchCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">No time fabricated</div>
+                </div>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Overtime Candidates</div>
+                  <div className="text-xl font-black text-purple-400 font-mono mt-1">{attDashboard.overtimeCandidateCount}</div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">{attDashboard.overtimeCandidateHoursTotal}h flagged</div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setAttSubView("exceptions")}
+                  className="bg-slate-950 border border-amber-500/30 hover:border-amber-400 rounded-xl p-3 text-left cursor-pointer"
+                >
+                  <div className="text-[10px] uppercase tracking-wider text-amber-300">Pending HR Approval</div>
+                  <div className="text-xl font-black text-amber-300 font-mono mt-1">{attDashboard.pendingHrApprovalCount}</div>
+                  <div className="text-[10px] text-amber-400/80 mt-0.5">Open exception queue →</div>
+                </button>
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-3">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400">Biometric Devices</div>
+                  <div className="text-xl font-black text-cyan-400 font-mono mt-1">
+                    {attDashboard.deviceStatusSummary.onlineConnected}/{attDashboard.deviceStatusSummary.active}
+                  </div>
+                  <div className="text-[10px] text-slate-500 mt-0.5">
+                    {attDashboard.deviceStatusSummary.offlineOrUnverified} offline · {attDashboard.deviceStatusSummary.inactive} inactive
+                  </div>
+                </div>
+              </div>
+
+              {/* Biometric Mapping, Device Status & ZKTeco Hardware Attendance Sync */}
               {biometricMappingPerms.canView && (
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -3062,19 +3294,17 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       <div>
                         <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
                           {isAmharic
-                            ? "የባዮሜትሪክ መሳሪያ ካርታ እና ZKTeco ማመሳሰል"
-                            : "Biometric Device Mapping & ZKTeco Hardware Attendance Sync"}
+                            ? "የባዮሜትሪክ መሳሪያ ሁኔታ እና ZKTeco ማመሳሰል"
+                            : "Biometric Device Status, Mapping & ZKTeco Hardware Sync"}
                         </h3>
                         <p className="text-[11px] text-slate-400">
                           Active Devices:{" "}
-                          <strong className="text-white">
-                            {biometricDevices.filter((d) => d.status === "Active").length}
-                          </strong>{" "}
+                          <strong className="text-white">{attDashboard.deviceStatusSummary.active}</strong>{" "}
                           · Active Mappings:{" "}
                           <strong className="text-emerald-400">
                             {biometricDeviceMappings.filter((m) => m.status === "Active").length}
                           </strong>{" "}
-                          · Unmapped Queue:{" "}
+                          · Unmapped / Device Exceptions:{" "}
                           <strong className="text-amber-400">
                             {unmappedBiometricEvents.filter((u) => u.status === "Unmapped").length}
                           </strong>
@@ -3103,6 +3333,37 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       </button>
                     </div>
                   </div>
+
+                  {/* Live Device Health Strip (G3 Pro / MB360 Plus) */}
+                  {attDashboard.deviceStatusSummary.devices.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 pt-2 border-t border-slate-800/80">
+                      {attDashboard.deviceStatusSummary.devices.map((dev) => (
+                        <div
+                          key={dev.id}
+                          className="px-3 py-2 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-xs font-bold text-white truncate">{dev.deviceName}</div>
+                            <div className="text-[10px] text-slate-400 truncate">
+                              {dev.model} · {dev.workLocationType}
+                              {dev.projectName ? ` · ${dev.projectName}` : ""}
+                            </div>
+                          </div>
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                              dev.connectivityState === "Online"
+                                ? "bg-emerald-950/80 text-emerald-300 border border-emerald-500/30"
+                                : dev.connectivityState === "Pending Sync / Offline"
+                                ? "bg-amber-950/80 text-amber-300 border border-amber-500/30"
+                                : "bg-red-950/80 text-red-300 border border-red-500/30"
+                            }`}
+                          >
+                            {dev.connectivityState}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {biometricMappingPerms.canResolveUnmappedEvents && (
                     <form
@@ -3174,11 +3435,16 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3"
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
-                    {isAmharic
-                      ? "ከፈረቃ ጋር የተገናኘ የሰዓት መመዝገቢያ (ባዮሜትሪክ / QR / በተፈቀደ መምሪያ)"
-                      : "Schedule-Aware Time Clock (Hardware Biometric / QR Scan / Authorized Manual)"}
-                  </h3>
+                  <div>
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                      {isAmharic
+                        ? "ከፈረቃ ጋር የተገናኘ የሰዓት መመዝገቢያ (ባዮሜትሪክ / QR / በተፈቀደ መምሪያ)"
+                        : "Schedule-Aware Time Clock (Hardware Biometric / QR Scan / Authorized Manual)"}
+                    </h3>
+                    <p className="text-[11px] text-slate-400">
+                      Leave Check-In or Check-Out blank to record a Missing Punch (hours remain 0h and route to HR Review — never fabricated).
+                    </p>
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <div className="flex items-center gap-1.5">
                       <input
@@ -3237,7 +3503,18 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Check-In</label>
+                    <label className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                      <span>Check-In</span>
+                      {quickClock.checkIn && (
+                        <button
+                          type="button"
+                          onClick={() => setQuickClock((p) => ({ ...p, checkIn: "" }))}
+                          className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </label>
                     <input
                       type="time"
                       value={quickClock.checkIn}
@@ -3246,7 +3523,18 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                     />
                   </div>
                   <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Check-Out</label>
+                    <label className="flex items-center justify-between text-[11px] text-slate-400 mb-1">
+                      <span>Check-Out</span>
+                      {quickClock.checkOut && (
+                        <button
+                          type="button"
+                          onClick={() => setQuickClock((p) => ({ ...p, checkOut: "" }))}
+                          className="text-[10px] text-slate-500 hover:text-slate-300 cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </label>
                     <input
                       type="time"
                       value={quickClock.checkOut}
@@ -3276,162 +3564,495 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 </div>
               </form>
 
-              {/* Daily vs Monthly Toggle & Filters */}
-              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setQuickClock((p) => ({ ...p, attViewMode: "daily" }))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                      quickClock.attViewMode === "daily"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-900 text-slate-300"
-                    }`}
-                  >
-                    {isAmharic ? "ዕለታዊ የመግቢያ/መውጫ መዝገብ" : "Daily Clock-In / Clock-Out Log"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setQuickClock((p) => ({ ...p, attViewMode: "monthly" }))}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
-                      quickClock.attViewMode === "monthly"
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-900 text-slate-300"
-                    }`}
-                  >
-                    {isAmharic ? `ወርሃዊ ማጠቃለያ (${selectedMonth})` : `Monthly Rollup (${selectedMonth})`}
-                  </button>
-                </div>
-                {quickClock.attViewMode === "daily" && (
+              {/* Daily / Weekly / Monthly Toggle & 5-Filter Bar (Date, Employee, Department, Project, Work Location) */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <input
-                      type="date"
-                      value={quickClock.dailyFilterDate}
-                      onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterDate: e.target.value }))}
-                      className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                    />
+                    <button
+                      type="button"
+                      onClick={() => setQuickClock((p) => ({ ...p, attViewMode: "daily" }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                        quickClock.attViewMode === "daily"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      {isAmharic ? "ዕለታዊ መዝገብ" : "Daily Attendance"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickClock((p) => ({ ...p, attViewMode: "weekly" }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                        quickClock.attViewMode === "weekly"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      {isAmharic ? "ሳምንታዊ ማጠቃለያ" : "Weekly Rollup"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setQuickClock((p) => ({ ...p, attViewMode: "monthly" }))}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-bold cursor-pointer ${
+                        quickClock.attViewMode === "monthly"
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+                      }`}
+                    >
+                      {isAmharic ? `ወርሃዊ ማጠቃለያ (${selectedMonth})` : `Monthly Rollup (${selectedMonth})`}
+                    </button>
+                  </div>
+                  <div className="text-[11px] font-mono text-slate-400">
+                    Period: <strong className="text-white">{attDashboard.periodLabel}</strong>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 pt-2 border-t border-slate-800/80">
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">
+                      {quickClock.attViewMode === "monthly" ? "Month" : "Anchor Date"}
+                    </label>
+                    {quickClock.attViewMode === "monthly" ? (
+                      <input
+                        type="month"
+                        value={selectedMonth}
+                        onChange={(e) => setSelectedMonth(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    ) : (
+                      <input
+                        type="date"
+                        value={quickClock.dailyFilterDate}
+                        onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterDate: e.target.value }))}
+                        className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    )}
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Employee</label>
+                    <select
+                      value={quickClock.filterEmployeeId}
+                      onChange={(e) => setQuickClock((p) => ({ ...p, filterEmployeeId: e.target.value }))}
+                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="ALL">All Employees ({workers.length})</option>
+                      {workers.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.employeeId || w.id} — {w.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Department</label>
+                    <select
+                      value={quickClock.filterDepartment}
+                      onChange={(e) => setQuickClock((p) => ({ ...p, filterDepartment: e.target.value }))}
+                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="ALL">All Departments</option>
+                      {departmentOptions.map((d) => (
+                        <option key={d} value={d}>{d}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Project / Site</label>
                     <select
                       value={quickClock.dailyFilterProject}
                       onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterProject: e.target.value }))}
-                      className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
                     >
-                      <option value="ALL">All Projects</option>
+                      <option value="ALL">All Projects & Head Office</option>
                       {projectNames.map((p) => (
                         <option key={p} value={p}>{p}</option>
                       ))}
                     </select>
                   </div>
-                )}
+                  <div>
+                    <label className="block text-[10px] text-slate-400 mb-1">Work Location</label>
+                    <select
+                      value={quickClock.filterWorkLocation}
+                      onChange={(e) =>
+                        setQuickClock((p) => ({ ...p, filterWorkLocation: e.target.value as WorkLocationFilterType }))
+                      }
+                      className="w-full px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="ALL">All Locations</option>
+                      <option value="Head Office">Head Office</option>
+                      <option value="Construction Site">Construction Site</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {quickClock.attViewMode === "daily" ? (
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
-                  <table className="w-full text-xs text-left">
-                    <thead>
-                      <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Employee</th>
-                        <th className="py-2.5 px-3">Site / Zone</th>
-                        <th className="py-2.5 px-3">Check-In</th>
-                        <th className="py-2.5 px-3">Check-Out</th>
-                        <th className="py-2.5 px-3 text-right">Late (min)</th>
-                        <th className="py-2.5 px-3 text-right">Early Exit (min)</th>
-                        <th className="py-2.5 px-3 text-right">Regular Hrs</th>
-                        <th className="py-2.5 px-3 text-right">OT Hrs</th>
-                        <th className="py-2.5 px-3">Status</th>
-                        <th className="py-2.5 px-3">Method</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {attendance
-                        .filter(
-                          (a) =>
-                            (!quickClock.dailyFilterDate || a.date === quickClock.dailyFilterDate) &&
-                            (quickClock.dailyFilterProject === "ALL" ||
-                              (a.zone || a.gpsLocationString || "") === quickClock.dailyFilterProject)
-                        )
-                        .map((a) => (
-                          <tr key={a.id} className="border-b border-slate-900">
-                            <td className="py-2.5 px-3 font-mono text-slate-300">{a.date}</td>
-                            <td className="py-2.5 px-3 font-semibold text-white">{a.workerName}</td>
-                            <td className="py-2.5 px-3 text-slate-300">{a.zone || a.gpsLocationString || "Site"}</td>
-                            <td className="py-2.5 px-3 font-mono text-emerald-300">{a.checkIn || "—"}</td>
-                            <td className="py-2.5 px-3 font-mono text-slate-200">{a.checkOut || "—"}</td>
-                            <td className="py-2.5 px-3 text-right font-mono text-amber-400">
-                              {Number(a.lateArrivalMinutes || 0)}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-slate-300">
-                              {Number(a.earlyDepartureMinutes || Math.round(Number(a.underTime || 0) * 60))}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-white font-bold">
-                              {Number(a.workingHours || 0)}
-                            </td>
-                            <td className="py-2.5 px-3 text-right font-mono text-purple-400">
-                              {Number(a.overtime || 0)}
-                            </td>
-                            <td className="py-2.5 px-3">
-                              <span
-                                className={`px-2 py-0.5 rounded text-[11px] font-bold ${
-                                  a.status === "Present"
-                                    ? "bg-emerald-950/70 text-emerald-300"
-                                    : a.status === "Late"
-                                    ? "bg-amber-950/70 text-amber-300"
-                                    : "bg-red-950/70 text-red-300"
-                                }`}
-                              >
-                                {a.status}
-                              </span>
-                            </td>
-                            <td className="py-2.5 px-3 text-slate-400">
-                              <div>{a.method}</div>
-                              {(a.biometricDeviceName || a.biometricUserId) && (
-                                <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
-                                  {a.biometricDeviceName || a.biometricDeviceId}
-                                  {a.biometricUserId ? ` · BioID ${a.biometricUserId}` : ""}
-                                </div>
-                              )}
+                <div className="space-y-4">
+                  <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                        Daily Attendance Log ({attDashboard.filteredRecords.length} record{attDashboard.filteredRecords.length === 1 ? "" : "s"})
+                      </h4>
+                    </div>
+                    <table className="w-full text-xs text-left">
+                      <thead>
+                        <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Employee</th>
+                          <th className="py-2.5 px-3">Location / Site</th>
+                          <th className="py-2.5 px-3">Check-In</th>
+                          <th className="py-2.5 px-3">Check-Out</th>
+                          <th className="py-2.5 px-3 text-right">Late (min)</th>
+                          <th className="py-2.5 px-3 text-right">Early Exit (min)</th>
+                          <th className="py-2.5 px-3 text-right">Work Hrs</th>
+                          <th className="py-2.5 px-3 text-right">OT (Appr / Cand)</th>
+                          <th className="py-2.5 px-3">Status & Review</th>
+                          <th className="py-2.5 px-3">Device / Method</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {attDashboard.filteredRecords.length === 0 ? (
+                          <tr>
+                            <td colSpan={11} className="py-6 text-center text-slate-500">
+                              No attendance punches match the selected filters on {quickClock.dailyFilterDate}.
                             </td>
                           </tr>
+                        ) : (
+                          attDashboard.filteredRecords.map((a) => {
+                            const missingType = detectMissingPunchType(a);
+                            return (
+                              <tr key={a.id} className="border-b border-slate-900">
+                                <td className="py-2.5 px-3 font-mono text-slate-300">{a.date}</td>
+                                <td className="py-2.5 px-3">
+                                  <div className="font-semibold text-white">{a.workerName}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">
+                                    {a.workerId} · {a.department || "General"}
+                                  </div>
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-300">
+                                  <div>{a.zone || a.gpsLocationString || "Site"}</div>
+                                  <div className="text-[10px] text-slate-500">{a.workLocationType || "Construction Site"}</div>
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-emerald-300">
+                                  {a.checkIn || <span className="text-rose-400">MISSING</span>}
+                                </td>
+                                <td className="py-2.5 px-3 font-mono text-slate-200">
+                                  {a.checkOut || <span className="text-rose-400">MISSING</span>}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-amber-400">
+                                  {Number(a.lateArrivalMinutes || 0)}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-slate-300">
+                                  {Number(a.earlyDepartureMinutes || Math.round(Number(a.underTime || 0) * 60))}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-white font-bold">
+                                  {Number(a.workingHours || 0)}h
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono text-purple-400">
+                                  {Number(a.overtime || 0)}h
+                                  {Number(a.overtimeCandidateHours || 0) > Number(a.overtime || 0) && (
+                                    <span className="block text-[10px] text-amber-300">
+                                      ({a.overtimeCandidateHours}h cand)
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 space-y-1">
+                                  <span
+                                    className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
+                                      a.status === "Present"
+                                        ? "bg-emerald-950/70 text-emerald-300"
+                                        : a.status === "Late"
+                                        ? "bg-amber-950/70 text-amber-300"
+                                        : a.status === "Leave" || a.status === "Holiday"
+                                        ? "bg-blue-950/70 text-blue-300"
+                                        : "bg-red-950/70 text-red-300"
+                                    }`}
+                                  >
+                                    {a.status}
+                                  </span>
+                                  {missingType !== "None" && (
+                                    <div className="text-[10px] font-bold text-rose-400">{missingType}</div>
+                                  )}
+                                  {a.hrReviewStatus === "Pending HR Review" && (
+                                    <div className="text-[10px] font-semibold text-amber-300">Pending HR Review</div>
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-slate-400">
+                                  <div>{a.method}</div>
+                                  {(a.biometricDeviceName || a.biometricUserId) && (
+                                    <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                                      {a.biometricDeviceName || a.biometricDeviceId}
+                                      {a.biometricUserId ? ` · BioID ${a.biometricUserId}` : ""}
+                                    </div>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Employees Without Attendance Punch on Selected Date (Absent / Approved Leave / Holiday / Rest Day) */}
+                  {attDashboard.absentWorkersToday.length > 0 && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
+                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
+                        Roster Status Without Clock-In on {quickClock.dailyFilterDate} ({attDashboard.absentWorkersToday.length})
+                      </h4>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+                        {attDashboard.absentWorkersToday.map((aw) => (
+                          <div
+                            key={aw.workerId}
+                            className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-2 text-xs"
+                          >
+                            <div className="min-w-0">
+                              <div className="font-bold text-white truncate">
+                                {aw.employeeId} — {aw.workerName}
+                              </div>
+                              <div className="text-[10px] text-slate-400 truncate">
+                                {aw.department} · {aw.project} ({aw.workLocationType})
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                                aw.dayStatus === "Absent"
+                                  ? "bg-red-950/80 text-red-300 border border-red-500/30"
+                                  : aw.dayStatus === "Leave"
+                                  ? "bg-blue-950/80 text-blue-300 border border-blue-500/30"
+                                  : "bg-slate-800 text-slate-300"
+                              }`}
+                            >
+                              {aw.dayStatus}
+                            </span>
+                          </div>
                         ))}
-                    </tbody>
-                  </table>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                      {quickClock.attViewMode === "weekly"
+                        ? `Weekly Attendance Summary (${attDashboard.periodLabel})`
+                        : `Monthly Attendance Summary (${attDashboard.periodLabel})`}
+                    </h4>
+                  </div>
                   <table className="w-full text-xs text-left">
                     <thead>
                       <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
                         <th className="py-2.5 px-3">Employee ID</th>
                         <th className="py-2.5 px-3">Employee Name</th>
-                        <th className="py-2.5 px-3">Project</th>
+                        <th className="py-2.5 px-3">Department</th>
+                        <th className="py-2.5 px-3">Location / Site</th>
                         <th className="py-2.5 px-3 text-right">Present</th>
                         <th className="py-2.5 px-3 text-right">Late</th>
                         <th className="py-2.5 px-3 text-right">Early Exit</th>
+                        <th className="py-2.5 px-3 text-right">Missing Punch</th>
                         <th className="py-2.5 px-3 text-right">Absent</th>
                         <th className="py-2.5 px-3 text-right">Leave Days</th>
-                        <th className="py-2.5 px-3 text-right">Approved OT</th>
-                        <th className="py-2.5 px-3 text-right">Total Hrs</th>
-                        <th className="py-2.5 px-3">Biometric</th>
+                        <th className="py-2.5 px-3 text-right">Regular Hrs</th>
+                        <th className="py-2.5 px-3 text-right">OT (Appr / Cand)</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {dash.attendanceSummaryRows.map((a) => (
-                        <tr key={a.workerId} className="border-b border-slate-900">
-                          <td className="py-2.5 px-3 font-mono text-white">{a.employeeId}</td>
-                          <td className="py-2.5 px-3 font-semibold text-white">{a.workerName}</td>
-                          <td className="py-2.5 px-3 text-slate-300">{a.project}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-emerald-400">{a.presentDays}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-amber-400">{a.lateDays}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-slate-300">{a.earlyDepartures}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-red-400">{a.absentDays}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-blue-400">{a.leaveDays}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-purple-400">{a.approvedOvertimeHours}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-white font-bold">{a.totalHours}</td>
-                          <td className="py-2.5 px-3 text-slate-300">{a.biometricStatus}</td>
+                      {(quickClock.attViewMode === "weekly"
+                        ? attDashboard.weeklyRows
+                        : attDashboard.monthlyRows
+                      ).map((row) => (
+                        <tr key={row.workerId} className="border-b border-slate-900">
+                          <td className="py-2.5 px-3 font-mono text-white">{row.employeeId}</td>
+                          <td className="py-2.5 px-3 font-semibold text-white">{row.workerName}</td>
+                          <td className="py-2.5 px-3 text-slate-300">{row.department}</td>
+                          <td className="py-2.5 px-3 text-slate-300">
+                            <div>{row.project}</div>
+                            <div className="text-[10px] text-slate-500">{row.workLocationType}</div>
+                          </td>
+                          <td className="py-2.5 px-3 text-right font-mono text-emerald-400">{row.presentDays}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-amber-400">{row.lateDays}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-orange-400">{row.earlyDepartures}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-rose-400">{row.missingPunches}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-red-400">{row.absentDays}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-blue-400">{row.leaveDays}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-white font-bold">{row.regularHours}h</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-purple-400">
+                            {row.approvedOvertimeHours}h / {row.overtimeCandidateHours}h
+                          </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {attSubView === "exceptions" && (
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                    <AlertTriangle size={16} className="text-amber-400" />
+                    <span>Attendance Exceptions & HR Review / Approval Queue</span>
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    Incomplete punches hold 0h until HR verifies the missing Check-In/Check-Out timestamp. Overtime candidates require HR approval before payroll credit.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("biometric-mapping")}
+                  className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold cursor-pointer"
+                >
+                  Open Biometric Mapping & Unmapped Queue
+                </button>
+              </div>
+
+              {attDashboard.exceptionItems.length === 0 ? (
+                <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                  No pending attendance exceptions or unmapped biometric events for the selected filter scope.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {attDashboard.exceptionItems.map((ex) => {
+                    const draft = exceptionDrafts[ex.id] || { time: "", notes: "" };
+                    return (
+                      <div
+                        key={ex.id}
+                        className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-3"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                                  ex.category.startsWith("Missing")
+                                    ? "bg-rose-950 text-rose-300 border border-rose-500/40"
+                                    : ex.category === "Overtime Candidate"
+                                    ? "bg-purple-950 text-purple-300 border border-purple-500/40"
+                                    : ex.sourceType === "unmapped"
+                                    ? "bg-red-950 text-red-300 border border-red-500/40"
+                                    : "bg-amber-950 text-amber-300 border border-amber-500/40"
+                                }`}
+                              >
+                                {ex.category}
+                              </span>
+                              <span className="text-xs font-bold text-white">{ex.workerName}</span>
+                              {ex.employeeId && (
+                                <span className="text-[11px] font-mono text-slate-400">({ex.employeeId})</span>
+                              )}
+                              <span className="text-[11px] font-mono text-slate-400">· {ex.date}</span>
+                            </div>
+                            <p className="text-xs text-slate-300 mt-1">{ex.details}</p>
+                            <div className="text-[11px] text-slate-500 mt-0.5">
+                              {ex.project}
+                              {ex.workLocationType ? ` (${ex.workLocationType})` : ""}
+                              {ex.deviceName ? ` · Device: ${ex.deviceName}` : ""}
+                              {ex.biometricUserId ? ` · BioID: ${ex.biometricUserId}` : ""}
+                            </div>
+                          </div>
+                          <span className="px-2 py-0.5 rounded bg-amber-950/70 text-amber-300 text-[10px] font-bold">
+                            {ex.reviewStatus}
+                          </span>
+                        </div>
+
+                        {ex.sourceType === "attendance" && ex.attendanceRecord ? (
+                          <div className="flex flex-wrap items-end gap-2 pt-2 border-t border-slate-800/80">
+                            {(ex.category === "Missing Check-Out" || ex.category === "Missing Check-In") && (
+                              <div>
+                                <label className="block text-[10px] text-slate-400 mb-1">
+                                  {ex.category === "Missing Check-In" ? "Verified Check-In Time" : "Verified Check-Out Time"}
+                                </label>
+                                <input
+                                  type="time"
+                                  value={draft.time}
+                                  onChange={(e) =>
+                                    setExceptionDrafts((p) => ({
+                                      ...p,
+                                      [ex.id]: { ...draft, time: e.target.value },
+                                    }))
+                                  }
+                                  className="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white font-mono"
+                                />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-[200px]">
+                              <label className="block text-[10px] text-slate-400 mb-1">HR Review Audit Notes *</label>
+                              <input
+                                placeholder="Enter verified reason / supervisor confirmation..."
+                                value={draft.notes}
+                                onChange={(e) =>
+                                  setExceptionDrafts((p) => ({
+                                    ...p,
+                                    [ex.id]: { ...draft, notes: e.target.value },
+                                  }))
+                                }
+                                className="w-full px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                              />
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {(ex.category === "Missing Check-Out" || ex.category === "Missing Check-In") && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleResolveAttendanceException(ex.attendanceRecord!, "Complete Missing Punch")
+                                  }
+                                  className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                                >
+                                  Complete Missing Punch
+                                </button>
+                              )}
+                              {ex.category === "Overtime Candidate" && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleResolveAttendanceException(ex.attendanceRecord!, "Approve Overtime")
+                                    }
+                                    className="px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold cursor-pointer"
+                                  >
+                                    Approve Overtime ({ex.overtimeCandidateHours || 0}h)
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      handleResolveAttendanceException(ex.attendanceRecord!, "Reject Overtime")
+                                    }
+                                    className="px-3 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-xs font-bold cursor-pointer"
+                                  >
+                                    Reject OT
+                                  </button>
+                                </>
+                              )}
+                              {ex.category === "Early Departure" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleResolveAttendanceException(ex.attendanceRecord!, "Acknowledge Exception")
+                                  }
+                                  className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer"
+                                >
+                                  Acknowledge Early Exit
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex justify-end pt-2 border-t border-slate-800/80">
+                            <button
+                              type="button"
+                              onClick={() => setActiveTab("biometric-mapping")}
+                              className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer"
+                            >
+                              Resolve in Biometric Mapping Module →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -3443,7 +4064,9 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 onSubmit={handleSaveSchedule}
                 className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4"
               >
-                <h3 className="text-sm font-extrabold text-white">Configure Work Shifts, Rest Days & Holidays</h3>
+                <h3 className="text-sm font-extrabold text-white">
+                  Configure Work Shifts, Night Shifts, Scopes & Holidays
+                </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="sm:col-span-2">
                     <label className="block text-[11px] text-slate-400 mb-1">Schedule Name</label>
@@ -3451,6 +4074,132 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       value={schedForm.scheduleName}
                       onChange={(e) => setSchedForm((p) => ({ ...p, scheduleName: e.target.value }))}
                       className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Schedule Scope</label>
+                    <select
+                      value={schedForm.scopeType}
+                      onChange={(e) =>
+                        setSchedForm((p) => ({
+                          ...p,
+                          scopeType: e.target.value as "Company" | "Project" | "Department" | "Employee",
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="Company">Company-Wide / Location Default</option>
+                      <option value="Project">Site / Project Specific</option>
+                      <option value="Department">Department Specific</option>
+                      <option value="Employee">Employee-Specific Shift</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Work Location Scope</label>
+                    <select
+                      value={schedForm.workLocationType}
+                      onChange={(e) =>
+                        setSchedForm((p) => ({
+                          ...p,
+                          workLocationType: e.target.value as "ALL" | "Head Office" | "Construction Site",
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="ALL">All Locations</option>
+                      <option value="Head Office">Head Office Only</option>
+                      <option value="Construction Site">Construction Sites Only</option>
+                    </select>
+                  </div>
+                  {schedForm.scopeType === "Project" && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] text-slate-400 mb-1">Target Project / Site</label>
+                      <select
+                        value={schedForm.project}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, project: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      >
+                        <option value="ALL">All Projects</option>
+                        {projectNames.map((pr) => (
+                          <option key={pr} value={pr}>{pr}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {schedForm.scopeType === "Department" && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] text-slate-400 mb-1">Target Department</label>
+                      <select
+                        value={schedForm.department}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, department: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      >
+                        <option value="ALL">All Departments</option>
+                        {departmentOptions.map((d) => (
+                          <option key={d} value={d}>{d}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {schedForm.scopeType === "Employee" && (
+                    <div className="sm:col-span-2">
+                      <label className="block text-[11px] text-slate-400 mb-1">Target Employee</label>
+                      <select
+                        value={schedForm.workerId || workers[0]?.id || ""}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, workerId: e.target.value }))}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      >
+                        {workers.map((w) => (
+                          <option key={w.id} value={w.id}>
+                            {w.employeeId || w.id} — {w.name} ({w.department || "General"})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Schedule Period Type</label>
+                    <select
+                      value={schedForm.schedulePeriodType}
+                      onChange={(e) =>
+                        setSchedForm((p) => ({
+                          ...p,
+                          schedulePeriodType: e.target.value as "Weekly" | "Monthly" | "Fixed",
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="Weekly">Weekly Repeating Shift</option>
+                      <option value="Monthly">Monthly Roster Shift</option>
+                      <option value="Fixed">Fixed Date Range</option>
+                    </select>
+                  </div>
+                  <div className="flex items-end pb-1">
+                    <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={schedForm.isNightShift}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, isNightShift: e.target.checked }))}
+                      />
+                      <span>Night Shift (Crosses Midnight)</span>
+                    </label>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Effective From</label>
+                    <input
+                      type="date"
+                      value={schedForm.effectiveFrom}
+                      onChange={(e) => setSchedForm((p) => ({ ...p, effectiveFrom: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Effective To (Optional)</label>
+                    <input
+                      type="date"
+                      value={schedForm.effectiveTo}
+                      onChange={(e) => setSchedForm((p) => ({ ...p, effectiveTo: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                     />
                   </div>
                   <div>
@@ -3470,6 +4219,38 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       onChange={(e) => setSchedForm((p) => ({ ...p, shiftEndTime: e.target.value }))}
                       className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                     />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">
+                      Break (min) / Standard Hrs / Grace (min)
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      <input
+                        type="number"
+                        min={0}
+                        value={schedForm.breakMinutes}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, breakMinutes: Number(e.target.value) }))}
+                        title="Unpaid Break Minutes"
+                        className="w-full px-2 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                      <input
+                        type="number"
+                        min={1}
+                        step="0.5"
+                        value={schedForm.standardDailyHours}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, standardDailyHours: Number(e.target.value) }))}
+                        title="Standard Daily Working Hours"
+                        className="w-full px-2 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                      <input
+                        type="number"
+                        min={0}
+                        value={schedForm.graceMinutesLate}
+                        onChange={(e) => setSchedForm((p) => ({ ...p, graceMinutesLate: Number(e.target.value) }))}
+                        title="Late Grace Minutes"
+                        className="w-full px-2 py-2 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    </div>
                   </div>
                   <div>
                     <label className="block text-[11px] text-slate-400 mb-1">OT Weekday / Rest / Holiday Multipliers</label>
@@ -3503,7 +4284,36 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       />
                     </div>
                   </div>
-                  <div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] text-slate-400 mb-1">Weekly Rest Days</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"].map((day) => {
+                        const active = schedForm.restDays.includes(day);
+                        return (
+                          <button
+                            key={day}
+                            type="button"
+                            onClick={() =>
+                              setSchedForm((p) => ({
+                                ...p,
+                                restDays: active
+                                  ? p.restDays.filter((x) => x !== day)
+                                  : [...p.restDays, day],
+                              }))
+                            }
+                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold cursor-pointer ${
+                              active
+                                ? "bg-amber-600 text-white"
+                                : "bg-slate-900 text-slate-400 border border-slate-800"
+                            }`}
+                          >
+                            {day.slice(0, 3)}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="sm:col-span-2">
                     <label className="block text-[11px] text-slate-400 mb-1">Add Public Holiday</label>
                     <div className="flex gap-2">
                       <input
@@ -3550,13 +4360,43 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   <p className="text-xs text-slate-500">Default 08:00–17:00 schedule active. Save custom shift policies on the left.</p>
                 ) : (
                   workSchedules.map((s) => (
-                    <div key={s.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1">
-                      <div className="font-bold text-white">{s.scheduleName}</div>
+                    <div key={s.id} className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-xs space-y-1.5">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-bold text-white">{s.scheduleName}</div>
+                        <div className="flex flex-wrap gap-1">
+                          <span className="px-2 py-0.5 rounded bg-blue-950/70 text-blue-300 text-[10px] font-bold">
+                            {s.scopeType || (s.project !== "ALL" ? "Project" : "Company")}
+                          </span>
+                          {s.workLocationType && s.workLocationType !== "ALL" && (
+                            <span className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 text-[10px]">
+                              {s.workLocationType}
+                            </span>
+                          )}
+                          {s.isNightShift && (
+                            <span className="px-2 py-0.5 rounded bg-purple-950/80 text-purple-300 text-[10px] font-bold">
+                              Night Shift
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-slate-300">
+                        Target:{" "}
+                        {s.employeeName
+                          ? `${s.employeeId || s.workerId} — ${s.employeeName}`
+                          : s.project !== "ALL"
+                          ? `Site: ${s.project}`
+                          : s.department !== "ALL"
+                          ? `Dept: ${s.department}`
+                          : "Company / Location Default"}
+                        {s.schedulePeriodType ? ` · ${s.schedulePeriodType}` : ""}
+                        {s.effectiveFrom ? ` · From ${s.effectiveFrom}` : ""}
+                        {s.effectiveTo ? ` to ${s.effectiveTo}` : ""}
+                      </div>
                       <div className="text-slate-400">
-                        Hours: {s.shiftStartTime}–{s.shiftEndTime} · Standard: {s.standardDailyHours}h · OT Multipliers: {s.overtimeMultiplierWeekday}x / {s.overtimeMultiplierRestDay}x / {s.overtimeMultiplierHoliday}x
+                        Hours: {s.shiftStartTime}–{s.shiftEndTime} · Break: {s.breakMinutes}m · Standard: {s.standardDailyHours}h · Grace: {s.graceMinutesLate}m · OT: {s.overtimeMultiplierWeekday}x / {s.overtimeMultiplierRestDay}x / {s.overtimeMultiplierHoliday}x
                       </div>
                       <div className="text-slate-500">
-                        Rest Days: {s.restDays.join(", ")} · Holidays: {s.holidays.length}
+                        Rest Days: {s.restDays.join(", ") || "None"} · Holidays: {s.holidays.length}
                       </div>
                     </div>
                   ))
@@ -3807,7 +4647,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 onSubmit={handleCreateTransfer}
                 className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3"
               >
-                <h3 className="text-sm font-extrabold text-white">Transfer Employee Between Project Sites</h3>
+                <h3 className="text-sm font-extrabold text-white">Transfer Employee Between Locations & Sites</h3>
                 <select
                   value={transferForm.workerId || workers[0]?.id || ""}
                   onChange={(e) => setTransferForm((p) => ({ ...p, workerId: e.target.value }))}
@@ -3815,15 +4655,43 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 >
                   {workers.map((w) => (
                     <option key={w.id} value={w.id}>
-                      {w.name} (Current: {w.assignedProject || w.currentSite || "Unassigned"})
+                      {w.name} ({inferWorkerWorkLocationType(w)}: {w.assignedProject || w.currentSite || "Unassigned"})
                     </option>
                   ))}
                 </select>
                 <select
-                  value={transferForm.toProject}
-                  onChange={(e) => setTransferForm((p) => ({ ...p, toProject: e.target.value }))}
+                  value={transferForm.toWorkLocationType}
+                  onChange={(e) =>
+                    setTransferForm((p) => ({
+                      ...p,
+                      toWorkLocationType: e.target.value as "Head Office" | "Construction Site",
+                      toProject:
+                        e.target.value === "Head Office"
+                          ? "Head Office"
+                          : p.toProject === "Head Office"
+                          ? projectNames[0] || "CMC Residential"
+                          : p.toProject,
+                    }))
+                  }
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
                 >
+                  <option value="Construction Site">To Work Location: Construction Site</option>
+                  <option value="Head Office">To Work Location: Head Office</option>
+                </select>
+                <select
+                  value={transferForm.toProject}
+                  onChange={(e) =>
+                    setTransferForm((p) => ({
+                      ...p,
+                      toProject: e.target.value,
+                      toWorkLocationType: e.target.value.toLowerCase().includes("head office")
+                        ? "Head Office"
+                        : "Construction Site",
+                    }))
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  <option value="Head Office">To Site: Head Office</option>
                   {projectNames.map((pr) => (
                     <option key={pr} value={pr}>To Project: {pr}</option>
                   ))}
@@ -3857,19 +4725,20 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <ArrowRightLeft size={14} />
-                  <span>Execute Project Transfer</span>
+                  <span>Execute Transfer</span>
                 </button>
               </form>
 
               <div className="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
-                <h3 className="text-sm font-extrabold text-white mb-3">Site Transfer History</h3>
+                <h3 className="text-sm font-extrabold text-white mb-3">Site & Location Transfer History</h3>
                 <table className="w-full text-xs text-left">
                   <thead>
                     <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
                       <th className="py-2 px-2">Transfer No</th>
                       <th className="py-2 px-2">Employee</th>
-                      <th className="py-2 px-2">From Project</th>
-                      <th className="py-2 px-2">To Project</th>
+                      <th className="py-2 px-2">From Location / Site</th>
+                      <th className="py-2 px-2">To Location / Site</th>
+                      <th className="py-2 px-2">Dept</th>
                       <th className="py-2 px-2">Effective Date</th>
                       <th className="py-2 px-2">Approved By</th>
                     </tr>
@@ -3879,8 +4748,19 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       <tr key={tr.id} className="border-b border-slate-900">
                         <td className="py-2.5 px-2 font-mono text-white">{tr.transferNo}</td>
                         <td className="py-2.5 px-2 font-semibold text-white">{tr.workerName}</td>
-                        <td className="py-2.5 px-2 text-slate-400">{tr.fromProject}</td>
-                        <td className="py-2.5 px-2 text-emerald-400 font-bold">{tr.toProject}</td>
+                        <td className="py-2.5 px-2 text-slate-400">
+                          <div>{tr.fromProject}</div>
+                          {tr.fromWorkLocationType && (
+                            <div className="text-[10px] text-slate-500">{tr.fromWorkLocationType}</div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-emerald-400 font-bold">
+                          <div>{tr.toProject}</div>
+                          {tr.toWorkLocationType && (
+                            <div className="text-[10px] text-emerald-300/80 font-normal">{tr.toWorkLocationType}</div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-2 text-slate-300">{tr.toDepartment}</td>
                         <td className="py-2.5 px-2 font-mono">{tr.effectiveDate}</td>
                         <td className="py-2.5 px-2 text-slate-300">{tr.approvedBy}</td>
                       </tr>
@@ -4760,12 +5640,43 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 />
               </div>
               <div>
-                <label className="text-[11px] text-slate-400">Assigned Project</label>
+                <label className="text-[11px] text-slate-400">Work Location Type</label>
                 <select
-                  value={empForm.assignedProject}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, assignedProject: e.target.value }))}
+                  value={empForm.workLocationType}
+                  onChange={(e) =>
+                    setEmpForm((p) => ({
+                      ...p,
+                      workLocationType: e.target.value as "Head Office" | "Construction Site",
+                      assignedProject:
+                        e.target.value === "Head Office"
+                          ? "Head Office"
+                          : p.assignedProject === "Head Office"
+                          ? projectNames[0] || "Bole Tower"
+                          : p.assignedProject,
+                    }))
+                  }
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
                 >
+                  <option value="Construction Site">Construction Site</option>
+                  <option value="Head Office">Head Office</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-[11px] text-slate-400">Assigned Project / Site</label>
+                <select
+                  value={empForm.assignedProject}
+                  onChange={(e) =>
+                    setEmpForm((p) => ({
+                      ...p,
+                      assignedProject: e.target.value,
+                      workLocationType: e.target.value.toLowerCase().includes("head office")
+                        ? "Head Office"
+                        : p.workLocationType,
+                    }))
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  <option value="Head Office">Head Office</option>
                   {projectNames.map((pr) => (
                     <option key={pr} value={pr}>{pr}</option>
                   ))}

@@ -275,17 +275,97 @@ function parseTimeToMinutes(hhmm?: string | null): number | null {
   return h * 60 + m;
 }
 
+export function inferWorkerWorkLocationType(
+  worker: Partial<Pick<Worker, "workLocationType" | "assignedProject" | "currentSite">>
+): "Head Office" | "Construction Site" {
+  if (worker.workLocationType === "Head Office" || worker.workLocationType === "Construction Site") {
+    return worker.workLocationType;
+  }
+  const site = safeString(worker.assignedProject || worker.currentSite).toLowerCase();
+  if (site.includes("head office") || site === "hq" || site.includes("headquarter")) {
+    return "Head Office";
+  }
+  return "Construction Site";
+}
+
+function isScheduleEffectiveOnDate(s: WorkScheduleConfig, workDate?: string): boolean {
+  if (!workDate) return true;
+  if (s.effectiveFrom && workDate < s.effectiveFrom) return false;
+  if (s.effectiveTo && workDate > s.effectiveTo) return false;
+  return true;
+}
+
 export function resolveWorkerSchedule(
-  worker: Pick<Worker, "assignedProject" | "currentSite" | "department">,
-  schedules: WorkScheduleConfig[]
+  worker: Partial<Pick<Worker, "id" | "employeeId" | "assignedProject" | "currentSite" | "department" | "workLocationType" | "defaultScheduleId">>,
+  schedules: WorkScheduleConfig[],
+  workDate?: string
 ): WorkScheduleConfig | undefined {
-  const proj = safeString(worker.assignedProject || worker.currentSite).toLowerCase();
-  const dept = safeString(worker.department).toLowerCase();
-  const active = schedules.filter((s) => s.isActive !== false);
+  const proj = safeString(worker.assignedProject || worker.currentSite).trim().toLowerCase();
+  const dept = safeString(worker.department).trim().toLowerCase();
+  const wLoc = inferWorkerWorkLocationType(worker);
+  const empCode = safeString(worker.employeeId).trim().toLowerCase();
+  const wId = safeString(worker.id).trim().toLowerCase();
+
+  const active = schedules.filter(
+    (s) => s.isActive !== false && isScheduleEffectiveOnDate(s, workDate)
+  );
+  if (active.length === 0) return undefined;
+
+  // 1) Employee-specific assignment
+  const byEmployee = active.find((s) => {
+    if (worker.defaultScheduleId && s.id === worker.defaultScheduleId) return true;
+    const sWid = safeString(s.workerId).trim().toLowerCase();
+    const sEid = safeString(s.employeeId).trim().toLowerCase();
+    return Boolean((wId && sWid === wId) || (empCode && sEid === empCode));
+  });
+  if (byEmployee) return byEmployee;
+
+  const matchesLocation = (s: WorkScheduleConfig) =>
+    !s.workLocationType || s.workLocationType === "ALL" || s.workLocationType === wLoc;
+
+  // 2) Specific Project + Specific Department
   return (
-    active.find((s) => s.project.toLowerCase() === proj && s.department.toLowerCase() === dept) ||
-    active.find((s) => s.project.toLowerCase() === proj && s.department.toLowerCase() === "all") ||
-    active.find((s) => s.project.toLowerCase() === "all" && s.department.toLowerCase() === dept) ||
+    active.find(
+      (s) =>
+        matchesLocation(s) &&
+        s.project.toLowerCase() === proj &&
+        s.department.toLowerCase() === dept
+    ) ||
+    // 3) Specific Department + Work Location Type (e.g. Head Office HR vs Construction Site HR)
+    active.find(
+      (s) =>
+        s.workLocationType === wLoc &&
+        s.project.toLowerCase() === "all" &&
+        s.department.toLowerCase() === dept
+    ) ||
+    // 4) Specific Project + ALL Departments
+    active.find(
+      (s) =>
+        matchesLocation(s) &&
+        s.project.toLowerCase() === proj &&
+        s.department.toLowerCase() === "all"
+    ) ||
+    // 5) Work Location Type (Head Office or Construction Site) + ALL Projects + ALL Departments
+    active.find(
+      (s) =>
+        s.workLocationType === wLoc &&
+        s.project.toLowerCase() === "all" &&
+        s.department.toLowerCase() === "all"
+    ) ||
+    // 6) Specific Department + ALL Projects
+    active.find(
+      (s) =>
+        matchesLocation(s) &&
+        s.project.toLowerCase() === "all" &&
+        s.department.toLowerCase() === dept
+    ) ||
+    // 7) Company Default
+    active.find(
+      (s) =>
+        matchesLocation(s) &&
+        s.project.toLowerCase() === "all" &&
+        s.department.toLowerCase() === "all"
+    ) ||
     active[0]
   );
 }
@@ -296,6 +376,9 @@ export function computeScheduleAttendanceMetrics(params: {
   checkOut?: string | null;
   explicitStatus?: "Present" | "Absent" | "Late" | "Leave" | "Holiday";
   schedule?: WorkScheduleConfig;
+  approvedLeaves?: LeaveRequestRecord[];
+  workerId?: string;
+  employeeId?: string;
 }): {
   status: "Present" | "Absent" | "Late" | "Leave" | "Holiday";
   workingHours: number;
@@ -303,9 +386,16 @@ export function computeScheduleAttendanceMetrics(params: {
   earlyDepartureMinutes: number;
   underTime: number;
   overtime: number;
+  overtimeCandidateHours: number;
+  punchCompleteness: "Complete" | "Missing Check-Out" | "Missing Check-In";
+  missingPunchType: "Missing Check-Out" | "Missing Check-In" | "None";
+  hrReviewStatus: "Not Required" | "Pending HR Review" | "Approved" | "Rejected";
 } {
   const shiftStart = parseTimeToMinutes(params.schedule?.shiftStartTime || "08:00") ?? 480;
-  const shiftEnd = parseTimeToMinutes(params.schedule?.shiftEndTime || "17:00") ?? 1020;
+  const shiftEndRaw = parseTimeToMinutes(params.schedule?.shiftEndTime || "17:00") ?? 1020;
+  const isCrossMidnight = Boolean(params.schedule?.isNightShift) || shiftEndRaw <= shiftStart;
+  const shiftEnd = isCrossMidnight ? shiftEndRaw + 1440 : shiftEndRaw;
+
   const breakMins = Math.max(0, Number(params.schedule?.breakMinutes ?? 60));
   const stdHours = Math.max(1, Number(params.schedule?.standardDailyHours ?? 8));
   const grace = Math.max(0, Number(params.schedule?.graceMinutesLate ?? 15));
@@ -321,21 +411,47 @@ export function computeScheduleAttendanceMetrics(params: {
     params.schedule?.restDays?.some((d) => d.toLowerCase() === weekdayName.toLowerCase())
   );
 
-  if (params.explicitStatus === "Absent" || params.explicitStatus === "Leave") {
+  const hasApprovedLeave = Boolean(
+    params.approvedLeaves?.some(
+      (lv) =>
+        lv.status === "Approved" &&
+        (!params.workerId ||
+          lv.workerId === params.workerId ||
+          (params.employeeId && lv.employeeId === params.employeeId)) &&
+        lv.startDate <= params.date &&
+        lv.endDate >= params.date
+    )
+  );
+
+  const inMins = parseTimeToMinutes(params.checkIn);
+  const outMins = parseTimeToMinutes(params.checkOut);
+
+  if (
+    params.explicitStatus === "Absent" ||
+    params.explicitStatus === "Leave" ||
+    (hasApprovedLeave && inMins === null && outMins === null)
+  ) {
     return {
-      status: params.explicitStatus,
+      status:
+        params.explicitStatus === "Absent"
+          ? "Absent"
+          : params.explicitStatus === "Leave" || hasApprovedLeave
+          ? "Leave"
+          : "Absent",
       workingHours: 0,
       lateArrivalMinutes: 0,
       earlyDepartureMinutes: 0,
       underTime: 0,
       overtime: 0,
+      overtimeCandidateHours: 0,
+      punchCompleteness: "Complete",
+      missingPunchType: "None",
+      hrReviewStatus: "Not Required",
     };
   }
 
-  const inMins = parseTimeToMinutes(params.checkIn);
-  const outMins = parseTimeToMinutes(params.checkOut);
-
-  if (inMins === null) {
+  // Missing BOTH Check-In & Check-Out
+  if (inMins === null && outMins === null) {
     return {
       status: isHoliday ? "Holiday" : "Absent",
       workingHours: 0,
@@ -343,30 +459,90 @@ export function computeScheduleAttendanceMetrics(params: {
       earlyDepartureMinutes: 0,
       underTime: 0,
       overtime: 0,
+      overtimeCandidateHours: 0,
+      punchCompleteness: "Complete",
+      missingPunchType: "None",
+      hrReviewStatus: "Not Required",
     };
   }
 
-  const rawLate = Math.max(0, inMins - shiftStart);
-  const lateArrivalMinutes = rawLate > grace ? rawLate : 0;
+  // Missing Check-In ONLY (Check-Out exists, Check-In is missing): NEVER invent Check-In or fabricate workingHours
+  if (inMins === null && outMins !== null) {
+    const normOut = isCrossMidnight && outMins < shiftStart ? outMins + 1440 : outMins;
+    const earlyDepartureMinutes =
+      normOut < shiftEnd && !isHoliday && !isRestDay ? shiftEnd - normOut : 0;
+    const underTime = round2(earlyDepartureMinutes / 60);
+    const status: "Present" | "Absent" | "Late" | "Leave" | "Holiday" =
+      params.explicitStatus === "Holiday"
+        ? "Holiday"
+        : params.explicitStatus === "Late"
+        ? "Late"
+        : "Present";
 
-  let earlyDepartureMinutes = 0;
-  let totalMinutesWorked = stdHours * 60;
-  if (outMins !== null) {
-    const rawSpan = outMins >= inMins ? outMins - inMins : outMins + 1440 - inMins;
-    const deductedBreak = rawSpan > 300 ? breakMins : 0;
-    totalMinutesWorked = Math.max(0, rawSpan - deductedBreak);
-    if (outMins < shiftEnd && !isHoliday && !isRestDay) {
-      earlyDepartureMinutes = shiftEnd - outMins;
-    }
-  } else {
-    // Check-in only: initial shift credit minus late penalty until clock-out
-    totalMinutesWorked = Math.max(0, stdHours * 60 - lateArrivalMinutes);
+    return {
+      status,
+      workingHours: 0,
+      lateArrivalMinutes: 0,
+      earlyDepartureMinutes,
+      underTime,
+      overtime: 0,
+      overtimeCandidateHours: 0,
+      punchCompleteness: "Missing Check-In",
+      missingPunchType: "Missing Check-In",
+      hrReviewStatus: "Pending HR Review",
+    };
   }
 
+  // Normalize inMins for night shifts crossing midnight (e.g. 22:00 shift, 00:15 arrival => +135m late)
+  const normIn =
+    isCrossMidnight && inMins! < shiftStart - 360 ? inMins! + 1440 : inMins!;
+  const rawLate = Math.max(0, normIn - shiftStart);
+  const lateArrivalMinutes = rawLate > grace ? rawLate : 0;
+
+  // Missing Check-Out ONLY (Check-In exists, Check-Out is null): NEVER invent Check-Out or fabricate hours
+  if (outMins === null) {
+    const status: "Present" | "Absent" | "Late" | "Leave" | "Holiday" =
+      params.explicitStatus === "Holiday"
+        ? "Holiday"
+        : params.explicitStatus === "Late" || lateArrivalMinutes > 0
+        ? "Late"
+        : "Present";
+
+    return {
+      status,
+      workingHours: 0,
+      lateArrivalMinutes,
+      earlyDepartureMinutes: 0,
+      underTime: 0,
+      overtime: 0,
+      overtimeCandidateHours: 0,
+      punchCompleteness: "Missing Check-Out",
+      missingPunchType: "Missing Check-Out",
+      hrReviewStatus: "Pending HR Review",
+    };
+  }
+
+  // Both Check-In & Check-Out verified
+  const normOut =
+    outMins >= normIn
+      ? outMins
+      : isCrossMidnight && outMins + 1440 >= normIn
+      ? outMins + 1440
+      : outMins + 1440;
+
+  const rawSpan = Math.max(0, normOut - normIn);
+  const deductedBreak = rawSpan > 300 ? breakMins : 0;
+  const totalMinutesWorked = Math.max(0, rawSpan - deductedBreak);
+  const earlyDepartureMinutes =
+    normOut < shiftEnd && !isHoliday && !isRestDay ? shiftEnd - normOut : 0;
+
   const totalHours = round2(totalMinutesWorked / 60);
-  const overtime = isHoliday || isRestDay ? totalHours : round2(Math.max(0, totalHours - stdHours));
-  const regularHours = isHoliday || isRestDay ? 0 : round2(Math.min(stdHours, totalHours));
+  const overtime =
+    isHoliday || isRestDay ? totalHours : round2(Math.max(0, totalHours - stdHours));
+  const regularHours =
+    isHoliday || isRestDay ? 0 : round2(Math.min(stdHours, totalHours));
   const underTime = round2(earlyDepartureMinutes / 60);
+  const overtimeCandidateHours = overtime;
 
   let status: "Present" | "Absent" | "Late" | "Leave" | "Holiday" = "Present";
   if (params.explicitStatus === "Holiday" || (isHoliday && totalHours === 0)) {
@@ -375,6 +551,11 @@ export function computeScheduleAttendanceMetrics(params: {
     status = "Late";
   }
 
+  const hrReviewStatus: "Not Required" | "Pending HR Review" =
+    overtimeCandidateHours > 0 || earlyDepartureMinutes > 0
+      ? "Pending HR Review"
+      : "Not Required";
+
   return {
     status,
     workingHours: regularHours,
@@ -382,6 +563,10 @@ export function computeScheduleAttendanceMetrics(params: {
     earlyDepartureMinutes,
     underTime,
     overtime,
+    overtimeCandidateHours,
+    punchCompleteness: "Complete",
+    missingPunchType: "None",
+    hrReviewStatus,
   };
 }
 

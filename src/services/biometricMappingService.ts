@@ -7,6 +7,7 @@ import {
   BiometricMappingAuditAction,
   BiometricMappingAuditLog,
   BiometricMappingStatus,
+  LeaveRequestRecord,
   UnmappedBiometricEvent,
   UserRole,
   WorkScheduleConfig,
@@ -596,6 +597,7 @@ export async function processBiometricDeviceAttendanceEvent(params: {
   mappings: BiometricDeviceMapping[];
   workers: Worker[];
   schedules: WorkScheduleConfig[];
+  approvedLeaves?: LeaveRequestRecord[];
   existingAttendance: AttendanceRecord[];
   existingUnmappedEvents?: UnmappedBiometricEvent[];
   onSaveAttendance?: (record: AttendanceRecord) => Promise<void> | void;
@@ -641,6 +643,14 @@ export async function processBiometricDeviceAttendanceEvent(params: {
     : undefined;
 
   if (!device || device.status !== "Active" || !activeMapping || !worker || worker.status !== "Active") {
+    const exceptionCategory: UnmappedBiometricEvent["exceptionCategory"] = !device
+      ? "Unauthorized Device"
+      : device.status !== "Active"
+      ? "Inactive Device"
+      : !activeMapping
+      ? "Unmatched Biometric ID"
+      : "Inactive Employee";
+
     const reason = !device
       ? `Biometric device (${cleanSerial || cleanDeviceId || "unknown"}) is not registered in ERP.`
       : device.status !== "Active"
@@ -681,6 +691,7 @@ export async function processBiometricDeviceAttendanceEvent(params: {
       workLocationType: device?.workLocationType,
       projectName: device?.projectName,
       status: "Unmapped",
+      exceptionCategory,
       rawEventMeta: sanitizedMeta,
       createdAt: nowIso,
       updatedAt: nowIso,
@@ -731,7 +742,7 @@ export async function processBiometricDeviceAttendanceEvent(params: {
   }
 
   const nextCheckIn =
-    normalizedPunchType === "Check-In" ? timeHHMMSS : existingDayRecord?.checkIn || timeHHMMSS;
+    normalizedPunchType === "Check-In" ? timeHHMMSS : existingDayRecord?.checkIn || null;
   const nextCheckOut =
     normalizedPunchType === "Check-Out" ? timeHHMMSS : existingDayRecord?.checkOut || null;
   const nextLunchOut =
@@ -739,12 +750,15 @@ export async function processBiometricDeviceAttendanceEvent(params: {
   const nextLunchIn =
     normalizedPunchType === "Lunch-In" ? timeHHMMSS : existingDayRecord?.lunchIn || null;
 
-  const sched = resolveWorkerSchedule(worker, params.schedules);
+  const sched = resolveWorkerSchedule(worker, params.schedules, date);
   const metrics = computeScheduleAttendanceMetrics({
     date,
-    checkIn: nextCheckIn.slice(0, 5),
+    checkIn: nextCheckIn ? nextCheckIn.slice(0, 5) : null,
     checkOut: nextCheckOut ? nextCheckOut.slice(0, 5) : null,
     schedule: sched,
+    approvedLeaves: params.approvedLeaves,
+    workerId: worker.id,
+    employeeId: activeMapping.employeeId,
   });
 
   const protocolUsed = params.sourceProtocol || device.protocolType || "ADMS_PUSH_HTTP";
@@ -770,10 +784,18 @@ export async function processBiometricDeviceAttendanceEvent(params: {
     method: AttendanceMethod.FINGERPRINT,
     workingHours: metrics.workingHours,
     overtime: metrics.overtime,
+    overtimeCandidateHours: metrics.overtimeCandidateHours,
     underTime: metrics.underTime,
     lateArrivalMinutes: metrics.lateArrivalMinutes,
     earlyDepartureMinutes: metrics.earlyDepartureMinutes,
     status: metrics.status,
+    punchCompleteness: metrics.punchCompleteness,
+    missingPunchType: metrics.missingPunchType,
+    hrReviewStatus: metrics.hrReviewStatus,
+    ...(metrics.missingPunchType !== "None"
+      ? { exceptionReason: `${metrics.missingPunchType} detected on biometric terminal ${device.deviceName}` }
+      : {}),
+    workLocationType: activeMapping.workLocationType,
     deviceUsed: `${device.deviceName} (BioID: ${activeMapping.biometricUserId})`,
     verifiedBy: `Mapped Device Terminal (${activeMapping.deviceSerialNumberSnapshot})`,
     biometricStatus: `Mapped Device Verified (${device.model} · User ID: ${activeMapping.biometricUserId})`,
@@ -821,6 +843,7 @@ export async function batchProcessZKTecoEvents(params: {
   mappings: BiometricDeviceMapping[];
   workers: Worker[];
   schedules: WorkScheduleConfig[];
+  approvedLeaves?: LeaveRequestRecord[];
   existingAttendance: AttendanceRecord[];
   existingUnmappedEvents?: UnmappedBiometricEvent[];
   onSaveAttendance?: (record: AttendanceRecord) => Promise<void> | void;
@@ -853,6 +876,7 @@ export async function batchProcessZKTecoEvents(params: {
       mappings: params.mappings,
       workers: params.workers,
       schedules: params.schedules,
+      approvedLeaves: params.approvedLeaves,
       existingAttendance: workingAttendance,
       existingUnmappedEvents: workingUnmapped,
       onSaveAttendance: params.onSaveAttendance,
@@ -939,6 +963,7 @@ export async function pullAndProcessConnectorQueue(params: {
   mappings: BiometricDeviceMapping[];
   workers: Worker[];
   schedules: WorkScheduleConfig[];
+  approvedLeaves?: LeaveRequestRecord[];
   existingAttendance: AttendanceRecord[];
   existingUnmappedEvents?: UnmappedBiometricEvent[];
   onSaveAttendance?: (record: AttendanceRecord) => Promise<void> | void;
@@ -967,6 +992,7 @@ export async function pullAndProcessConnectorQueue(params: {
     mappings: params.mappings,
     workers: params.workers,
     schedules: params.schedules,
+    approvedLeaves: params.approvedLeaves,
     existingAttendance: params.existingAttendance,
     existingUnmappedEvents: params.existingUnmappedEvents,
     onSaveAttendance: params.onSaveAttendance,
