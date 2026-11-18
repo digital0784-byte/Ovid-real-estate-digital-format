@@ -3,6 +3,7 @@ import {
   advancePayrollRunStage,
   advanceRecruitmentApproval,
   buildHrmPayrollRunDraft,
+  completeApprovedEmployeeOnboarding,
   computeEthiopianIncomeTaxAndPension,
   computeManpowerSummary,
   computeScheduleAttendanceMetrics,
@@ -12,7 +13,9 @@ import {
   maskSensitiveValue,
   recalculatePayrollRunLineItem,
   resolveHrmPermissions,
+  resubmitReturnedRecruitmentRequest,
   submitRecruitmentRequestWithManpowerCheck,
+  validateEmployeeRegistrationAuthorization,
   validateNoDuplicateSalaryPayment,
 } from "../services/hrmService";
 import {
@@ -24,6 +27,7 @@ import {
 import { DbService } from "../services/db";
 import {
   ActualCostEntry,
+  ErpTask,
   Expense,
   FinancialAccount,
   HrmPayrollRunRecord,
@@ -40,6 +44,7 @@ import {
 
 let memRecruitments: RecruitmentRequestRecord[] = [];
 let memNotifications: any[] = [];
+let memTasks: ErpTask[] = [];
 let memPayrollRuns: HrmPayrollRunRecord[] = [];
 let memJournals: JournalEntryRecord[] = [];
 let memExpenses: Expense[] = [];
@@ -93,6 +98,7 @@ function sampleBankAccount(): FinancialAccount {
 beforeEach(() => {
   memRecruitments = [];
   memNotifications = [];
+  memTasks = [];
   memPayrollRuns = [];
   memJournals = [];
   memExpenses = [];
@@ -105,6 +111,12 @@ beforeEach(() => {
   });
   vi.spyOn(DbService, "addNotification").mockImplementation(async (notif: any) => {
     memNotifications.push(notif);
+  });
+  vi.spyOn(DbService, "addTask").mockImplementation(async (task: ErpTask) => {
+    memTasks = [...memTasks.filter((t) => t.id !== task.id), task];
+  });
+  vi.spyOn(DbService, "updateTask").mockImplementation(async (task: ErpTask) => {
+    memTasks = [...memTasks.filter((t) => t.id !== task.id), task];
   });
   vi.spyOn(DbService, "saveHrmPayrollRun").mockImplementation(async (run) => {
     memPayrollRuns = [...memPayrollRuns.filter((r) => r.id !== run.id), run];
@@ -124,7 +136,7 @@ beforeEach(() => {
 });
 
 describe("Enterprise HRM & Ethiopian Payroll Module", () => {
-  it("tracks approved manpower vs hired, triggers Director notification on excess recruitment, and enforces 5-stage + Director Excess approval", async () => {
+  it("enforces exact 6-step sequential recruitment workflow, Director authorization gating, onboarding task auto-creation, and excess alerts", async () => {
     const plans: ManpowerPlanRecord[] = [
       {
         id: "MPP-1",
@@ -149,18 +161,21 @@ describe("Enterprise HRM & Ethiopian Payroll Module", () => {
     expect(row.actualHired).toBe(1);
     expect(row.remainingVacancies).toBe(1);
 
-    // Requesting 3 when only 1 vacancy remains -> 2 excess -> triggers Director notification & excess approval
+    // Step 1: Section Head submits -> starts strictly at Pending HR Manager
     let req = await submitRecruitmentRequestWithManpowerCheck({
       project: "Bole Tower",
       department: "Engineering",
       jobPosition: "Site Engineer",
-      requestedCount: 3,
+      requestedCount: 2,
       employmentType: "Permanent",
       urgency: "High",
       requiredByDate: "2026-08-01",
       proposedMonthlySalary: 15000,
+      jobResponsibilities: "Supervise reinforcement & concrete pours",
+      experienceRequired: "4+ years high-rise experience",
       qualificationsRequired: "BSc Civil Engineering",
       justification: "Accelerated tower block concreting schedule",
+      supportingDocuments: [{ id: "DOC-1", name: "manpower_memo.pdf", url: "https://example.com/manpower_memo.pdf", uploadedAt: "2026-01-01T00:00:00.000Z", category: "Manpower Request Memo" }],
       actorName: "Eng. Samuel",
       actorUid: "SH-1",
       actorRole: UserRole.SECTION_HEAD,
@@ -168,34 +183,162 @@ describe("Enterprise HRM & Ethiopian Payroll Module", () => {
       workers,
     });
 
+    expect(req.requestNo.startsWith("MRF-")).toBe(true);
     expect(req.exceedsManpowerLimit).toBe(true);
-    expect(req.excessCount).toBe(2);
+    expect(req.excessCount).toBe(1);
     expect(req.excessApprovalStatus).toBe("Pending Director");
-    expect(req.workflowStage).toBe("Pending Office Manager");
+    expect(req.workflowStage).toBe("Pending HR Manager");
+    expect(req.hrRegistrationAuthorized).toBe(false);
+    expect(memNotifications.some((n) => n.type === "HRM Recruitment Stage Assignment" && n.receiver === "HR Manager")).toBe(true);
     expect(memNotifications.some((n) => n.type === "HRM Excess Manpower Alert")).toBe(true);
 
-    // Walk through all 5 stages: Office Manager -> HR Manager -> Finance Manager -> Operation Dept -> Director Final -> Director Excess
-    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Office Mgr", actorRole: UserRole.OFFICE_MANAGER });
-    expect(req.workflowStage).toBe("Pending HR Manager");
+    // Out-of-order approval attempt must fail (Office Manager / Director cannot bypass HR Manager)
+    await expect(
+      advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Office Mgr", actorRole: UserRole.OFFICE_MANAGER })
+    ).rejects.toThrow(/Sequential workflow rule violation/);
 
-    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "HR Mgr", actorRole: UserRole.HR_MANAGER });
+    // Employee registration must be blocked prior to Director final approval
+    const preGate = validateEmployeeRegistrationAuthorization({ role: UserRole.HR_MANAGER, recruitmentRequest: req });
+    expect(preGate.allowed).toBe(false);
+
+    // Step 2: HR Manager verifies -> forwards to Office Manager
+    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "HR Mgr", actorUid: "HR-1", actorRole: UserRole.HR_MANAGER });
+    expect(req.workflowStage).toBe("Pending Office Manager");
+
+    // Step 3: Office Manager / Office Engineer Manager verifies -> forwards to Finance Manager
+    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Office Mgr", actorUid: "OM-1", actorRole: UserRole.OFFICE_MANAGER });
     expect(req.workflowStage).toBe("Pending Finance Manager");
 
-    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Finance Mgr", actorRole: UserRole.FINANCE_MANAGER });
+    // Step 4: Finance Manager verifies -> forwards to Operation Department
+    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Finance Mgr", actorUid: "FM-1", actorRole: UserRole.FINANCE_MANAGER });
     expect(req.workflowStage).toBe("Pending Operation Department");
 
-    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Operation Mgr", actorRole: UserRole.OPERATION_MANAGER });
+    // Step 5: Operation Department verifies -> forwards to Director
+    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Operation Mgr", actorUid: "OP-1", actorRole: UserRole.OPERATION_MANAGER });
     expect(req.workflowStage).toBe("Pending Director Final Approval");
 
-    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Director", actorRole: UserRole.DIRECTOR });
-    // Because exceedsManpowerLimit is true, must pause at Pending Director Excess Approval!
-    expect(req.workflowStage).toBe("Pending Director Excess Approval");
-    expect(req.status).toBe("Pending");
-
-    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Director", actorRole: UserRole.DIRECTOR });
+    // Step 6: Director gives Final Approval -> authorizes HR registration & auto-creates HR onboarding task
+    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "Director", actorUid: "DIR-1", actorRole: UserRole.DIRECTOR });
     expect(req.workflowStage).toBe("Approved");
     expect(req.status).toBe("Approved");
     expect(req.excessApprovalStatus).toBe("Approved");
+    expect(req.hrRegistrationAuthorized).toBe(true);
+    expect(req.hrOnboardingTaskId).toBeTruthy();
+    expect(memTasks.some((t) => t.id === req.hrOnboardingTaskId && t.assignedToRole === UserRole.HR_MANAGER)).toBe(true);
+
+    // Step 7: HR Manager is authorized; non-HR cannot register employees
+    expect(validateEmployeeRegistrationAuthorization({ role: UserRole.OFFICE_MANAGER, recruitmentRequest: req }).allowed).toBe(false);
+    expect(validateEmployeeRegistrationAuthorization({ role: UserRole.HR_MANAGER, recruitmentRequest: req }).allowed).toBe(true);
+
+    // Complete onboarding of 1 worker -> updates task & fires excess headcount alert if over approved quota
+    const newWorkerA: Worker = {
+      ...workers[0],
+      id: "OVID-EMP-2026-0002",
+      employeeId: "OVID-EMP-2026-0002",
+      name: "Abebe Bikila",
+    };
+    const newWorkerB: Worker = {
+      ...workers[0],
+      id: "OVID-EMP-2026-0003",
+      employeeId: "OVID-EMP-2026-0003",
+      name: "Tigist Haile",
+    };
+    const onb1 = await completeApprovedEmployeeOnboarding({
+      recruitmentRequest: req,
+      newWorker: newWorkerA,
+      manpowerPlans: plans,
+      allWorkersAfterAdd: [...workers, newWorkerA],
+      tasks: memTasks,
+      actorName: "HR Mgr",
+      actorRole: UserRole.HR_MANAGER,
+    });
+    expect(onb1.updatedRequest.hiredCount).toBe(1);
+    expect(onb1.updatedRequest.status).toBe("Approved");
+    expect(onb1.exceededManpowerAlert).toBe(false); // 2 hired vs 2 approved
+
+    const onb2 = await completeApprovedEmployeeOnboarding({
+      recruitmentRequest: onb1.updatedRequest,
+      newWorker: newWorkerB,
+      manpowerPlans: plans,
+      allWorkersAfterAdd: [...workers, newWorkerA, newWorkerB],
+      tasks: memTasks,
+      actorName: "HR Mgr",
+      actorRole: UserRole.HR_MANAGER,
+    });
+    expect(onb2.updatedRequest.hiredCount).toBe(2);
+    expect(onb2.updatedRequest.status).toBe("Fulfilled");
+    expect(onb2.exceededManpowerAlert).toBe(true); // 3 hired vs 2 approved
+    expect(memTasks.find((t) => t.id === req.hrOnboardingTaskId)?.status).toBe("Completed");
+  });
+
+  it("stops recruitment on rejection with mandatory reason and supports return for correction + resubmit", async () => {
+    const plans: ManpowerPlanRecord[] = [];
+    const workers = sampleWorkers();
+
+    let req = await submitRecruitmentRequestWithManpowerCheck({
+      project: "Bole Tower",
+      department: "Engineering",
+      jobPosition: "Surveyor",
+      requestedCount: 1,
+      employmentType: "Contract",
+      urgency: "Normal",
+      requiredByDate: "2026-09-01",
+      proposedMonthlySalary: 14000,
+      qualificationsRequired: "Diploma in Surveying",
+      justification: "Setting out axes",
+      actorName: "Eng. Samuel",
+      actorUid: "SH-1",
+      actorRole: UserRole.SECTION_HEAD,
+      manpowerPlans: plans,
+      workers,
+    });
+
+    // Reject without reason must fail
+    await expect(
+      advanceRecruitmentApproval({ request: req, decision: "Rejected", actorName: "HR Mgr", actorRole: UserRole.HR_MANAGER, notes: "" })
+    ).rejects.toThrow(/rejection reason is mandatory/i);
+
+    // Return for correction at Office Manager after HR approval preserves audit trail
+    req = await advanceRecruitmentApproval({ request: req, decision: "Approved", actorName: "HR Mgr", actorRole: UserRole.HR_MANAGER });
+    req = await advanceRecruitmentApproval({
+      request: req,
+      decision: "Returned",
+      actorName: "Office Mgr",
+      actorRole: UserRole.OFFICE_MANAGER,
+      notes: "Attach site organization chart revision",
+    });
+    expect(req.workflowStage).toBe("Returned for Correction");
+    expect(req.hrManagerApproval?.decision).toBe("Approved");
+    expect(req.correctionNotes).toContain("Attach site organization chart");
+
+    // Resubmit routes back to Pending HR Manager
+    req = await resubmitReturnedRecruitmentRequest({
+      request: req,
+      updates: { requestedCount: 1, justification: "Updated with approved site chart" },
+      actorName: "Eng. Samuel",
+      actorUid: "SH-1",
+      actorRole: UserRole.SECTION_HEAD,
+      manpowerPlans: plans,
+      workers,
+      notes: "Attached revised organogram",
+    });
+    expect(req.workflowStage).toBe("Pending HR Manager");
+    expect(req.resubmittedCount).toBe(1);
+
+    // Rejection halts workflow and blocks further approvals
+    const rejected = await advanceRecruitmentApproval({
+      request: req,
+      decision: "Rejected",
+      actorName: "HR Mgr",
+      actorRole: UserRole.HR_MANAGER,
+      notes: "Duplicate requisition covered by existing transfer",
+    });
+    expect(rejected.status).toBe("Rejected");
+    expect(rejected.workflowStage).toBe("Rejected");
+    expect(rejected.hrRegistrationAuthorized).toBe(false);
+    await expect(
+      advanceRecruitmentApproval({ request: rejected, decision: "Approved", actorName: "Office Mgr", actorRole: UserRole.OFFICE_MANAGER })
+    ).rejects.toThrow(/already "Rejected"/);
   });
 
   it("generates sequential Employee IDs and masks Fayda/Bank PII for non-HR/Director roles", () => {

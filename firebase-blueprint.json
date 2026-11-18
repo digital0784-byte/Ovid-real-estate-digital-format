@@ -86,7 +86,12 @@
         "method": { "type": "string", "enum": ["Fingerprint", "FaceID", "Manual", "RFID"] },
         "workingHours": { "type": "number" },
         "overtime": { "type": "number" },
-        "status": { "type": "string", "enum": ["Present", "Absent", "Late", "Leave", "Holiday"] }
+        "status": { "type": "string", "enum": ["Present", "Absent", "Late", "Leave", "Holiday"] },
+        "biometricDeviceId": { "type": "string" },
+        "biometricDeviceName": { "type": "string" },
+        "biometricUserId": { "type": "string" },
+        "biometricMappingId": { "type": "string" },
+        "biometricSourceProtocol": { "type": "string" }
       },
       "required": ["id", "workerId", "workerName", "date", "status"]
     },
@@ -1066,7 +1071,7 @@
     },
     "RecruitmentRequest": {
       "title": "RecruitmentRequest",
-      "description": "5-stage manpower recruitment requisition with excess manpower Director approval.",
+      "description": "6-step sequential manpower recruitment approval workflow (Section Head -> HR Manager -> Office Manager -> Finance Manager -> Operation Dept -> Director Final Approval) authorizing HR employee registration.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -1075,11 +1080,16 @@
         "department": { "type": "string" },
         "jobPosition": { "type": "string" },
         "requestedCount": { "type": "number" },
-        "workflowStage": { "type": "string" },
+        "jobResponsibilities": { "type": "string" },
+        "experienceRequired": { "type": "string" },
+        "qualificationsRequired": { "type": "string" },
+        "workflowStage": { "type": "string", "enum": ["Pending HR Manager", "Pending Office Manager", "Pending Finance Manager", "Pending Operation Department", "Pending Director Final Approval", "Pending Director Excess Approval", "Returned for Correction", "Approved", "Rejected", "Fulfilled"] },
         "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Fulfilled"] },
-        "exceedsManpowerLimit": { "type": "boolean" }
+        "exceedsManpowerLimit": { "type": "boolean" },
+        "hrRegistrationAuthorized": { "type": "boolean" },
+        "hrOnboardingTaskId": { "type": "string" }
       },
-      "required": ["id", "requestNo", "project", "jobPosition", "requestedCount", "status"]
+      "required": ["id", "requestNo", "project", "jobPosition", "requestedCount", "workflowStage", "status"]
     },
     "WorkSchedule": {
       "title": "WorkSchedule",
@@ -1216,6 +1226,123 @@
         "workflowStage": { "type": "string" }
       },
       "required": ["id", "runId", "payPeriod", "workerId", "workflowStage"]
+    },
+    "BiometricDevice": {
+      "title": "BiometricDevice",
+      "description": "Registered physical biometric terminal hardware metadata (zero credentials or secrets stored).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "deviceCode": { "type": "string", "maxLength": 64 },
+        "deviceName": { "type": "string", "maxLength": 140 },
+        "manufacturer": { "type": "string", "maxLength": 100 },
+        "model": { "type": "string", "maxLength": 100 },
+        "serialNumber": { "type": "string", "maxLength": 120 },
+        "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "projectId": { "type": "string", "maxLength": 140 },
+        "projectName": { "type": "string", "maxLength": 140 },
+        "deviceLocation": { "type": "string", "maxLength": 200 },
+        "protocolType": { "type": "string", "enum": ["ADMS_PUSH_HTTP", "TCP_4370_SITE_BRIDGE", "MANUAL_IMPORT"] },
+        "networkTopology": { "type": "string", "maxLength": 160 },
+        "admsPath": { "type": "string", "maxLength": 120 },
+        "supportedCapabilities": { "type": "array" },
+        "lastHandshakeAt": { "type": "string", "maxLength": 64 },
+        "lastEventAt": { "type": "string", "maxLength": 64 },
+        "connectionVerified": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdBy": { "type": "string", "maxLength": 120 },
+        "createdByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 120 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "deviceCode", "deviceName", "manufacturer", "model", "serialNumber", "workLocationType", "status"]
+    },
+    "BiometricDeviceMapping": {
+      "title": "BiometricDeviceMapping",
+      "description": "Links an existing ERP Employee to a registered biometric terminal using the device-local Biometric User ID.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "employeeId": { "type": "string", "maxLength": 100 },
+        "workerRecordId": { "type": "string", "maxLength": 128 },
+        "employeeNameSnapshot": { "type": "string", "maxLength": 160 },
+        "departmentSnapshot": { "type": "string", "maxLength": 120 },
+        "positionSnapshot": { "type": "string", "maxLength": 120 },
+        "employmentStatusSnapshot": { "type": "string", "maxLength": 40 },
+        "biometricUserId": { "type": "string", "maxLength": 64 },
+        "deviceId": { "type": "string", "maxLength": 128 },
+        "deviceNameSnapshot": { "type": "string", "maxLength": 140 },
+        "deviceModelSnapshot": { "type": "string", "maxLength": 140 },
+        "deviceSerialNumberSnapshot": { "type": "string", "maxLength": 120 },
+        "workLocationId": { "type": "string", "maxLength": 140 },
+        "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "projectId": { "type": "string", "maxLength": 140 },
+        "projectNameSnapshot": { "type": "string", "maxLength": 140 },
+        "effectiveDate": { "type": "string", "maxLength": 32 },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "createdBy": { "type": "string", "maxLength": 120 },
+        "createdByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedBy": { "type": "string", "maxLength": 120 },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 64 },
+        "deactivatedBy": { "type": "string", "maxLength": 120 },
+        "deactivatedByUid": { "type": "string", "maxLength": 128 },
+        "deactivatedAt": { "type": "string", "maxLength": 64 },
+        "deactivationReason": { "type": "string", "maxLength": 500 }
+      },
+      "required": ["id", "employeeId", "workerRecordId", "biometricUserId", "deviceId", "workLocationType", "effectiveDate", "status"]
+    },
+    "BiometricMappingAuditLog": {
+      "title": "BiometricMappingAuditLog",
+      "description": "Immutable audit trail recording biometric mapping creation, edits, User ID/device changes, activation/deactivation, and event resolution.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "mappingId": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 100 },
+        "employeeName": { "type": "string", "maxLength": 160 },
+        "deviceId": { "type": "string", "maxLength": 128 },
+        "deviceName": { "type": "string", "maxLength": 140 },
+        "biometricUserId": { "type": "string", "maxLength": 64 },
+        "action": { "type": "string", "enum": ["Mapping Created", "Mapping Edited", "Biometric User ID Changed", "Device Changed", "Mapping Activated", "Mapping Deactivated", "Unmapped Event Resolved"] },
+        "previousValue": { "type": "object" },
+        "newValue": { "type": "object" },
+        "reason": { "type": "string", "maxLength": 500 },
+        "actorName": { "type": "string", "maxLength": 120 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorRole": { "type": "string", "maxLength": 64 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "mappingId", "employeeId", "deviceId", "biometricUserId", "action", "actorName", "actorRole", "timestamp"]
+    },
+    "UnmappedBiometricEvent": {
+      "title": "UnmappedBiometricEvent",
+      "description": "Quarantine queue for attendance punches from unmapped or inactive device User IDs awaiting manual HR mapping resolution.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "deviceId": { "type": "string", "maxLength": 128 },
+        "deviceName": { "type": "string", "maxLength": 140 },
+        "biometricUserId": { "type": "string", "maxLength": 64 },
+        "eventTime": { "type": "string", "maxLength": 64 },
+        "punchType": { "type": "string", "enum": ["Check-In", "Check-Out", "Lunch-Out", "Lunch-In", "Unknown"] },
+        "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "projectName": { "type": "string", "maxLength": 140 },
+        "status": { "type": "string", "enum": ["Unmapped", "Resolved", "Ignored"] },
+        "resolvedMappingId": { "type": "string", "maxLength": 128 },
+        "resolvedEmployeeId": { "type": "string", "maxLength": 100 },
+        "resolvedAttendanceId": { "type": "string", "maxLength": 128 },
+        "resolvedBy": { "type": "string", "maxLength": 120 },
+        "resolvedAt": { "type": "string", "maxLength": 64 },
+        "rawEventMeta": { "type": "object" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "deviceId", "biometricUserId", "eventTime", "status"]
     }
   },
   "firestore": {
@@ -1510,6 +1637,22 @@
     "/hrmPayslips/{payslipId}": {
       "schema": "HrmPayslip",
       "description": "Disbursed employee payslips supporting HR/Finance access and Employee self-service."
+    },
+    "/biometricDevices/{deviceId}": {
+      "schema": "BiometricDevice",
+      "description": "Registered physical biometric hardware terminals (zero credentials stored)."
+    },
+    "/biometricDeviceMappings/{mappingId}": {
+      "schema": "BiometricDeviceMapping",
+      "description": "Links existing ERP employees to biometric device User IDs for attendance resolution."
+    },
+    "/biometricMappingAuditLogs/{logId}": {
+      "schema": "BiometricMappingAuditLog",
+      "description": "Immutable create-only audit log for biometric mapping changes and unmapped event resolution."
+    },
+    "/unmappedBiometricEvents/{eventId}": {
+      "schema": "UnmappedBiometricEvent",
+      "description": "Queue of unmatched biometric device attendance punches pending HR resolution."
     }
   }
 }

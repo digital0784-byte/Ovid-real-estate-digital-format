@@ -40,7 +40,14 @@ import {
   VideoOff,
   Scan
 } from "lucide-react";
-import { Worker, AttendanceRecord, AttendanceMethod, UserRole } from "../types";
+import {
+  Worker,
+  AttendanceRecord,
+  AttendanceMethod,
+  BiometricDeviceMapping,
+  BiometricDeviceRecord,
+  UserRole,
+} from "../types";
 import {
   captureAndVerifyLiveFace,
   enrollWorkerFingerprint,
@@ -75,6 +82,8 @@ interface BiometricAttendanceBoardProps {
   isAmharic: boolean;
   currentUserRole: UserRole;
   onLogAction?: (action: string, details: string) => void;
+  biometricDevices?: BiometricDeviceRecord[];
+  biometricMappings?: BiometricDeviceMapping[];
 }
 
 interface SmartNotification {
@@ -93,7 +102,9 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
   onUpdateWorker,
   isAmharic,
   currentUserRole,
-  onLogAction
+  onLogAction,
+  biometricDevices = [],
+  biometricMappings = [],
 }) => {
   // --- OFFLINE & SIMULATION STATE ---
   const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
@@ -1445,12 +1456,49 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-bold focus:outline-none focus:border-red-500"
                   >
                     <option value="">{isAmharic ? "-- ሰራተኛ ይምረጡ --" : "-- Select Employee --"}</option>
-                    {workers.map((w) => (
-                      <option key={w.id} value={w.id}>
-                        {w.name} ({w.id}) {w.fingerprint ? "• Finger" : ""} {w.faceRecognitionData ? "• Face" : ""}
-                      </option>
-                    ))}
+                    {workers.map((w) => {
+                      const activeMap = biometricMappings.find(
+                        (m) =>
+                          m.status === "Active" &&
+                          (m.workerRecordId === w.id ||
+                            (w.employeeId && m.employeeId === w.employeeId))
+                      );
+                      return (
+                        <option key={w.id} value={w.id}>
+                          {w.name} ({w.id}) {w.fingerprint ? "• Finger" : ""}{" "}
+                          {w.faceRecognitionData ? "• Face" : ""}
+                          {activeMap ? ` • BioID ${activeMap.biometricUserId}` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
+                  {selectedBioWorkerId &&
+                    (() => {
+                      const activeMaps = biometricMappings.filter(
+                        (m) =>
+                          m.status === "Active" &&
+                          (m.workerRecordId === selectedBioWorkerId ||
+                            workers.find((w) => w.id === selectedBioWorkerId)?.employeeId ===
+                              m.employeeId)
+                      );
+                      if (activeMaps.length === 0) return null;
+                      return (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {activeMaps.map((m) => {
+                            const dev = biometricDevices.find((d) => d.id === m.deviceId);
+                            return (
+                              <span
+                                key={m.id}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-950/70 border border-emerald-500/30 text-[10px] font-mono text-emerald-300"
+                              >
+                                <Fingerprint size={10} />
+                                {dev?.deviceName || m.deviceNameSnapshot} · BioID {m.biometricUserId}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                 </div>
 
                 {verifyMode === "face" && (
@@ -1927,6 +1975,12 @@ export const BiometricAttendanceBoard: React.FC<BiometricAttendanceBoardProps> =
                           </>
                         )}
                       </span>
+                      {(rec.biometricDeviceName || rec.biometricUserId) && (
+                        <div className="text-[10px] font-mono text-emerald-700 mt-0.5">
+                          {rec.biometricDeviceName || rec.biometricDeviceId}
+                          {rec.biometricUserId ? ` · BioID ${rec.biometricUserId}` : ""}
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span className="inline-flex items-center space-x-1 text-slate-500">

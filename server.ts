@@ -9,6 +9,7 @@ import { getAppCheck } from "firebase-admin/app-check";
 import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { TOTP, Secret } from "otpauth";
+import { createBiometricConnectorRouter } from "./src/server/biometricConnectorRouter";
 let firebaseConfigJson: any = {};
 try {
   const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
@@ -1093,6 +1094,15 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
     }
   });
 
+  // Biometric Device Integration Connector (ZKTeco G3 Pro & MB360 Plus ADMS + Site Bridge)
+  const { router: biometricConnectorRouter } = createBiometricConnectorRouter({
+    verifyAppCheck,
+    requireAuth,
+    requireActiveUser,
+    getSharedKey: () => process.env.BIOMETRIC_CONNECTOR_SHARED_KEY,
+  });
+  app.use(biometricConnectorRouter);
+
   // Serve static assets or mount Vite dev middleware
   const distPath = path.resolve(process.cwd(), "dist");
   const hasBuiltDist = fs.existsSync(path.join(distPath, "index.html"));
@@ -1101,7 +1111,7 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
   if (hasBuiltDist && !isDev) {
     app.use(express.static(distPath));
     app.get("*", (req, res, next) => {
-      if (req.path.startsWith("/api/")) {
+      if (req.path.startsWith("/api/") || req.path.startsWith("/iclock/")) {
         return next();
       }
       res.sendFile(path.join(distPath, "index.html"));
@@ -1119,7 +1129,7 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
       if (hasBuiltDist) {
         app.use(express.static(distPath));
         app.get("*", (req, res, next) => {
-          if (req.path.startsWith("/api/")) return next();
+          if (req.path.startsWith("/api/") || req.path.startsWith("/iclock/")) return next();
           res.sendFile(path.join(distPath, "index.html"));
         });
       }

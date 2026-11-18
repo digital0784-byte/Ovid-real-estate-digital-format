@@ -43,7 +43,10 @@ import {
 import {
   AttendanceMethod,
   AttendanceRecord,
+  BiometricDeviceMapping,
+  BiometricDeviceRecord,
   EmployeeTransferRecord,
+  ErpTask,
   EthiopianTaxBracket,
   EthiopianTaxPensionConfig,
   FinancialAccount,
@@ -55,8 +58,10 @@ import {
   ManpowerPlanRecord,
   OvertimeRequestRecord,
   RecruitmentRequestRecord,
+  RecruitmentSupportingDocument,
   SalaryAdvanceLoanRecord,
   SalaryStructureRecord,
+  UnmappedBiometricEvent,
   UserRole,
   WorkScheduleConfig,
   Worker,
@@ -64,6 +69,12 @@ import {
 import { DbService } from "../../services/db";
 import { offlineSyncService } from "../../services/offlineSyncService";
 import { verifyWorkerFingerprint, getBiometricCapabilities } from "../../services/biometricService";
+import {
+  processBiometricDeviceAttendanceEvent,
+  pullAndProcessConnectorQueue,
+  resolveBiometricMappingPermissions,
+} from "../../services/biometricMappingService";
+import { EmployeeBiometricMappingModule } from "./EmployeeBiometricMappingModule";
 import {
   buildMaskedPreview,
   decryptSensitiveText,
@@ -73,6 +84,8 @@ import {
   advancePayrollRunStage,
   advanceRecruitmentApproval,
   buildHrmPayrollRunDraft,
+  canActorApproveRecruitmentStage,
+  completeApprovedEmployeeOnboarding,
   computeEthiopianIncomeTaxAndPension,
   computeHrmDashboardState,
   computeScheduleAttendanceMetrics,
@@ -86,7 +99,9 @@ import {
   recalculatePayrollRunLineItem,
   resolveHrmPermissions,
   resolveWorkerSchedule,
+  resubmitReturnedRecruitmentRequest,
   submitRecruitmentRequestWithManpowerCheck,
+  validateEmployeeRegistrationAuthorization,
 } from "../../services/hrmService";
 
 interface HrmEnterpriseModuleProps {
@@ -100,9 +115,17 @@ interface HrmEnterpriseModuleProps {
   onAddAttendance: (a: AttendanceRecord) => Promise<void> | void;
   onNavigateToTab: (tab: string) => void;
   onLogAction: (action: string, details: string) => void;
+  initialSubTab?: HrmSubTab;
 }
 
-type HrmSubTab = "dashboard" | "recruitment" | "employees" | "attendance" | "payroll" | "reports";
+export type HrmSubTab =
+  | "dashboard"
+  | "recruitment"
+  | "employees"
+  | "biometric-mapping"
+  | "attendance"
+  | "payroll"
+  | "reports";
 type HrmReportKind =
   | "manpower"
   | "recruitment"
@@ -126,13 +149,23 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   onAddAttendance,
   onNavigateToTab,
   onLogAction,
+  initialSubTab,
 }) => {
   const actorName =
     currentUserProfile?.displayName || currentUserProfile?.name || String(currentUserRole);
   const actorUid = currentUserProfile?.uid || currentUserProfile?.id || String(currentUserRole);
   const perms = useMemo(() => resolveHrmPermissions(currentUserRole), [currentUserRole]);
+  const biometricMappingPerms = useMemo(
+    () => resolveBiometricMappingPermissions(currentUserRole),
+    [currentUserRole]
+  );
 
-  const [activeTab, setActiveTab] = useState<HrmSubTab>("dashboard");
+  const [activeTab, setActiveTab] = useState<HrmSubTab>(initialSubTab || "dashboard");
+  useEffect(() => {
+    if (initialSubTab) {
+      setActiveTab(initialSubTab);
+    }
+  }, [initialSubTab]);
   const [banner, setBanner] = useState<{ type: "success" | "error" | "info"; text: string } | null>(null);
   const [revealPii, setRevealPii] = useState(false);
 
@@ -152,6 +185,10 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const [privateProfiles, setPrivateProfiles] = useState<HrmPrivateProfileRecord[]>([]);
   const [decryptedPiiMap, setDecryptedPiiMap] = useState<Record<string, { faydaId: string; bankAccountNumber: string; mobileMoneyNumber: string }>>({});
   const [personalPayslips, setPersonalPayslips] = useState<HrmPayslipRecord[]>([]);
+  const [erpTasks, setErpTasks] = useState<ErpTask[]>([]);
+  const [biometricDevices, setBiometricDevices] = useState<BiometricDeviceRecord[]>([]);
+  const [biometricDeviceMappings, setBiometricDeviceMappings] = useState<BiometricDeviceMapping[]>([]);
+  const [unmappedBiometricEvents, setUnmappedBiometricEvents] = useState<UnmappedBiometricEvent[]>([]);
 
   const [offlineStats, setOfflineStats] = useState(() => offlineSyncService.getStats());
 
@@ -174,6 +211,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       unsubs.push(DbService.subscribeManpowerPlans(setManpowerPlans));
       unsubs.push(DbService.subscribeRecruitmentRequests(setRecruitmentRequests));
       unsubs.push(DbService.subscribeEmployeeTransfers(setEmployeeTransfers));
+      unsubs.push(DbService.subscribeTasks(setErpTasks));
+    }
+
+    if (biometricMappingPerms.canView) {
+      unsubs.push(DbService.subscribeBiometricDevices(setBiometricDevices));
+      unsubs.push(DbService.subscribeBiometricDeviceMappings(setBiometricDeviceMappings));
+      unsubs.push(DbService.subscribeUnmappedBiometricEvents(setUnmappedBiometricEvents));
     }
 
     unsubs.push(DbService.subscribeWorkSchedules(setWorkSchedules));
@@ -205,7 +249,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       unsubs.forEach((u) => u());
       window.removeEventListener("offline_sync_status_changed", handleSyncEvt);
     };
-  }, [actorUid, perms]);
+  }, [actorUid, perms, biometricMappingPerms.canView]);
 
   useEffect(() => {
     if (!perms.canViewSensitivePii && !perms.isEmployee) {
@@ -299,8 +343,36 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     urgency: "Normal" as "Normal" | "High" | "Critical",
     requiredByDate: new Date().toISOString().slice(0, 10),
     proposedMonthlySalary: 14500,
+    jobResponsibilities: "",
+    experienceRequired: "2+ Years Site Construction Experience",
     qualificationsRequired: "Grade 10+ / TVET Level III Certificate",
     justification: "",
+    supportingDocuments: [] as RecruitmentSupportingDocument[],
+  });
+  const [uploadingRecDoc, setUploadingRecDoc] = useState(false);
+
+  // Recruitment Decision / Audit / Resubmit Modals
+  const [recDecisionModal, setRecDecisionModal] = useState<{
+    req: RecruitmentRequestRecord;
+    decision: "Approved" | "Rejected" | "Returned";
+  } | null>(null);
+  const [recDecisionNotes, setRecDecisionNotes] = useState("");
+  const [viewingRecAudit, setViewingRecAudit] = useState<RecruitmentRequestRecord | null>(null);
+  const [resubmittingRec, setResubmittingRec] = useState<RecruitmentRequestRecord | null>(null);
+  const [resubmitForm, setResubmitForm] = useState({
+    project: "",
+    department: "",
+    jobPosition: "",
+    requestedCount: 1,
+    employmentType: "Permanent" as "Permanent" | "Contract" | "Daily Labourer",
+    urgency: "Normal" as "Normal" | "High" | "Critical",
+    requiredByDate: "",
+    proposedMonthlySalary: 0,
+    jobResponsibilities: "",
+    experienceRequired: "",
+    qualificationsRequired: "",
+    justification: "",
+    notes: "",
   });
 
   const liveRecManpowerPreview = useMemo(() => {
@@ -315,6 +387,36 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     const excess = Math.max(0, recForm.requestedCount - remaining);
     return { approved, hired, remaining, excess, exceeds: excess > 0 };
   }, [dash.manpowerRows, recForm.project, recForm.jobPosition, recForm.requestedCount]);
+
+  const approvedRequestsWithOpenSlots = useMemo(
+    () =>
+      recruitmentRequests.filter(
+        (r) =>
+          r.workflowStage === "Approved" &&
+          r.status === "Approved" &&
+          Boolean(r.hrRegistrationAuthorized) &&
+          (r.hiredCount || 0) < r.requestedCount
+      ),
+    [recruitmentRequests]
+  );
+
+  const actionableRequestsForRole = useMemo(
+    () =>
+      recruitmentRequests.filter(
+        (r) => r.status === "Pending" && canActorApproveRecruitmentStage(currentUserRole, r.workflowStage)
+      ),
+    [recruitmentRequests, currentUserRole]
+  );
+
+  const returnedRequestsForUser = useMemo(
+    () =>
+      recruitmentRequests.filter(
+        (r) =>
+          r.workflowStage === "Returned for Correction" &&
+          (r.requestedById === actorUid || perms.isSectionHead || perms.isDirector)
+      ),
+    [recruitmentRequests, actorUid, perms.isSectionHead, perms.isDirector]
+  );
 
   const handleSaveManpowerPlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -344,10 +446,39 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     showToast("success", `Manpower quota saved (${record.approvedManpower} headcount for ${record.jobPosition}).`);
   };
 
+  const handleUploadRecDocument = async (file: File) => {
+    setUploadingRecDoc(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const path = `hrm/recruitment/docs/${Date.now()}_${file.name}`;
+      const res = await DbService.uploadHrmFile(file, path);
+      const docMeta: RecruitmentSupportingDocument = {
+        id: `RECDOC-${Date.now()}`,
+        name: file.name,
+        url: res.url,
+        storagePath: res.storagePath,
+        uploadedAt: nowIso,
+        uploadedBy: actorName,
+      };
+      setRecForm((p) => ({
+        ...p,
+        supportingDocuments: [...p.supportingDocuments, docMeta],
+      }));
+      showToast("success", `Attached supporting document "${file.name}".`);
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to upload supporting document.");
+    } finally {
+      setUploadingRecDoc(false);
+    }
+  };
+
   const handleSubmitRecruitment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!recForm.justification.trim()) {
-      return showToast("error", "Please enter a recruitment justification.");
+      return showToast("error", "Please enter a recruitment reason / justification.");
+    }
+    if (!recForm.jobResponsibilities.trim()) {
+      return showToast("error", "Please specify key job responsibilities.");
     }
     try {
       const rec = await submitRecruitmentRequestWithManpowerCheck({
@@ -367,51 +498,117 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       showToast(
         rec.exceedsManpowerLimit ? "info" : "success",
         rec.exceedsManpowerLimit
-          ? `Submitted ${rec.requestNo}. Exceeds approved manpower by ${rec.excessCount} — Director Alert & Extra Approval Required enabled.`
-          : `Submitted ${rec.requestNo} to Office Manager for Stage 1 verification.`
+          ? `Submitted ${rec.requestNo} to HR Manager (Step 2). Exceeds approved manpower by ${rec.excessCount} — Director Alert also sent.`
+          : `Submitted ${rec.requestNo} and automatically notified HR Manager for Step 2 verification.`
       );
-      setRecForm((p) => ({ ...p, justification: "" }));
+      setRecForm((p) => ({
+        ...p,
+        jobResponsibilities: "",
+        justification: "",
+        supportingDocuments: [],
+      }));
     } catch (err: any) {
       showToast("error", err?.message || "Failed to submit recruitment request.");
     }
   };
 
-  const canActOnRecruitmentStage = (stage: RecruitmentRequestRecord["workflowStage"]): boolean => {
-    switch (stage) {
-      case "Pending Office Manager":
-        return perms.canApproveOfficeStage;
-      case "Pending HR Manager":
-        return perms.canApproveHrStage;
-      case "Pending Finance Manager":
-        return perms.canApproveFinanceStage;
-      case "Pending Operation Department":
-        return perms.canApproveOperationStage;
-      case "Pending Director Final Approval":
-      case "Pending Director Excess Approval":
-        return perms.canApproveDirectorStage;
-      default:
-        return false;
-    }
-  };
+  const canActOnRecruitmentStage = (stage: RecruitmentRequestRecord["workflowStage"]): boolean =>
+    canActorApproveRecruitmentStage(currentUserRole, stage);
 
-  const handleRecruitmentDecision = async (
+  const openRecruitmentDecisionModal = (
     req: RecruitmentRequestRecord,
-    decision: "Approved" | "Rejected"
+    decision: "Approved" | "Rejected" | "Returned"
   ) => {
     if (!canActOnRecruitmentStage(req.workflowStage)) {
-      return showToast("error", `Your role (${currentUserRole}) cannot approve stage "${req.workflowStage}".`);
+      return showToast(
+        "error",
+        `Your role (${currentUserRole}) cannot act on stage "${req.workflowStage}".`
+      );
     }
+    setRecDecisionNotes("");
+    setRecDecisionModal({ req, decision });
+  };
+
+  const handleSubmitRecruitmentDecision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recDecisionModal) return;
+    const { req, decision } = recDecisionModal;
     try {
       const updated = await advanceRecruitmentApproval({
         request: req,
         decision,
         actorName,
+        actorUid,
         actorRole: currentUserRole,
+        notes: recDecisionNotes,
       });
-      onLogAction("HRM Recruitment Workflow", `${req.requestNo} -> ${decision} at ${req.workflowStage} -> Now: ${updated.workflowStage}`);
-      showToast("success", `${req.requestNo} updated to ${updated.workflowStage}.`);
+      onLogAction(
+        "HRM Recruitment Workflow",
+        `${req.requestNo} -> ${decision} at ${req.workflowStage} -> Now: ${updated.workflowStage}`
+      );
+      showToast(
+        decision === "Rejected" ? "info" : "success",
+        updated.workflowStage === "Approved"
+          ? `${req.requestNo} received Director Final Approval! HR Manager is now authorized to register employee(s).`
+          : `${req.requestNo} updated to "${updated.workflowStage}". Notifications dispatched.`
+      );
+      setRecDecisionModal(null);
     } catch (err: any) {
       showToast("error", err?.message || "Workflow error.");
+    }
+  };
+
+  const openResubmitModal = (req: RecruitmentRequestRecord) => {
+    setResubmittingRec(req);
+    setResubmitForm({
+      project: req.project,
+      department: req.department,
+      jobPosition: req.jobPosition,
+      requestedCount: req.requestedCount,
+      employmentType: req.employmentType,
+      urgency: req.urgency,
+      requiredByDate: req.requiredByDate,
+      proposedMonthlySalary: req.proposedMonthlySalary,
+      jobResponsibilities: req.jobResponsibilities || "",
+      experienceRequired: req.experienceRequired || "",
+      qualificationsRequired: req.qualificationsRequired,
+      justification: req.justification,
+      notes: "",
+    });
+  };
+
+  const handleResubmitRecruitment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resubmittingRec) return;
+    try {
+      const updated = await resubmitReturnedRecruitmentRequest({
+        request: resubmittingRec,
+        updates: {
+          project: resubmitForm.project,
+          department: resubmitForm.department,
+          jobPosition: resubmitForm.jobPosition,
+          requestedCount: Number(resubmitForm.requestedCount || 1),
+          employmentType: resubmitForm.employmentType,
+          urgency: resubmitForm.urgency,
+          requiredByDate: resubmitForm.requiredByDate,
+          proposedMonthlySalary: Number(resubmitForm.proposedMonthlySalary || 0),
+          jobResponsibilities: resubmitForm.jobResponsibilities,
+          experienceRequired: resubmitForm.experienceRequired,
+          qualificationsRequired: resubmitForm.qualificationsRequired,
+          justification: resubmitForm.justification,
+        },
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        manpowerPlans,
+        workers,
+        notes: resubmitForm.notes,
+      });
+      onLogAction("HRM Recruitment Resubmitted", `${updated.requestNo} revised & resubmitted to HR Manager`);
+      showToast("success", `${updated.requestNo} resubmitted to HR Manager (Step 2) with full prior audit history preserved.`);
+      setResubmittingRec(null);
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to resubmit request.");
     }
   };
 
@@ -468,22 +665,31 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const [empForm, setEmpForm] = useState(emptyEmpForm);
 
   const openNewEmployeeModal = (fromRec?: RecruitmentRequestRecord) => {
+    const targetRec = fromRec || approvedRequestsWithOpenSlots[0] || null;
+    const authCheck = validateEmployeeRegistrationAuthorization({
+      role: currentUserRole,
+      recruitmentRequest: targetRec,
+    });
+    if (!authCheck.allowed) {
+      return showToast(
+        "error",
+        authCheck.reason ||
+          "Employee registration is blocked until Director gives Final Approval on a Recruitment Request."
+      );
+    }
     const base = emptyEmpForm();
-    if (fromRec) {
-      setOnboardingFromRec(fromRec);
+    if (targetRec) {
+      setOnboardingFromRec(targetRec);
       setEmpForm({
         ...base,
-        assignedProject: fromRec.project,
-        department: fromRec.department,
-        position: fromRec.jobPosition,
-        trade: fromRec.jobPosition,
-        employmentType: fromRec.employmentType,
-        basicMonthlySalary: fromRec.proposedMonthlySalary || 14000,
-        qualifications: fromRec.qualificationsRequired || "",
+        assignedProject: targetRec.project,
+        department: targetRec.department,
+        position: targetRec.jobPosition,
+        trade: targetRec.jobPosition,
+        employmentType: targetRec.employmentType,
+        basicMonthlySalary: targetRec.proposedMonthlySalary || 14000,
+        qualifications: targetRec.qualificationsRequired || "",
       });
-    } else {
-      setOnboardingFromRec(null);
-      setEmpForm(base);
     }
     setEditingWorkerId(null);
     setShowEmpModal(true);
@@ -714,20 +920,36 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       onLogAction("HRM Employee Updated", `Updated ${workerPayload.name} (${workerPayload.employeeId}) with encrypted PII`);
       showToast("success", `Employee ${workerPayload.name} updated & PII encrypted.`);
     } else {
-      await onAddWorker(workerPayload);
-      if (onboardingFromRec) {
-        const nextHired = (onboardingFromRec.hiredCount || 0) + 1;
-        await DbService.saveRecruitmentRequest({
-          ...onboardingFromRec,
-          hiredCount: nextHired,
-          status: nextHired >= onboardingFromRec.requestedCount ? "Fulfilled" : onboardingFromRec.status,
-          workflowStage:
-            nextHired >= onboardingFromRec.requestedCount ? "Fulfilled" : onboardingFromRec.workflowStage,
-          updatedAt: nowIso,
-        });
+      const authCheck = validateEmployeeRegistrationAuthorization({
+        role: currentUserRole,
+        recruitmentRequest: onboardingFromRec,
+      });
+      if (!authCheck.allowed || !onboardingFromRec) {
+        return showToast(
+          "error",
+          authCheck.reason || "Director Final Approval on a Recruitment Request is required before employee registration."
+        );
       }
-      onLogAction("HRM Employee Onboarded", `Registered ${workerPayload.employeeId} — ${workerPayload.name}`);
-      showToast("success", `Employee ${workerPayload.name} registered with ID ${workerPayload.employeeId}.`);
+      await onAddWorker(workerPayload);
+      const onboardingOutcome = await completeApprovedEmployeeOnboarding({
+        recruitmentRequest: onboardingFromRec,
+        newWorker: workerPayload,
+        manpowerPlans,
+        allWorkersAfterAdd: [workerPayload, ...workers],
+        tasks: erpTasks,
+        actorName,
+        actorRole: currentUserRole,
+      });
+      onLogAction(
+        "HRM Employee Onboarded",
+        `Registered ${workerPayload.employeeId} — ${workerPayload.name} (Linked Request: ${onboardingFromRec.requestNo})`
+      );
+      showToast(
+        onboardingOutcome.exceededManpowerAlert ? "info" : "success",
+        onboardingOutcome.exceededManpowerAlert
+          ? `Registered ${workerPayload.name} (${workerPayload.employeeId}). Alert sent to Director: active headcount exceeds approved quota.`
+          : `Employee ${workerPayload.name} registered with ID ${workerPayload.employeeId}.`
+      );
     }
     setShowEmpModal(false);
   };
@@ -764,6 +986,12 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     attViewMode: "daily" as "daily" | "monthly",
     dailyFilterDate: new Date().toISOString().slice(0, 10),
     dailyFilterProject: "ALL",
+  });
+  const [syncingBioQueue, setSyncingBioQueue] = useState(false);
+  const [bioClockForm, setBioClockForm] = useState({
+    deviceId: "",
+    biometricUserId: "",
+    punchType: "Check-In" as "Check-In" | "Check-Out",
   });
 
   const [schedForm, setSchedForm] = useState({
@@ -918,6 +1146,89 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       "success",
       `Logged ${w.name}: ${metrics.status} (${metrics.workingHours}h regular, ${metrics.overtime}h OT, ${metrics.lateArrivalMinutes}m late).`
     );
+  };
+
+  const handleSyncConnectorQueueInAttendance = async () => {
+    setSyncingBioQueue(true);
+    try {
+      const res = await pullAndProcessConnectorQueue({
+        devices: biometricDevices,
+        mappings: biometricDeviceMappings,
+        workers,
+        schedules: workSchedules,
+        existingAttendance: attendance,
+        existingUnmappedEvents: unmappedBiometricEvents,
+        onSaveAttendance: onAddAttendance,
+      });
+      if (res.total === 0) {
+        showToast("info", "No staged ZKTeco ADMS / Site Bridge hardware punches waiting in connector queue.");
+      } else {
+        onLogAction(
+          "HRM Biometric Hardware Sync",
+          `Total ${res.total}: ${res.matched} matched, ${res.duplicatesSkipped} duplicates skipped, ${res.unmappedQueued} quarantined`
+        );
+        showToast(
+          res.unmappedQueued > 0 ? "info" : "success",
+          `Synced ${res.total} hardware event(s): ${res.matched} matched, ${res.duplicatesSkipped} duplicate(s) skipped, ${res.unmappedQueued} unmapped queued.`
+        );
+      }
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to sync ZKTeco hardware queue.");
+    } finally {
+      setSyncingBioQueue(false);
+    }
+  };
+
+  const handleProcessMappedDevicePunch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const targetDeviceId =
+      bioClockForm.deviceId || biometricDevices.find((d) => d.status === "Active")?.id || "";
+    if (!targetDeviceId) {
+      return showToast("error", "Register or select an Active Biometric Device first.");
+    }
+    if (!bioClockForm.biometricUserId.trim()) {
+      return showToast("error", "Enter the Biometric User ID from the device terminal.");
+    }
+    try {
+      const res = await processBiometricDeviceAttendanceEvent({
+        deviceId: targetDeviceId,
+        biometricUserId: bioClockForm.biometricUserId.trim(),
+        eventTime: new Date().toISOString(),
+        punchType: bioClockForm.punchType,
+        devices: biometricDevices,
+        mappings: biometricDeviceMappings,
+        workers,
+        schedules: workSchedules,
+        existingAttendance: attendance,
+        existingUnmappedEvents: unmappedBiometricEvents,
+        onSaveAttendance: onAddAttendance,
+      });
+      if (res.resolved && res.attendanceRecord) {
+        if (res.duplicatePrevented) {
+          showToast(
+            "info",
+            `Duplicate ${bioClockForm.punchType} punch within 5-minute deduplication window ignored for ${res.attendanceRecord.workerName}.`
+          );
+        } else {
+          onLogAction(
+            "HRM Mapped Biometric Punch",
+            `${res.attendanceRecord.workerName} (${res.attendanceRecord.biometricDeviceName} · BioID ${res.attendanceRecord.biometricUserId}) ${bioClockForm.punchType}`
+          );
+          showToast(
+            "success",
+            `Mapped punch recorded for ${res.attendanceRecord.workerName} (${res.attendanceRecord.biometricDeviceName}).`
+          );
+          setBioClockForm((p) => ({ ...p, biometricUserId: "" }));
+        }
+      } else {
+        showToast(
+          "error",
+          `${res.reason || "No active mapping found."} Punch quarantined to Unmapped Biometric Events queue without guessing.`
+        );
+      }
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to process device punch.");
+    }
   };
 
   const handleSaveSchedule = async (e: React.FormEvent) => {
@@ -1631,6 +1942,17 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               label: isAmharic ? `ሠራተኞች (${workers.length})` : `Employees (${workers.length})`,
               icon: Users,
             },
+            ...(biometricMappingPerms.canView
+              ? [
+                  {
+                    id: "biometric-mapping" as HrmSubTab,
+                    label: isAmharic
+                      ? "የሠራተኛ ባዮሜትሪክ ማጣመሪያ"
+                      : "Employee Biometric Mapping",
+                    icon: Fingerprint,
+                  },
+                ]
+              : []),
             {
               id: "attendance",
               label: isAmharic ? "ሰዓት መቆጣጠሪያ፣ ፈቃድ እና ትርፍ ሰዓት" : "Attendance, Leave & OT",
@@ -1983,19 +2305,19 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               </button>
             </form>
 
-            {/* Manpower Recruitment Request Form */}
+            {/* Manpower Recruitment Request Form (Section Head) */}
             <form
               onSubmit={handleSubmitRecruitment}
               className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4"
             >
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-extrabold text-white">
                   {isAmharic ? "2. የሠራተኛ ቅጥር መጠየቂያ ቅጽ" : "2. Manpower Recruitment Request Form"}
                 </h3>
-                <span className="text-[11px] text-slate-400">
+                <span className="text-[11px] text-emerald-400 font-semibold">
                   {isAmharic
-                    ? "ቢሮ አስተዳዳሪ → HR → ፋይናንስ → ኦፕሬሽን → ዳይሬክተር"
-                    : "Office → HR → Finance → Operation → Director"}
+                    ? "Section Head → HR → Office Eng → Finance → Operation → Director → HR ምዝገባ"
+                    : "Section Head → HR → Office Eng → Finance → Operation → Director → HR Reg"}
                 </span>
               </div>
 
@@ -2011,7 +2333,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                     <div>
                       {isAmharic
                         ? `የጸደቀ: ${liveRecManpowerPreview.approved} · የተቀጠሩ: ${liveRecManpowerPreview.hired} · ቀሪ ክፍት ቦታ: ${liveRecManpowerPreview.remaining}። ማቅረብ ለዳይሬክተሩ በራስ-ሰር ማሳወቂያ ይልካል።`
-                        : `Approved: ${liveRecManpowerPreview.approved} · Active Hired: ${liveRecManpowerPreview.hired} · Remaining Vacancies: ${liveRecManpowerPreview.remaining}. Submitting will automatically notify the Director and enforce extra Director Excess Approval.`}
+                        : `Approved: ${liveRecManpowerPreview.approved} · Active Hired: ${liveRecManpowerPreview.hired} · Remaining Vacancies: ${liveRecManpowerPreview.remaining}. Submitting automatically alerts the Director.`}
                     </div>
                   </div>
                 </div>
@@ -2019,7 +2341,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Project</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Project *</label>
                   <select
                     value={recForm.project}
                     onChange={(e) => setRecForm((p) => ({ ...p, project: e.target.value }))}
@@ -2031,7 +2353,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Department</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Department *</label>
                   <input
                     value={recForm.department}
                     onChange={(e) => setRecForm((p) => ({ ...p, department: e.target.value }))}
@@ -2040,7 +2362,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Job Position</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Job Position *</label>
                   <input
                     value={recForm.jobPosition}
                     onChange={(e) => setRecForm((p) => ({ ...p, jobPosition: e.target.value }))}
@@ -2049,7 +2371,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Requested Count</label>
+                  <label className="block text-[11px] text-slate-400 mb-1">Employees Required *</label>
                   <input
                     type="number"
                     min={1}
@@ -2072,6 +2394,16 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   </select>
                 </div>
                 <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Expected Employment Date *</label>
+                  <input
+                    type="date"
+                    value={recForm.requiredByDate}
+                    onChange={(e) => setRecForm((p) => ({ ...p, requiredByDate: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    required
+                  />
+                </div>
+                <div>
                   <label className="block text-[11px] text-slate-400 mb-1">Proposed Salary (ETB)</label>
                   <input
                     type="number"
@@ -2083,30 +2415,218 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                   />
                 </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Urgency</label>
+                  <select
+                    value={recForm.urgency}
+                    onChange={(e) => setRecForm((p) => ({ ...p, urgency: e.target.value as any }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="Normal">Normal</option>
+                    <option value="High">High</option>
+                    <option value="Critical">Critical</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Required Experience</label>
+                  <input
+                    value={recForm.experienceRequired}
+                    onChange={(e) => setRecForm((p) => ({ ...p, experienceRequired: e.target.value }))}
+                    placeholder="e.g. 3+ Years Building Structural Work"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
               </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <input
-                  placeholder="Qualifications Required"
-                  value={recForm.qualificationsRequired}
-                  onChange={(e) => setRecForm((p) => ({ ...p, qualificationsRequired: e.target.value }))}
-                  className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                />
-                <input
-                  placeholder="Justification / Site Milestone Need *"
-                  value={recForm.justification}
-                  onChange={(e) => setRecForm((p) => ({ ...p, justification: e.target.value }))}
-                  className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                  required
-                />
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Job Responsibilities *</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Key duties, site reporting line, safety & deliverable responsibilities..."
+                    value={recForm.jobResponsibilities}
+                    onChange={(e) => setRecForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Required Qualifications</label>
+                  <textarea
+                    rows={2}
+                    placeholder="Academic / TVET / Professional licenses required..."
+                    value={recForm.qualificationsRequired}
+                    onChange={(e) => setRecForm((p) => ({ ...p, qualificationsRequired: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Reason for Recruitment *</label>
+                  <input
+                    placeholder="Justification / Project Milestone or Replacement Need *"
+                    value={recForm.justification}
+                    onChange={(e) => setRecForm((p) => ({ ...p, justification: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">
+                    Supporting Documents ({recForm.supportingDocuments.length} attached) {uploadingRecDoc && "(Uploading...)"}
+                  </label>
+                  <input
+                    type="file"
+                    onChange={(e) => e.target.files?.[0] && handleUploadRecDocument(e.target.files[0])}
+                    className="w-full text-xs text-slate-300"
+                  />
+                </div>
+              </div>
+
+              {recForm.supportingDocuments.length > 0 && (
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  {recForm.supportingDocuments.map((docItem) => (
+                    <span
+                      key={docItem.id}
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 flex items-center gap-1.5"
+                    >
+                      <FileText size={12} className="text-blue-400" />
+                      <span>{docItem.name}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+
               <button
                 type="submit"
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
               >
-                {isAmharic ? "የቅጥር ጥያቄ አቅርብ (5-ደረጃ ማጽደቅ)" : "Submit Recruitment Request (5-Stage Approval)"}
+                {isAmharic ? "የቅጥር ጥያቄ አቅርብ (ወደ HR አስተላልፍ)" : "Submit Manpower Request (Route to HR Manager)"}
               </button>
             </form>
           </div>
+
+          {/* Actionable Department Task Queue Banner */}
+          {(actionableRequestsForRole.length > 0 ||
+            returnedRequestsForUser.length > 0 ||
+            (perms.canRegisterApprovedEmployees && approvedRequestsWithOpenSlots.length > 0)) && (
+            <div className="bg-slate-950 border border-emerald-500/30 rounded-2xl p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-extrabold text-emerald-300 flex items-center gap-2">
+                  <ShieldCheck size={16} />
+                  <span>
+                    Action Queue for {currentUserRole} (
+                    {actionableRequestsForRole.length +
+                      returnedRequestsForUser.length +
+                      (perms.canRegisterApprovedEmployees ? approvedRequestsWithOpenSlots.length : 0)}
+                    )
+                  </span>
+                </h3>
+                <span className="text-[11px] text-slate-400">
+                  Strict sequential approval order enforced
+                </span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {actionableRequestsForRole.map((req) => (
+                  <div
+                    key={`act-${req.id}`}
+                    className="p-3.5 rounded-xl bg-slate-900 border border-slate-700 text-xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-white">{req.requestNo}</span>
+                      <span className="px-2 py-0.5 rounded bg-blue-950/70 border border-blue-500/40 text-blue-300 text-[10px] font-bold">
+                        {req.workflowStage}
+                      </span>
+                    </div>
+                    <div className="text-slate-200 font-semibold">
+                      {req.requestedCount}x {req.jobPosition} ({req.project})
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Salary: ETB {fmtMoney(req.proposedMonthlySalary)} · Expected: {req.requiredByDate}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => openRecruitmentDecisionModal(req, "Approved")}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openRecruitmentDecisionModal(req, "Returned")}
+                        className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Return
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openRecruitmentDecisionModal(req, "Rejected")}
+                        className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {returnedRequestsForUser.map((req) => (
+                  <div
+                    key={`ret-${req.id}`}
+                    className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/40 text-xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-white">{req.requestNo}</span>
+                      <span className="px-2 py-0.5 rounded bg-amber-600/30 text-amber-200 text-[10px] font-bold">
+                        Returned for Correction
+                      </span>
+                    </div>
+                    <div className="text-slate-200 font-semibold">
+                      {req.jobPosition} ({req.project})
+                    </div>
+                    <div className="text-[11px] text-amber-200">
+                      Note ({req.returnedBy}): {req.correctionNotes}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openResubmitModal(req)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Edit & Resubmit Request
+                    </button>
+                  </div>
+                ))}
+                {perms.canRegisterApprovedEmployees &&
+                  approvedRequestsWithOpenSlots.map((req) => (
+                    <div
+                      key={`hrreg-${req.id}`}
+                      className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-white">{req.requestNo}</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-600/30 text-emerald-200 text-[10px] font-bold">
+                          Step 7: HR Registration Authorized
+                        </span>
+                      </div>
+                      <div className="text-slate-200 font-semibold">
+                        {req.jobPosition} — {req.hiredCount || 0}/{req.requestedCount} Registered
+                      </div>
+                      <div className="text-[11px] text-slate-400">
+                        Task ID: {req.hrOnboardingTaskId || "Auto-assigned"} · Director Approved
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openNewEmployeeModal(req)}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Register Authorized Employee
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {/* Approved Manpower vs Actual Hired vs Vacancies */}
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
@@ -2151,12 +2671,12 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </div>
           </div>
 
-          {/* 5-Stage Recruitment Pipeline */}
+          {/* 6-Step Sequential Recruitment Pipeline */}
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
             <h3 className="text-sm font-extrabold text-white mb-3">
               {isAmharic
-                ? "የቅጥር ጥያቄዎች ሂደት (ቢሮ አስተዳዳሪ → HR → ፋይናንስ → ኦፕሬሽን → ዳይሬክተር የመጨረሻ ፈቃድ)"
-                : "Manpower Recruitment Requests (Office Manager → HR → Finance → Operation → Director Final / Excess Approval)"}
+                ? "የቅጥር ጥያቄዎች ሂደት (Section Head → HR → ቢሮ/ምህንድስና → ፋይናንስ → ኦፕሬሽን → ዳይሬክተር → HR ምዝገባ)"
+                : "Manpower Recruitment Pipeline (Section Head → HR → Office Eng → Finance → Operation → Director Final → HR Registration)"}
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
@@ -2185,7 +2705,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                         <td className="py-3 px-3">
                           <div className="font-semibold text-white">{req.jobPosition}</div>
                           <div className="text-[11px] text-slate-400">
-                            {req.project} · {req.department} ({req.employmentType})
+                            {req.project} · {req.department} ({req.employmentType}) · Expected: {req.requiredByDate}
                           </div>
                         </td>
                         <td className="py-3 px-3 text-right font-mono tabular-nums">
@@ -2202,37 +2722,84 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                             </span>
                           )}
                         </td>
-                        <td className="py-3 px-3 font-semibold text-blue-300">{req.workflowStage}</td>
+                        <td className="py-3 px-3">
+                          <span
+                            className={`font-semibold ${
+                              req.workflowStage === "Rejected"
+                                ? "text-red-400"
+                                : req.workflowStage === "Returned for Correction"
+                                ? "text-amber-300"
+                                : req.workflowStage === "Approved" || req.workflowStage === "Fulfilled"
+                                ? "text-emerald-400"
+                                : "text-blue-300"
+                            }`}
+                          >
+                            {req.workflowStage}
+                          </span>
+                          {req.rejectionReason && (
+                            <div className="text-[10px] text-red-300">Reason: {req.rejectionReason}</div>
+                          )}
+                        </td>
                         <td className="py-3 px-3 text-slate-300">
                           <div>{req.requestedBy}</div>
                           <div className="text-[10px] text-slate-500">{req.requestedByRole}</div>
                         </td>
                         <td className="py-3 px-3 text-right">
-                          <div className="flex justify-end gap-1.5">
+                          <div className="flex justify-end gap-1.5 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => setViewingRecAudit(req)}
+                              className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px] font-bold cursor-pointer"
+                            >
+                              Details / Audit
+                            </button>
                             {req.status === "Pending" && canActOnRecruitmentStage(req.workflowStage) && (
                               <>
                                 <button
-                                  onClick={() => handleRecruitmentDecision(req, "Approved")}
+                                  type="button"
+                                  onClick={() => openRecruitmentDecisionModal(req, "Approved")}
                                   className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
                                 >
                                   {isAmharic ? "ደረጃውን አጽድቅ" : "Approve Stage"}
                                 </button>
                                 <button
-                                  onClick={() => handleRecruitmentDecision(req, "Rejected")}
+                                  type="button"
+                                  onClick={() => openRecruitmentDecisionModal(req, "Returned")}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                >
+                                  {isAmharic ? "ለእርማት መልስ" : "Return"}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openRecruitmentDecisionModal(req, "Rejected")}
                                   className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-200 hover:text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
                                 >
                                   {isAmharic ? "ውድቅ አድርግ" : "Reject"}
                                 </button>
                               </>
                             )}
-                            {req.status === "Approved" && perms.canManageEmployees && (
-                              <button
-                                onClick={() => openNewEmployeeModal(req)}
-                                className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
-                              >
-                                {isAmharic ? "ሠራተኛ መዝግብ" : "Register Employee"}
-                              </button>
-                            )}
+                            {req.workflowStage === "Returned for Correction" &&
+                              (req.requestedById === actorUid || perms.isSectionHead || perms.isDirector) && (
+                                <button
+                                  type="button"
+                                  onClick={() => openResubmitModal(req)}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                >
+                                  Edit & Resubmit
+                                </button>
+                              )}
+                            {req.status === "Approved" &&
+                              req.hrRegistrationAuthorized &&
+                              (req.hiredCount || 0) < req.requestedCount &&
+                              perms.canRegisterApprovedEmployees && (
+                                <button
+                                  type="button"
+                                  onClick={() => openNewEmployeeModal(req)}
+                                  className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                >
+                                  {isAmharic ? "ሠራተኛ መዝግብ" : "Register Employee"}
+                                </button>
+                              )}
                           </div>
                         </td>
                       </tr>
@@ -2250,6 +2817,32 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
          ============================================================ */}
       {activeTab === "employees" && (
         <div className="space-y-4">
+          {/* Director-Approved Registration Gate Notice */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 text-xs text-slate-300">
+              <Lock size={15} className="text-emerald-400 shrink-0" />
+              <span>
+                <strong>Director-Gated Employee Onboarding:</strong> New employee profiles can only be registered by{" "}
+                <strong>HR Manager</strong> after a Manpower Recruitment Request receives{" "}
+                <strong>Director Final Approval</strong> ({approvedRequestsWithOpenSlots.length} open authorized requisition(s)).
+              </span>
+            </div>
+            {perms.canRegisterApprovedEmployees && approvedRequestsWithOpenSlots.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {approvedRequestsWithOpenSlots.slice(0, 3).map((r) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    onClick={() => openNewEmployeeModal(r)}
+                    className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    Register from {r.requestNo} ({r.requestedCount - (r.hiredCount || 0)} left)
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap items-center gap-3 flex-1">
               <div className="relative flex-1 min-w-[220px]">
@@ -2276,13 +2869,26 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 ))}
               </select>
             </div>
-            {perms.canManageEmployees && (
+            {perms.canRegisterApprovedEmployees && (
               <button
+                type="button"
                 onClick={() => openNewEmployeeModal()}
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+                disabled={approvedRequestsWithOpenSlots.length === 0}
+                title={
+                  approvedRequestsWithOpenSlots.length === 0
+                    ? "Requires a Director-approved Manpower Recruitment Request with open slots"
+                    : "Register Employee from Director-Approved Recruitment Request"
+                }
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
               >
                 <Plus size={15} />
-                <span>{isAmharic ? "አዲስ ሠራተኛ መዝግብ" : "Register New Employee"}</span>
+                <span>
+                  {approvedRequestsWithOpenSlots.length === 0
+                    ? "Registration Locked (Needs Director Approval)"
+                    : isAmharic
+                    ? "አዲስ ሠራተኛ መዝግብ"
+                    : "Register New Employee"}
+                </span>
               </button>
             )}
           </div>
@@ -2447,6 +3053,121 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
           {attSubView === "board" && (
             <div className="space-y-5">
+              {/* Biometric Mapping & ZKTeco Hardware Attendance Sync */}
+              {biometricMappingPerms.canView && (
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <Fingerprint size={16} className="text-emerald-400" />
+                      <div>
+                        <h3 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                          {isAmharic
+                            ? "የባዮሜትሪክ መሳሪያ ካርታ እና ZKTeco ማመሳሰል"
+                            : "Biometric Device Mapping & ZKTeco Hardware Attendance Sync"}
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          Active Devices:{" "}
+                          <strong className="text-white">
+                            {biometricDevices.filter((d) => d.status === "Active").length}
+                          </strong>{" "}
+                          · Active Mappings:{" "}
+                          <strong className="text-emerald-400">
+                            {biometricDeviceMappings.filter((m) => m.status === "Active").length}
+                          </strong>{" "}
+                          · Unmapped Queue:{" "}
+                          <strong className="text-amber-400">
+                            {unmappedBiometricEvents.filter((u) => u.status === "Unmapped").length}
+                          </strong>
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      {biometricMappingPerms.canResolveUnmappedEvents && (
+                        <button
+                          type="button"
+                          onClick={handleSyncConnectorQueueInAttendance}
+                          disabled={syncingBioQueue}
+                          className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-600 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                        >
+                          <RefreshCw size={13} className={syncingBioQueue ? "animate-spin" : ""} />
+                          <span>{syncingBioQueue ? "Syncing Queue..." : "Sync ADMS Hardware Queue"}</span>
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("biometric-mapping")}
+                        className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <Sliders size={13} />
+                        <span>Open Mapping & Unmapped Queue</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {biometricMappingPerms.canResolveUnmappedEvents && (
+                    <form
+                      onSubmit={handleProcessMappedDevicePunch}
+                      className="grid grid-cols-1 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800/80 items-end"
+                    >
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">Registered Biometric Device</label>
+                        <select
+                          value={
+                            bioClockForm.deviceId ||
+                            biometricDevices.find((d) => d.status === "Active")?.id ||
+                            ""
+                          }
+                          onChange={(e) => setBioClockForm((p) => ({ ...p, deviceId: e.target.value }))}
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                        >
+                          <option value="">-- Select Device --</option>
+                          {biometricDevices
+                            .filter((d) => d.status === "Active")
+                            .map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.deviceName} ({d.model})
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">Device Biometric User ID</label>
+                        <input
+                          value={bioClockForm.biometricUserId}
+                          onChange={(e) =>
+                            setBioClockForm((p) => ({ ...p, biometricUserId: e.target.value }))
+                          }
+                          placeholder="e.g. 101"
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] text-slate-400 mb-1">Punch Type</label>
+                        <select
+                          value={bioClockForm.punchType}
+                          onChange={(e) =>
+                            setBioClockForm((p) => ({
+                              ...p,
+                              punchType: e.target.value as "Check-In" | "Check-Out",
+                            }))
+                          }
+                          className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                        >
+                          <option value="Check-In">Check-In</option>
+                          <option value="Check-Out">Check-Out</option>
+                        </select>
+                      </div>
+                      <button
+                        type="submit"
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer whitespace-nowrap"
+                      >
+                        Process Mapped Device Punch
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+
               {/* Schedule-Aware Biometric / QR / Authorized Manual Time Clock */}
               <form
                 onSubmit={handleQuickAttendanceSubmit}
@@ -2661,7 +3382,15 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                                 {a.status}
                               </span>
                             </td>
-                            <td className="py-2.5 px-3 text-slate-400">{a.method}</td>
+                            <td className="py-2.5 px-3 text-slate-400">
+                              <div>{a.method}</div>
+                              {(a.biometricDeviceName || a.biometricUserId) && (
+                                <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                                  {a.biometricDeviceName || a.biometricDeviceId}
+                                  {a.biometricUserId ? ` · BioID ${a.biometricUserId}` : ""}
+                                </div>
+                              )}
+                            </td>
                           </tr>
                         ))}
                     </tbody>
@@ -4476,6 +5205,286 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          TAB: EMPLOYEE BIOMETRIC MAPPING MODULE
+         ============================================================ */}
+      {activeTab === "biometric-mapping" && (
+        <EmployeeBiometricMappingModule
+          isAmharic={isAmharic}
+          currentUserRole={currentUserRole}
+          currentUserProfile={currentUserProfile}
+          workers={workers}
+          attendance={attendance}
+          workSchedules={workSchedules}
+          projectNames={projectNames}
+          onAddAttendance={onAddAttendance}
+          onLogAction={onLogAction}
+        />
+      )}
+
+      {/* ============================================================
+          MODAL: RECRUITMENT STAGE DECISION (APPROVE / RETURN / REJECT)
+         ============================================================ */}
+      {recDecisionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSubmitRecruitmentDecision}
+            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4"
+          >
+            <h3 className="text-base font-extrabold text-white">
+              {recDecisionModal.decision === "Approved"
+                ? `Approve Stage — ${recDecisionModal.req.requestNo}`
+                : recDecisionModal.decision === "Returned"
+                ? `Return for Correction — ${recDecisionModal.req.requestNo}`
+                : `Reject Recruitment Request — ${recDecisionModal.req.requestNo}`}
+            </h3>
+            <div className="text-xs text-slate-300">
+              Current Stage: <strong className="text-blue-300">{recDecisionModal.req.workflowStage}</strong> · Position:{" "}
+              <strong>{recDecisionModal.req.requestedCount}x {recDecisionModal.req.jobPosition}</strong> ({recDecisionModal.req.project})
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">
+                {recDecisionModal.decision === "Approved"
+                  ? "Verification Comments (optional)"
+                  : recDecisionModal.decision === "Returned"
+                  ? "Correction Instructions Required *"
+                  : "Rejection Reason Required *"}
+              </label>
+              <textarea
+                rows={3}
+                required={recDecisionModal.decision !== "Approved"}
+                value={recDecisionNotes}
+                onChange={(e) => setRecDecisionNotes(e.target.value)}
+                placeholder={
+                  recDecisionModal.decision === "Approved"
+                    ? "Verification notes, budget confirmation, or operational remarks..."
+                    : "Enter specific reason or required corrections..."
+                }
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRecDecisionModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer ${
+                  recDecisionModal.decision === "Approved"
+                    ? "bg-emerald-600 hover:bg-emerald-500"
+                    : recDecisionModal.decision === "Returned"
+                    ? "bg-amber-600 hover:bg-amber-500"
+                    : "bg-red-600 hover:bg-red-500"
+                }`}
+              >
+                Confirm {recDecisionModal.decision}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ============================================================
+          MODAL: RECRUITMENT DETAILS, SUPPORTING DOCS & AUDIT TRAIL
+         ============================================================ */}
+      {viewingRecAudit && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {viewingRecAudit.requestNo} — Full Audit History & Supporting Reviews
+                </h3>
+                <p className="text-xs text-slate-400">
+                  {viewingRecAudit.requestedCount}x {viewingRecAudit.jobPosition} · {viewingRecAudit.project} / {viewingRecAudit.department}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingRecAudit(null)}
+                className="text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-xs bg-slate-900/50 p-3.5 rounded-xl border border-slate-800">
+              <div>
+                <span className="text-slate-500">Responsibilities:</span>
+                <div className="text-slate-200">{viewingRecAudit.jobResponsibilities || "—"}</div>
+              </div>
+              <div>
+                <span className="text-slate-500">Qualifications & Experience:</span>
+                <div className="text-slate-200">
+                  {viewingRecAudit.qualificationsRequired} ({viewingRecAudit.experienceRequired || "Standard"})
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Reason for Recruitment:</span>
+                <div className="text-slate-200">{viewingRecAudit.justification}</div>
+              </div>
+              <div>
+                <span className="text-slate-500">Proposed Salary / Expected Date:</span>
+                <div className="text-emerald-400 font-mono">
+                  ETB {fmtMoney(viewingRecAudit.proposedMonthlySalary)} · {viewingRecAudit.requiredByDate}
+                </div>
+              </div>
+            </div>
+            {viewingRecAudit.supportingDocuments && viewingRecAudit.supportingDocuments.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-xs font-bold text-slate-300">Supporting Documents</div>
+                <div className="flex flex-wrap gap-2">
+                  {viewingRecAudit.supportingDocuments.map((d) => (
+                    <a
+                      key={d.id}
+                      href={d.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-blue-300 hover:underline flex items-center gap-1.5"
+                    >
+                      <FileText size={13} />
+                      <span>{d.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="space-y-2 max-h-64 overflow-y-auto">
+              <div className="text-xs font-bold text-slate-300">Approval & Audit Trail</div>
+              {(viewingRecAudit.approvalHistory || []).map((h, idx) => (
+                <div key={idx} className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex flex-wrap justify-between gap-2">
+                  <div>
+                    <span className="font-bold text-white">{h.stage}</span> —{" "}
+                    <span
+                      className={
+                        h.decision === "Rejected"
+                          ? "text-red-400 font-bold"
+                          : h.decision === "Returned"
+                          ? "text-amber-300 font-bold"
+                          : "text-emerald-400 font-bold"
+                      }
+                    >
+                      {h.decision}
+                    </span>
+                    <div className="text-slate-400">
+                      {h.actorName} ({h.actorRole}) {h.notes ? `— ${h.notes}` : ""}
+                    </div>
+                  </div>
+                  <div className="font-mono text-[11px] text-slate-500">{h.timestamp}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============================================================
+          MODAL: SECTION HEAD EDIT & RESUBMIT RETURNED REQUEST
+         ============================================================ */}
+      {resubmittingRec && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <form
+            onSubmit={handleResubmitRecruitment}
+            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8"
+          >
+            <h3 className="text-base font-extrabold text-white">
+              Revise & Resubmit Request — {resubmittingRec.requestNo}
+            </h3>
+            <div className="p-3 rounded-xl bg-amber-950/50 border border-amber-500/40 text-xs text-amber-200">
+              Returned by {resubmittingRec.returnedBy} ({resubmittingRec.returnedAtStage}):{" "}
+              {resubmittingRec.correctionNotes}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Job Position</label>
+                <input
+                  required
+                  value={resubmitForm.jobPosition}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, jobPosition: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Requested Count</label>
+                <input
+                  type="number"
+                  min={1}
+                  required
+                  value={resubmitForm.requestedCount}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, requestedCount: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Proposed Salary (ETB)</label>
+                <input
+                  type="number"
+                  min={0}
+                  value={resubmitForm.proposedMonthlySalary}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, proposedMonthlySalary: Number(e.target.value) }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Expected Date</label>
+                <input
+                  type="date"
+                  value={resubmitForm.requiredByDate}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, requiredByDate: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Job Responsibilities *</label>
+              <textarea
+                rows={2}
+                required
+                value={resubmitForm.jobResponsibilities}
+                onChange={(e) => setResubmitForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Justification *</label>
+              <input
+                required
+                value={resubmitForm.justification}
+                onChange={(e) => setResubmitForm((p) => ({ ...p, justification: e.target.value }))}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Resubmission Notes</label>
+              <input
+                value={resubmitForm.notes}
+                onChange={(e) => setResubmitForm((p) => ({ ...p, notes: e.target.value }))}
+                placeholder="Summary of changes made..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setResubmittingRec(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white cursor-pointer"
+              >
+                Resubmit to HR Manager
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

@@ -81,7 +81,11 @@ import {
   SalaryAdvanceLoanRecord,
   HrmPayrollRunRecord,
   HrmPrivateProfileRecord,
-  HrmPayslipRecord
+  HrmPayslipRecord,
+  BiometricDeviceRecord,
+  BiometricDeviceMapping,
+  BiometricMappingAuditLog,
+  UnmappedBiometricEvent
 } from "../types";
 import { initialErpTasks } from "../data/initialTasks";
 import {
@@ -3804,5 +3808,142 @@ export const DbService = {
     params.actualCostRecords.forEach((ac) => offlineEngine.queueOutbox("set", "actualCostEntries", ac.id, sanitizeForFirestore(ac)));
     params.updatedLoans.forEach((ln) => offlineEngine.queueOutbox("set", "salaryAdvancesLoans", ln.id, sanitizeForFirestore(ln)));
     (params.payslips || []).forEach((ps) => offlineEngine.queueOutbox("set", "hrmPayslips", ps.id, sanitizeForFirestore(ps)));
+  },
+
+  // ============================================================
+  // EMPLOYEE BIOMETRIC MAPPING MODULE COLLECTIONS
+  // ============================================================
+
+  // 1) biometricDevices (Registered physical biometric terminals; zero secrets stored)
+  subscribeBiometricDevices(
+    callback: (devices: BiometricDeviceRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "biometricDevices"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as BiometricDeviceRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<BiometricDeviceRecord>("biometricDevices", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "biometricDevices");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<BiometricDeviceRecord>("biometricDevices", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<BiometricDeviceRecord>("biometricDevices", []));
+    return () => {};
+  },
+  async saveBiometricDevice(device: BiometricDeviceRecord): Promise<void> {
+    await writeDocument<BiometricDeviceRecord>("biometricDevices", device, []);
+  },
+
+  // 2) biometricDeviceMappings (Employee-to-Biometric-Device User ID mappings)
+  subscribeBiometricDeviceMappings(
+    callback: (mappings: BiometricDeviceMapping[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "biometricDeviceMappings"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as BiometricDeviceMapping), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<BiometricDeviceMapping>("biometricDeviceMappings", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "biometricDeviceMappings");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<BiometricDeviceMapping>("biometricDeviceMappings", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<BiometricDeviceMapping>("biometricDeviceMappings", []));
+    return () => {};
+  },
+  async saveBiometricDeviceMapping(mapping: BiometricDeviceMapping): Promise<void> {
+    await writeDocument<BiometricDeviceMapping>("biometricDeviceMappings", mapping, []);
+  },
+
+  // 3) biometricMappingAuditLogs (Immutable create-only mapping change history)
+  subscribeBiometricMappingAuditLogs(
+    callback: (logs: BiometricMappingAuditLog[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "biometricMappingAuditLogs"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as BiometricMappingAuditLog), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<BiometricMappingAuditLog>("biometricMappingAuditLogs", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "biometricMappingAuditLogs");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<BiometricMappingAuditLog>("biometricMappingAuditLogs", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<BiometricMappingAuditLog>("biometricMappingAuditLogs", []));
+    return () => {};
+  },
+  async addBiometricMappingAuditLog(log: BiometricMappingAuditLog): Promise<void> {
+    const sanitized = sanitizeForFirestore(log);
+    offlineEngine.updateCacheItem<BiometricMappingAuditLog>("biometricMappingAuditLogs", sanitized, []);
+    if (isFirebaseReady && db) {
+      try {
+        await setDoc(doc(db, "biometricMappingAuditLogs", sanitized.id), {
+          ...sanitized,
+          serverReceivedAt: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        const isPermissionDenied =
+          err?.code === "permission-denied" ||
+          String(err?.message || "").includes("PERMISSION_DENIED");
+        if (isPermissionDenied) {
+          handleFirestoreError(err, OperationType.CREATE, `biometricMappingAuditLogs/${sanitized.id}`);
+        } else {
+          offlineEngine.queueOutbox("set", "biometricMappingAuditLogs", sanitized.id, sanitized);
+        }
+      }
+    } else {
+      offlineEngine.queueOutbox("set", "biometricMappingAuditLogs", sanitized.id, sanitized);
+    }
+  },
+
+  // 4) unmappedBiometricEvents (Attendance punches from unregistered/unmapped device user IDs)
+  subscribeUnmappedBiometricEvents(
+    callback: (events: UnmappedBiometricEvent[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "unmappedBiometricEvents"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as UnmappedBiometricEvent), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<UnmappedBiometricEvent>("unmappedBiometricEvents", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "unmappedBiometricEvents");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<UnmappedBiometricEvent>("unmappedBiometricEvents", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<UnmappedBiometricEvent>("unmappedBiometricEvents", []));
+    return () => {};
+  },
+  async saveUnmappedBiometricEvent(evt: UnmappedBiometricEvent): Promise<void> {
+    await writeDocument<UnmappedBiometricEvent>("unmappedBiometricEvents", evt, []);
   }
 };
+

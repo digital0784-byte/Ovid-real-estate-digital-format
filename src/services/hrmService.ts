@@ -4,6 +4,7 @@ import {
   AttendanceRecord,
   BankTransactionRecord,
   EmployeeTransferRecord,
+  ErpTask,
   EthiopianTaxBracket,
   EthiopianTaxPensionConfig,
   Expense,
@@ -19,6 +20,7 @@ import {
   ManpowerPlanRecord,
   OvertimeRequestRecord,
   RecruitmentRequestRecord,
+  RecruitmentSupportingDocument,
   RecruitmentWorkflowStage,
   SalaryAdvanceLoanRecord,
   SalaryStructureRecord,
@@ -107,11 +109,12 @@ export interface HrmDashboardState {
 }
 
 export function resolveHrmPermissions(role: UserRole | string) {
+  const isSuperAdmin = role === UserRole.SUPER_ADMIN;
   const isDirector =
     role === UserRole.DIRECTOR ||
     role === UserRole.DIRECTORY ||
     role === UserRole.HEAD_OFFICE ||
-    role === UserRole.SUPER_ADMIN;
+    isSuperAdmin;
   const isHrManager = role === UserRole.HR_MANAGER || role === UserRole.HR;
   const isOfficeManager = role === UserRole.OFFICE_MANAGER;
   const isFinanceManager = role === UserRole.FINANCE_MANAGER || role === UserRole.ACCOUNTANT;
@@ -123,6 +126,7 @@ export function resolveHrmPermissions(role: UserRole | string) {
   const isEmployee = role === UserRole.EMPLOYEE || role === UserRole.WORKER;
 
   return {
+    isSuperAdmin,
     isDirector,
     isHrManager,
     isOfficeManager,
@@ -134,6 +138,7 @@ export function resolveHrmPermissions(role: UserRole | string) {
     isAuditor,
     isEmployee,
     canManageEmployees: isDirector || isHrManager,
+    canRegisterApprovedEmployees: isHrManager || isSuperAdmin,
     canRequestRecruitment:
       isDirector ||
       isHrManager ||
@@ -142,16 +147,39 @@ export function resolveHrmPermissions(role: UserRole | string) {
       isOfficeManager ||
       isOperationManager ||
       isOfficeTechEng,
-    canApproveOfficeStage: isDirector || isOfficeManager,
-    canApproveHrStage: isDirector || isHrManager,
-    canApproveFinanceStage: isDirector || isFinanceManager,
-    canApproveOperationStage: isDirector || isOperationManager,
+    // Strict per-stage approver permissions so workflow order cannot be bypassed
+    canApproveHrStage: isHrManager || isSuperAdmin,
+    canApproveOfficeStage: isOfficeManager || isOfficeTechEng || isSuperAdmin,
+    canApproveFinanceStage: role === UserRole.FINANCE_MANAGER || isSuperAdmin,
+    canApproveOperationStage: isOperationManager || isSuperAdmin,
     canApproveDirectorStage: isDirector,
     canViewSensitivePii: isDirector || isHrManager || isFinanceManager,
     canViewPayrollAmounts: isDirector || isHrManager || isFinanceManager || isOperationManager || isAuditor,
     canApproveLeaveOrOvertimeSection: isDirector || isSectionHead || isProjectManager || isOperationManager,
     canDisbursePayroll: isDirector || role === UserRole.FINANCE_MANAGER,
   };
+}
+
+export function canActorApproveRecruitmentStage(
+  role: UserRole | string,
+  stage: RecruitmentWorkflowStage
+): boolean {
+  const perms = resolveHrmPermissions(role);
+  switch (stage) {
+    case "Pending HR Manager":
+      return perms.canApproveHrStage;
+    case "Pending Office Manager":
+      return perms.canApproveOfficeStage;
+    case "Pending Finance Manager":
+      return perms.canApproveFinanceStage;
+    case "Pending Operation Department":
+      return perms.canApproveOperationStage;
+    case "Pending Director Final Approval":
+    case "Pending Director Excess Approval":
+      return perms.canApproveDirectorStage;
+    default:
+      return false;
+  }
 }
 
 export function maskSensitiveValue(value: string | undefined, canViewUnmasked: boolean, keepLast = 4): string {
@@ -423,6 +451,45 @@ export function computeManpowerSummary(params: {
   return rows.sort((a, b) => a.project.localeCompare(b.project) || a.jobPosition.localeCompare(b.jobPosition));
 }
 
+async function dispatchRecruitmentStageNotification(params: {
+  id: string;
+  type: string;
+  title: string;
+  titleAm: string;
+  message: string;
+  priority?: "Normal" | "High" | "Critical";
+  projectName: string;
+  sender: string;
+  senderRole: string;
+  receiver: string;
+  targetRoles: (UserRole | string)[];
+  targetUserId?: string;
+}) {
+  const nowIso = new Date().toISOString();
+  await DbService.addNotification({
+    id: params.id,
+    type: params.type,
+    title: params.title,
+    titleAm: params.titleAm,
+    message: params.message,
+    description: params.message,
+    category: "HRM Recruitment",
+    priority: params.priority || "High",
+    status: "Unread",
+    projectName: params.projectName,
+    sender: params.sender,
+    senderRole: params.senderRole,
+    receiver: params.receiver,
+    targetRoles: params.targetRoles,
+    targetUserId: params.targetUserId,
+    date: nowIso.slice(0, 10),
+    time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+    timestamp: Date.now(),
+    read: false,
+    actionTab: "hrmEnterprise",
+  }).catch(() => {});
+}
+
 export async function submitRecruitmentRequestWithManpowerCheck(params: {
   project: string;
   department: string;
@@ -432,8 +499,11 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
   urgency: "Normal" | "High" | "Critical";
   requiredByDate: string;
   proposedMonthlySalary: number;
+  jobResponsibilities?: string;
+  experienceRequired?: string;
   qualificationsRequired: string;
   justification: string;
+  supportingDocuments?: RecruitmentSupportingDocument[];
   actorName: string;
   actorUid: string;
   actorRole: UserRole | string;
@@ -473,12 +543,15 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
     urgency: params.urgency,
     requiredByDate: params.requiredByDate,
     proposedMonthlySalary: round2(params.proposedMonthlySalary),
+    jobResponsibilities: safeString(params.jobResponsibilities).trim(),
+    experienceRequired: safeString(params.experienceRequired).trim(),
     qualificationsRequired: params.qualificationsRequired,
     justification: params.justification,
+    supportingDocuments: params.supportingDocuments || [],
     requestedBy: params.actorName,
     requestedById: params.actorUid,
     requestedByRole: String(params.actorRole),
-    workflowStage: "Pending Office Manager",
+    workflowStage: "Pending HR Manager",
     status: "Pending",
     exceedsManpowerLimit: exceedsLimit,
     approvedManpowerSnapshot: approvedSnap,
@@ -486,11 +559,13 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
     remainingVacanciesSnapshot: remainingSnap,
     excessCount,
     excessApprovalStatus: exceedsLimit ? "Pending Director" : "Not Required",
+    hrRegistrationAuthorized: false,
     approvalHistory: [
       {
-        stage: "Submitted",
+        stage: "Submitted by Section Head",
         actorName: params.actorName,
         actorRole: String(params.actorRole),
+        actorUid: params.actorUid,
         decision: "Submitted",
         timestamp: nowIso,
         notes: exceedsLimit
@@ -505,29 +580,36 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
 
   await DbService.saveRecruitmentRequest(record);
 
-  // Automatic Director notification when recruitment exceeds approved manpower limit
+  // Automatic Stage 2 routing notification to HR Manager
+  await dispatchRecruitmentStageNotification({
+    id: `HRM-STAGE-HR-${record.id}`,
+    type: "HRM Recruitment Stage Assignment",
+    title: `Step 2 Action Required — Verify Recruitment Request ${reqNo}`,
+    titleAm: `ደረጃ 2፡ የቅጥር ጥያቄ ${reqNo} ማረጋገጫ ያስፈልጋል`,
+    message: `${params.actorName} (${params.actorRole}) submitted ${reqNo} for ${params.requestedCount}x ${params.jobPosition} (${params.project} / ${params.department}). HR Manager must verify manpower requirements, job position, and qualifications.`,
+    priority: params.urgency === "Critical" ? "Critical" : "High",
+    projectName: params.project,
+    sender: params.actorName,
+    senderRole: String(params.actorRole),
+    receiver: "HR Manager",
+    targetRoles: [UserRole.HR_MANAGER, UserRole.HR],
+  });
+
+  // Automatic Director alert when recruitment exceeds approved manpower limit
   if (exceedsLimit) {
-    await DbService.addNotification({
+    await dispatchRecruitmentStageNotification({
       id: `HRM-EXCESS-${record.id}`,
       type: "HRM Excess Manpower Alert",
       title: `Excess Manpower Recruitment Alert: ${params.jobPosition} (${params.project})`,
       titleAm: `ከተፈቀደው የሰው ኃይል ገደብ በላይ የቅጥር ጥያቄ (${params.project})`,
-      message: `${reqNo} requests ${params.requestedCount} ${params.jobPosition} staff (${excessCount} above approved limit of ${approvedSnap}). Extra Director approval required.`,
-      description: `${reqNo} exceeds approved manpower limit by ${excessCount}.`,
-      category: "HRM Recruitment",
+      message: `${reqNo} requests ${params.requestedCount} ${params.jobPosition} staff (${excessCount} above approved limit of ${approvedSnap}). Director alert logged prior to final approval.`,
       priority: "Critical",
-      status: "Unread",
       projectName: params.project,
       sender: params.actorName,
       senderRole: String(params.actorRole),
       receiver: "Director & Executive Management",
       targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
-      date: nowIso.slice(0, 10),
-      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      timestamp: Date.now(),
-      read: false,
-      actionTab: "hrmEnterprise",
-    }).catch(() => {});
+    });
   }
 
   return record;
@@ -535,20 +617,42 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
 
 export async function advanceRecruitmentApproval(params: {
   request: RecruitmentRequestRecord;
-  decision: "Approved" | "Rejected";
+  decision: "Approved" | "Rejected" | "Returned";
   actorName: string;
+  actorUid?: string;
   actorRole: UserRole | string;
   notes?: string;
 }): Promise<RecruitmentRequestRecord> {
-  const { request, decision, actorName, actorRole, notes } = params;
+  const { request, decision, actorName, actorUid, actorRole, notes } = params;
+
+  if (request.status !== "Pending") {
+    throw new Error(`Cannot act on request ${request.requestNo} because status is already "${request.status}".`);
+  }
+
+  if (!canActorApproveRecruitmentStage(actorRole, request.workflowStage)) {
+    throw new Error(
+      `Sequential workflow rule violation: Role "${actorRole}" is not authorized to act on stage "${request.workflowStage}".`
+    );
+  }
+
+  const trimmedNotes = safeString(notes).trim();
+  if ((decision === "Rejected" || decision === "Returned") && !trimmedNotes) {
+    throw new Error(
+      decision === "Rejected"
+        ? "A rejection reason is mandatory when rejecting a recruitment request."
+        : "Correction instructions are mandatory when returning a recruitment request for correction."
+    );
+  }
+
   const nowIso = new Date().toISOString();
   const stepLog: HrmWorkflowStepLog = {
     stage: request.workflowStage,
     actorName,
     actorRole: String(actorRole),
+    actorUid,
     decision,
     timestamp: nowIso,
-    notes,
+    notes: trimmedNotes || undefined,
   };
 
   if (decision === "Rejected") {
@@ -557,25 +661,84 @@ export async function advanceRecruitmentApproval(params: {
       workflowStage: "Rejected",
       status: "Rejected",
       excessApprovalStatus: request.exceedsManpowerLimit ? "Rejected" : request.excessApprovalStatus,
+      hrRegistrationAuthorized: false,
+      rejectionReason: trimmedNotes,
+      rejectedBy: actorName,
+      rejectedByRole: String(actorRole),
+      rejectedAt: nowIso,
+      rejectedAtStage: request.workflowStage,
       approvalHistory: [...(request.approvalHistory || []), stepLog],
       updatedAt: nowIso,
     };
     await DbService.saveRecruitmentRequest(rejected);
+
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-REJ-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Rejected",
+      title: `Recruitment Request Rejected: ${request.requestNo}`,
+      titleAm: `የቅጥር ጥያቄ ውድቅ ተደርጓል: ${request.requestNo}`,
+      message: `${request.requestNo} (${request.jobPosition} - ${request.project}) was rejected at "${request.workflowStage}" by ${actorName} (${actorRole}). Reason: ${trimmedNotes}`,
+      priority: "Critical",
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: request.requestedBy || "Section Head",
+      targetRoles: [request.requestedByRole || UserRole.SECTION_HEAD, UserRole.SECTION_HEAD],
+      targetUserId: request.requestedById,
+    });
+
     return rejected;
+  }
+
+  if (decision === "Returned") {
+    const returned: RecruitmentRequestRecord = {
+      ...request,
+      workflowStage: "Returned for Correction",
+      status: "Pending",
+      hrRegistrationAuthorized: false,
+      correctionNotes: trimmedNotes,
+      returnedBy: actorName,
+      returnedByRole: String(actorRole),
+      returnedAt: nowIso,
+      returnedAtStage: request.workflowStage,
+      approvalHistory: [...(request.approvalHistory || []), stepLog],
+      updatedAt: nowIso,
+    };
+    await DbService.saveRecruitmentRequest(returned);
+
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-RET-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Returned for Correction",
+      title: `Correction Requested: ${request.requestNo}`,
+      titleAm: `እርማት ተጠይቋል: ${request.requestNo}`,
+      message: `${request.requestNo} (${request.jobPosition} - ${request.project}) was returned by ${actorName} (${actorRole}) at "${request.workflowStage}". Notes: ${trimmedNotes}`,
+      priority: "High",
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: request.requestedBy || "Section Head",
+      targetRoles: [request.requestedByRole || UserRole.SECTION_HEAD, UserRole.SECTION_HEAD],
+      targetUserId: request.requestedById,
+    });
+
+    return returned;
   }
 
   let nextStage: RecruitmentWorkflowStage = request.workflowStage;
   let nextStatus: RecruitmentRequestRecord["status"] = "Pending";
   let nextExcessStatus = request.excessApprovalStatus;
+  let hrAuthorized = Boolean(request.hrRegistrationAuthorized);
+  let onboardingTaskId = request.hrOnboardingTaskId;
+  let onboardingTaskCreatedAt = request.hrOnboardingTaskCreatedAt;
   const patch: Partial<RecruitmentRequestRecord> = {};
 
   switch (request.workflowStage) {
-    case "Pending Office Manager":
-      patch.officeManagerApproval = stepLog;
-      nextStage = "Pending HR Manager";
-      break;
     case "Pending HR Manager":
       patch.hrManagerApproval = stepLog;
+      nextStage = "Pending Office Manager";
+      break;
+    case "Pending Office Manager":
+      patch.officeManagerApproval = stepLog;
       nextStage = "Pending Finance Manager";
       break;
     case "Pending Finance Manager":
@@ -588,21 +751,53 @@ export async function advanceRecruitmentApproval(params: {
       break;
     case "Pending Director Final Approval":
       patch.directorFinalApproval = stepLog;
-      if (request.exceedsManpowerLimit && request.excessApprovalStatus !== "Approved") {
-        nextStage = "Pending Director Excess Approval";
-      } else {
-        nextStage = "Approved";
-        nextStatus = "Approved";
+      if (request.exceedsManpowerLimit) {
+        patch.directorExcessApproval = stepLog;
+        nextExcessStatus = "Approved";
       }
+      nextStage = "Approved";
+      nextStatus = "Approved";
+      hrAuthorized = true;
       break;
     case "Pending Director Excess Approval":
       patch.directorExcessApproval = stepLog;
       nextExcessStatus = "Approved";
       nextStage = "Approved";
       nextStatus = "Approved";
+      hrAuthorized = true;
       break;
     default:
-      break;
+      throw new Error(`Stage "${request.workflowStage}" cannot be advanced sequentially.`);
+  }
+
+  // Automatic Stage 7 Task Generation & HR Registration Authorization ONLY upon Director Final Approval
+  if (nextStage === "Approved" && !onboardingTaskId) {
+    const taskCode = `TSK-HRM-${request.requestNo}`;
+    onboardingTaskId = `TSK-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    onboardingTaskCreatedAt = nowIso;
+    const hrTask: ErpTask = {
+      id: onboardingTaskId,
+      taskId: taskCode,
+      taskName: `Register Approved Employee(s): ${request.jobPosition} (${request.requestedCount}) — ${request.requestNo}`,
+      description: `Director final approval granted for ${request.requestNo} (${request.project} / ${request.department}). HR Manager is authorized to complete employee registration for ${request.requestedCount}x ${request.jobPosition} (${request.employmentType}).`,
+      projectId: request.project,
+      projectName: request.project,
+      siteName: request.project,
+      assignedToName: "HR Manager",
+      assignedToRole: UserRole.HR_MANAGER,
+      createdById: actorUid || actorName,
+      createdByName: actorName,
+      createdByRole: String(actorRole),
+      createdAt: nowIso,
+      dueDate: request.requiredByDate || nowIso.slice(0, 10),
+      status: "Pending",
+      priority: request.urgency === "Critical" ? "Critical" : request.urgency === "High" ? "High" : "Medium",
+      updatedAt: nowIso,
+      category: "HRM Employee Registration",
+      completionPercentage: 0,
+      notes: `Linked Recruitment Request: ${request.requestNo} (${request.id})`,
+    };
+    await DbService.addTask(hrTask).catch(() => {});
   }
 
   const updated: RecruitmentRequestRecord = {
@@ -611,12 +806,304 @@ export async function advanceRecruitmentApproval(params: {
     workflowStage: nextStage,
     status: nextStatus,
     excessApprovalStatus: nextExcessStatus,
+    hrRegistrationAuthorized: hrAuthorized,
+    hrOnboardingTaskId: onboardingTaskId,
+    hrOnboardingTaskCreatedAt: onboardingTaskCreatedAt,
     approvalHistory: [...(request.approvalHistory || []), stepLog],
     updatedAt: nowIso,
   };
 
   await DbService.saveRecruitmentRequest(updated);
+
+  // Dispatch automatic notifications to the next approver or final stakeholders
+  if (nextStage === "Pending Office Manager") {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-STAGE-OFF-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Stage Assignment",
+      title: `Step 3 Action Required — Office Engineer / Office Manager Review: ${request.requestNo}`,
+      titleAm: `ደረጃ 3፡ የቢሮ አስተዳዳሪ / ምህንድስና ማረጋገጫ (${request.requestNo})`,
+      message: `HR Manager verified ${request.requestNo} (${request.jobPosition}, ${request.project}). Verify manpower necessity and organizational structure.`,
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: "Office Engineer / Office Manager",
+      targetRoles: [UserRole.OFFICE_MANAGER, UserRole.OFFICE_AND_TECHNICAL_ENGINEERING],
+    });
+  } else if (nextStage === "Pending Finance Manager") {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-STAGE-FIN-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Stage Assignment",
+      title: `Step 4 Action Required — Finance Budget Verification: ${request.requestNo}`,
+      titleAm: `ደረጃ 4፡ የፋይናንስ በጀት ማረጋገጫ (${request.requestNo})`,
+      message: `Office Manager verified ${request.requestNo}. Verify salary budget (ETB ${request.proposedMonthlySalary}/head x ${request.requestedCount}) and financial capacity.`,
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: "Finance Manager",
+      targetRoles: [UserRole.FINANCE_MANAGER],
+    });
+  } else if (nextStage === "Pending Operation Department") {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-STAGE-OPS-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Stage Assignment",
+      title: `Step 5 Action Required — Operation Department Review: ${request.requestNo}`,
+      titleAm: `ደረጃ 5፡ የኦፕሬሽን ክፍል ማረጋገጫ (${request.requestNo})`,
+      message: `Finance Manager verified salary budget for ${request.requestNo}. Verify operational requirements and project site needs.`,
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: "Operation Department",
+      targetRoles: [UserRole.OPERATION_MANAGER],
+    });
+  } else if (nextStage === "Pending Director Final Approval") {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-STAGE-DIR-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Stage Assignment",
+      title: `Step 6 Action Required — Director Final Approval: ${request.requestNo}`,
+      titleAm: `ደረጃ 6፡ የዳይሬክተር የመጨረሻ ውሳኔ (${request.requestNo})`,
+      message: `All 4 prior department checks completed (HR, Office, Finance, Operation) for ${request.requestNo} (${request.requestedCount}x ${request.jobPosition}). Ready for Director Final Approval.`,
+      priority: request.exceedsManpowerLimit ? "Critical" : "High",
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: "Director",
+      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+    });
+  } else if (nextStage === "Approved") {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-STAGE-HRREG-${request.id}-${Date.now()}`,
+      type: "HRM Employee Registration Authorized",
+      title: `Step 7 Authorized — Register Employee(s) for ${request.requestNo}`,
+      titleAm: `ደረጃ 7፡ ዳይሬክተሩ አጽድቋል — የሠራተኛ ምዝገባ ተፈቅዷል (${request.requestNo})`,
+      message: `Director gave final approval for ${request.requestNo}. An Employee Registration task (${onboardingTaskId}) is assigned to HR Manager to register ${request.requestedCount}x ${request.jobPosition}.`,
+      priority: "High",
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: "HR Manager",
+      targetRoles: [UserRole.HR_MANAGER, UserRole.HR],
+    });
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-STAGE-REQAPP-${request.id}-${Date.now()}`,
+      type: "HRM Recruitment Final Approved",
+      title: `Recruitment Request Approved by Director: ${request.requestNo}`,
+      titleAm: `የቅጥር ጥያቄ በዳይሬክተር ጸድቋል: ${request.requestNo}`,
+      message: `Your request ${request.requestNo} (${request.requestedCount}x ${request.jobPosition} for ${request.project}) received final Director approval. HR Manager may now register the employee(s).`,
+      priority: "Normal",
+      projectName: request.project,
+      sender: actorName,
+      senderRole: String(actorRole),
+      receiver: request.requestedBy || "Section Head",
+      targetRoles: [request.requestedByRole || UserRole.SECTION_HEAD, UserRole.SECTION_HEAD],
+      targetUserId: request.requestedById,
+    });
+  }
+
   return updated;
+}
+
+export async function resubmitReturnedRecruitmentRequest(params: {
+  request: RecruitmentRequestRecord;
+  updates: Partial<
+    Pick<
+      RecruitmentRequestRecord,
+      | "project"
+      | "department"
+      | "jobPosition"
+      | "requestedCount"
+      | "employmentType"
+      | "urgency"
+      | "requiredByDate"
+      | "proposedMonthlySalary"
+      | "jobResponsibilities"
+      | "experienceRequired"
+      | "qualificationsRequired"
+      | "justification"
+      | "supportingDocuments"
+    >
+  >;
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  manpowerPlans: ManpowerPlanRecord[];
+  workers: Worker[];
+  notes?: string;
+}): Promise<RecruitmentRequestRecord> {
+  const { request, updates } = params;
+  if (request.workflowStage !== "Returned for Correction") {
+    throw new Error(`Only requests in "Returned for Correction" stage can be resubmitted (current: ${request.workflowStage}).`);
+  }
+
+  const nextProject = updates.project ?? request.project;
+  const nextPosition = updates.jobPosition ?? request.jobPosition;
+  const nextCount = Number(updates.requestedCount ?? request.requestedCount);
+
+  const summaryRows = computeManpowerSummary({
+    manpowerPlans: params.manpowerPlans,
+    workers: params.workers,
+  });
+  const matchingRow = summaryRows.find(
+    (r) =>
+      r.project.toLowerCase() === nextProject.toLowerCase() &&
+      r.jobPosition.toLowerCase() === nextPosition.toLowerCase()
+  );
+  const approvedSnap = matchingRow?.approvedManpower || 0;
+  const hiredSnap = matchingRow?.actualHired || 0;
+  const remainingSnap = matchingRow?.remainingVacancies || 0;
+  const excessCount = Math.max(0, nextCount - remainingSnap);
+  const exceedsLimit = excessCount > 0;
+
+  const nowIso = new Date().toISOString();
+  const resubLog: HrmWorkflowStepLog = {
+    stage: "Returned for Correction",
+    actorName: params.actorName,
+    actorRole: String(params.actorRole),
+    actorUid: params.actorUid,
+    decision: "Resubmitted",
+    timestamp: nowIso,
+    notes: safeString(params.notes).trim() || "Section Head updated details and resubmitted into workflow.",
+  };
+
+  const updated: RecruitmentRequestRecord = {
+    ...request,
+    ...updates,
+    project: nextProject,
+    jobPosition: nextPosition,
+    requestedCount: nextCount,
+    workflowStage: "Pending HR Manager",
+    status: "Pending",
+    exceedsManpowerLimit: exceedsLimit,
+    approvedManpowerSnapshot: approvedSnap,
+    actualHiredSnapshot: hiredSnap,
+    remainingVacanciesSnapshot: remainingSnap,
+    excessCount,
+    excessApprovalStatus: exceedsLimit ? "Pending Director" : "Not Required",
+    hrRegistrationAuthorized: false,
+    resubmittedAt: nowIso,
+    resubmittedCount: (request.resubmittedCount || 0) + 1,
+    approvalHistory: [...(request.approvalHistory || []), resubLog],
+    updatedAt: nowIso,
+  };
+
+  await DbService.saveRecruitmentRequest(updated);
+
+  await dispatchRecruitmentStageNotification({
+    id: `HRM-RESUBMIT-${request.id}-${Date.now()}`,
+    type: "HRM Recruitment Resubmitted",
+    title: `Resubmitted After Correction: ${request.requestNo}`,
+    titleAm: `ከእርማት በኋላ እንደገና የቀረበ የቅጥር ጥያቄ: ${request.requestNo}`,
+    message: `${params.actorName} revised and resubmitted ${request.requestNo} (${nextCount}x ${nextPosition}). Ready for HR Manager re-verification.`,
+    priority: "High",
+    projectName: nextProject,
+    sender: params.actorName,
+    senderRole: String(params.actorRole),
+    receiver: "HR Manager",
+    targetRoles: [UserRole.HR_MANAGER, UserRole.HR],
+  });
+
+  return updated;
+}
+
+export function validateEmployeeRegistrationAuthorization(params: {
+  role: UserRole | string;
+  recruitmentRequest?: RecruitmentRequestRecord | null;
+}): { allowed: boolean; reason?: string } {
+  const perms = resolveHrmPermissions(params.role);
+  if (!perms.canRegisterApprovedEmployees) {
+    return {
+      allowed: false,
+      reason:
+        "Employee registration is strictly restricted to HR Manager / HR after Director final approval.",
+    };
+  }
+  const req = params.recruitmentRequest;
+  if (!req) {
+    return {
+      allowed: false,
+      reason:
+        "A Director-approved Manpower Recruitment Request is required before registering a new employee.",
+    };
+  }
+  if (req.workflowStage !== "Approved" || req.status !== "Approved" || !req.hrRegistrationAuthorized) {
+    return {
+      allowed: false,
+      reason: `Cannot register employee: Request ${req.requestNo} is at stage "${req.workflowStage}" and has not received Director final approval.`,
+    };
+  }
+  if ((req.hiredCount || 0) >= req.requestedCount) {
+    return {
+      allowed: false,
+      reason: `All ${req.requestedCount} approved positions in ${req.requestNo} have already been registered.`,
+    };
+  }
+  return { allowed: true };
+}
+
+export async function completeApprovedEmployeeOnboarding(params: {
+  recruitmentRequest: RecruitmentRequestRecord;
+  newWorker: Worker;
+  manpowerPlans: ManpowerPlanRecord[];
+  allWorkersAfterAdd: Worker[];
+  tasks: ErpTask[];
+  actorName: string;
+  actorRole: UserRole | string;
+}): Promise<{ updatedRequest: RecruitmentRequestRecord; exceededManpowerAlert: boolean }> {
+  const nowIso = new Date().toISOString();
+  const req = params.recruitmentRequest;
+  const nextHired = (req.hiredCount || 0) + 1;
+  const isFulfilled = nextHired >= req.requestedCount;
+
+  const updatedRequest: RecruitmentRequestRecord = {
+    ...req,
+    hiredCount: nextHired,
+    status: isFulfilled ? "Fulfilled" : "Approved",
+    workflowStage: isFulfilled ? "Fulfilled" : "Approved",
+    updatedAt: nowIso,
+  };
+  await DbService.saveRecruitmentRequest(updatedRequest);
+
+  if (req.hrOnboardingTaskId) {
+    const existingTask = params.tasks.find((t) => t.id === req.hrOnboardingTaskId);
+    if (existingTask) {
+      await DbService.updateTask({
+        ...existingTask,
+        status: isFulfilled ? "Completed" : "In Progress",
+        completionPercentage: Math.min(100, Math.round((nextHired / Math.max(1, req.requestedCount)) * 100)),
+        completionDate: isFulfilled ? nowIso.slice(0, 10) : existingTask.completionDate,
+        updatedAt: nowIso,
+        updatedByName: params.actorName,
+      }).catch(() => {});
+    }
+  }
+
+  // Connect actual hired headcount against approved manpower & alert Director if exceeded
+  const summaryRows = computeManpowerSummary({
+    manpowerPlans: params.manpowerPlans,
+    workers: params.allWorkersAfterAdd,
+  });
+  const matched = summaryRows.find(
+    (r) =>
+      r.project.toLowerCase() === req.project.toLowerCase() &&
+      r.jobPosition.toLowerCase() === req.jobPosition.toLowerCase()
+  );
+  const exceededManpowerAlert = Boolean(matched && matched.excessCount > 0);
+  if (exceededManpowerAlert && matched) {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-HIRE-EXCESS-${req.id}-${Date.now()}`,
+      type: "HRM Excess Manpower Alert",
+      title: `Actual Headcount Exceeds Approved Manpower (${matched.project})`,
+      titleAm: `የተቀጠሩ ሠራተኞች ብዛት ከተፈቀደው የሰው ኃይል ገደብ አልፏል (${matched.project})`,
+      message: `Registering ${params.newWorker.name} (${params.newWorker.employeeId || params.newWorker.id}) brought active ${matched.jobPosition} count to ${matched.actualHired} against approved quota ${matched.approvedManpower} (+${matched.excessCount} excess).`,
+      priority: "Critical",
+      projectName: matched.project,
+      sender: params.actorName,
+      senderRole: String(params.actorRole),
+      receiver: "Director & Executive Management",
+      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+    });
+  }
+
+  return { updatedRequest, exceededManpowerAlert };
 }
 
 export function validateNoDuplicateSalaryPayment(params: {

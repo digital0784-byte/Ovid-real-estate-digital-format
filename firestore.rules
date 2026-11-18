@@ -165,7 +165,11 @@ service cloud.firestore {
     }
 
     function isHrmWorkflowApprover() {
-      return isHrmOfficer() || isOfficeManager() || isOperationManager() || isFinanceManager() || isProjectManager() || isSectionHead();
+      return isHrmOfficer() || isOfficeManager() || isOfficeTechnicalEngineering() || isOperationManager() || isFinanceManager() || isProjectManager() || isSectionHead();
+    }
+
+    function isBiometricMappingViewer() {
+      return isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSectionHead() || isOperationManager() || isOfficeManager() || isOfficeTechnicalEngineering() || isSiteEngineer();
     }
 
     function isFinanceManager() {
@@ -427,9 +431,15 @@ service cloud.firestore {
     // 4. Attendance & Worker Evaluations
     match /attendance/{attendanceId} {
       allow read: if isApprovedUser();
-      allow create, update: if isDirectorOrAdmin() || isHRManager() || isTimeKeeper() || isSupervisor() || isSectionHead() || isProjectManager() || isOperationManager() || (
+      allow create, update: if (isDirectorOrAdmin() || isHRManager() || isTimeKeeper() || isSupervisor() || isSectionHead() || isProjectManager() || isOperationManager() || (
         isApprovedUser() && ('recordedByUid' in incoming()) && incoming().recordedByUid == request.auth.uid
-      );
+      )) &&
+        !('fingerprintTemplate' in incoming()) &&
+        !('faceTemplate' in incoming()) &&
+        !('rawBiometricTemplate' in incoming()) &&
+        !('biometricTemplate' in incoming()) &&
+        !('devicePassword' in incoming()) &&
+        !('commKey' in incoming());
       allow delete: if isDirectorOrAdmin();
     }
 
@@ -1240,6 +1250,133 @@ service cloud.firestore {
       );
       allow create, update: if (isHrmOfficer() || isFinanceStaff()) && mfaSafe();
       allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // ==========================================
+    // 21C. EMPLOYEE BIOMETRIC MAPPING COLLECTIONS
+    // ==========================================
+    function isValidBiometricDevice() {
+      return incoming().keys().hasAll([
+        'id', 'deviceCode', 'deviceName', 'manufacturer', 'model', 'serialNumber', 'workLocationType', 'status'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'deviceCode', 'deviceName', 'manufacturer', 'model', 'serialNumber',
+        'workLocationType', 'projectId', 'projectName', 'deviceLocation',
+        'protocolType', 'networkTopology', 'admsPath', 'supportedCapabilities',
+        'lastHandshakeAt', 'lastEventAt', 'connectionVerified',
+        'status', 'notes', 'createdBy', 'createdByUid', 'createdAt', 'updatedBy', 'updatedAt',
+        'capturedAt', 'serverReceivedAt'
+      ]) &&
+      incoming().deviceCode is string && incoming().deviceCode.size() >= 1 && incoming().deviceCode.size() <= 64 &&
+      incoming().deviceName is string && incoming().deviceName.size() >= 1 && incoming().deviceName.size() <= 140 &&
+      incoming().manufacturer is string && incoming().manufacturer.size() >= 1 && incoming().manufacturer.size() <= 100 &&
+      incoming().model is string && incoming().model.size() >= 1 && incoming().model.size() <= 100 &&
+      incoming().serialNumber is string && incoming().serialNumber.size() >= 1 && incoming().serialNumber.size() <= 120 &&
+      incoming().workLocationType in ['Head Office', 'Construction Site'] &&
+      (!('protocolType' in incoming()) || incoming().protocolType in ['ADMS_PUSH_HTTP', 'TCP_4370_SITE_BRIDGE', 'MANUAL_IMPORT']) &&
+      incoming().status in ['Active', 'Inactive'];
+    }
+
+    function isValidBiometricDeviceMapping() {
+      return incoming().keys().hasAll([
+        'id', 'employeeId', 'workerRecordId', 'biometricUserId', 'deviceId',
+        'workLocationType', 'effectiveDate', 'status'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'employeeId', 'workerRecordId', 'employeeNameSnapshot', 'departmentSnapshot',
+        'positionSnapshot', 'employmentStatusSnapshot', 'biometricUserId', 'deviceId',
+        'deviceNameSnapshot', 'deviceModelSnapshot', 'deviceSerialNumberSnapshot',
+        'workLocationId', 'workLocationType', 'projectId', 'projectNameSnapshot',
+        'effectiveDate', 'status', 'notes', 'createdBy', 'createdByUid', 'createdAt',
+        'updatedBy', 'updatedByUid', 'updatedAt', 'deactivatedBy', 'deactivatedByUid',
+        'deactivatedAt', 'deactivationReason', 'capturedAt', 'serverReceivedAt'
+      ]) &&
+      incoming().employeeId is string && incoming().employeeId.size() >= 1 && incoming().employeeId.size() <= 100 &&
+      incoming().workerRecordId is string && incoming().workerRecordId.size() >= 1 && incoming().workerRecordId.size() <= 128 &&
+      incoming().biometricUserId is string && incoming().biometricUserId.size() >= 1 && incoming().biometricUserId.size() <= 64 &&
+      incoming().deviceId is string && incoming().deviceId.size() >= 1 && incoming().deviceId.size() <= 128 &&
+      incoming().workLocationType in ['Head Office', 'Construction Site'] &&
+      incoming().effectiveDate is string && incoming().effectiveDate.size() >= 8 && incoming().effectiveDate.size() <= 32 &&
+      incoming().status in ['Active', 'Inactive'];
+    }
+
+    function isValidBiometricMappingAuditLog() {
+      return incoming().keys().hasAll([
+        'id', 'mappingId', 'employeeId', 'deviceId', 'biometricUserId',
+        'action', 'actorName', 'actorRole', 'timestamp'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'mappingId', 'employeeId', 'employeeName', 'deviceId', 'deviceName',
+        'biometricUserId', 'action', 'previousValue', 'newValue', 'reason',
+        'actorName', 'actorUid', 'actorRole', 'timestamp', 'serverReceivedAt'
+      ]) &&
+      incoming().action in [
+        'Mapping Created', 'Mapping Edited', 'Biometric User ID Changed',
+        'Device Changed', 'Mapping Activated', 'Mapping Deactivated', 'Unmapped Event Resolved'
+      ] &&
+      incoming().biometricUserId is string && incoming().biometricUserId.size() >= 1 && incoming().biometricUserId.size() <= 64 &&
+      incoming().actorName is string && incoming().actorName.size() >= 1 && incoming().actorName.size() <= 120;
+    }
+
+    function isValidUnmappedBiometricEvent() {
+      return incoming().keys().hasAll([
+        'id', 'deviceId', 'biometricUserId', 'eventTime', 'status'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'deviceId', 'deviceName', 'biometricUserId', 'eventTime', 'punchType',
+        'workLocationType', 'projectName', 'status', 'resolvedMappingId',
+        'resolvedEmployeeId', 'resolvedAttendanceId', 'resolvedBy', 'resolvedAt',
+        'rawEventMeta', 'createdAt', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+      ]) &&
+      incoming().deviceId is string && incoming().deviceId.size() >= 1 && incoming().deviceId.size() <= 128 &&
+      incoming().biometricUserId is string && incoming().biometricUserId.size() >= 1 && incoming().biometricUserId.size() <= 64 &&
+      incoming().eventTime is string && incoming().eventTime.size() >= 8 && incoming().eventTime.size() <= 64 &&
+      incoming().status in ['Unmapped', 'Resolved', 'Ignored'];
+    }
+
+    // 21C.1 biometricDevices (Registered biometric hardware terminals; zero secrets stored)
+    match /biometricDevices/{deviceId} {
+      allow read: if isBiometricMappingViewer();
+      allow create, update: if isValidId(deviceId) &&
+        (isSuperAdmin() || hasRole('HR Manager')) &&
+        mfaSafe() &&
+        isValidBiometricDevice();
+      allow delete: if false; // Preserve device history; use status = 'Inactive'
+    }
+
+    // 21C.2 biometricDeviceMappings (Links ERP employees to biometric device User IDs)
+    match /biometricDeviceMappings/{mappingId} {
+      allow read: if isBiometricMappingViewer();
+      allow create: if isValidId(mappingId) &&
+        (isSuperAdmin() || isHRManager()) &&
+        mfaSafe() &&
+        isValidBiometricDeviceMapping();
+      allow update: if isValidId(mappingId) &&
+        (isSuperAdmin() || isHRManager()) &&
+        mfaSafe() &&
+        isValidBiometricDeviceMapping() &&
+        (incoming().status == existing().status || isSuperAdmin() || hasRole('HR Manager'));
+      allow delete: if false; // Never hard-delete mapping history; use status = 'Inactive'
+    }
+
+    // 21C.3 biometricMappingAuditLogs (Strictly immutable create-only audit history)
+    match /biometricMappingAuditLogs/{logId} {
+      allow read: if isBiometricMappingViewer();
+      allow create: if isValidId(logId) &&
+        (isSuperAdmin() || isHRManager()) &&
+        mfaSafe() &&
+        isValidBiometricMappingAuditLog();
+      allow update, delete: if false; // Strictly immutable audit log
+    }
+
+    // 21C.4 unmappedBiometricEvents (Quarantine queue for unmatched biometric device punches)
+    match /unmappedBiometricEvents/{eventId} {
+      allow read: if isBiometricMappingViewer();
+      allow create, update: if isValidId(eventId) &&
+        (isSuperAdmin() || isHRManager()) &&
+        mfaSafe() &&
+        isValidUnmappedBiometricEvent();
+      allow delete: if false;
     }
 
     // ==========================================

@@ -219,6 +219,11 @@ export interface AttendanceRecord {
   team?: string;
   recordedByUid?: string;
   scheduleId?: string;
+  biometricDeviceId?: string;
+  biometricDeviceName?: string;
+  biometricUserId?: string;
+  biometricMappingId?: string;
+  biometricSourceProtocol?: string;
 }
 
 export interface PerformanceEvaluation {
@@ -3524,7 +3529,7 @@ export interface HrmWorkflowStepLog {
   actorName: string;
   actorRole: string;
   actorUid?: string;
-  decision: HrmApprovalDecision | "Submitted" | "Paid";
+  decision: HrmApprovalDecision | "Submitted" | "Paid" | "Returned" | "Resubmitted";
   timestamp: string;
   notes?: string;
 }
@@ -3554,9 +3559,20 @@ export type RecruitmentWorkflowStage =
   | "Pending Operation Department"
   | "Pending Director Final Approval"
   | "Pending Director Excess Approval"
+  | "Returned for Correction"
   | "Approved"
   | "Rejected"
   | "Fulfilled";
+
+export interface RecruitmentSupportingDocument {
+  id: string;
+  name: string;
+  url: string;
+  storagePath?: string;
+  uploadedAt: string;
+  uploadedBy?: string;
+  category?: string;
+}
 
 export interface RecruitmentRequestRecord {
   id: string;
@@ -3570,8 +3586,11 @@ export interface RecruitmentRequestRecord {
   urgency: "Normal" | "High" | "Critical";
   requiredByDate: string;
   proposedMonthlySalary: number;
+  jobResponsibilities?: string;
+  experienceRequired?: string;
   qualificationsRequired: string;
   justification: string;
+  supportingDocuments?: RecruitmentSupportingDocument[];
   requestedBy: string;
   requestedById: string;
   requestedByRole: string;
@@ -3591,6 +3610,13 @@ export interface RecruitmentRequestRecord {
   rejectedByRole?: string;
   rejectedAt?: string;
   rejectedAtStage?: RecruitmentWorkflowStage;
+  correctionNotes?: string;
+  returnedBy?: string;
+  returnedByRole?: string;
+  returnedAt?: string;
+  returnedAtStage?: RecruitmentWorkflowStage;
+  resubmittedAt?: string;
+  resubmittedCount?: number;
   officeManagerApproval?: HrmWorkflowStepLog;
   hrManagerApproval?: HrmWorkflowStepLog;
   financeManagerApproval?: HrmWorkflowStepLog;
@@ -3865,4 +3891,121 @@ export interface HrmPayslipRecord {
   updatedAt: string;
 }
 
+// ============================================================================
+// EMPLOYEE BIOMETRIC MAPPING MODULE TYPES
+// ============================================================================
+
+export type BiometricDeviceWorkLocationType = "Head Office" | "Construction Site";
+export type BiometricMappingStatus = "Active" | "Inactive";
+
+export type BiometricDeviceProtocolType =
+  | "ADMS_PUSH_HTTP"
+  | "TCP_4370_SITE_BRIDGE"
+  | "MANUAL_IMPORT";
+
+export interface BiometricDeviceRecord {
+  id: string;
+  deviceCode: string;
+  deviceName: string;
+  manufacturer: string;
+  model: string;
+  serialNumber: string;
+  workLocationType: BiometricDeviceWorkLocationType;
+  projectId?: string;
+  projectName?: string;
+  deviceLocation: string;
+  protocolType?: BiometricDeviceProtocolType;
+  networkTopology?: string;
+  admsPath?: string;
+  supportedCapabilities?: string[];
+  lastHandshakeAt?: string;
+  lastEventAt?: string;
+  connectionVerified?: boolean;
+  status: "Active" | "Inactive";
+  notes?: string;
+  createdBy: string;
+  createdByUid?: string;
+  createdAt: string;
+  updatedBy?: string;
+  updatedAt: string;
+}
+
+export interface BiometricDeviceMapping {
+  id: string;
+  employeeId: string;
+  workerRecordId: string;
+  employeeNameSnapshot: string;
+  departmentSnapshot: string;
+  positionSnapshot: string;
+  employmentStatusSnapshot: string;
+  biometricUserId: string;
+  deviceId: string;
+  deviceNameSnapshot: string;
+  deviceModelSnapshot: string;
+  deviceSerialNumberSnapshot: string;
+  workLocationId: string;
+  workLocationType: BiometricDeviceWorkLocationType;
+  projectId: string;
+  projectNameSnapshot: string;
+  effectiveDate: string;
+  status: BiometricMappingStatus;
+  notes?: string;
+  createdBy: string;
+  createdByUid: string;
+  createdAt: string;
+  updatedBy?: string;
+  updatedByUid?: string;
+  updatedAt?: string;
+  deactivatedBy?: string;
+  deactivatedByUid?: string;
+  deactivatedAt?: string;
+  deactivationReason?: string;
+}
+
+export type BiometricMappingAuditAction =
+  | "Mapping Created"
+  | "Mapping Edited"
+  | "Biometric User ID Changed"
+  | "Device Changed"
+  | "Mapping Activated"
+  | "Mapping Deactivated"
+  | "Unmapped Event Resolved";
+
+export interface BiometricMappingAuditLog {
+  id: string;
+  mappingId: string;
+  employeeId: string;
+  employeeName: string;
+  deviceId: string;
+  deviceName: string;
+  biometricUserId: string;
+  action: BiometricMappingAuditAction;
+  previousValue?: Record<string, any>;
+  newValue?: Record<string, any>;
+  reason?: string;
+  actorName: string;
+  actorUid: string;
+  actorRole: string;
+  timestamp: string;
+}
+
+export interface UnmappedBiometricEvent {
+  id: string;
+  deviceId: string;
+  deviceName?: string;
+  biometricUserId: string;
+  eventTime: string;
+  punchType: "Check-In" | "Check-Out" | "Lunch-Out" | "Lunch-In" | "Unknown";
+  workLocationType?: BiometricDeviceWorkLocationType;
+  projectName?: string;
+  status: "Unmapped" | "Resolved" | "Ignored";
+  resolvedMappingId?: string;
+  resolvedEmployeeId?: string;
+  resolvedAttendanceId?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  rawEventMeta?: Record<string, any>;
+  createdAt: string;
+  updatedAt: string;
+}
 

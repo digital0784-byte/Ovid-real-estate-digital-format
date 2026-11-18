@@ -41,7 +41,9 @@ import {
   AuditLog,
   SystemNotification,
   AluminumFormworkPanel,
-  PanelMovementLog
+  PanelMovementLog,
+  BiometricDeviceRecord,
+  BiometricDeviceMapping
 } from "./types";
 
 // Component imports
@@ -83,7 +85,8 @@ import { NotificationService } from "./services/notificationService";
 import { PanelTraceabilityModule } from "./components/PanelTraceabilityModule";
 import { TaskManagementSearchHub } from "./components/TaskManagementSearchHub";
 import { FirestoreDataExplorer } from "./components/FirestoreDataExplorer";
-import { HrmEnterpriseModule } from "./components/hrm/HrmEnterpriseModule";
+import { HrmEnterpriseModule, HrmSubTab } from "./components/hrm/HrmEnterpriseModule";
+import { resolveBiometricMappingPermissions } from "./services/biometricMappingService";
 
 // Lucide Icons
 import { 
@@ -164,6 +167,8 @@ export default function App() {
   const [qualityLogs, setQualityLogs] = useState<QualityLog[]>([]);
   const [formworkPanels, setFormworkPanels] = useState<AluminumFormworkPanel[]>([]);
   const [panelMovementLogs, setPanelMovementLogs] = useState<PanelMovementLog[]>([]);
+  const [biometricDevices, setBiometricDevices] = useState<BiometricDeviceRecord[]>([]);
+  const [biometricDeviceMappings, setBiometricDeviceMappings] = useState<BiometricDeviceMapping[]>([]);
   const [isOnline, setIsOnline] = useState(typeof window !== "undefined" ? navigator.onLine : true);
   const [syncStats, setSyncStats] = useState({
     pendingCount: 0,
@@ -181,6 +186,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [hrmInitialSubTab, setHrmInitialSubTab] = useState<HrmSubTab>("dashboard");
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
   const [showModulesMenu, setShowModulesMenu] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
@@ -233,6 +239,11 @@ export default function App() {
 
   // Navigate to tab with history tracking & auto-close drawer on mobile
   const navigateToTab = (newTab: string) => {
+    if (newTab === "hrmBiometricMapping") {
+      setHrmInitialSubTab("biometric-mapping");
+    } else if (newTab === "hrmEnterprise") {
+      setHrmInitialSubTab("dashboard");
+    }
     if (newTab === activeTab) return;
     setNavigationHistory(prev => {
       if (prev.length > 0 && prev[prev.length - 1] === activeTab) return prev;
@@ -678,7 +689,7 @@ export default function App() {
     }
   };
 
-  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "hrmEnterprise", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
+  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
   const allTabs = SIMULATIONS_ENABLED
     ? rawAllTabs
     : rawAllTabs.filter(tab => !SIMULATION_ONLY_TABS.has(tab));
@@ -697,10 +708,10 @@ export default function App() {
     [UserRole.DIRECTOR]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.DIRECTORY]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
-    [UserRole.OFFICE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "projectDocs", "auditLog", "securitySettings", "mobileApps"],
-    [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "enterpriseErp", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
+    [UserRole.OFFICE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "workerProfiles", "attendance", "projectDocs", "auditLog", "securitySettings", "mobileApps"],
+    [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "enterpriseErp", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
-    [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmBiometricMapping", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.TIME_KEEPER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
     [UserRole.TEAM_LEADER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
@@ -711,11 +722,11 @@ export default function App() {
     [UserRole.STORE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.EMPLOYEE]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.WORKER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "hrmEnterprise", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
     [UserRole.ACCOUNTANT]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "securitySettings", "mobileApps"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SURVEYOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.DRIVER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
@@ -728,6 +739,9 @@ export default function App() {
     }
     if (tab === "formworkManagement") {
       return formworkAllowedRoles.includes(currentUserRole);
+    }
+    if (tab === "hrmBiometricMapping") {
+      return resolveBiometricMappingPermissions(currentUserRole).canView;
     }
     const permissions = tabPermissions[currentUserRole];
     if (permissions) {
@@ -1037,6 +1051,27 @@ export default function App() {
       window.removeEventListener("storage", syncWorkersList);
     };
   }, [isAuthenticated, isPendingUser, mfaGateRequired]);
+
+  // Role-guarded biometric devices & active mappings subscription for Attendance Board integration
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !isAuthenticated || isPendingUser || mfaGateRequired) {
+      setBiometricDevices([]);
+      setBiometricDeviceMappings([]);
+      return;
+    }
+    const bioPerms = resolveBiometricMappingPermissions(currentUserRole);
+    if (!bioPerms.canView) {
+      setBiometricDevices([]);
+      setBiometricDeviceMappings([]);
+      return;
+    }
+    const unsubDevices = DbService.subscribeBiometricDevices(setBiometricDevices);
+    const unsubMappings = DbService.subscribeBiometricDeviceMappings(setBiometricDeviceMappings);
+    return () => {
+      unsubDevices();
+      unsubMappings();
+    };
+  }, [isAuthenticated, isPendingUser, mfaGateRequired, currentUserRole]);
 
   // Handle window online/offline events for unstable network indicator
   React.useEffect(() => {
@@ -2401,6 +2436,19 @@ export default function App() {
               </button>
             )}
 
+            {/* HRM → Employee Biometric Mapping Shortcut */}
+            {hasAccess("hrmBiometricMapping") && (
+              <button
+                onClick={() => navigateToTab("hrmBiometricMapping")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "hrmBiometricMapping" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Fingerprint size={15} className="text-cyan-400" />
+                <span>{isAmharic ? "HRM → የባዮሜትሪክ መለያ ትስስር" : "HRM → Biometric Mapping"}</span>
+              </button>
+            )}
+
             {/* Projects & Documents Tab */}
             {tabPermissions[currentUserRole]?.includes("projectDocs") && (
               <button
@@ -3106,7 +3154,7 @@ export default function App() {
           />
         )}
 
-        {activeTab === "hrmEnterprise" && (
+        {(activeTab === "hrmEnterprise" || activeTab === "hrmBiometricMapping") && (
           <HrmEnterpriseModule
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
@@ -3118,6 +3166,7 @@ export default function App() {
             onAddAttendance={handleAddAttendance}
             onNavigateToTab={navigateToTab}
             onLogAction={(action, details) => logAction(action, details)}
+            initialSubTab={activeTab === "hrmBiometricMapping" ? "biometric-mapping" : hrmInitialSubTab}
           />
         )}
 
@@ -3238,6 +3287,8 @@ export default function App() {
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             onLogAction={(action, details) => logAction(action, details)}
+            biometricDevices={biometricDevices}
+            biometricMappings={biometricDeviceMappings}
           />
         )}
 
@@ -3922,6 +3973,25 @@ export default function App() {
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
                           {isAmharic ? "ቅጥር፣ የሰው ኃይል ዕቅድ፣ መገኘት፣ ፈቃድ፣ የትርፍ ሰዓት እና የኢትዮጵያ ደመወዝ" : "Manpower recruitment, Fayda ID, biometric attendance, leave, OT & Ethiopian payroll"}
+                        </p>
+                      </button>
+                    )}
+
+                    {hasAccess("hrmBiometricMapping") && (
+                      <button
+                        onClick={() => { navigateToTab("hrmBiometricMapping"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "hrmBiometricMapping" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Fingerprint size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "10.2 HRM → የባዮሜትሪክ መለያ ትስስር" : "10.2 HRM → Employee Biometric Mapping"}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "ሰራተኞችን ከተመዘገቡ የባዮሜትሪክ መሣሪያዎችና መለያ ቁጥሮች ጋር ማገናኘት" : "Link ERP employees to registered biometric devices, User IDs & attendance resolution"}
                         </p>
                       </button>
                     )}
