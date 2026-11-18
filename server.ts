@@ -10,6 +10,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { TOTP, Secret } from "otpauth";
 import { createBiometricConnectorRouter } from "./src/server/biometricConnectorRouter";
+import { fetchUserProfileWithIdToken } from "./src/server/firestoreUserLookup";
 let firebaseConfigJson: any = {};
 try {
   const configPath = path.resolve(process.cwd(), "firebase-applet-config.json");
@@ -84,25 +85,51 @@ function getFirestoreDb() {
   return databaseId ? getFirestore(adminApp, databaseId) : getFirestore(adminApp);
 }
 
-// 30-second cache for user active/role profile lookups
+// 30-second cache for active approved user role/profile lookups
 const userProfileCache = new Map<string, { data: any; expiresAt: number }>();
 const USER_CACHE_TTL_MS = 30 * 1000;
 
-async function getCachedUserProfile(uid: string): Promise<any | null> {
+async function getCachedUserProfile(
+  uid: string,
+  rawIdToken?: string,
+  appCheckToken?: string
+): Promise<any | null> {
   const cached = userProfileCache.get(uid);
   const now = Date.now();
   if (cached && cached.expiresAt > now) {
     return cached.data;
   }
+
+  const projectId = firebaseConfigJson.projectId || process.env.FIREBASE_PROJECT_ID;
+  const databaseId = firebaseConfigJson.firestoreDatabaseId || "(default)";
+
+  if (rawIdToken && projectId) {
+    const res = await fetchUserProfileWithIdToken({
+      uid,
+      idToken: rawIdToken,
+      projectId,
+      databaseId,
+      appCheckToken,
+    });
+    if (!res.exists || !res.data) {
+      return null;
+    }
+    if (res.data.status === "Active" && res.data.role && res.data.role !== "Pending") {
+      userProfileCache.set(uid, { data: res.data, expiresAt: now + USER_CACHE_TTL_MS });
+    }
+    return res.data;
+  }
+
   const firestore = getFirestoreDb();
   if (!firestore) return null;
   const snap = await firestore.collection("users").doc(uid).get();
   if (!snap.exists) {
-    userProfileCache.set(uid, { data: null, expiresAt: now + USER_CACHE_TTL_MS });
     return null;
   }
   const data = snap.data() || null;
-  userProfileCache.set(uid, { data, expiresAt: now + USER_CACHE_TTL_MS });
+  if (data && data.status === "Active" && data.role && data.role !== "Pending") {
+    userProfileCache.set(uid, { data, expiresAt: now + USER_CACHE_TTL_MS });
+  }
   return data;
 }
 
@@ -161,6 +188,7 @@ async function requireAuth(req: express.Request, res: express.Response, next: ex
       email: decoded.email || "",
       claims: decoded
     };
+    (req as any).rawIdToken = match[1];
     return next();
   } catch {
     return res.status(401).json({ success: false, error: "invalid_token", message: "Invalid or expired authentication token." });
@@ -174,7 +202,11 @@ async function requireActiveUser(req: express.Request, res: express.Response, ne
     return res.status(401).json({ success: false, error: "unauthorized" });
   }
   try {
-    const profile = await getCachedUserProfile(authUser.uid);
+    const profile = await getCachedUserProfile(
+      authUser.uid,
+      (req as any).rawIdToken,
+      req.header("X-Firebase-AppCheck")
+    );
     if (!profile || profile.status !== "Active" || !profile.role || profile.role === "Pending") {
       return res.status(403).json({ success: false, error: "user_not_active", message: "Account is not approved for this operation." });
     }
@@ -337,11 +369,14 @@ async function startServer() {
       return res.status(503).json({ success: false, error: "mfa_unavailable" });
     }
     try {
-      const [userSnap, secretSnap] = await Promise.all([
-        firestore.collection("users").doc(authUser.uid).get(),
+      const [userData, secretSnap] = await Promise.all([
+        getCachedUserProfile(
+          authUser.uid,
+          (req as any).rawIdToken,
+          req.header("X-Firebase-AppCheck")
+        ),
         firestore.collection("mfa_secrets").doc(authUser.uid).get()
       ]);
-      const userData = userSnap.exists ? userSnap.data() : null;
       const role = userData?.role || "Pending";
       const required = MFA_ENFORCED && SENSITIVE_ROLES.has(role);
       const secretData = secretSnap.exists ? secretSnap.data() : null;

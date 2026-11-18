@@ -219,7 +219,7 @@ export function validateBiometricMappingInput(params: {
         m.id !== params.editingMappingId &&
         m.status === "Active" &&
         m.deviceId === device.id &&
-        m.biometricUserId.trim().toLowerCase() === cleanBioId.toLowerCase()
+        String(m.biometricUserId || "").trim().toLowerCase() === cleanBioId.toLowerCase()
     );
     if (dupBioUserOnSameDevice) {
       return {
@@ -281,7 +281,9 @@ export async function saveValidatedBiometricDevice(params: {
   }
 
   const dupSerial = params.existingDevices.find(
-    (d) => d.id !== params.editingDevice?.id && d.serialNumber.trim().toLowerCase() === serial.toLowerCase()
+    (d) =>
+      d.id !== params.editingDevice?.id &&
+      String(d.serialNumber || "").trim().toLowerCase() === serial.toLowerCase()
   );
   if (dupSerial) {
     throw new Error(`Device with serial number "${serial}" is already registered (${dupSerial.deviceName}).`);
@@ -613,7 +615,7 @@ export async function processBiometricDeviceAttendanceEvent(params: {
   const device =
     (cleanDeviceId ? params.devices.find((d) => d.id === cleanDeviceId) : undefined) ||
     (cleanSerial
-      ? params.devices.find((d) => d.serialNumber.trim().toLowerCase() === cleanSerial.toLowerCase())
+      ? params.devices.find((d) => String(d.serialNumber || "").trim().toLowerCase() === cleanSerial.toLowerCase())
       : undefined);
 
   const resolvedDeviceKey = device?.id || cleanDeviceId || (cleanSerial ? `SN:${cleanSerial}` : "UNKNOWN-DEVICE");
@@ -626,7 +628,7 @@ export async function processBiometricDeviceAttendanceEvent(params: {
           (m) =>
             m.status === "Active" &&
             m.deviceId === device.id &&
-            m.biometricUserId.trim().toLowerCase() === cleanBioId.toLowerCase()
+            String(m.biometricUserId || "").trim().toLowerCase() === cleanBioId.toLowerCase()
         )
       : undefined;
 
@@ -661,7 +663,7 @@ export async function processBiometricDeviceAttendanceEvent(params: {
       (u) =>
         u.status === "Unmapped" &&
         u.deviceId === resolvedDeviceKey &&
-        u.biometricUserId.trim().toLowerCase() === cleanBioId.toLowerCase() &&
+        String(u.biometricUserId || "").trim().toLowerCase() === cleanBioId.toLowerCase() &&
         u.eventTime === params.eventTime &&
         u.punchType === punchType
     );

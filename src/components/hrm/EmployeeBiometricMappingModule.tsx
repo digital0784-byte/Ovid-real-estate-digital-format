@@ -245,37 +245,41 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
   // Scope records if Site/Project manager
   const scopedMappings = useMemo(() => {
     if (!perms.scopeToAssignedSite || !assignedSite) return mappings;
+    const siteLower = String(assignedSite || "").toLowerCase();
     return mappings.filter(
       (m) =>
-        m.projectNameSnapshot.toLowerCase() === assignedSite.toLowerCase() ||
-        m.projectId.toLowerCase() === assignedSite.toLowerCase()
+        String(m.projectNameSnapshot || "").toLowerCase() === siteLower ||
+        String(m.projectId || "").toLowerCase() === siteLower
     );
   }, [mappings, perms.scopeToAssignedSite, assignedSite]);
 
   const scopedWorkers = useMemo(() => {
     if (!perms.scopeToAssignedSite || !assignedSite) return workers;
+    const siteLower = String(assignedSite || "").toLowerCase();
     return workers.filter(
       (w) =>
-        (w.assignedProject || w.currentSite || "").toLowerCase() === assignedSite.toLowerCase()
+        String(w.assignedProject || w.currentSite || "").toLowerCase() === siteLower
     );
   }, [workers, perms.scopeToAssignedSite, assignedSite]);
 
   const scopedDevices = useMemo(() => {
     if (!perms.scopeToAssignedSite || !assignedSite) return devices;
+    const siteLower = String(assignedSite || "").toLowerCase();
     return devices.filter(
       (d) =>
-        (d.projectName || "").toLowerCase() === assignedSite.toLowerCase() ||
-        (d.projectId || "").toLowerCase() === assignedSite.toLowerCase()
+        String(d.projectName || "").toLowerCase() === siteLower ||
+        String(d.projectId || "").toLowerCase() === siteLower
     );
   }, [devices, perms.scopeToAssignedSite, assignedSite]);
 
   const scopedUnmappedEvents = useMemo(() => {
     if (!perms.scopeToAssignedSite || !assignedSite) return unmappedEvents;
+    const siteLower = String(assignedSite || "").toLowerCase();
     const allowedDeviceIds = new Set(scopedDevices.map((d) => d.id));
     return unmappedEvents.filter(
       (u) =>
         allowedDeviceIds.has(u.deviceId) ||
-        (u.projectName || "").toLowerCase() === assignedSite.toLowerCase()
+        String(u.projectName || "").toLowerCase() === siteLower
     );
   }, [unmappedEvents, scopedDevices, perms.scopeToAssignedSite, assignedSite]);
 
@@ -349,14 +353,14 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
         if (statusFilter !== "ALL" && m.status !== statusFilter) return false;
         if (!q) return true;
         return (
-          m.employeeId.toLowerCase().includes(q) ||
-          m.employeeNameSnapshot.toLowerCase().includes(q) ||
-          m.biometricUserId.toLowerCase().includes(q) ||
-          m.deviceNameSnapshot.toLowerCase().includes(q) ||
-          m.deviceSerialNumberSnapshot.toLowerCase().includes(q)
+          String(m.employeeId || "").toLowerCase().includes(q) ||
+          String(m.employeeNameSnapshot || "").toLowerCase().includes(q) ||
+          String(m.biometricUserId || "").toLowerCase().includes(q) ||
+          String(m.deviceNameSnapshot || "").toLowerCase().includes(q) ||
+          String(m.deviceSerialNumberSnapshot || "").toLowerCase().includes(q)
         );
       })
-      .sort((a, b) => (b.updatedAt || b.createdAt).localeCompare(a.updatedAt || a.createdAt));
+      .sort((a, b) => String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || "")));
   }, [
     scopedMappings,
     searchTerm,
@@ -396,15 +400,17 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
     const q = empPickerSearch.trim().toLowerCase();
     return workers
       .filter((w) => {
+        if (!w) return false;
         if (!q) return true;
         return (
-          w.name.toLowerCase().includes(q) ||
-          String(w.employeeId || w.id).toLowerCase().includes(q) ||
+          String(w.name || "").toLowerCase().includes(q) ||
+          String(w.employeeId || w.id || "").toLowerCase().includes(q) ||
+          String(w.id || "").toLowerCase().includes(q) ||
           String(w.department || "").toLowerCase().includes(q) ||
           String(w.position || w.trade || "").toLowerCase().includes(q)
         );
       })
-      .slice(0, 60);
+      .slice(0, 100);
   }, [workers, empPickerSearch]);
 
   const openAddMappingModal = (prefill?: {
@@ -1442,7 +1448,9 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                         (m) => m.deviceId === dev.id && m.status === "Active"
                       ).length;
                       const handshake = connectorStatus?.handshakenDevices.find(
-                        (h) => h.serialNumber.toLowerCase() === dev.serialNumber.toLowerCase()
+                        (h) =>
+                          String(h.serialNumber || "").toLowerCase() ===
+                          String(dev.serialNumber || "").toLowerCase()
                       );
                       return (
                         <tr key={dev.id} className="border-b border-slate-900 hover:bg-slate-900/50">
@@ -1570,8 +1578,8 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                       (m) =>
                         m.status === "Active" &&
                         m.deviceId === ev.deviceId &&
-                        m.biometricUserId.trim().toLowerCase() ===
-                          ev.biometricUserId.trim().toLowerCase()
+                        String(m.biometricUserId || "").trim().toLowerCase() ===
+                          String(ev.biometricUserId || "").trim().toLowerCase()
                     );
                     return (
                       <tr key={ev.id} className="border-b border-slate-900 hover:bg-slate-900/50">
@@ -1677,39 +1685,88 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] text-slate-400 mb-1">
-                    Filter Existing Employees
+                    Search Registered Employee (Name or Employee ID)
                   </label>
                   <input
                     value={empPickerSearch}
-                    onChange={(e) => setEmpPickerSearch(e.target.value)}
-                    placeholder="Type Employee ID or Name..."
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setEmpPickerSearch(val);
+                      const clean = val.trim().toLowerCase();
+                      if (clean && !editingMapping) {
+                        const exactMatch = workers.find(
+                          (w) =>
+                            String(w.employeeId || "").trim().toLowerCase() === clean ||
+                            String(w.id || "").trim().toLowerCase() === clean
+                        );
+                        if (exactMatch) {
+                          setMappingForm((p) => ({
+                            ...p,
+                            employeeIdOrWorkerId: exactMatch.id,
+                            projectId:
+                              p.deviceId
+                                ? p.projectId
+                                : exactMatch.assignedProject || exactMatch.currentSite || p.projectId,
+                          }));
+                        }
+                      }
+                    }}
+                    placeholder="Search by Name or Employee ID..."
                     disabled={Boolean(editingMapping)}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white disabled:opacity-60"
                   />
                 </div>
                 <div>
                   <label className="block text-[11px] text-slate-400 mb-1">
-                    Employee ID (Select Existing Employee) *
+                    Select Registered Employee *
                   </label>
                   <select
                     required
                     disabled={Boolean(editingMapping)}
                     value={mappingForm.employeeIdOrWorkerId}
-                    onChange={(e) =>
-                      setMappingForm((p) => ({ ...p, employeeIdOrWorkerId: e.target.value }))
-                    }
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const picked = workers.find(
+                        (w) => w.id === selectedId || w.employeeId === selectedId
+                      );
+                      setMappingForm((p) => {
+                        const workerSite = picked?.assignedProject || picked?.currentSite;
+                        const hasSelectedDevice = Boolean(p.deviceId);
+                        return {
+                          ...p,
+                          employeeIdOrWorkerId: selectedId,
+                          ...(picked && !hasSelectedDevice && workerSite
+                            ? {
+                                projectId: workerSite,
+                                workLocationType:
+                                  workerSite.toLowerCase() === "head office"
+                                    ? "Head Office"
+                                    : "Construction Site",
+                              }
+                            : {}),
+                        };
+                      });
+                    }}
                     className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white disabled:opacity-60"
                   >
                     <option value="">-- Select Registered Employee --</option>
                     {pickerFilteredWorkers.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {(w.employeeId || w.id)} — {w.name} ({w.status})
+                        {w.name || "Unnamed Employee"} ({w.employeeId || w.id}) — {w.status || "Active"}
                       </option>
                     ))}
                   </select>
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-xs pt-1">
+              <div className="grid grid-cols-1 sm:grid-cols-5 gap-3 text-xs pt-1">
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-emerald-500/30">
+                  <div className="text-[10px] text-emerald-400 uppercase font-bold">Employee ID (Auto)</div>
+                  <div className="font-mono font-extrabold text-emerald-300 mt-0.5 break-all">
+                    {selectedWorkerForForm
+                      ? selectedWorkerForForm.employeeId || selectedWorkerForForm.id
+                      : "—"}
+                  </div>
+                </div>
                 <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
                   <div className="text-[10px] text-slate-500 uppercase">Employee Name</div>
                   <div className="font-bold text-white mt-0.5">
