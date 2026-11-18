@@ -1009,7 +1009,7 @@
         "periodMonth": { "type": "string" },
         "project": { "type": "string" },
         "department": { "type": "string" },
-        "entryType": { "type": "string", "enum": ["Standard", "Opening Balance", "Adjusting", "Closing", "Auto-Sync"] },
+        "entryType": { "type": "string", "enum": ["Standard", "Opening Balance", "Adjusting", "Closing", "Reversing", "Auto-Sync"] },
         "sourceModule": { "type": "string" },
         "totalDebit": { "type": "number" },
         "totalCredit": { "type": "number" },
@@ -1034,6 +1034,188 @@
         "isBalanceSheetBalanced": { "type": "boolean" }
       },
       "required": ["id", "periodKey", "periodType", "financialYear", "startDate", "endDate", "status"]
+    },
+    "FinancialYear": {
+      "title": "FinancialYear",
+      "description": "Fiscal year open/close/reopen governance ledger for General Ledger period lock.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "yearCode": { "type": "string" },
+        "yearLabel": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "Closed", "Reopened"] }
+      },
+      "required": ["id", "yearCode", "startDate", "endDate", "status"]
+    },
+    "ManpowerPlan": {
+      "title": "ManpowerPlan",
+      "description": "Approved headcount quotas by project, department, and job position.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "planCode": { "type": "string" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "jobPosition": { "type": "string" },
+        "approvedManpower": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Approved", "Locked"] }
+      },
+      "required": ["id", "project", "department", "jobPosition", "approvedManpower", "status"]
+    },
+    "RecruitmentRequest": {
+      "title": "RecruitmentRequest",
+      "description": "5-stage manpower recruitment requisition with excess manpower Director approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "requestNo": { "type": "string" },
+        "project": { "type": "string" },
+        "department": { "type": "string" },
+        "jobPosition": { "type": "string" },
+        "requestedCount": { "type": "number" },
+        "workflowStage": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Fulfilled"] },
+        "exceedsManpowerLimit": { "type": "boolean" }
+      },
+      "required": ["id", "requestNo", "project", "jobPosition", "requestedCount", "status"]
+    },
+    "WorkSchedule": {
+      "title": "WorkSchedule",
+      "description": "Project/department work shifts, grace periods, rest days, and statutory holiday calendars.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "scheduleName": { "type": "string" },
+        "project": { "type": "string" },
+        "shiftStartTime": { "type": "string" },
+        "shiftEndTime": { "type": "string" },
+        "standardDailyHours": { "type": "number" }
+      },
+      "required": ["id", "scheduleName", "project", "shiftStartTime", "shiftEndTime"]
+    },
+    "LeaveRequest": {
+      "title": "LeaveRequest",
+      "description": "Employee leave requests and two-tier approval logs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "leaveType": { "type": "string" },
+        "startDate": { "type": "string" },
+        "endDate": { "type": "string" },
+        "totalDays": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "workerId", "leaveType", "startDate", "endDate", "status"]
+    },
+    "OvertimeRequest": {
+      "title": "OvertimeRequest",
+      "description": "Overtime authorization records linked to attendance and payroll calculation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "workDate": { "type": "string" },
+        "hoursRequested": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "workerId", "workDate", "hoursRequested", "status"]
+    },
+    "EmployeeTransfer": {
+      "title": "EmployeeTransfer",
+      "description": "Site-to-site employee transfers and role reassignments.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "fromProject": { "type": "string" },
+        "toProject": { "type": "string" },
+        "effectiveDate": { "type": "string" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "workerId", "fromProject", "toProject", "effectiveDate", "status"]
+    },
+    "SalaryStructure": {
+      "title": "SalaryStructure",
+      "description": "Standardized grade salary structures and recurring allowance profiles.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "structureCode": { "type": "string" },
+        "structureName": { "type": "string" },
+        "basicSalary": { "type": "number" }
+      },
+      "required": ["id", "structureCode", "structureName", "basicSalary"]
+    },
+    "SalaryAdvanceLoan": {
+      "title": "SalaryAdvanceLoan",
+      "description": "Employee salary advances and installment loan recovery schedules.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "type": { "type": "string" },
+        "principalAmount": { "type": "number" },
+        "remainingBalance": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "workerId", "principalAmount", "status"]
+    },
+    "HrmPayrollRun": {
+      "title": "HrmPayrollRun",
+      "description": "4-stage verified monthly payroll run with Ethiopian tax/pension, duplicate guard, and GL journal link.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "runNo": { "type": "string" },
+        "payPeriod": { "type": "string" },
+        "totalNetPay": { "type": "number" },
+        "workflowStage": { "type": "string" }
+      },
+      "required": ["id", "runNo", "payPeriod", "totalNetPay", "workflowStage"]
+    },
+    "TaxPensionConfig": {
+      "title": "TaxPensionConfig",
+      "description": "Configurable Ethiopian employment income tax brackets and 7%/11% statutory pension rates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "configName": { "type": "string" },
+        "employeePensionPercent": { "type": "number" },
+        "employerPensionPercent": { "type": "number" }
+      },
+      "required": ["id", "configName", "employeePensionPercent", "employerPensionPercent"]
+    },
+    "HrmPrivateProfile": {
+      "title": "HrmPrivateProfile",
+      "description": "Client-side AES-GCM encrypted sensitive employee PII (Fayda ID, Bank Account, Mobile Money, Biometric Ref).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "workerId": { "type": "string" },
+        "userId": { "type": "string" },
+        "faydaIdEncrypted": { "type": "string" },
+        "bankAccountEncrypted": { "type": "string" },
+        "keyVersion": { "type": "string" }
+      },
+      "required": ["id", "workerId", "keyVersion"]
+    },
+    "HrmPayslip": {
+      "title": "HrmPayslip",
+      "description": "Official disbursed employee payslips scoped to authorized payroll staff and employee self-service.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "runId": { "type": "string" },
+        "runNo": { "type": "string" },
+        "payPeriod": { "type": "string" },
+        "workerId": { "type": "string" },
+        "workerUserId": { "type": "string" },
+        "workflowStage": { "type": "string" }
+      },
+      "required": ["id", "runId", "payPeriod", "workerId", "workflowStage"]
     }
   },
   "firestore": {
@@ -1276,6 +1458,58 @@
     "/financialPeriods/{periodId}": {
       "schema": "FinancialPeriodClose",
       "description": "Accounting period closing records, snapshots, and executive approval signatures."
+    },
+    "/financialYears/{yearId}": {
+      "schema": "FinancialYear",
+      "description": "Fiscal year open/close/reopen controls for General Ledger posting protection."
+    },
+    "/manpowerPlans/{planId}": {
+      "schema": "ManpowerPlan",
+      "description": "Approved manpower quotas per project, department, and position."
+    },
+    "/recruitmentRequests/{requestId}": {
+      "schema": "RecruitmentRequest",
+      "description": "Multi-stage manpower recruitment requisitions and Director excess approval tracking."
+    },
+    "/workSchedules/{scheduleId}": {
+      "schema": "WorkSchedule",
+      "description": "Configurable site shifts, holidays, rest days, and overtime multipliers."
+    },
+    "/leaveRequests/{leaveId}": {
+      "schema": "LeaveRequest",
+      "description": "Employee leave requests and approval audit history."
+    },
+    "/overtimeRequests/{otId}": {
+      "schema": "OvertimeRequest",
+      "description": "Employee overtime approvals feeding directly into Payroll."
+    },
+    "/employeeTransfers/{transferId}": {
+      "schema": "EmployeeTransfer",
+      "description": "Employee site transfers and position assignment history."
+    },
+    "/salaryStructures/{structureId}": {
+      "schema": "SalaryStructure",
+      "description": "Standardized grade salary structures and recurring allowances."
+    },
+    "/salaryAdvancesLoans/{loanId}": {
+      "schema": "SalaryAdvanceLoan",
+      "description": "Employee salary advance and loan installment recovery records."
+    },
+    "/hrmPayrollRuns/{runId}": {
+      "schema": "HrmPayrollRun",
+      "description": "Verified 4-tier HRM payroll runs with Ethiopian tax/pension and GL integration."
+    },
+    "/taxPensionConfigs/{configId}": {
+      "schema": "TaxPensionConfig",
+      "description": "Configurable Ethiopian Income Tax brackets and Pension rates."
+    },
+    "/hrmPrivateProfiles/{workerId}": {
+      "schema": "HrmPrivateProfile",
+      "description": "Role-restricted encrypted employee Fayda ID, bank account, and biometric references."
+    },
+    "/hrmPayslips/{payslipId}": {
+      "schema": "HrmPayslip",
+      "description": "Disbursed employee payslips supporting HR/Finance access and Employee self-service."
     }
   }
 }

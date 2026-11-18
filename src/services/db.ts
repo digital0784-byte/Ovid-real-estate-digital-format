@@ -1,5 +1,6 @@
-import { db, auth, isFirebaseReady, handleFirestoreError, OperationType, sanitizeForFirestore } from "../firebase";
+import { db, auth, storage, isFirebaseReady, handleFirestoreError, OperationType, sanitizeForFirestore } from "../firebase";
 import { NotificationService } from "./notificationService";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { 
   collection, 
   doc, 
@@ -8,6 +9,7 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
   limit,
   runTransaction
 } from "firebase/firestore";
@@ -66,7 +68,20 @@ import {
   ImmutableBankStatementRecord,
   ChartAccountRecord,
   JournalEntryRecord,
-  FinancialPeriodCloseRecord
+  FinancialPeriodCloseRecord,
+  FinancialYearRecord,
+  ManpowerPlanRecord,
+  RecruitmentRequestRecord,
+  WorkScheduleConfig,
+  LeaveRequestRecord,
+  OvertimeRequestRecord,
+  EmployeeTransferRecord,
+  SalaryStructureRecord,
+  EthiopianTaxPensionConfig,
+  SalaryAdvanceLoanRecord,
+  HrmPayrollRunRecord,
+  HrmPrivateProfileRecord,
+  HrmPayslipRecord
 } from "../types";
 import { initialErpTasks } from "../data/initialTasks";
 import {
@@ -2376,7 +2391,86 @@ export const DbService = {
     await writeDocument<JournalEntryRecord>("journalEntries", entry, []);
   },
   async deleteJournalEntry(entryId: string): Promise<void> {
+    const existing = offlineEngine.getCache<JournalEntryRecord>("journalEntries", []).find(e => e.id === entryId);
+    if (existing && existing.status === "Posted") {
+      throw new Error("Approved/Posted journal entries are immutable and cannot be deleted. Create an authorized Reversing entry instead.");
+    }
     await removeDocument<JournalEntryRecord>("journalEntries", entryId, []);
+  },
+  async reverseJournalEntryAtomic(params: {
+    originalEntry: JournalEntryRecord;
+    reversingEntry: JournalEntryRecord;
+  }): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const diff = Math.abs(Number(params.reversingEntry.totalDebit || 0) - Number(params.reversingEntry.totalCredit || 0));
+    if (!params.reversingEntry.isBalanced || diff > 0.01) {
+      throw new Error("Reversing entry must maintain Total Debits = Total Credits.");
+    }
+    const updatedOriginal: JournalEntryRecord = sanitizeForFirestore({
+      ...params.originalEntry,
+      status: "Reversed",
+      reversedByEntryId: params.reversingEntry.id,
+      reversalReason: params.reversingEntry.reversalReason || params.reversingEntry.description,
+      updatedAt: nowIso,
+    });
+    const sanitizedReversal = sanitizeForFirestore({
+      ...params.reversingEntry,
+      isImmutable: true,
+    });
+
+    offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", updatedOriginal, []);
+    offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", sanitizedReversal, []);
+
+    if (canQueryFirestore() && db) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const origRef = doc(db!, "journalEntries", updatedOriginal.id);
+          const revRef = doc(db!, "journalEntries", sanitizedReversal.id);
+          transaction.set(origRef, { ...updatedOriginal, serverReceivedAt: nowIso }, { merge: true });
+          transaction.set(revRef, { ...sanitizedReversal, serverReceivedAt: nowIso }, { merge: true });
+        });
+        return;
+      } catch (err: any) {
+        const isPermissionDenied =
+          err?.code === "permission-denied" ||
+          String(err?.message || "").includes("PERMISSION_DENIED");
+        handleFirestoreError(err, OperationType.WRITE, `journalEntries/${updatedOriginal.id}`);
+        if (isPermissionDenied) throw err;
+      }
+    }
+    offlineEngine.queueOutbox("set", "journalEntries", updatedOriginal.id, updatedOriginal);
+    offlineEngine.queueOutbox("set", "journalEntries", sanitizedReversal.id, sanitizedReversal);
+  },
+
+  // 2B) financialYears ("financialYears" - Part 8 Fiscal Year Controls)
+  async getFinancialYears(): Promise<FinancialYearRecord[]> {
+    return fetchCollection<FinancialYearRecord>("financialYears", []);
+  },
+  subscribeFinancialYears(
+    callback: (years: FinancialYearRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "financialYears"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as FinancialYearRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<FinancialYearRecord>("financialYears", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "financialYears");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<FinancialYearRecord>("financialYears", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<FinancialYearRecord>("financialYears", []));
+    return () => {};
+  },
+  async saveFinancialYear(year: FinancialYearRecord): Promise<void> {
+    await writeDocument<FinancialYearRecord>("financialYears", year, []);
   },
 
   // 3) financialPeriods
@@ -3215,5 +3309,500 @@ export const DbService = {
 
   async deleteTask(taskId: string): Promise<void> {
     await removeDocument<ErpTask>("tasks", taskId, initialErpTasks);
+  },
+
+  // ============================================================
+  // ENTERPRISE HUMAN RESOURCE MANAGEMENT (HRM) COLLECTIONS
+  // ============================================================
+
+  async uploadHrmFile(file: File, storagePath: string): Promise<{ url: string; storagePath: string }> {
+    const readAsDataUrl = (): Promise<string> =>
+      new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => reject(new Error("Failed to read file"));
+        reader.readAsDataURL(file);
+      });
+
+    if (canQueryFirestore() && storage) {
+      try {
+        const fileRef = ref(storage, storagePath);
+        await uploadBytes(fileRef, file);
+        const url = await getDownloadURL(fileRef);
+        return { url, storagePath };
+      } catch (err) {
+        console.warn("Firebase Storage upload fallback to compressed/data URL:", err);
+      }
+    }
+    const dataUrl = await readAsDataUrl();
+    return { url: dataUrl, storagePath: `local:${storagePath}` };
+  },
+
+  // 1) manpowerPlans
+  subscribeManpowerPlans(
+    callback: (plans: ManpowerPlanRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "manpowerPlans"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as ManpowerPlanRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<ManpowerPlanRecord>("manpowerPlans", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "manpowerPlans");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<ManpowerPlanRecord>("manpowerPlans", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<ManpowerPlanRecord>("manpowerPlans", []));
+    return () => {};
+  },
+  async saveManpowerPlan(plan: ManpowerPlanRecord): Promise<void> {
+    await writeDocument<ManpowerPlanRecord>("manpowerPlans", plan, []);
+  },
+  async deleteManpowerPlan(planId: string): Promise<void> {
+    await removeDocument<ManpowerPlanRecord>("manpowerPlans", planId, []);
+  },
+
+  // 2) recruitmentRequests
+  subscribeRecruitmentRequests(
+    callback: (reqs: RecruitmentRequestRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "recruitmentRequests"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as RecruitmentRequestRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<RecruitmentRequestRecord>("recruitmentRequests", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "recruitmentRequests");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<RecruitmentRequestRecord>("recruitmentRequests", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<RecruitmentRequestRecord>("recruitmentRequests", []));
+    return () => {};
+  },
+  async saveRecruitmentRequest(req: RecruitmentRequestRecord): Promise<void> {
+    await writeDocument<RecruitmentRequestRecord>("recruitmentRequests", req, []);
+  },
+  async deleteRecruitmentRequest(reqId: string): Promise<void> {
+    await removeDocument<RecruitmentRequestRecord>("recruitmentRequests", reqId, []);
+  },
+
+  // 3) workSchedules
+  subscribeWorkSchedules(
+    callback: (schedules: WorkScheduleConfig[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "workSchedules"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as WorkScheduleConfig), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<WorkScheduleConfig>("workSchedules", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "workSchedules");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<WorkScheduleConfig>("workSchedules", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<WorkScheduleConfig>("workSchedules", []));
+    return () => {};
+  },
+  async saveWorkSchedule(schedule: WorkScheduleConfig): Promise<void> {
+    await writeDocument<WorkScheduleConfig>("workSchedules", schedule, []);
+  },
+
+  // 4) leaveRequests
+  subscribeLeaveRequests(
+    callback: (leaves: LeaveRequestRecord[]) => void,
+    onError?: (error: any) => void,
+    filterByCreatorUid?: string
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      const refOrQuery = filterByCreatorUid
+        ? query(collection(db, "leaveRequests"), where("createdById", "==", filterByCreatorUid))
+        : collection(db, "leaveRequests");
+      return onSnapshot(
+        refOrQuery,
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as LeaveRequestRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<LeaveRequestRecord>("leaveRequests", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "leaveRequests");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<LeaveRequestRecord>("leaveRequests", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<LeaveRequestRecord>("leaveRequests", []));
+    return () => {};
+  },
+  async saveLeaveRequest(leave: LeaveRequestRecord): Promise<void> {
+    await writeDocument<LeaveRequestRecord>("leaveRequests", leave, []);
+  },
+
+  // 5) overtimeRequests
+  subscribeOvertimeRequests(
+    callback: (overtimes: OvertimeRequestRecord[]) => void,
+    onError?: (error: any) => void,
+    filterByCreatorUid?: string
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      const refOrQuery = filterByCreatorUid
+        ? query(collection(db, "overtimeRequests"), where("createdById", "==", filterByCreatorUid))
+        : collection(db, "overtimeRequests");
+      return onSnapshot(
+        refOrQuery,
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as OvertimeRequestRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<OvertimeRequestRecord>("overtimeRequests", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "overtimeRequests");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<OvertimeRequestRecord>("overtimeRequests", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<OvertimeRequestRecord>("overtimeRequests", []));
+    return () => {};
+  },
+  async saveOvertimeRequest(ot: OvertimeRequestRecord): Promise<void> {
+    await writeDocument<OvertimeRequestRecord>("overtimeRequests", ot, []);
+  },
+
+  // 6) employeeTransfers
+  subscribeEmployeeTransfers(
+    callback: (transfers: EmployeeTransferRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "employeeTransfers"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as EmployeeTransferRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<EmployeeTransferRecord>("employeeTransfers", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "employeeTransfers");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<EmployeeTransferRecord>("employeeTransfers", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<EmployeeTransferRecord>("employeeTransfers", []));
+    return () => {};
+  },
+  async saveEmployeeTransfer(transfer: EmployeeTransferRecord): Promise<void> {
+    await writeDocument<EmployeeTransferRecord>("employeeTransfers", transfer, []);
+  },
+
+  // 7) salaryStructures
+  subscribeSalaryStructures(
+    callback: (structures: SalaryStructureRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "salaryStructures"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as SalaryStructureRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<SalaryStructureRecord>("salaryStructures", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "salaryStructures");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<SalaryStructureRecord>("salaryStructures", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<SalaryStructureRecord>("salaryStructures", []));
+    return () => {};
+  },
+  async saveSalaryStructure(structure: SalaryStructureRecord): Promise<void> {
+    await writeDocument<SalaryStructureRecord>("salaryStructures", structure, []);
+  },
+
+  // 8) taxPensionConfigs
+  subscribeTaxPensionConfigs(
+    callback: (configs: EthiopianTaxPensionConfig[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "taxPensionConfigs"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as EthiopianTaxPensionConfig), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<EthiopianTaxPensionConfig>("taxPensionConfigs", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "taxPensionConfigs");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<EthiopianTaxPensionConfig>("taxPensionConfigs", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<EthiopianTaxPensionConfig>("taxPensionConfigs", []));
+    return () => {};
+  },
+  async saveTaxPensionConfig(cfg: EthiopianTaxPensionConfig): Promise<void> {
+    await writeDocument<EthiopianTaxPensionConfig>("taxPensionConfigs", cfg, []);
+  },
+
+  // 9) salaryAdvancesLoans
+  subscribeSalaryAdvancesLoans(
+    callback: (loans: SalaryAdvanceLoanRecord[]) => void,
+    onError?: (error: any) => void,
+    filterByCreatorUid?: string
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      const refOrQuery = filterByCreatorUid
+        ? query(collection(db, "salaryAdvancesLoans"), where("createdById", "==", filterByCreatorUid))
+        : collection(db, "salaryAdvancesLoans");
+      return onSnapshot(
+        refOrQuery,
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as SalaryAdvanceLoanRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<SalaryAdvanceLoanRecord>("salaryAdvancesLoans", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "salaryAdvancesLoans");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<SalaryAdvanceLoanRecord>("salaryAdvancesLoans", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<SalaryAdvanceLoanRecord>("salaryAdvancesLoans", []));
+    return () => {};
+  },
+  async saveSalaryAdvanceLoan(loan: SalaryAdvanceLoanRecord): Promise<void> {
+    await writeDocument<SalaryAdvanceLoanRecord>("salaryAdvancesLoans", loan, []);
+  },
+
+  // 9B) hrmPrivateProfiles (Encrypted PII: Fayda ID, Bank Account, Mobile Money, Biometrics)
+  subscribeHrmPrivateProfiles(
+    callback: (profiles: HrmPrivateProfileRecord[]) => void,
+    onError?: (error: any) => void,
+    filterByUserId?: string
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      const refOrQuery = filterByUserId
+        ? query(collection(db, "hrmPrivateProfiles"), where("userId", "==", filterByUserId))
+        : collection(db, "hrmPrivateProfiles");
+      return onSnapshot(
+        refOrQuery,
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as HrmPrivateProfileRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<HrmPrivateProfileRecord>("hrmPrivateProfiles", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "hrmPrivateProfiles");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<HrmPrivateProfileRecord>("hrmPrivateProfiles", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<HrmPrivateProfileRecord>("hrmPrivateProfiles", []));
+    return () => {};
+  },
+  async saveHrmPrivateProfile(profile: HrmPrivateProfileRecord): Promise<void> {
+    await writeDocument<HrmPrivateProfileRecord>("hrmPrivateProfiles", profile, []);
+  },
+
+  // 9C) hrmPayslips (Individual employee self-service payslip records)
+  subscribeHrmPayslips(
+    callback: (payslips: HrmPayslipRecord[]) => void,
+    onError?: (error: any) => void,
+    filterByWorkerUserId?: string
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      const refOrQuery = filterByWorkerUserId
+        ? query(collection(db, "hrmPayslips"), where("workerUserId", "==", filterByWorkerUserId))
+        : collection(db, "hrmPayslips");
+      return onSnapshot(
+        refOrQuery,
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as HrmPayslipRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<HrmPayslipRecord>("hrmPayslips", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "hrmPayslips");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<HrmPayslipRecord>("hrmPayslips", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<HrmPayslipRecord>("hrmPayslips", []));
+    return () => {};
+  },
+  async saveHrmPayslip(payslip: HrmPayslipRecord): Promise<void> {
+    await writeDocument<HrmPayslipRecord>("hrmPayslips", payslip, []);
+  },
+
+  // 10) hrmPayrollRuns & Atomic Payroll Disbursement -> Bank + GL + Project Cost Control
+  subscribeHrmPayrollRuns(
+    callback: (runs: HrmPayrollRunRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "hrmPayrollRuns"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as HrmPayrollRunRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<HrmPayrollRunRecord>("hrmPayrollRuns", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "hrmPayrollRuns");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<HrmPayrollRunRecord>("hrmPayrollRuns", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<HrmPayrollRunRecord>("hrmPayrollRuns", []));
+    return () => {};
+  },
+  async saveHrmPayrollRun(run: HrmPayrollRunRecord): Promise<void> {
+    await writeDocument<HrmPayrollRunRecord>("hrmPayrollRuns", run, []);
+  },
+  async disburseHrmPayrollRunAtomic(params: {
+    run: HrmPayrollRunRecord;
+    journalEntry: JournalEntryRecord;
+    bankTransaction?: BankTransactionRecord;
+    account?: FinancialAccount;
+    expenseRecords: Expense[];
+    actualCostRecords: ActualCostEntry[];
+    updatedLoans: SalaryAdvanceLoanRecord[];
+    payslips?: HrmPayslipRecord[];
+  }): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const diff = Math.abs(Number(params.journalEntry.totalDebit || 0) - Number(params.journalEntry.totalCredit || 0));
+    if (!params.journalEntry.isBalanced || diff > 0.01) {
+      throw new Error("Payroll GL Journal Entry is unbalanced.");
+    }
+    const sanitizedRun = sanitizeForFirestore(params.run);
+    const sanitizedJournal = sanitizeForFirestore(params.journalEntry);
+    const sanitizedBankTx = params.bankTransaction ? sanitizeForFirestore(params.bankTransaction) : undefined;
+    const updatedAcc = params.account
+      ? sanitizeForFirestore({
+          ...params.account,
+          currentBalance: Number(params.account.currentBalance || 0) - Number(params.run.totalNetPay || 0),
+          updatedAt: nowIso,
+        })
+      : undefined;
+
+    offlineEngine.updateCacheItem<HrmPayrollRunRecord>("hrmPayrollRuns", sanitizedRun, []);
+    offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", sanitizedJournal, []);
+    if (sanitizedBankTx) offlineEngine.updateCacheItem<BankTransactionRecord>("bankTransactions", sanitizedBankTx, []);
+    if (updatedAcc) offlineEngine.updateCacheItem<FinancialAccount>("financialAccounts", updatedAcc, []);
+    params.expenseRecords.forEach((ex) => offlineEngine.updateCacheItem<Expense>("expenses", sanitizeForFirestore(ex), []));
+    params.actualCostRecords.forEach((ac) => offlineEngine.updateCacheItem<ActualCostEntry>("actualCostEntries", sanitizeForFirestore(ac), []));
+    params.updatedLoans.forEach((ln) => offlineEngine.updateCacheItem<SalaryAdvanceLoanRecord>("salaryAdvancesLoans", sanitizeForFirestore(ln), []));
+    (params.payslips || []).forEach((ps) => offlineEngine.updateCacheItem<HrmPayslipRecord>("hrmPayslips", sanitizeForFirestore(ps), []));
+
+    if (canQueryFirestore() && db) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const runRef = doc(db!, "hrmPayrollRuns", sanitizedRun.id);
+          const runSnap = await transaction.get(runRef);
+          if (runSnap.exists() && (runSnap.data() as HrmPayrollRunRecord).workflowStage === "Paid") {
+            throw new Error("This payroll run has already been disbursed (duplicate payment prevented).");
+          }
+
+          let liveAccount = params.account;
+          if (params.account) {
+            const accRef = doc(db!, "financialAccounts", params.account.id);
+            const accSnap = await transaction.get(accRef);
+            if (accSnap.exists()) {
+              liveAccount = accSnap.data() as FinancialAccount;
+            }
+          }
+
+          transaction.set(runRef, { ...sanitizedRun, serverReceivedAt: nowIso }, { merge: true });
+          transaction.set(doc(db!, "journalEntries", sanitizedJournal.id), { ...sanitizedJournal, serverReceivedAt: nowIso }, { merge: true });
+          if (sanitizedBankTx) {
+            transaction.set(doc(db!, "bankTransactions", sanitizedBankTx.id), { ...sanitizedBankTx, serverReceivedAt: nowIso }, { merge: true });
+          }
+          if (liveAccount && params.account) {
+            transaction.set(
+              doc(db!, "financialAccounts", params.account.id),
+              sanitizeForFirestore({
+                ...liveAccount,
+                currentBalance: Number(liveAccount.currentBalance || 0) - Number(params.run.totalNetPay || 0),
+                updatedAt: nowIso,
+              }),
+              { merge: true }
+            );
+          }
+          params.expenseRecords.forEach((ex) => {
+            const s = sanitizeForFirestore(ex);
+            transaction.set(doc(db!, "expenses", s.id), { ...s, serverReceivedAt: nowIso }, { merge: true });
+          });
+          params.actualCostRecords.forEach((ac) => {
+            const s = sanitizeForFirestore(ac);
+            transaction.set(doc(db!, "actualCostEntries", s.id), { ...s, serverReceivedAt: nowIso }, { merge: true });
+          });
+          params.updatedLoans.forEach((ln) => {
+            const s = sanitizeForFirestore(ln);
+            transaction.set(doc(db!, "salaryAdvancesLoans", s.id), { ...s, serverReceivedAt: nowIso }, { merge: true });
+          });
+          (params.payslips || []).forEach((ps) => {
+            const s = sanitizeForFirestore(ps);
+            transaction.set(doc(db!, "hrmPayslips", s.id), { ...s, serverReceivedAt: nowIso }, { merge: true });
+          });
+        });
+        return;
+      } catch (err: any) {
+        const isDupOrPerm =
+          String(err?.message || "").includes("duplicate") ||
+          err?.code === "permission-denied" ||
+          String(err?.message || "").includes("PERMISSION_DENIED");
+        handleFirestoreError(err, OperationType.WRITE, `hrmPayrollRuns/${sanitizedRun.id}`);
+        if (isDupOrPerm) throw err;
+      }
+    }
+
+    offlineEngine.queueOutbox("set", "hrmPayrollRuns", sanitizedRun.id, sanitizedRun);
+    offlineEngine.queueOutbox("set", "journalEntries", sanitizedJournal.id, sanitizedJournal);
+    if (sanitizedBankTx) offlineEngine.queueOutbox("set", "bankTransactions", sanitizedBankTx.id, sanitizedBankTx);
+    if (updatedAcc) offlineEngine.queueOutbox("set", "financialAccounts", updatedAcc.id, updatedAcc);
+    params.expenseRecords.forEach((ex) => offlineEngine.queueOutbox("set", "expenses", ex.id, sanitizeForFirestore(ex)));
+    params.actualCostRecords.forEach((ac) => offlineEngine.queueOutbox("set", "actualCostEntries", ac.id, sanitizeForFirestore(ac)));
+    params.updatedLoans.forEach((ln) => offlineEngine.queueOutbox("set", "salaryAdvancesLoans", ln.id, sanitizeForFirestore(ln)));
+    (params.payslips || []).forEach((ps) => offlineEngine.queueOutbox("set", "hrmPayslips", ps.id, sanitizeForFirestore(ps)));
   }
 };

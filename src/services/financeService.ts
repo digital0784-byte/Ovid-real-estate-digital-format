@@ -166,7 +166,7 @@ export interface UserFinancePermissions {
 export function resolveUserFinancePermissions(role?: UserRole | string): UserFinancePermissions {
   const r = String(role || "");
   const isSuperAdmin = r === UserRole.SUPER_ADMIN;
-  const isHeadOffice = r === UserRole.HEAD_OFFICE;
+  const isHeadOffice = r === UserRole.HEAD_OFFICE || r === UserRole.DIRECTOR || r === UserRole.DIRECTORY;
   const isFinanceManager = r === UserRole.FINANCE_MANAGER;
   const isAccountant = r === UserRole.ACCOUNTANT;
   const isProjectManager = r === UserRole.PROJECT_MANAGER;

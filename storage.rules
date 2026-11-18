@@ -7,7 +7,13 @@ service firebase.storage {
     }
 
     function role() {
-      return ('role' in request.auth.token) ? request.auth.token.role : 'Pending';
+      return ('role' in request.auth.token)
+        ? request.auth.token.role
+        : (
+            firestore.exists(/databases/ai-studio-ovidrealestateal-2aa0489d-a7f9-4ce4-a1a5-8c801423f125/documents/users/$(request.auth.uid))
+              ? firestore.get(/databases/ai-studio-ovidrealestateal-2aa0489d-a7f9-4ce4-a1a5-8c801423f125/documents/users/$(request.auth.uid)).data.role
+              : 'Pending'
+          );
     }
 
     function isApproved() {
@@ -27,6 +33,8 @@ service firebase.storage {
         request.resource.contentType.matches('application/pdf') ||
         request.resource.contentType.matches('image/.*') ||
         request.resource.contentType.matches('application/octet-stream') ||
+        request.resource.contentType.matches('application/vnd.*') ||
+        request.resource.contentType.matches('application/msword') ||
         request.resource.contentType.matches('text/.*')
       );
     }
@@ -43,8 +51,24 @@ service firebase.storage {
     // Worker profile photos & ID cards (up to 5MB)
     match /workers/{workerId}/{fileName} {
       allow read: if isApproved();
-      allow write: if hasAnyRole(['Super Admin', 'Head Office', 'HR Manager', 'Project Manager', 'Time Keeper']) &&
+      allow write: if hasAnyRole(['Super Admin', 'Head Office', 'Director', 'Directory', 'HR Manager', 'HR', 'Project Manager', 'Time Keeper']) &&
                       isImage() && isValidSize(5 * 1024 * 1024);
+    }
+
+    // HRM Employee profile photos & supporting contracts/Fayda IDs/certificates
+    match /hrm/employees/{employeeId}/docs/{fileName} {
+      allow read: if hasAnyRole([
+                        'Super Admin', 'Head Office', 'Director', 'Directory', 'HR Manager', 'HR',
+                        'Finance Manager', 'Operation Manager', 'Auditor'
+                      ]);
+      allow write: if hasAnyRole(['Super Admin', 'Head Office', 'Director', 'Directory', 'HR Manager', 'HR']) &&
+                      isDocument() && isValidSize(25 * 1024 * 1024);
+    }
+
+    match /hrm/employees/{employeeId}/{fileName} {
+      allow read: if isApproved();
+      allow write: if hasAnyRole(['Super Admin', 'Head Office', 'Director', 'Directory', 'HR Manager', 'HR', 'Project Manager']) &&
+                      isImage() && isValidSize(10 * 1024 * 1024);
     }
 
     // User avatars & attachments (up to 5MB)
@@ -57,8 +81,8 @@ service firebase.storage {
     match /panelTraceability/{panelId}/{fileName} {
       allow read: if isApproved();
       allow write: if hasAnyRole([
-                        'Super Admin', 'Head Office', 'Project Manager', 'Site Engineer',
-                        'Supervisor', 'Store Manager', 'Warehouse Manager', 'Store Owner', 'Site Store Owner'
+                        'Super Admin', 'Head Office', 'Director', 'Directory', 'Project Manager', 'Site Engineer',
+                        'Office & Technical Engineering', 'Supervisor', 'Store Manager', 'Warehouse Manager', 'Store Owner', 'Site Store Owner'
                       ]) && isImage() && isValidSize(10 * 1024 * 1024);
     }
 
@@ -66,8 +90,8 @@ service firebase.storage {
     match /inspections/{inspectionId}/{fileName} {
       allow read: if isApproved();
       allow write: if hasAnyRole([
-                        'Super Admin', 'Head Office', 'Project Manager', 'Site Engineer',
-                        'Supervisor', 'QA/QC Engineer', 'Quality Inspector', 'Safety Officer', 'HSE Officer'
+                        'Super Admin', 'Head Office', 'Director', 'Directory', 'Project Manager', 'Site Engineer',
+                        'Office & Technical Engineering', 'Supervisor', 'QA/QC Engineer', 'Quality Inspector', 'Safety Officer', 'HSE Officer'
                       ]) && isImage() && isValidSize(10 * 1024 * 1024);
     }
 
@@ -75,8 +99,8 @@ service firebase.storage {
     match /cadDrawings/{drawingId}/{fileName} {
       allow read: if isApproved();
       allow write: if hasAnyRole([
-                        'Super Admin', 'Head Office', 'Project Manager', 'Site Engineer',
-                        'CAD Engineer', 'Surveyor'
+                        'Super Admin', 'Head Office', 'Director', 'Directory', 'Project Manager', 'Site Engineer',
+                        'Office & Technical Engineering', 'CAD Engineer', 'Surveyor'
                       ]) && isDocument() && isValidSize(50 * 1024 * 1024);
     }
 
@@ -84,8 +108,8 @@ service firebase.storage {
     match /projectDocs/{docId}/{fileName} {
       allow read: if isApproved();
       allow write: if hasAnyRole([
-                        'Super Admin', 'Head Office', 'Project Manager', 'HR Manager',
-                        'Finance Manager', 'Site Engineer'
+                        'Super Admin', 'Head Office', 'Director', 'Directory', 'Project Manager', 'HR Manager', 'HR',
+                        'Finance Manager', 'Operation Manager', 'Site Engineer', 'Office & Technical Engineering'
                       ]) && isDocument() && isValidSize(50 * 1024 * 1024);
     }
   }

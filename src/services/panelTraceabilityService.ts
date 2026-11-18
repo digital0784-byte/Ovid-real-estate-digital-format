@@ -1625,24 +1625,37 @@ export class PanelTraceabilityService {
   }
 }
 
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import { doc, onSnapshot as onUserDocSnapshot } from "firebase/firestore";
 
 // ============================================================
 // AUTOMATIC FIRESTORE REAL-TIME SYNCHRONIZATION
 // ============================================================
 if (typeof window !== "undefined") {
   let activeUnsubscribers: (() => void)[] = [];
+  let userProfileUnsubscriber: (() => void) | null = null;
+  let liveSyncStarted = false;
 
   const cleanupListeners = () => {
     activeUnsubscribers.forEach(unsub => {
       try { unsub(); } catch {}
     });
     activeUnsubscribers = [];
+    liveSyncStarted = false;
+  };
+
+  const cleanupUserProfileListener = () => {
+    if (userProfileUnsubscriber) {
+      try { userProfileUnsubscriber(); } catch {}
+      userProfileUnsubscriber = null;
+    }
   };
 
   const setupLiveSync = () => {
+    if (liveSyncStarted) return;
     cleanupListeners();
+    liveSyncStarted = true;
 
     // 1. Initial Firestore primary load & background sync
     DbService.getTraceablePanels().then(panels => {
@@ -1763,8 +1776,28 @@ if (typeof window !== "undefined") {
 
   if (auth) {
     onAuthStateChanged(auth, (user) => {
-      if (user) {
-        setupLiveSync();
+      cleanupUserProfileListener();
+      if (user && db) {
+        const userRef = doc(db, "users", user.uid);
+        userProfileUnsubscriber = onUserDocSnapshot(
+          userRef,
+          (snap) => {
+            const data = snap.exists() ? snap.data() : null;
+            const isApproved =
+              Boolean(data) &&
+              data?.status === "Active" &&
+              data?.role &&
+              data?.role !== "Pending";
+            if (isApproved) {
+              setupLiveSync();
+            } else {
+              cleanupListeners();
+            }
+          },
+          () => {
+            cleanupListeners();
+          }
+        );
       } else {
         cleanupListeners();
       }

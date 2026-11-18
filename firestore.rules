@@ -81,6 +81,10 @@ service cloud.firestore {
       return hasRole('Site Engineer');
     }
 
+    function isOfficeTechnicalEngineering() {
+      return hasRole('Office & Technical Engineering');
+    }
+
     function isSupervisor() {
       return hasRole('Supervisor');
     }
@@ -137,7 +141,31 @@ service cloud.firestore {
     }
 
     function isHRManager() {
-      return hasRole('HR Manager');
+      return hasRole('HR Manager') || hasRole('HR');
+    }
+
+    function isOfficeManager() {
+      return hasRole('Office Manager');
+    }
+
+    function isOperationManager() {
+      return hasRole('Operation Manager');
+    }
+
+    function isSectionHead() {
+      return hasRole('Section Head');
+    }
+
+    function isDirectorOrAdmin() {
+      return isAdminOrHeadOffice() || hasRole('Director') || hasRole('Directory');
+    }
+
+    function isHrmOfficer() {
+      return isDirectorOrAdmin() || isHRManager();
+    }
+
+    function isHrmWorkflowApprover() {
+      return isHrmOfficer() || isOfficeManager() || isOperationManager() || isFinanceManager() || isProjectManager() || isSectionHead();
     }
 
     function isFinanceManager() {
@@ -149,7 +177,7 @@ service cloud.firestore {
     }
 
     function isFinanceStaff() {
-      return isAdminOrHeadOffice() || isFinanceManager() || isAccountant();
+      return isDirectorOrAdmin() || isFinanceManager() || isAccountant();
     }
 
     function isAuditor() {
@@ -187,7 +215,7 @@ service cloud.firestore {
       allow get: if isOwner(userId) || isApprovedUser();
       allow list: if isApprovedUser();
       allow create: if (isSuperAdmin() && mfaSafe()) || (
-        (isHeadOffice() || isHRManager()) &&
+        (isDirectorOrAdmin() || isHRManager()) &&
         mfaSafe() &&
         incoming().role != 'Super Admin'
       ) || (
@@ -204,7 +232,7 @@ service cloud.firestore {
         incoming().status == 'Pending'
       );
       allow update: if (isSuperAdmin() && mfaSafe()) || (
-        (isHeadOffice() || isHRManager()) &&
+        (isDirectorOrAdmin() || isHRManager()) &&
         mfaSafe() &&
         incoming().role != 'Super Admin' &&
         existing().role != 'Super Admin'
@@ -351,13 +379,13 @@ service cloud.firestore {
 
     match /zones/{zoneId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
 
     match /floorZones/{fzId} {
       allow read: if isApprovedUser();
-      allow create, update: if isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isAdminOrHeadOffice();
+      allow create, update: if isSiteStoreRole() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isAdminOrHeadOffice();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -386,21 +414,23 @@ service cloud.firestore {
 
     match /workers/{workerId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
-      allow delete: if isAdminOrHeadOffice() || isHRManager();
+      allow create, update: if isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSupervisor() || isSectionHead();
+      allow delete: if isDirectorOrAdmin() || isHRManager();
     }
 
     match /teams/{teamId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isHRManager() || isProjectManager() || isSupervisor();
-      allow delete: if isAdminOrHeadOffice();
+      allow create, update: if isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSupervisor() || isSectionHead();
+      allow delete: if isDirectorOrAdmin();
     }
 
     // 4. Attendance & Worker Evaluations
     match /attendance/{attendanceId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isTimeKeeper() || isSupervisor() || isProjectManager();
-      allow delete: if isAdminOrHeadOffice();
+      allow create, update: if isDirectorOrAdmin() || isHRManager() || isTimeKeeper() || isSupervisor() || isSectionHead() || isProjectManager() || isOperationManager() || (
+        isApprovedUser() && ('recordedByUid' in incoming()) && incoming().recordedByUid == request.auth.uid
+      );
+      allow delete: if isDirectorOrAdmin();
     }
 
     match /evaluations/{evaluationId} {
@@ -471,28 +501,28 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice();
     }
 
-    // 8. Formwork Panels & Panel Logs
+    // 8. Formwork Panels & Panel Logs (Readable by approved users for ERP Dashboard & analytics; writes role-restricted)
     match /formworkPanels/{panelId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager() || isSiteEngineer();
-      allow create, update, delete: if isAdminOrHeadOffice() || isWarehouseRole();
+      allow read: if isApprovedUser();
+      allow create, update, delete: if isDirectorOrAdmin() || isWarehouseRole();
     }
 
     match /panelMovementLogs/{logId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager();
-      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole();
-      allow delete: if isAdminOrHeadOffice();
+      allow read: if isApprovedUser();
+      allow create, update: if isDirectorOrAdmin() || isWarehouseRole() || isSiteStoreRole();
+      allow delete: if isDirectorOrAdmin();
     }
 
     match /panelDamageReports/{reportId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isProjectManager() || isSiteEngineer();
-      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole() || isSiteEngineer() || isSupervisor();
-      allow delete: if isAdminOrHeadOffice();
+      allow read: if isApprovedUser();
+      allow create, update: if isDirectorOrAdmin() || isWarehouseRole() || isSiteStoreRole() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor();
+      allow delete: if isDirectorOrAdmin();
     }
 
     match /panelRepairRecords/{recordId} {
-      allow read: if isAdminOrHeadOffice() || isWarehouseRole() || isSiteStoreRole();
-      allow create, update: if isAdminOrHeadOffice() || isWarehouseRole();
-      allow delete: if isAdminOrHeadOffice();
+      allow read: if isApprovedUser();
+      allow create, update: if isDirectorOrAdmin() || isWarehouseRole();
+      allow delete: if isDirectorOrAdmin();
     }
 
     // 9. Warehouse & Site Store Canonical Workflows
@@ -602,7 +632,7 @@ service cloud.firestore {
 
     match /damagedMissingReports/{reportId} {
       allow read: if isSiteStoreRole() || isWarehouseRole() || isProjectManager() || isAdminOrHeadOffice();
-      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice() || isSiteEngineer() || isSupervisor();
+      allow create, update: if isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -701,43 +731,43 @@ service cloud.firestore {
     // 10. CAD Files & Site Operational Logs
     match /cadFiles/{cadId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || hasRole('CAD Engineer') || hasRole('Surveyor');
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || hasRole('CAD Engineer') || hasRole('Surveyor');
       allow delete: if isAdminOrHeadOffice() || isProjectManager();
     }
 
     match /dailyReports/{reportId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
 
     match /progressLogs/{logId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
 
     match /qualityLogs/{logId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || hasRole('QA/QC Engineer') || hasRole('Quality Inspector');
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || hasRole('QA/QC Engineer') || hasRole('Quality Inspector');
       allow delete: if isAdminOrHeadOffice();
     }
 
     match /qualitySnags/{snagId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || hasRole('QA/QC Engineer');
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor() || hasRole('QA/QC Engineer');
       allow delete: if isAdminOrHeadOffice();
     }
 
     match /safetyLogs/{logId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || hasRole('Safety Officer') || hasRole('HSE Officer');
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor() || hasRole('Safety Officer') || hasRole('HSE Officer');
       allow delete: if isAdminOrHeadOffice();
     }
 
     match /concreteTruckLogs/{truckId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || isSiteStoreRole();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor() || isSiteStoreRole();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -770,16 +800,16 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice();
     }
 
-    // 12.1 Tasks (Digital Construction ERP Tasks Management)
+    // 12.1 Tasks (Digital Construction ERP Tasks Management + HRM Authorized Onboarding Tasks)
     match /tasks/{taskId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor() || hasRole('Team Leader') || hasRole('Gang Chief') || (
+      allow create, update: if isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor() || hasRole('Team Leader') || hasRole('Gang Chief') || (
         isApprovedUser() && (
           ('assignedToId' in resource.data && resource.data.assignedToId == request.auth.uid) ||
           ('createdById' in resource.data && resource.data.createdById == request.auth.uid)
         )
       );
-      allow delete: if isAdminOrHeadOffice() || isProjectManager();
+      allow delete: if isDirectorOrAdmin() || isProjectManager();
     }
 
     // 13. Expenses, Invoices, & Contracts (MFA enforced on writes for sensitive roles)
@@ -801,13 +831,13 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice() && mfaSafe();
     }
 
-    // 14. Audit Logs (read for Admin/HR/Finance/Accountant/Auditor, create for approved users, immutable)
+    // 14. Audit Logs (read for Director/Admin/HR/Finance/Accountant/Auditor, create for approved users, immutable)
     match /auditLogs/{logId} {
-      allow read: if isAdminOrHeadOffice() || isHRManager() || isFinanceManager() || isAccountant() || isAuditor();
+      allow read: if isDirectorOrAdmin() || isHRManager() || isFinanceManager() || isAccountant() || isAuditor();
       allow create: if isApprovedUser() && (
         !('userId' in incoming()) ||
         incoming().userId == request.auth.uid ||
-        isAdminOrHeadOffice()
+        isDirectorOrAdmin()
       );
       allow update, delete: if false; // Immutable audit log
     }
@@ -860,7 +890,7 @@ service cloud.firestore {
     // 17.1 enterpriseDocuments
     match /enterpriseDocuments/{docId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isHRManager() || isFinanceManager() || isOfficeTechnicalEngineering();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -883,7 +913,7 @@ service cloud.firestore {
     // 17.4 siteDiaryLogs
     match /siteDiaryLogs/{logId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isSupervisor();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -891,7 +921,7 @@ service cloud.firestore {
     // 18.1 projectPermits
     match /projectPermits/{permitId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer();
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering();
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -920,7 +950,7 @@ service cloud.firestore {
     // 19.1 aiRiskAssessments
     match /aiRiskAssessments/{riskId} {
       allow read: if isApprovedUser();
-      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || hasRole('Safety Officer') || hasRole('HSE Officer');
+      allow create, update: if isAdminOrHeadOffice() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || hasRole('Safety Officer') || hasRole('HSE Officer');
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -977,9 +1007,9 @@ service cloud.firestore {
 
     // 21.4 financialAccounts (Cash & Bank Accounts)
     match /financialAccounts/{accountId} {
-      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow read: if isFinanceStaff() || isHrmOfficer() || isOperationManager() || isProjectManager() || isAuditor();
       allow create, update: if isFinanceStaff() && mfaSafe();
-      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
     // 21.5 cashTransactions (Posted Cash Collections, Payments & Transfers)
@@ -1073,31 +1103,150 @@ service cloud.firestore {
       allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
     }
 
-    // 21.18 journalEntries (Part 7 Double-Entry Journal Vouchers with balanced Debit == Credit & MFA controls)
+    // 21.18 journalEntries (Part 7 & Part 8 Double-Entry Journal Vouchers - Approved/Posted entries are NEVER deletable)
     match /journalEntries/{entryId} {
-      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
-      allow create, update: if isFinanceStaff() && mfaSafe() &&
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor() || isHRManager();
+      allow create, update: if (isFinanceStaff() || isHRManager()) && mfaSafe() &&
         incoming().isBalanced == true &&
         incoming().totalDebit is number &&
         incoming().totalCredit is number &&
         incoming().totalDebit == incoming().totalCredit;
-      allow delete: if (isAdminOrHeadOffice() || isFinanceManager()) && mfaSafe();
+      allow delete: if (isDirectorOrAdmin() || isFinanceManager()) && existing().status != 'Posted' && mfaSafe();
     }
 
-    // 21.19 financialPeriods (Part 7 Financial Period Closing & Statement Approval Signatures)
+    // 21.19 financialPeriods (Part 7 & Part 8 Financial Period Closing & Statement Approval Signatures)
     match /financialPeriods/{periodId} {
       allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
       allow create, update: if isFinanceStaff() && mfaSafe() && (
-        incoming().status != 'Closed' || isAdminOrHeadOffice() || isFinanceManager()
+        incoming().status != 'Closed' || isDirectorOrAdmin() || isFinanceManager()
       );
-      allow delete: if isAdminOrHeadOffice() && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21.20 financialYears (Part 8 Financial Year Governance)
+    match /financialYears/{yearId} {
+      allow read: if isFinanceStaff() || isProjectManager() || isAuditor();
+      allow create, update: if isFinanceStaff() && mfaSafe() && (
+        incoming().status != 'Closed' || isDirectorOrAdmin() || isFinanceManager()
+      );
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // ==========================================
+    // 21B. HUMAN RESOURCE MANAGEMENT (HRM) COLLECTIONS
+    // ==========================================
+    // 21B.1 manpowerPlans (Approved Headcount Quotas)
+    match /manpowerPlans/{planId} {
+      allow read: if isHrmWorkflowApprover() || isAuditor();
+      allow create, update: if (isDirectorOrAdmin() || isHRManager() || isFinanceManager() || isOperationManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.2 recruitmentRequests (5-stage Recruitment + Director Excess Approval)
+    match /recruitmentRequests/{requestId} {
+      allow read: if isHrmWorkflowApprover() || isOfficeTechnicalEngineering() || isAuditor();
+      allow create: if (isHrmWorkflowApprover() || isApprovedUser()) && mfaSafe();
+      allow update: if isHrmWorkflowApprover() && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.3 workSchedules (Shifts, Rest Days & Holiday Calendars)
+    match /workSchedules/{scheduleId} {
+      allow read: if isApprovedUser();
+      allow create, update: if (isHrmOfficer() || isOperationManager() || isProjectManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.4 leaveRequests (Self-service submission + Section Head & HR Approval)
+    match /leaveRequests/{leaveId} {
+      allow read: if isHrmWorkflowApprover() || isAuditor() || (
+        isApprovedUser() && ('createdById' in resource.data && resource.data.createdById == request.auth.uid)
+      );
+      allow create: if isApprovedUser() && (
+        isHrmWorkflowApprover() ||
+        (('createdById' in incoming()) && incoming().createdById == request.auth.uid && incoming().status == 'Pending Section Head')
+      );
+      allow update: if (isHrmOfficer() || isSectionHead() || isProjectManager() || isOperationManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.5 overtimeRequests (Self-service/Supervisor submission + HR/Section Head Approval -> Payroll)
+    match /overtimeRequests/{otId} {
+      allow read: if isHrmWorkflowApprover() || isAuditor() || (
+        isApprovedUser() && ('createdById' in resource.data && resource.data.createdById == request.auth.uid)
+      );
+      allow create: if isApprovedUser() && (
+        isHrmWorkflowApprover() ||
+        (('createdById' in incoming()) && incoming().createdById == request.auth.uid && incoming().status == 'Pending Section Head')
+      );
+      allow update: if (isHrmOfficer() || isSectionHead() || isProjectManager() || isOperationManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.6 employeeTransfers (Site/Project Transfers & Position History)
+    match /employeeTransfers/{transferId} {
+      allow read: if isHrmWorkflowApprover() || isAuditor();
+      allow create, update: if (isHrmOfficer() || isOperationManager() || isProjectManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.7 salaryStructures (Grade Salary & Allowance Matrices)
+    match /salaryStructures/{structureId} {
+      allow read: if isHrmOfficer() || isFinanceStaff() || isOperationManager() || isAuditor();
+      allow create, update: if (isHrmOfficer() || isFinanceManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.8 salaryAdvancesLoans (Advance & Loan Requests + HR/Finance Approval)
+    match /salaryAdvancesLoans/{loanId} {
+      allow read: if isHrmOfficer() || isFinanceStaff() || isOperationManager() || isAuditor() || (
+        isApprovedUser() && ('createdById' in resource.data && resource.data.createdById == request.auth.uid)
+      );
+      allow create: if isApprovedUser() && (
+        isHrmOfficer() || isFinanceStaff() ||
+        (('createdById' in incoming()) && incoming().createdById == request.auth.uid && incoming().status == 'Pending HR')
+      );
+      allow update: if (isHrmOfficer() || isFinanceStaff()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.9 hrmPayrollRuns (4-Tier Approved Payroll Disbursements — Paid runs are immutable)
+    match /hrmPayrollRuns/{runId} {
+      allow read: if isHrmOfficer() || isFinanceStaff() || isOperationManager() || isAuditor();
+      allow create, update: if (isHrmOfficer() || isFinanceStaff() || isOperationManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && existing().workflowStage != 'Paid' && mfaSafe();
+    }
+
+    // 21B.10 taxPensionConfigs (Configurable Ethiopian Income Tax & Pension Rules)
+    match /taxPensionConfigs/{configId} {
+      allow read: if isHrmOfficer() || isFinanceStaff() || isOperationManager() || isAuditor();
+      allow create, update: if (isDirectorOrAdmin() || isFinanceManager() || isHRManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.11 hrmPrivateProfiles (AES-GCM Encrypted Fayda ID, Bank Account & Biometric Ref)
+    match /hrmPrivateProfiles/{workerId} {
+      allow read: if isDirectorOrAdmin() || isHRManager() || isFinanceManager() || (
+        isApprovedUser() && ('userId' in resource.data && resource.data.userId == request.auth.uid)
+      );
+      allow create, update: if (isDirectorOrAdmin() || isHRManager()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.12 hrmPayslips (Disbursed Employee Payslips with Self-Service Scoped Access)
+    match /hrmPayslips/{payslipId} {
+      allow read: if isHrmOfficer() || isFinanceStaff() || isOperationManager() || isAuditor() || (
+        isApprovedUser() && ('workerUserId' in resource.data && resource.data.workerUserId == request.auth.uid)
+      );
+      allow create, update: if (isHrmOfficer() || isFinanceStaff()) && mfaSafe();
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
     // ==========================================
     // 22. Panel Traceability & Lifecycle Collections
     // ==========================================
     function isTraceabilityWriter() {
-      return isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isSupervisor() || isWarehouseRole() || isSiteStoreRole();
+      return isSuperAdmin() || isHeadOffice() || isStoreManager() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor() || isWarehouseRole() || isSiteStoreRole();
     }
 
     // 22.1 traceablePanels
@@ -1136,13 +1285,13 @@ service cloud.firestore {
       allow create, update, delete: if isApprovedUser() && isTraceabilityWriter();
     }
 
-    // 22.7 panelTraceabilityAuditLogs (create-only and immutable like auditLogs)
+    // 22.7 panelTraceabilityAuditLogs (create-only and immutable like auditLogs; readable by approved users like sibling panel traceability collections)
     match /panelTraceabilityAuditLogs/{logId} {
-      allow read: if isAdminOrHeadOffice() || isAuditor() || isProjectManager() || isTraceabilityWriter();
+      allow read: if isApprovedUser();
       allow create: if isApprovedUser() && isTraceabilityWriter() && (
         !('userId' in incoming()) ||
         incoming().userId == request.auth.uid ||
-        isAdminOrHeadOffice()
+        isDirectorOrAdmin()
       );
       allow update, delete: if false; // Immutable audit log
     }

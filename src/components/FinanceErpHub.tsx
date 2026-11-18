@@ -18,6 +18,7 @@ import { BudgetControlModule } from "./finance/BudgetControlModule";
 import { CashFlowForecastingModule, CashFlowSubTab } from "./finance/CashFlowForecastingModule";
 import { BankManagementModule, Part6BankSubTab } from "./finance/BankManagementModule";
 import { FinancialStatementsModule } from "./finance/FinancialStatementsModule";
+import { GeneralLedgerCoaModule } from "./finance/GeneralLedgerCoaModule";
 import {
   computePart4BudgetControlState,
   Part4FilterState,
@@ -35,6 +36,10 @@ import {
   PART7_REPORTING_COMPANY_DEFAULT,
   Part7StatementsFilterState,
 } from "../services/financialStatementsService";
+import {
+  computePart8GeneralLedgerState,
+  Part8GlFilterState,
+} from "../services/generalLedgerService";
 import {
   ProjectZone,
   AttendanceRecord,
@@ -68,6 +73,7 @@ import {
   ChartAccountRecord,
   JournalEntryRecord,
   FinancialPeriodCloseRecord,
+  FinancialYearRecord,
 } from "../types";
 import {
   DollarSign,
@@ -110,6 +116,7 @@ import {
   Receipt,
   Menu,
   X,
+  BookOpen,
 } from "lucide-react";
 
 interface ProjectEvmData {
@@ -261,6 +268,17 @@ const createDefaultPart7Filters = (): Part7StatementsFilterState => ({
   companyName: PART7_REPORTING_COMPANY_DEFAULT,
 });
 
+const createDefaultPart8Filters = (): Part8GlFilterState => ({
+  startDate: "",
+  endDate: "",
+  accountCode: "ALL",
+  project: "ALL",
+  department: "ALL",
+  sourceModule: "ALL",
+  entryStatus: "ALL",
+  searchTerm: "",
+});
+
 export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   isAmharic,
   currentUserRole = UserRole.FINANCE_MANAGER,
@@ -281,6 +299,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const [part5Filters, setPart5Filters] = useState<Part5FilterState>(createDefaultPart5Filters);
   const [part6Filters, setPart6Filters] = useState<Part6BankFilterState>(createDefaultPart6Filters);
   const [part7Filters, setPart7Filters] = useState<Part7StatementsFilterState>(createDefaultPart7Filters);
+  const [part8Filters, setPart8Filters] = useState<Part8GlFilterState>(createDefaultPart8Filters);
   const [showLegacyTargetsPanel, setShowLegacyTargetsPanel] = useState(false);
 
   const actorUid = safeString(currentUserProfile?.uid || currentUserProfile?.id, "USR-FIN");
@@ -331,10 +350,11 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const [bankTransactions, setBankTransactions] = useState<BankTransactionRecord[]>([]);
   const [bankStatements, setBankStatements] = useState<ImmutableBankStatementRecord[]>([]);
 
-  // Part 7 Financial Statements, Chart of Accounts & Period Closing Collections
+  // Part 7 & Part 8 Financial Statements, Chart of Accounts, GL & Period Closing Collections
   const [chartOfAccounts, setChartOfAccounts] = useState<ChartAccountRecord[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntryRecord[]>([]);
   const [financialPeriods, setFinancialPeriods] = useState<FinancialPeriodCloseRecord[]>([]);
+  const [financialYears, setFinancialYears] = useState<FinancialYearRecord[]>([]);
 
   // Master Construction ERP Linked Collections
   const [rawProjectsList, setRawProjectsList] = useState<any[]>([]);
@@ -436,6 +456,9 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     });
     const unsubPart7Periods = DbService.subscribeFinancialPeriods((items) => {
       if (active) setFinancialPeriods(items || []);
+    });
+    const unsubPart8Years = DbService.subscribeFinancialYears((items) => {
+      if (active) setFinancialYears(items || []);
     });
 
     const loadMasterErpCollections = async () => {
@@ -563,6 +586,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       unsubPart7Coa();
       unsubPart7Journals();
       unsubPart7Periods();
+      unsubPart8Years();
     };
   }, []);
 
@@ -763,6 +787,19 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       currentUserProfile,
       financialSettings,
     ]
+  );
+
+  // --- COMPUTE PART 8 GENERAL LEDGER & CHART OF ACCOUNTS STATE ---
+  const part8GlState = useMemo(
+    () =>
+      computePart8GeneralLedgerState({
+        statementsState: part7StatementsState,
+        rawJournalEntries: journalEntries,
+        financialPeriods,
+        financialYears,
+        filterState: part8Filters,
+      }),
+    [part7StatementsState, journalEntries, financialPeriods, financialYears, part8Filters]
   );
 
   // Dispatch critical financial & budget alerts to Directors & Finance Manager (deduplicated per session)
@@ -1283,8 +1320,17 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       allowed: !isWarehouseManager && !isHrManager,
     },
     {
-      id: "profit-and-loss",
+      id: "general-ledger",
       num: 11,
+      labelEn: "General Ledger & COA",
+      labelAm: "ጠቅላላ የሂሳብ መዝገብ (GL/COA)",
+      icon: BookOpen,
+      badgeCount: part8GlState.kpis.pendingJournalEntries,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "profit-and-loss",
+      num: 12,
       labelEn: "Financial Statements & P&L",
       labelAm: "የፋይናንስ መግለጫዎች እና ትርፍ/ኪሳራ",
       icon: BarChart3,
@@ -1509,6 +1555,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     activeTab !== "financial-settings" &&
     activeTab !== "integrations" &&
     activeTab !== "budget-management" &&
+    activeTab !== "general-ledger" &&
     activeTab !== "profit-and-loss";
 
   return (
@@ -1929,7 +1976,26 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             />
           )}
 
-          {/* 11. PART 7 FINANCIAL STATEMENTS, DOUBLE-ENTRY LEDGER & REPORTING */}
+          {/* 11. PART 8 GENERAL LEDGER (GL) & CHART OF ACCOUNTS (COA) */}
+          {activeTab === "general-ledger" && (
+            <GeneralLedgerCoaModule
+              isAmharic={isAmharic}
+              glState={part8GlState}
+              statementsState={part7StatementsState}
+              filterState={part8Filters}
+              onFilterChange={setPart8Filters}
+              onResetFilters={() => setPart8Filters(createDefaultPart8Filters())}
+              rawJournalEntries={journalEntries}
+              rawPeriods={financialPeriods}
+              rawFinancialYears={financialYears}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 12. PART 7 FINANCIAL STATEMENTS, DOUBLE-ENTRY LEDGER & REPORTING */}
           {activeTab === "profit-and-loss" && (
             <FinancialStatementsModule
               isAmharic={isAmharic}

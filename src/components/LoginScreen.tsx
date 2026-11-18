@@ -278,6 +278,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       formatted = formatted.replace("DIGITAL CONSTRUCTION ERP-", "");
     }
     if (formatted.startsWith("HO")) return UserRole.HEAD_OFFICE;
+    if (formatted.startsWith("DR")) return UserRole.DIRECTORY;
+    if (formatted.startsWith("DIR")) return UserRole.DIRECTOR;
+    if (formatted.startsWith("OTE")) return UserRole.OFFICE_AND_TECHNICAL_ENGINEERING;
+    if (formatted.startsWith("OM")) return UserRole.OFFICE_MANAGER;
+    if (formatted.startsWith("OP")) return UserRole.OPERATION_MANAGER;
     if (formatted.startsWith("PM")) return UserRole.PROJECT_MANAGER;
     if (formatted.startsWith("SE")) return UserRole.SITE_ENGINEER;
     if (formatted.startsWith("SV")) return UserRole.SUPERVISOR;
@@ -298,6 +303,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
     switch (role) {
       case UserRole.SUPER_ADMIN: return "SA";
       case UserRole.HEAD_OFFICE: return "HO";
+      case UserRole.DIRECTORY: return "DR";
+      case UserRole.DIRECTOR: return "DIR";
+      case UserRole.OFFICE_AND_TECHNICAL_ENGINEERING: return "OTE";
+      case UserRole.OFFICE_MANAGER: return "OM";
+      case UserRole.OPERATION_MANAGER: return "OP";
       case UserRole.PROJECT_MANAGER: return "PM";
       case UserRole.SITE_ENGINEER: return "SE";
       case UserRole.SUPERVISOR: return "SV";
@@ -410,9 +420,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         targetRoles: [
           UserRole.SUPER_ADMIN,
           UserRole.HEAD_OFFICE,
+          UserRole.DIRECTORY,
+          UserRole.DIRECTOR,
           UserRole.HR_MANAGER,
           "Super Admin",
           "Head Office",
+          "Directory",
+          "Director",
           "HR Manager",
           "HR",
         ],
@@ -1592,6 +1606,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                       {[
                         { role: UserRole.SYSTEM_OPERATOR, label: isAmharic ? "የሲስተም ኦፕሬተር (System Operator)" : "System Operator" },
                         { role: UserRole.HEAD_OFFICE, label: isAmharic ? "ዋና መሥሪያ ቤት (Head Office)" : "Head Office" },
+                        { role: UserRole.DIRECTORY, label: isAmharic ? "ዳይሬክቶሬት (Directory)" : "Directory" },
+                        { role: UserRole.DIRECTOR, label: isAmharic ? "ዳይሬክተር (Director)" : "Director" },
+                        { role: UserRole.OFFICE_AND_TECHNICAL_ENGINEERING, label: isAmharic ? "ኦፊስ እና ቴክኒካል ኢንጂነሪንግ (Office & Technical Engineering)" : "Office & Technical Engineering" },
+                        { role: UserRole.OFFICE_MANAGER, label: isAmharic ? "የቢሮ ሥራ አስኪያጅ (Office Manager)" : "Office Manager" },
+                        { role: UserRole.OPERATION_MANAGER, label: isAmharic ? "የኦፕሬሽን ሥራ አስኪያጅ (Operation Manager)" : "Operation Manager" },
                         { role: UserRole.PROJECT_MANAGER, label: isAmharic ? "የፕሮጀክት ሥራ አስኪያጅ (Project Manager)" : "Project Manager" },
                         { role: UserRole.SECTION_HEAD, label: isAmharic ? "የክፍል ኃላፊ (Section Head)" : "Section Head" },
                         { role: UserRole.SUPERVISOR, label: isAmharic ? "ተቆጣጣሪ (Supervisor)" : "Supervisor" },

@@ -144,6 +144,16 @@ function getPrefixFromRole(role: string): string {
       return "SH";
     case UserRole.SURVEYOR:
       return "SR";
+    case UserRole.OFFICE_AND_TECHNICAL_ENGINEERING:
+      return "OTE";
+    case UserRole.DIRECTORY:
+      return "DR";
+    case UserRole.DIRECTOR:
+      return "DIR";
+    case UserRole.OFFICE_MANAGER:
+      return "OM";
+    case UserRole.OPERATION_MANAGER:
+      return "OP";
     default:
       return "W";
   }

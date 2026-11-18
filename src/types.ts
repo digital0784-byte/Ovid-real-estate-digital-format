@@ -20,6 +20,12 @@ export enum UserRole {
   WAREHOUSE_MANAGER = "Warehouse Manager",
   HR = "HR",
   HR_MANAGER = "HR Manager",
+  OFFICE_MANAGER = "Office Manager",
+  OPERATION_MANAGER = "Operation Manager",
+  DIRECTOR = "Director",
+  DIRECTORY = "Directory",
+  OFFICE_AND_TECHNICAL_ENGINEERING = "Office & Technical Engineering",
+  EMPLOYEE = "Employee",
   DRIVER = "Driver",
   WORKER = "Worker"
 }
@@ -88,6 +94,36 @@ export interface Worker {
   bankAccountNumber?: string; // e.g. 1000123456789
   mobileMoneyType?: "Telebirr" | "CBE Birr" | "M-PESA" | "Amole" | "Awash Birr" | "Kacha" | "Other" | string;
   mobileMoneyNumber?: string; // e.g. +251 911-234567
+  // Extended Enterprise HRM fields (backward-compatible)
+  employeeId?: string; // Auto-generated e.g. OVID-EMP-2026-0001
+  faydaId?: string; // Ethiopian National Digital ID (Fayda)
+  qualifications?: string;
+  experienceYears?: number;
+  experienceSummary?: string;
+  biometricRegistered?: boolean;
+  photoStoragePath?: string;
+  documents?: {
+    id: string;
+    name: string;
+    category: "Contract" | "ID / Fayda" | "Certificate" | "Medical" | "Clearance" | "Other";
+    url: string;
+    storagePath?: string;
+    uploadedAt: string;
+  }[];
+  salaryStructureId?: string;
+  housingAllowance?: number;
+  transportAllowance?: number;
+  positionAllowance?: number;
+  medicalAllowance?: number;
+  leaveBalances?: {
+    annual: number;
+    sick: number;
+    maternityPaternity: number;
+    unpaidUsed: number;
+  };
+  currentSite?: string;
+  recruitmentRequestId?: string;
+  userId?: string; // Linked Firebase Auth UID for employee self-service access
 }
 
 export interface Team {
@@ -181,6 +217,8 @@ export interface AttendanceRecord {
   biometricStatus?: string; // e.g. "Fingerprint Verified (99.1%)", "Face Match Pass"
   photoUrl?: string; // Attendance photo proof URL
   team?: string;
+  recordedByUid?: string;
+  scheduleId?: string;
 }
 
 export interface PerformanceEvaluation {
@@ -1145,7 +1183,9 @@ export const DEPARTMENTS_CATALOG = [
   { id: "heavy_fleet", nameEn: "Heavy Machinery & Fleet Equipment", nameAm: "ከባድ ማሽነሪና ተሽከርካሪ" },
   { id: "mep_dept", nameEn: "MEP Electrical, Plumbing & HVAC", nameAm: "ኤሌክትሪክ፣ ቧንቧና ኤችቪኤሲ" },
   { id: "finance_procurement", nameEn: "Finance, Procurement & Cost Control", nameAm: "ፋይናንስ፣ ግዥና ኮስት" },
-  { id: "hr_admin", nameEn: "HR, Timekeeping & Administration", nameAm: "ሰው ኃይልና አስተዳደር" }
+  { id: "hr_admin", nameEn: "HR, Timekeeping & Administration", nameAm: "ሰው ኃይልና አስተዳደር" },
+  { id: "office_technical_eng", nameEn: "Office & Technical Engineering", nameAm: "ኦፊስ እና ቴክኒካል ኢንጂነሪንግ" },
+  { id: "directory", nameEn: "Directory", nameAm: "ዳይሬክቶሬት (Directory)" }
 ];
 
 // === CENTRALIZED MASTER DATA SYSTEM TYPES ===
@@ -2167,6 +2207,7 @@ export type FinancialMenuModuleId =
   | "aging-receivables"
   | "aging-payables"
   | "budget-management"
+  | "general-ledger"
   | "profit-and-loss"
   | "cash-flow"
   | "cash-and-bank"
@@ -3297,10 +3338,14 @@ export interface ChartAccountRecord {
   accountNameAm?: string;
   accountType: ChartAccountType;
   subType: ChartAccountSubType;
+  parentAccountCode?: string;
+  parentAccountName?: string;
+  level?: number;
   normalBalance: "Debit" | "Credit";
   cashFlowSection: "Operating" | "Investing" | "Financing" | "Non-Cash";
   isSystemAccount: boolean;
   isActive: boolean;
+  status?: "Active" | "Inactive" | "Archived";
   openingBalance: number;
   currency: string;
   description?: string;
@@ -3333,6 +3378,7 @@ export type JournalEntryType =
   | "Opening Balance"
   | "Adjusting"
   | "Closing"
+  | "Reversing"
   | "Auto-Sync";
 
 export interface JournalEntryAuditItem {
@@ -3360,6 +3406,7 @@ export interface JournalEntryRecord {
     | "Cash Management"
     | "Bank Management"
     | "Payroll"
+    | "HRM Payroll"
     | "Procurement"
     | "Project Cost Control"
     | "Equipment & Assets"
@@ -3368,6 +3415,11 @@ export interface JournalEntryRecord {
     | "Period Closing";
   sourceRecordId?: string;
   sourceKey?: string;
+  uniqueTransactionKey?: string;
+  reversesEntryId?: string;
+  reversedByEntryId?: string;
+  reversalReason?: string;
+  isImmutable?: boolean;
   lines: JournalEntryLine[];
   totalDebit: number;
   totalCredit: number;
@@ -3425,6 +3477,23 @@ export interface FinancialPeriodCloseRecord {
   updatedAt: string;
 }
 
+export interface FinancialYearRecord {
+  id: string;
+  yearCode: string; // e.g., "FY2026"
+  yearLabel: string;
+  startDate: string;
+  endDate: string;
+  status: "Open" | "Closed" | "Reopened";
+  closedBy?: string;
+  closedAt?: string;
+  reopenedBy?: string;
+  reopenedAt?: string;
+  reopenedReason?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type Part7StatementTypeId =
   | "income-statement"
   | "balance-sheet"
@@ -3434,4 +3503,366 @@ export type Part7StatementTypeId =
   | "general-ledger"
   | "accounts-receivable-report"
   | "accounts-payable-report";
+
+export type Part8LedgerReportTypeId =
+  | "general-ledger-report"
+  | "account-ledger-report"
+  | "trial-balance"
+  | "journal-register"
+  | "account-balance-summary"
+  | "project-ledger"
+  | "department-ledger";
+
+// ============================================================================
+// HUMAN RESOURCE MANAGEMENT (HRM) ENTERPRISE MODULE
+// ============================================================================
+
+export type HrmApprovalDecision = "Pending" | "Approved" | "Rejected";
+
+export interface HrmWorkflowStepLog {
+  stage: string;
+  actorName: string;
+  actorRole: string;
+  actorUid?: string;
+  decision: HrmApprovalDecision | "Submitted" | "Paid";
+  timestamp: string;
+  notes?: string;
+}
+
+export interface ManpowerPlanRecord {
+  id: string;
+  planCode: string;
+  fiscalYear: string;
+  project: string;
+  department: string;
+  jobPosition: string;
+  approvedManpower: number;
+  budgetedMonthlySalaryPerHead: number;
+  currency: string;
+  status: "Draft" | "Approved" | "Locked";
+  approvedBy?: string;
+  approvedAt?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type RecruitmentWorkflowStage =
+  | "Pending HR Manager"
+  | "Pending Office Manager"
+  | "Pending Finance Manager"
+  | "Pending Operation Department"
+  | "Pending Director Final Approval"
+  | "Pending Director Excess Approval"
+  | "Approved"
+  | "Rejected"
+  | "Fulfilled";
+
+export interface RecruitmentRequestRecord {
+  id: string;
+  requestNo: string;
+  project: string;
+  department: string;
+  jobPosition: string;
+  requestedCount: number;
+  hiredCount: number;
+  employmentType: "Permanent" | "Contract" | "Daily Labourer";
+  urgency: "Normal" | "High" | "Critical";
+  requiredByDate: string;
+  proposedMonthlySalary: number;
+  qualificationsRequired: string;
+  justification: string;
+  requestedBy: string;
+  requestedById: string;
+  requestedByRole: string;
+  workflowStage: RecruitmentWorkflowStage;
+  status: "Pending" | "Approved" | "Rejected" | "Fulfilled";
+  exceedsManpowerLimit: boolean;
+  approvedManpowerSnapshot: number;
+  actualHiredSnapshot: number;
+  remainingVacanciesSnapshot: number;
+  excessCount: number;
+  excessApprovalStatus: "Not Required" | "Pending Director" | "Approved" | "Rejected";
+  hrRegistrationAuthorized?: boolean;
+  hrOnboardingTaskId?: string;
+  hrOnboardingTaskCreatedAt?: string;
+  rejectionReason?: string;
+  rejectedBy?: string;
+  rejectedByRole?: string;
+  rejectedAt?: string;
+  rejectedAtStage?: RecruitmentWorkflowStage;
+  officeManagerApproval?: HrmWorkflowStepLog;
+  hrManagerApproval?: HrmWorkflowStepLog;
+  financeManagerApproval?: HrmWorkflowStepLog;
+  operationApproval?: HrmWorkflowStepLog;
+  directorFinalApproval?: HrmWorkflowStepLog;
+  directorExcessApproval?: HrmWorkflowStepLog;
+  approvalHistory: HrmWorkflowStepLog[];
+  directorNotifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WorkScheduleConfig {
+  id: string;
+  scheduleName: string;
+  project: string; // "ALL" or specific project
+  department: string; // "ALL" or specific department
+  shiftStartTime: string; // e.g. "08:00"
+  shiftEndTime: string; // e.g. "17:00"
+  breakMinutes: number;
+  standardDailyHours: number; // e.g. 8
+  graceMinutesLate: number; // e.g. 15
+  restDays: string[]; // e.g. ["Sunday"]
+  holidays: { date: string; name: string }[];
+  overtimeMultiplierWeekday: number; // e.g. 1.5
+  overtimeMultiplierRestDay: number; // e.g. 2.0
+  overtimeMultiplierHoliday: number; // e.g. 2.5
+  isActive: boolean;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LeaveRequestRecord {
+  id: string;
+  requestNo: string;
+  employeeId: string;
+  workerId: string;
+  workerName: string;
+  project: string;
+  department: string;
+  leaveType: "Annual Leave" | "Sick Leave" | "Maternity/Paternity Leave" | "Unpaid Leave" | "Emergency Leave";
+  startDate: string;
+  endDate: string;
+  totalDays: number;
+  reason: string;
+  status: "Pending Section Head" | "Pending HR Manager" | "Approved" | "Rejected";
+  sectionHeadApproval?: HrmWorkflowStepLog;
+  hrManagerApproval?: HrmWorkflowStepLog;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OvertimeRequestRecord {
+  id: string;
+  requestNo: string;
+  employeeId: string;
+  workerId: string;
+  workerName: string;
+  project: string;
+  department: string;
+  workDate: string;
+  hoursRequested: number;
+  dayType: "Weekday" | "Rest Day" | "Holiday";
+  multiplier: number;
+  reason: string;
+  status: "Pending Section Head" | "Pending HR Manager" | "Approved" | "Rejected";
+  sectionHeadApproval?: HrmWorkflowStepLog;
+  hrManagerApproval?: HrmWorkflowStepLog;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EmployeeTransferRecord {
+  id: string;
+  transferNo: string;
+  employeeId: string;
+  workerId: string;
+  workerName: string;
+  fromProject: string;
+  toProject: string;
+  fromDepartment: string;
+  toDepartment: string;
+  fromPosition: string;
+  toPosition: string;
+  effectiveDate: string;
+  reason: string;
+  approvedBy: string;
+  approvedRole: string;
+  status: "Pending" | "Completed" | "Cancelled";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalaryStructureRecord {
+  id: string;
+  structureCode: string;
+  structureName: string;
+  jobGrade: string;
+  department: string;
+  basicSalary: number;
+  housingAllowance: number;
+  transportAllowance: number;
+  positionAllowance: number;
+  medicalAllowance: number;
+  overtimeEligible: boolean;
+  pensionEligible: boolean;
+  currency: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface EthiopianTaxBracket {
+  minAmount: number;
+  maxAmount: number | null; // null = infinity
+  ratePercent: number;
+  deductionAmount: number;
+}
+
+export interface EthiopianTaxPensionConfig {
+  id: string;
+  configName: string;
+  effectiveFrom: string;
+  employeePensionPercent: number; // Default 7%
+  employerPensionPercent: number; // Default 11%
+  taxBrackets: EthiopianTaxBracket[];
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalaryAdvanceLoanRecord {
+  id: string;
+  referenceNo: string;
+  employeeId: string;
+  workerId: string;
+  workerName: string;
+  project: string;
+  department: string;
+  type: "Salary Advance" | "Employee Loan";
+  principalAmount: number;
+  installmentMonths: number;
+  monthlyInstallment: number;
+  remainingBalance: number;
+  totalRecovered: number;
+  reason: string;
+  requestedDate: string;
+  status: "Pending HR" | "Pending Finance" | "Approved" | "Active Recovery" | "Settled" | "Rejected";
+  hrApproval?: HrmWorkflowStepLog;
+  financeApproval?: HrmWorkflowStepLog;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HrmPayrollLineItem {
+  workerId: string;
+  employeeId: string;
+  workerName: string;
+  project: string;
+  department: string;
+  position: string;
+  bankName: string;
+  bankAccountNumber: string;
+  daysWorked: number;
+  absentDays: number;
+  lateCount: number;
+  regularHours: number;
+  approvedOvertimeHours: number;
+  basicSalary: number;
+  allowances: number;
+  overtimePay: number;
+  bonuses: number;
+  grossEarnings: number;
+  taxableIncome: number;
+  incomeTax: number;
+  employeePension: number;
+  employerPension: number;
+  advanceLoanDeduction: number;
+  otherDeductions: number;
+  totalDeductions: number;
+  netPay: number;
+  uniquePayKey: string; // `${payPeriod}::${workerId}` prevents duplicate salary payments
+}
+
+export type HrmPayrollRunStage =
+  | "Draft"
+  | "Pending HR Manager"
+  | "Pending Finance Manager"
+  | "Pending Operation Manager"
+  | "Pending Director"
+  | "Approved for Payment"
+  | "Paid"
+  | "Rejected";
+
+export interface HrmPayrollRunRecord {
+  id: string;
+  runNo: string;
+  payPeriod: string; // YYYY-MM
+  projectScope: string; // "ALL" or project name
+  totalEmployees: number;
+  totalGrossPay: number;
+  totalOvertimePay: number;
+  totalIncomeTax: number;
+  totalEmployeePension: number;
+  totalEmployerPension: number;
+  totalLoanRecovery: number;
+  totalNetPay: number;
+  currency: string;
+  items: HrmPayrollLineItem[];
+  workflowStage: HrmPayrollRunStage;
+  hrManagerApproval?: HrmWorkflowStepLog;
+  financeManagerApproval?: HrmWorkflowStepLog;
+  operationManagerApproval?: HrmWorkflowStepLog;
+  directorApproval?: HrmWorkflowStepLog;
+  bankAccountId?: string;
+  bankAccountName?: string;
+  paymentReferenceNo?: string;
+  paymentDate?: string;
+  paidBy?: string;
+  glJournalId?: string;
+  glSyncedAt?: string;
+  approvalHistory: HrmWorkflowStepLog[];
+  preparedBy: string;
+  preparedById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HrmPrivateProfileRecord {
+  id: string; // matches workerId
+  workerId: string;
+  employeeId: string;
+  userId?: string;
+  faydaIdEncrypted: string;
+  nationalIdEncrypted?: string;
+  bankName: string;
+  bankAccountEncrypted: string;
+  mobileMoneyType?: string;
+  mobileMoneyNumberEncrypted?: string;
+  emergencyContactEncrypted?: string;
+  biometricTemplateEncrypted?: string;
+  encryptionAlgorithm: "AES-GCM-256";
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface HrmPayslipRecord {
+  id: string; // `${runId}_${workerId}`
+  runId: string;
+  runNo: string;
+  payPeriod: string;
+  workerId: string;
+  employeeId: string;
+  workerUserId?: string;
+  workerName: string;
+  project: string;
+  department: string;
+  position: string;
+  bankName: string;
+  bankAccountMasked: string;
+  workflowStage: HrmPayrollRunStage;
+  paymentReferenceNo?: string;
+  paymentDate?: string;
+  glJournalId?: string;
+  item: HrmPayrollLineItem;
+  createdAt: string;
+  updatedAt: string;
+}
+
 

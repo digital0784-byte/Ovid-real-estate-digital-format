@@ -82,6 +82,70 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
       "Cannot delete historical transaction ledgers"
     ]
   },
+  [UserRole.DIRECTORY]: {
+    title: "2b. Directory",
+    category: "Executive & Admin",
+    description: "Executive directorate oversight across engineering, HRM, finance & site operations.",
+    canDo: [
+      "View & Approve Multi-Project Operations, HRM & Financial Governance",
+      "Final Executive Sign-off on Manpower Excess, Payroll & Period Closures",
+      "Access Executive Dashboards, Audit Logs & Strategic KPIs"
+    ],
+    cannotDo: [
+      "Cannot alter raw immutable audit trails"
+    ]
+  },
+  [UserRole.DIRECTOR]: {
+    title: "2c. Director",
+    category: "Executive & Admin",
+    description: "Executive director sign-off across recruitment, payroll & general ledger controls.",
+    canDo: [
+      "Final Approval on Recruitment, Excess Manpower & Payroll Disbursements",
+      "Approve Financial Period Closures & Budget Governance",
+      "Full Executive Read/Oversight Across Projects"
+    ],
+    cannotDo: [
+      "Cannot alter immutable audit logs"
+    ]
+  },
+  [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING]: {
+    title: "10b. Office & Technical Engineering",
+    category: "Engineering & Quality",
+    description: "Technical office engineering, CAD/BIM coordination, scheduling, quantity & quality assurance.",
+    canDo: [
+      "Manage CAD Drawings, Project Documentation & Structural Specifications",
+      "Coordinate Technical Planning, Work Progress, Surveying & Quality Inspections",
+      "Submit Technical Manpower Requests & Track Site Engineering Tasks"
+    ],
+    cannotDo: [
+      "Cannot disburse payroll or delete financial ledger entries",
+      "Cannot override Super Admin security configurations"
+    ]
+  },
+  [UserRole.OFFICE_MANAGER]: {
+    title: "6a. Office Manager",
+    category: "Executive & Admin",
+    description: "Administrative coordination & first-stage manpower recruitment approval.",
+    canDo: [
+      "Manage Office Administration, Project Docs & Employee Attendance Oversight",
+      "Review & Approve Stage 1 Manpower Recruitment Requests"
+    ],
+    cannotDo: [
+      "Cannot disburse financial payroll or alter general ledger accounts"
+    ]
+  },
+  [UserRole.OPERATION_MANAGER]: {
+    title: "6b. Operation Manager",
+    category: "Site & Field Operations",
+    description: "Cross-site operational execution, manpower approvals & progress governance.",
+    canDo: [
+      "Coordinate Operations Across Construction Projects & Subcontractors",
+      "Approve Operational Stage Recruitment, Payroll & Site Transfers"
+    ],
+    cannotDo: [
+      "Cannot alter Super Admin security rules or delete audit trails"
+    ]
+  },
   [UserRole.FINANCE_MANAGER]: {
     title: "3. Finance Manager",
     category: "Financial & Procurement",

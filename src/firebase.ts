@@ -16,6 +16,7 @@ import {
   type DocumentSnapshot,
 } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
+import { getStorage } from "firebase/storage";
 import firebaseConfigJson from "../firebase-applet-config.json";
 
 // Helper to retrieve saved custom config from localStorage
@@ -60,6 +61,7 @@ const firebaseConfig = {
 let app: any;
 let db: any = null;
 let auth: any = null;
+let storage: any = null;
 let isFirebaseReady = false;
 
 const isBrowserRuntime =
@@ -108,6 +110,11 @@ if (isConfigValid) {
     }
 
     auth = getAuth(app);
+    try {
+      storage = getStorage(app);
+    } catch {
+      storage = null;
+    }
     isFirebaseReady = true;
 
     if (isBrowserRuntime && db) {
@@ -262,4 +269,4 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   return errInfo;
 }
 
-export { app, db, auth, isFirebaseReady };
+export { app, db, auth, storage, isFirebaseReady };

@@ -83,6 +83,7 @@ import { NotificationService } from "./services/notificationService";
 import { PanelTraceabilityModule } from "./components/PanelTraceabilityModule";
 import { TaskManagementSearchHub } from "./components/TaskManagementSearchHub";
 import { FirestoreDataExplorer } from "./components/FirestoreDataExplorer";
+import { HrmEnterpriseModule } from "./components/hrm/HrmEnterpriseModule";
 
 // Lucide Icons
 import { 
@@ -677,7 +678,7 @@ export default function App() {
     }
   };
 
-  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
+  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "hrmEnterprise", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement"];
   const allTabs = SIMULATIONS_ENABLED
     ? rawAllTabs
     : rawAllTabs.filter(tab => !SIMULATION_ONLY_TABS.has(tab));
@@ -693,6 +694,11 @@ export default function App() {
     [UserRole.SUPER_ADMIN]: allTabs,
     [UserRole.SYSTEM_OPERATOR]: ["dashboard", "taskManagement", "firestoreExplorer", "auditLog", "securitySettings", "notificationCenter", "customInputHub", "headOfficeSync", "mobileApps", "launchReadiness", "predictions", "biometricBoard", "fingerprintBoard", "biometricKiosk", "siteLayout", "cadDrawing", "projectDocs", "panelTraceability", "siteStoreMovement"],
     [UserRole.HEAD_OFFICE]: allTabs,
+    [UserRole.DIRECTOR]: allTabs.filter(t => t !== "formworkManagement"),
+    [UserRole.DIRECTORY]: allTabs.filter(t => t !== "formworkManagement"),
+    [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
+    [UserRole.OFFICE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "projectDocs", "auditLog", "securitySettings", "mobileApps"],
+    [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "enterpriseErp", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
@@ -703,16 +709,17 @@ export default function App() {
     [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseManagerApp", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.STORE_OWNER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.STORE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.WORKER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
+    [UserRole.EMPLOYEE]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.WORKER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
+    [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "hrmEnterprise", "enterpriseErp", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
     [UserRole.ACCOUNTANT]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "securitySettings", "mobileApps"],
-    [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
+    [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SURVEYOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.DRIVER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
-    [UserRole.AUDITOR]: ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "panelTraceability", "financeErp", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
+    [UserRole.AUDITOR]: ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "panelTraceability", "financeErp", "hrmEnterprise", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
   };
 
   const hasAccess = (tab: string): boolean => {
@@ -2381,6 +2388,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Enterprise HRM & Payroll Tab */}
+            {tabPermissions[currentUserRole]?.includes("hrmEnterprise") && (
+              <button
+                onClick={() => navigateToTab("hrmEnterprise")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "hrmEnterprise" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Users size={15} className="text-emerald-400" />
+                <span>{isAmharic ? "የሰው ኃይል እና ደመወዝ (HRM)" : "HRM & Payroll"}</span>
+              </button>
+            )}
+
             {/* Projects & Documents Tab */}
             {tabPermissions[currentUserRole]?.includes("projectDocs") && (
               <button
@@ -3083,6 +3103,21 @@ export default function App() {
             zones={zones}
             onLogAction={(action, details) => logAction(action, details)}
             onSwitchRole={(newRole) => setCurrentUserRole(newRole)}
+          />
+        )}
+
+        {activeTab === "hrmEnterprise" && (
+          <HrmEnterpriseModule
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            workers={workers}
+            attendance={attendance}
+            onAddWorker={handleAddWorker}
+            onUpdateWorker={handleUpdateWorker}
+            onAddAttendance={handleAddAttendance}
+            onNavigateToTab={navigateToTab}
+            onLogAction={(action, details) => logAction(action, details)}
           />
         )}
 
@@ -3868,6 +3903,25 @@ export default function App() {
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
                           {isAmharic ? "የደመወዝ ክፍያ (Payroll)፣ በጀትና የገንዘብ ወጪዎች" : "Payroll processing, budgets & expense management"}
+                        </p>
+                      </button>
+                    )}
+
+                    {hasAccess("hrmEnterprise") && (
+                      <button
+                        onClick={() => { navigateToTab("hrmEnterprise"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "hrmEnterprise" ? "bg-emerald-950/40 border-emerald-500 shadow-md shadow-emerald-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Users size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "10.1 የሰው ኃይል እና ደመወዝ (HRM)" : "10.1 Human Resource & Payroll (HRM)"}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "ቅጥር፣ የሰው ኃይል ዕቅድ፣ መገኘት፣ ፈቃድ፣ የትርፍ ሰዓት እና የኢትዮጵያ ደመወዝ" : "Manpower recruitment, Fayda ID, biometric attendance, leave, OT & Ethiopian payroll"}
                         </p>
                       </button>
                     )}
