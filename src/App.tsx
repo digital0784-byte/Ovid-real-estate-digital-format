@@ -239,17 +239,27 @@ export default function App() {
 
   // Navigate to tab with history tracking & auto-close drawer on mobile
   const navigateToTab = (newTab: string) => {
+    let targetTab = newTab;
     if (newTab === "hrmBiometricMapping") {
       setHrmInitialSubTab("biometric-mapping");
+    } else if (newTab.startsWith("hrmEnterprise:")) {
+      const sub = newTab.split(":")[1] as HrmSubTab;
+      setHrmInitialSubTab(sub || "dashboard");
+      targetTab = "hrmEnterprise";
     } else if (newTab === "hrmEnterprise") {
       setHrmInitialSubTab("dashboard");
     }
-    if (newTab === activeTab) return;
+    if (targetTab === activeTab) {
+      if (typeof window !== "undefined" && window.innerWidth < 1024) {
+        setIsSidebarOpen(false);
+      }
+      return;
+    }
     setNavigationHistory(prev => {
       if (prev.length > 0 && prev[prev.length - 1] === activeTab) return prev;
       return [...prev.slice(-25), activeTab];
     });
-    setActiveTab(newTab);
+    setActiveTab(targetTab);
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
       setIsSidebarOpen(false);
     }
@@ -3089,7 +3099,9 @@ export default function App() {
             t={t}
             activeTab={activeTab}
             setActiveTab={setActiveTab}
+            onNavigateToTab={navigateToTab}
             currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
             evaluations={evaluations}
             formworkPanels={formworkPanels}
             panelMovementLogs={panelMovementLogs}

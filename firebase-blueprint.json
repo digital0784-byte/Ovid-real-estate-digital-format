@@ -60,15 +60,26 @@
     },
     "Employee": {
       "title": "Employee",
-      "description": "Detailed staff/employee profile record.",
+      "description": "Detailed staff/employee profile record including non-sensitive biometric enrollment tracking (no raw templates stored).",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "employeeId": { "type": "string" },
         "name": { "type": "string" },
         "role": { "type": "string" },
         "department": { "type": "string" },
         "joinedDate": { "type": "string" },
-        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+        "status": { "type": "string", "enum": ["Active", "Inactive"] },
+        "biometricEnrollmentStatus": { "type": "string", "enum": ["Not Registered", "Registered on Device", "Mapping Pending", "Mapping Completed", "Active", "Suspended"] },
+        "biometricWorkflowStage": { "type": "string", "enum": ["Employee Registration", "Biometric Enrollment", "Employee Biometric Mapping", "Attendance Activation"] },
+        "biometricDeviceId": { "type": "string" },
+        "biometricDeviceName": { "type": "string" },
+        "biometricDeviceUserId": { "type": "string" },
+        "biometricEnrollmentDate": { "type": "string" },
+        "biometricMappingStatus": { "type": "string", "enum": ["Unmapped", "Pending", "Active", "Inactive"] },
+        "biometricMappingId": { "type": "string" },
+        "biometricAttendanceActivated": { "type": "boolean" },
+        "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] }
       },
       "required": ["id", "name", "role", "status"]
     },
@@ -100,7 +111,24 @@
         "hrReviewedBy": { "type": "string" },
         "hrReviewedAt": { "type": "string" },
         "hrReviewNotes": { "type": "string" },
-        "exceptionReason": { "type": "string" }
+        "exceptionReason": { "type": "string" },
+        "finalApprovalStatus": { "type": "string", "enum": ["Pending", "Under Review", "Approved", "Rejected", "Returned for Correction"] },
+        "reviewedBy": { "type": "string", "maxLength": 120 },
+        "reviewedByUid": { "type": "string", "maxLength": 128 },
+        "reviewedByRole": { "type": "string", "maxLength": 64 },
+        "reviewedAt": { "type": "string", "maxLength": 64 },
+        "finalApprovedBy": { "type": "string", "maxLength": 120 },
+        "finalApprovedByUid": { "type": "string", "maxLength": 128 },
+        "finalApprovedAt": { "type": "string", "maxLength": 64 },
+        "approvalComments": { "type": "string", "maxLength": 1000 },
+        "originalBiometricSnapshot": { "type": "object" },
+        "discrepancyFlag": { "type": "object" },
+        "approvalAuditHistory": { "type": "array" },
+        "payrollFinalized": { "type": "boolean" },
+        "payrollFinalizedAt": { "type": "string", "maxLength": 64 },
+        "payrollRunId": { "type": "string", "maxLength": 128 },
+        "reconciledDayCategory": { "type": "string", "enum": ["Present", "Absent", "Approved Leave", "Unpaid Leave", "Holiday", "Missing Attendance", "Pending Review"] },
+        "timezone": { "type": "string", "maxLength": 64 }
       },
       "required": ["id", "workerId", "workerName", "date", "status"]
     },
@@ -149,6 +177,9 @@
         "floor": { "type": "string" },
         "zone": { "type": "string" },
         "assignedToName": { "type": "string" },
+        "assignedToUserIds": { "type": "array", "items": { "type": "string" } },
+        "relatedRecruitmentId": { "type": "string" },
+        "relatedRecruitmentNo": { "type": "string" },
         "createdByName": { "type": "string" },
         "createdAt": { "type": "string" },
         "dueDate": { "type": "string" },
@@ -1096,7 +1127,11 @@
         "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Fulfilled"] },
         "exceedsManpowerLimit": { "type": "boolean" },
         "hrRegistrationAuthorized": { "type": "boolean" },
-        "hrOnboardingTaskId": { "type": "string" }
+        "hrOnboardingTaskId": { "type": "string" },
+        "currentStageTaskId": { "type": "string" },
+        "currentStageAssigneeIds": { "type": "array", "items": { "type": "string" } },
+        "currentStageAssigneeNames": { "type": "array", "items": { "type": "string" } },
+        "stageSummary": { "type": "string" }
       },
       "required": ["id", "requestNo", "project", "jobPosition", "requestedCount", "workflowStage", "status"]
     },
@@ -1333,7 +1368,7 @@
         "deviceId": { "type": "string", "maxLength": 128 },
         "deviceName": { "type": "string", "maxLength": 140 },
         "biometricUserId": { "type": "string", "maxLength": 64 },
-        "action": { "type": "string", "enum": ["Mapping Created", "Mapping Edited", "Biometric User ID Changed", "Device Changed", "Mapping Activated", "Mapping Deactivated", "Unmapped Event Resolved"] },
+        "action": { "type": "string", "enum": ["Mapping Created", "Mapping Edited", "Biometric User ID Changed", "Device Changed", "Mapping Activated", "Mapping Deactivated", "Unmapped Event Resolved", "Device Registration Recorded", "Enrollment Status Changed", "Attendance Activated", "Enrollment Suspended"] },
         "previousValue": { "type": "object" },
         "newValue": { "type": "object" },
         "reason": { "type": "string", "maxLength": 500 },
@@ -1369,6 +1404,96 @@
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["id", "deviceId", "biometricUserId", "eventTime", "status"]
+    },
+    "AttendanceCorrectionRequest": {
+      "title": "AttendanceCorrectionRequest",
+      "description": "Manual attendance correction request preserving unmodified original biometric punch snapshot until HR Manager approval.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestNo": { "type": "string", "maxLength": 64 },
+        "attendanceId": { "type": "string", "maxLength": 128 },
+        "workerId": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 100 },
+        "workerName": { "type": "string", "maxLength": 160 },
+        "project": { "type": "string", "maxLength": 140 },
+        "department": { "type": "string", "maxLength": 120 },
+        "workLocationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "date": { "type": "string", "maxLength": 32 },
+        "correctionType": { "type": "string", "enum": ["Missing Check-In", "Missing Check-Out", "Incorrect Attendance Record", "Device Synchronization Failure"] },
+        "originalSnapshot": { "type": "object" },
+        "proposedCheckIn": { "type": "string", "maxLength": 32 },
+        "proposedCheckOut": { "type": "string", "maxLength": 32 },
+        "proposedStatus": { "type": "string", "enum": ["Present", "Absent", "Late", "Leave", "Holiday"] },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "supportingEvidenceUrl": { "type": "string", "maxLength": 1000 },
+        "supportingEvidenceName": { "type": "string", "maxLength": 240 },
+        "supportingEvidenceNote": { "type": "string", "maxLength": 500 },
+        "submittedBy": { "type": "string", "maxLength": 120 },
+        "submittedByUid": { "type": "string", "maxLength": 128 },
+        "submittedByRole": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["Pending", "Under Review", "Approved", "Rejected", "Returned for Correction"] },
+        "hrOfficerReviewedBy": { "type": "string", "maxLength": 120 },
+        "hrOfficerReviewedByUid": { "type": "string", "maxLength": 128 },
+        "hrOfficerReviewedAt": { "type": "string", "maxLength": 64 },
+        "hrOfficerNotes": { "type": "string", "maxLength": 1000 },
+        "hrManagerDecisionBy": { "type": "string", "maxLength": 120 },
+        "hrManagerDecisionByUid": { "type": "string", "maxLength": 128 },
+        "hrManagerDecisionAt": { "type": "string", "maxLength": 64 },
+        "hrManagerComments": { "type": "string", "maxLength": 1000 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "requestNo", "attendanceId", "workerId", "workerName", "date", "correctionType", "originalSnapshot", "reason", "submittedBy", "submittedByUid", "status"]
+    },
+    "AttendanceDeductionPolicy": {
+      "title": "AttendanceDeductionPolicy",
+      "description": "Approved company policy governing whether unpaid leave, unexcused absence, or excessive late minutes apply payroll deductions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "policyName": { "type": "string", "maxLength": 140 },
+        "isApproved": { "type": "boolean" },
+        "approvedBy": { "type": "string", "maxLength": 120 },
+        "approvedByRole": { "type": "string", "maxLength": 64 },
+        "approvedAt": { "type": "string", "maxLength": 64 },
+        "deductUnpaidLeave": { "type": "boolean" },
+        "deductUnexcusedAbsence": { "type": "boolean" },
+        "absenceDailyMultiplier": { "type": "number" },
+        "lateDeductionEnabled": { "type": "boolean" },
+        "graceMinutesBeforeDeduction": { "type": "number" },
+        "lateDeductionHourlyFactor": { "type": "number" },
+        "standardWorkingDaysPerMonth": { "type": "number" },
+        "notes": { "type": "string", "maxLength": 1000 },
+        "updatedBy": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "policyName", "isApproved", "standardWorkingDaysPerMonth"]
+    },
+    "AttendanceAuditLog": {
+      "title": "AttendanceAuditLog",
+      "description": "Immutable create-only audit log recording attendance approvals, rejections, corrections, and discrepancy reports in Africa/Addis_Ababa time.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "attendanceId": { "type": "string", "maxLength": 128 },
+        "correctionId": { "type": "string", "maxLength": 128 },
+        "workerId": { "type": "string", "maxLength": 128 },
+        "employeeId": { "type": "string", "maxLength": 100 },
+        "workerName": { "type": "string", "maxLength": 160 },
+        "date": { "type": "string", "maxLength": 32 },
+        "action": { "type": "string", "maxLength": 140 },
+        "previousStatus": { "type": "string", "maxLength": 64 },
+        "newStatus": { "type": "string", "maxLength": 64 },
+        "comments": { "type": "string", "maxLength": 1000 },
+        "actorName": { "type": "string", "maxLength": 120 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorRole": { "type": "string", "maxLength": 64 },
+        "timestamp": { "type": "string", "maxLength": 64 },
+        "timezone": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "attendanceId", "workerId", "workerName", "date", "action", "actorName", "actorUid", "actorRole", "timestamp"]
     }
   },
   "firestore": {
@@ -1679,6 +1804,18 @@
     "/unmappedBiometricEvents/{eventId}": {
       "schema": "UnmappedBiometricEvent",
       "description": "Queue of unmatched biometric device attendance punches pending HR resolution."
+    },
+    "/attendanceCorrections/{correctionId}": {
+      "schema": "AttendanceCorrectionRequest",
+      "description": "Manual attendance correction requests preserving original biometric snapshots until HR Manager approval."
+    },
+    "/attendanceDeductionPolicies/{policyId}": {
+      "schema": "AttendanceDeductionPolicy",
+      "description": "Company-approved attendance deduction policy rules controlling payroll deductions."
+    },
+    "/attendanceAuditLogs/{logId}": {
+      "schema": "AttendanceAuditLog",
+      "description": "Immutable create-only attendance approval, correction, and discrepancy audit ledger."
     }
   }
 }

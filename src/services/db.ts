@@ -85,7 +85,10 @@ import {
   BiometricDeviceRecord,
   BiometricDeviceMapping,
   BiometricMappingAuditLog,
-  UnmappedBiometricEvent
+  UnmappedBiometricEvent,
+  AttendanceCorrectionRequest,
+  AttendanceDeductionPolicy,
+  AttendanceAuditLog,
 } from "../types";
 import { initialErpTasks } from "../data/initialTasks";
 import {
@@ -534,7 +537,15 @@ export const DbService = {
   },
 
   async addWorker(worker: Worker): Promise<void> {
-    const cleanWorker = sanitizeForFirestore(worker);
+    const safeWorker = { ...worker } as any;
+    delete safeWorker.fingerprint;
+    delete safeWorker.faceRecognitionData;
+    delete safeWorker.fingerprintTemplate;
+    delete safeWorker.faceTemplate;
+    delete safeWorker.rawBiometricTemplate;
+    delete safeWorker.biometricTemplate;
+    delete safeWorker.biometricTemplateEncrypted;
+    const cleanWorker = sanitizeForFirestore(safeWorker);
     await writeDocument<Worker>("workers", cleanWorker, initialWorkers);
     await writeDocument<Worker>("employees", cleanWorker, []);
     if (typeof window !== "undefined") {
@@ -572,7 +583,15 @@ export const DbService = {
   },
 
   async updateWorker(worker: Worker): Promise<void> {
-    const cleanWorker = sanitizeForFirestore(worker);
+    const safeWorker = { ...worker } as any;
+    delete safeWorker.fingerprint;
+    delete safeWorker.faceRecognitionData;
+    delete safeWorker.fingerprintTemplate;
+    delete safeWorker.faceTemplate;
+    delete safeWorker.rawBiometricTemplate;
+    delete safeWorker.biometricTemplate;
+    delete safeWorker.biometricTemplateEncrypted;
+    const cleanWorker = sanitizeForFirestore(safeWorker);
     await writeDocument<Worker>("workers", cleanWorker, initialWorkers);
     await writeDocument<Worker>("employees", cleanWorker, []);
     if (typeof window !== "undefined") {
@@ -3641,7 +3660,15 @@ export const DbService = {
     return () => {};
   },
   async saveHrmPrivateProfile(profile: HrmPrivateProfileRecord): Promise<void> {
-    await writeDocument<HrmPrivateProfileRecord>("hrmPrivateProfiles", profile, []);
+    const safeProfile = { ...profile } as any;
+    delete safeProfile.biometricTemplateEncrypted;
+    delete safeProfile.fingerprint;
+    delete safeProfile.faceRecognitionData;
+    delete safeProfile.fingerprintTemplate;
+    delete safeProfile.faceTemplate;
+    delete safeProfile.rawBiometricTemplate;
+    delete safeProfile.biometricTemplate;
+    await writeDocument<HrmPrivateProfileRecord>("hrmPrivateProfiles", safeProfile, []);
   },
 
   // 9C) hrmPayslips (Individual employee self-service payslip records)
@@ -3944,6 +3971,111 @@ export const DbService = {
   },
   async saveUnmappedBiometricEvent(evt: UnmappedBiometricEvent): Promise<void> {
     await writeDocument<UnmappedBiometricEvent>("unmappedBiometricEvents", evt, []);
+  },
+
+  // ============================================================
+  // ATTENDANCE WORKFLOW PART 2: CORRECTIONS, POLICIES & AUDIT LOGS
+  // ============================================================
+
+  subscribeAttendanceCorrections(
+    callback: (corrections: AttendanceCorrectionRequest[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "attendanceCorrections"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as AttendanceCorrectionRequest), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<AttendanceCorrectionRequest>("attendanceCorrections", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "attendanceCorrections");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<AttendanceCorrectionRequest>("attendanceCorrections", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<AttendanceCorrectionRequest>("attendanceCorrections", []));
+    return () => {};
+  },
+  async saveAttendanceCorrection(correction: AttendanceCorrectionRequest): Promise<void> {
+    await writeDocument<AttendanceCorrectionRequest>("attendanceCorrections", correction, []);
+  },
+
+  subscribeAttendanceDeductionPolicies(
+    callback: (policies: AttendanceDeductionPolicy[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "attendanceDeductionPolicies"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as AttendanceDeductionPolicy), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<AttendanceDeductionPolicy>("attendanceDeductionPolicies", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "attendanceDeductionPolicies");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<AttendanceDeductionPolicy>("attendanceDeductionPolicies", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<AttendanceDeductionPolicy>("attendanceDeductionPolicies", []));
+    return () => {};
+  },
+  async saveAttendanceDeductionPolicy(policy: AttendanceDeductionPolicy): Promise<void> {
+    await writeDocument<AttendanceDeductionPolicy>("attendanceDeductionPolicies", policy, []);
+  },
+
+  subscribeAttendanceAuditLogs(
+    callback: (logs: AttendanceAuditLog[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "attendanceAuditLogs"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as AttendanceAuditLog), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<AttendanceAuditLog>("attendanceAuditLogs", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "attendanceAuditLogs");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<AttendanceAuditLog>("attendanceAuditLogs", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<AttendanceAuditLog>("attendanceAuditLogs", []));
+    return () => {};
+  },
+  async addAttendanceAuditLog(log: AttendanceAuditLog): Promise<void> {
+    const sanitized = sanitizeForFirestore(log);
+    offlineEngine.updateCacheItem<AttendanceAuditLog>("attendanceAuditLogs", sanitized, []);
+    if (isFirebaseReady && db) {
+      try {
+        await setDoc(doc(db, "attendanceAuditLogs", sanitized.id), {
+          ...sanitized,
+          serverReceivedAt: new Date().toISOString(),
+        });
+      } catch (err: any) {
+        const isPermissionDenied =
+          err?.code === "permission-denied" ||
+          String(err?.message || "").includes("PERMISSION_DENIED");
+        if (isPermissionDenied) {
+          handleFirestoreError(err, OperationType.CREATE, `attendanceAuditLogs/${sanitized.id}`);
+        } else {
+          offlineEngine.queueOutbox("set", "attendanceAuditLogs", sanitized.id, sanitized);
+        }
+      }
+    } else {
+      offlineEngine.queueOutbox("set", "attendanceAuditLogs", sanitized.id, sanitized);
+    }
   }
 };
 

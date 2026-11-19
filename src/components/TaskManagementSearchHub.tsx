@@ -112,12 +112,20 @@ export const TaskManagementSearchHub: React.FC<TaskManagementSearchHubProps> = (
     return [
       UserRole.SUPER_ADMIN,
       UserRole.HEAD_OFFICE,
+      UserRole.DIRECTOR,
+      UserRole.DIRECTORY,
       UserRole.PROJECT_MANAGER,
       UserRole.SITE_ENGINEER,
       UserRole.SUPERVISOR,
+      UserRole.SECTION_HEAD,
       UserRole.TEAM_LEADER,
       UserRole.GANG_CHIEF,
-      UserRole.HR_MANAGER
+      UserRole.HR_MANAGER,
+      UserRole.HR,
+      UserRole.OFFICE_MANAGER,
+      UserRole.OFFICE_AND_TECHNICAL_ENGINEERING,
+      UserRole.FINANCE_MANAGER,
+      UserRole.OPERATION_MANAGER,
     ].includes(currentUserRole);
   }, [currentUserRole]);
 
@@ -867,6 +875,11 @@ export const TaskManagementSearchHub: React.FC<TaskManagementSearchHubProps> = (
                         <p className="text-[11px] text-slate-500 truncate" title={task.description}>
                           {task.description}
                         </p>
+                        {task.relatedRecruitmentNo && (
+                          <div className="inline-flex items-center space-x-1 mt-1 px-1.5 py-0.5 rounded bg-emerald-50 border border-emerald-200 text-[10px] text-emerald-700 font-mono font-bold">
+                            <span>MRF: {task.relatedRecruitmentNo}</span>
+                          </div>
+                        )}
                         {task.relatedPanelSerials && task.relatedPanelSerials.length > 0 && (
                           <div className="flex items-center space-x-1 mt-1 text-[10px] text-indigo-600 font-mono">
                             <QrCode size={11} />
@@ -1053,6 +1066,13 @@ export const TaskManagementSearchHub: React.FC<TaskManagementSearchHubProps> = (
                 </div>
               )}
 
+              {selectedTask.relatedRecruitmentNo && (
+                <div className="p-2.5 bg-emerald-50 border border-emerald-200 rounded-xl flex items-center justify-between text-xs">
+                  <span className="font-bold text-emerald-800">Linked Manpower Request:</span>
+                  <span className="font-mono font-extrabold text-emerald-900">{selectedTask.relatedRecruitmentNo}</span>
+                </div>
+              )}
+
               {selectedTask.relatedEvidence && selectedTask.relatedEvidence.length > 0 && (
                 <div>
                   <span className="font-bold text-slate-700 block mb-1">{isAmharic ? "የተያያዙ ማስረጃዎች/ሰነዶች:" : "Related Evidence & Docs:"}</span>
@@ -1061,7 +1081,18 @@ export const TaskManagementSearchHub: React.FC<TaskManagementSearchHubProps> = (
                       <div key={ev.id} className="p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between text-xs">
                         <div className="flex items-center space-x-2">
                           <Paperclip size={14} className="text-slate-400" />
-                          <span className="font-bold text-slate-800">{ev.name}</span>
+                          {ev.url ? (
+                            <a
+                              href={ev.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="font-bold text-blue-700 hover:underline"
+                            >
+                              {ev.name}
+                            </a>
+                          ) : (
+                            <span className="font-bold text-slate-800">{ev.name}</span>
+                          )}
                         </div>
                         <span className="text-[10px] text-slate-500 font-mono">{ev.uploadedBy}</span>
                       </div>

@@ -83,7 +83,7 @@ export interface ZKTecoParseResult {
 }
 
 const FORBIDDEN_SECRET_OR_TEMPLATE_KEY_REGEX =
-  /password|passwd|pwd|commkey|secret|token|apikey|api_key|pushkey|template|biodata|tmp|facepic|userpic|fptmp|facetemp|fingerprint/i;
+  /password|passwd|pwd|commkey|secret|token|apikey|api_key|pushkey|template|biodata|tmp|facepic|userpic|fptmp|facetemp|fingerprint|facerecognitiondata/i;
 
 export function sanitizeBiometricMetadata<T = Record<string, any>>(input: T): T {
   if (input === null || input === undefined) return input;

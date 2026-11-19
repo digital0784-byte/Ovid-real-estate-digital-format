@@ -101,6 +101,20 @@ export interface Worker {
   experienceYears?: number;
   experienceSummary?: string;
   biometricRegistered?: boolean;
+  biometricEnrollmentStatus?: BiometricEnrollmentStatus;
+  biometricWorkflowStage?: BiometricWorkflowStage;
+  biometricDeviceId?: string;
+  biometricDeviceName?: string;
+  biometricDeviceModel?: string;
+  biometricDeviceSerialNumber?: string;
+  biometricDeviceUserId?: string;
+  biometricEnrollmentDate?: string;
+  biometricMappingStatus?: "Unmapped" | "Pending" | "Active" | "Inactive";
+  biometricMappingId?: string;
+  biometricAttendanceActivated?: boolean;
+  biometricAttendanceActivatedAt?: string;
+  biometricEnrolledBy?: string;
+  biometricEnrolledByUid?: string;
   photoStoragePath?: string;
   documents?: {
     id: string;
@@ -235,6 +249,31 @@ export interface AttendanceRecord {
   hrReviewedAt?: string;
   hrReviewNotes?: string;
   exceptionReason?: string;
+  // Part 2: Strict HR Manager Final Approval, Manual Corrections, Reconciliation & Audit Trail
+  finalApprovalStatus?: AttendanceApprovalStatus;
+  reviewedBy?: string;
+  reviewedByUid?: string;
+  reviewedByRole?: string;
+  reviewedAt?: string;
+  finalApprovedBy?: string;
+  finalApprovedByUid?: string;
+  finalApprovedAt?: string;
+  approvalComments?: string;
+  originalBiometricSnapshot?: OriginalBiometricEventSnapshot;
+  discrepancyFlag?: {
+    reportedBy: string;
+    reportedByUid: string;
+    reportedByRole: string;
+    reportedAt: string;
+    notes: string;
+    status: "Open" | "Resolved";
+  };
+  approvalAuditHistory?: AttendanceApprovalAuditEntry[];
+  payrollFinalized?: boolean;
+  payrollFinalizedAt?: string;
+  payrollRunId?: string;
+  reconciledDayCategory?: AttendanceReconciledDayStatus;
+  timezone?: "Africa/Addis_Ababa";
 }
 
 export interface PerformanceEvaluation {
@@ -2166,6 +2205,7 @@ export interface ErpTask {
   floor?: number | string;
   zone?: string;
   assignedToId?: string;
+  assignedToUserIds?: string[];
   assignedToName: string; // Assigned person
   assignedToRole?: string;
   assignedTeamLeader?: string;
@@ -2185,6 +2225,8 @@ export interface ErpTask {
   relatedEvidence?: ErpTaskEvidence[];
   relatedPanelSerials?: string[];
   relatedZoneId?: string;
+  relatedRecruitmentId?: string;
+  relatedRecruitmentNo?: string;
   completionPercentage?: number;
   notes?: string;
 }
@@ -3616,6 +3658,10 @@ export interface RecruitmentRequestRecord {
   hrRegistrationAuthorized?: boolean;
   hrOnboardingTaskId?: string;
   hrOnboardingTaskCreatedAt?: string;
+  currentStageTaskId?: string;
+  currentStageAssigneeIds?: string[];
+  currentStageAssigneeNames?: string[];
+  stageSummary?: string;
   rejectionReason?: string;
   rejectedBy?: string;
   rejectedByRole?: string;
@@ -3825,6 +3871,12 @@ export interface HrmPayrollLineItem {
   totalDeductions: number;
   netPay: number;
   uniquePayKey: string; // `${payPeriod}::${workerId}` prevents duplicate salary payments
+  approvedWorkingDays?: number;
+  approvedLeaveDays?: number;
+  unpaidAbsenceDays?: number;
+  unpaidLeaveDays?: number;
+  policyAttendanceDeductions?: number;
+  attendanceApprovalGatePassed?: boolean;
 }
 
 export type HrmPayrollRunStage =
@@ -3869,6 +3921,12 @@ export interface HrmPayrollRunRecord {
   preparedById: string;
   createdAt: string;
   updatedAt: string;
+  attendanceAuditSummary?: {
+    approvedRecordsUsed: number;
+    unapprovedRecordsExcluded: number;
+    approvedDeductionPolicyApplied: boolean;
+    policyName?: string;
+  };
 }
 
 export interface HrmPrivateProfileRecord {
@@ -3984,6 +4042,20 @@ export interface BiometricDeviceMapping {
   deactivationReason?: string;
 }
 
+export type BiometricEnrollmentStatus =
+  | "Not Registered"
+  | "Registered on Device"
+  | "Mapping Pending"
+  | "Mapping Completed"
+  | "Active"
+  | "Suspended";
+
+export type BiometricWorkflowStage =
+  | "Employee Registration"
+  | "Biometric Enrollment"
+  | "Employee Biometric Mapping"
+  | "Attendance Activation";
+
 export type BiometricMappingAuditAction =
   | "Mapping Created"
   | "Mapping Edited"
@@ -3991,7 +4063,11 @@ export type BiometricMappingAuditAction =
   | "Device Changed"
   | "Mapping Activated"
   | "Mapping Deactivated"
-  | "Unmapped Event Resolved";
+  | "Unmapped Event Resolved"
+  | "Device Registration Recorded"
+  | "Enrollment Status Changed"
+  | "Attendance Activated"
+  | "Enrollment Suspended";
 
 export interface BiometricMappingAuditLog {
   id: string;
@@ -4035,4 +4111,146 @@ export interface UnmappedBiometricEvent {
   createdAt: string;
   updatedAt: string;
 }
+
+// ============================================================================
+// ATTENDANCE WORKFLOW IMPLEMENTATION — PART 2 TYPES
+// ============================================================================
+
+export type AttendanceApprovalStatus =
+  | "Pending"
+  | "Under Review"
+  | "Approved"
+  | "Rejected"
+  | "Returned for Correction";
+
+export type AttendanceReconciledDayStatus =
+  | "Present"
+  | "Absent"
+  | "Approved Leave"
+  | "Unpaid Leave"
+  | "Holiday"
+  | "Missing Attendance"
+  | "Pending Review";
+
+export interface OriginalBiometricEventSnapshot {
+  checkIn: string | null;
+  checkOut: string | null;
+  lunchOut?: string | null;
+  lunchIn?: string | null;
+  status: AttendanceRecord["status"];
+  workingHours: number;
+  overtime: number;
+  method: AttendanceMethod | null;
+  biometricDeviceId?: string;
+  biometricDeviceName?: string;
+  biometricUserId?: string;
+  biometricMappingId?: string;
+  capturedAt: string;
+  timezone: "Africa/Addis_Ababa";
+}
+
+export interface AttendanceApprovalAuditEntry {
+  id: string;
+  timestamp: string;
+  timezone: "Africa/Addis_Ababa";
+  actorName: string;
+  actorUid: string;
+  actorRole: string;
+  action:
+    | "Submitted"
+    | "Prepared / Marked Under Review"
+    | "Discrepancy Reported"
+    | "Manual Correction Requested"
+    | "Returned for Correction"
+    | "Final Approved"
+    | "Rejected"
+    | "Correction Approved"
+    | "Correction Rejected"
+    | "Finalized for Payroll";
+  previousStatus?: string;
+  newStatus?: string;
+  comments: string;
+}
+
+export type AttendanceCorrectionType =
+  | "Missing Check-In"
+  | "Missing Check-Out"
+  | "Incorrect Attendance Record"
+  | "Device Synchronization Failure";
+
+export interface AttendanceCorrectionRequest {
+  id: string;
+  requestNo: string;
+  attendanceId: string;
+  workerId: string;
+  employeeId: string;
+  workerName: string;
+  project: string;
+  department: string;
+  workLocationType: "Head Office" | "Construction Site";
+  date: string;
+  correctionType: AttendanceCorrectionType;
+  originalSnapshot: OriginalBiometricEventSnapshot;
+  proposedCheckIn: string | null;
+  proposedCheckOut: string | null;
+  proposedStatus: AttendanceRecord["status"];
+  reason: string;
+  supportingEvidenceUrl?: string;
+  supportingEvidenceName?: string;
+  supportingEvidenceNote?: string;
+  submittedBy: string;
+  submittedByUid: string;
+  submittedByRole: string;
+  status: AttendanceApprovalStatus;
+  hrOfficerReviewedBy?: string;
+  hrOfficerReviewedByUid?: string;
+  hrOfficerReviewedAt?: string;
+  hrOfficerNotes?: string;
+  hrManagerDecisionBy?: string;
+  hrManagerDecisionByUid?: string;
+  hrManagerDecisionAt?: string;
+  hrManagerComments?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceDeductionPolicy {
+  id: string;
+  policyName: string;
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedByRole?: string;
+  approvedAt?: string;
+  deductUnpaidLeave: boolean;
+  deductUnexcusedAbsence: boolean;
+  lateDeductionEnabled: boolean;
+  graceMinutesBeforeDeduction: number;
+  lateDeductionHourlyFactor: number;
+  absenceDailyMultiplier: number;
+  standardWorkingDaysPerMonth: number;
+  notes?: string;
+  updatedBy: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AttendanceAuditLog {
+  id: string;
+  attendanceId?: string;
+  correctionId?: string;
+  workerId?: string;
+  employeeId?: string;
+  workerName?: string;
+  date?: string;
+  action: string;
+  previousStatus?: string;
+  newStatus?: string;
+  comments: string;
+  actorName: string;
+  actorUid: string;
+  actorRole: string;
+  timestamp: string;
+  timezone: "Africa/Addis_Ababa";
+}
+
 

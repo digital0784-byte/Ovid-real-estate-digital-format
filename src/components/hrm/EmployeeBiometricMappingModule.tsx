@@ -44,12 +44,14 @@ import {
   batchProcessZKTecoEvents,
   fetchBiometricConnectorStatus,
   formatAddisAbabaDateTime,
+  isDeviceVerifiedForBiometricAttendance,
   processBiometricDeviceAttendanceEvent,
   pullAndProcessConnectorQueue,
   resolveBiometricMappingPermissions,
   resolveUnmappedBiometricEventRecord,
   saveValidatedBiometricDevice,
   saveValidatedBiometricMapping,
+  stripProhibitedBiometricTemplateFields,
   toggleBiometricMappingStatus,
 } from "../../services/biometricMappingService";
 import {
@@ -67,6 +69,7 @@ interface EmployeeBiometricMappingModuleProps {
   workSchedules: WorkScheduleConfig[];
   projectNames: string[];
   onAddAttendance: (a: AttendanceRecord) => Promise<void> | void;
+  onUpdateWorker?: (w: Worker) => Promise<void> | void;
   onLogAction: (action: string, details: string) => void;
 }
 
@@ -81,6 +84,7 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
   workSchedules,
   projectNames,
   onAddAttendance,
+  onUpdateWorker,
   onLogAction,
 }) => {
   const actorName =
@@ -491,6 +495,51 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
         actorRole: currentUserRole,
       });
 
+      const linkedWorker = workers.find(
+        (w) => w.id === res.mapping.workerRecordId || w.employeeId === res.mapping.employeeId
+      );
+      if (linkedWorker) {
+        const linkedDev = devices.find((d) => d.id === res.mapping.deviceId);
+        const keepActive =
+          res.mapping.status === "Active" &&
+          linkedWorker.biometricEnrollmentStatus === "Active" &&
+          isDeviceVerifiedForBiometricAttendance(linkedDev);
+        const syncedWorker = stripProhibitedBiometricTemplateFields({
+          ...linkedWorker,
+          workLocationType: res.mapping.workLocationType,
+          assignedProject: res.mapping.projectNameSnapshot,
+          currentSite: res.mapping.projectNameSnapshot,
+          biometricMappingId: res.mapping.id,
+          biometricMappingStatus: res.mapping.status,
+          biometricDeviceId: res.mapping.deviceId,
+          biometricDeviceName: res.mapping.deviceNameSnapshot,
+          biometricDeviceModel: res.mapping.deviceModelSnapshot,
+          biometricDeviceSerialNumber: res.mapping.deviceSerialNumberSnapshot,
+          biometricDeviceUserId: res.mapping.biometricUserId,
+          biometricEnrollmentDate:
+            linkedWorker.biometricEnrollmentDate || res.mapping.effectiveDate,
+          biometricEnrollmentStatus:
+            res.mapping.status === "Inactive"
+              ? "Suspended"
+              : keepActive
+              ? "Active"
+              : "Mapping Completed",
+          biometricWorkflowStage:
+            res.mapping.status === "Inactive"
+              ? "Biometric Enrollment"
+              : keepActive
+              ? "Attendance Activation"
+              : "Employee Biometric Mapping",
+          biometricAttendanceActivated: keepActive,
+          biometricRegistered: keepActive,
+        });
+        if (onUpdateWorker) {
+          await onUpdateWorker(syncedWorker);
+        } else {
+          await DbService.updateWorker(syncedWorker);
+        }
+      }
+
       onLogAction(
         editingMapping ? "Biometric Mapping Updated" : "Biometric Mapping Created",
         `${res.mapping.employeeNameSnapshot} (${res.mapping.employeeId}) <-> ${res.mapping.deviceNameSnapshot} [BioID: ${res.mapping.biometricUserId}]`
@@ -526,6 +575,41 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
         actorUid,
         actorRole: currentUserRole,
       });
+
+      const linkedWorker = workers.find(
+        (w) => w.id === res.mapping.workerRecordId || w.employeeId === res.mapping.employeeId
+      );
+      if (linkedWorker) {
+        const linkedDev = devices.find((d) => d.id === res.mapping.deviceId);
+        const keepActive =
+          nextStatus === "Active" &&
+          Boolean(linkedWorker.biometricAttendanceActivated) &&
+          isDeviceVerifiedForBiometricAttendance(linkedDev);
+        const syncedWorker = stripProhibitedBiometricTemplateFields({
+          ...linkedWorker,
+          biometricMappingStatus: nextStatus,
+          biometricEnrollmentStatus:
+            nextStatus === "Inactive"
+              ? "Suspended"
+              : keepActive
+              ? "Active"
+              : "Mapping Completed",
+          biometricWorkflowStage:
+            nextStatus === "Inactive"
+              ? "Biometric Enrollment"
+              : keepActive
+              ? "Attendance Activation"
+              : "Employee Biometric Mapping",
+          biometricAttendanceActivated: keepActive,
+          biometricRegistered: keepActive,
+        });
+        if (onUpdateWorker) {
+          await onUpdateWorker(syncedWorker);
+        } else {
+          await DbService.updateWorker(syncedWorker);
+        }
+      }
+
       onLogAction(
         `Biometric Mapping ${nextStatus === "Inactive" ? "Deactivated" : "Activated"}`,
         `${res.mapping.employeeNameSnapshot} (${res.mapping.employeeId}) on ${res.mapping.deviceNameSnapshot}`
@@ -877,6 +961,15 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
           )}
         </div>
       </div>
+
+      {!perms.canManageBiometricEnrollment && (
+        <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2.5">
+          <Lock size={15} className="text-amber-400 shrink-0" />
+          <span>
+            <strong>HR Department Only (View-Only Mode):</strong> Biometric enrollment and employee biometric mapping management for Head Office and all Construction Sites are strictly restricted to authorized HR Department personnel ({currentUserRole} has view-only scope).
+          </span>
+        </div>
+      )}
 
       {banner && (
         <div
@@ -1438,6 +1531,7 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                       <th className="py-2.5 px-3">Protocol / Network</th>
                       <th className="py-2.5 px-3">Work Location / Site</th>
                       <th className="py-2.5 px-3">Active Mapped Staff</th>
+                      <th className="py-2.5 px-3">Verification</th>
                       <th className="py-2.5 px-3">Status</th>
                       {perms.canManageDevices && <th className="py-2.5 px-3 text-right">Manage</th>}
                     </tr>
@@ -1452,6 +1546,8 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                           String(h.serialNumber || "").toLowerCase() ===
                           String(dev.serialNumber || "").toLowerCase()
                       );
+                      const verified =
+                        isDeviceVerifiedForBiometricAttendance(dev) || Boolean(handshake);
                       return (
                         <tr key={dev.id} className="border-b border-slate-900 hover:bg-slate-900/50">
                           <td className="py-3 px-3 font-mono font-bold text-white">{dev.deviceCode}</td>
@@ -1467,6 +1563,8 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                             <div className="text-slate-500">
                               {handshake
                                 ? `Last ADMS ping: ${formatAddisAbabaDateTime(handshake.lastHandshakeAt)}`
+                                : dev.lastHandshakeAt
+                                ? `Verified: ${formatAddisAbabaDateTime(dev.lastHandshakeAt)}`
                                 : "Awaiting physical handshake"}
                             </div>
                           </td>
@@ -1482,6 +1580,17 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                           <td className="py-3 px-3">
                             <span
                               className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                verified
+                                  ? "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
+                                  : "bg-amber-950/70 border border-amber-500/40 text-amber-300"
+                              }`}
+                            >
+                              {verified ? "Verified" : "Pending Verification"}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
                                 dev.status === "Active"
                                   ? "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
                                   : "bg-slate-900 border border-slate-700 text-slate-400"
@@ -1492,35 +1601,86 @@ export const EmployeeBiometricMappingModule: React.FC<EmployeeBiometricMappingMo
                           </td>
                           {perms.canManageDevices && (
                             <td className="py-3 px-3 text-right">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setEditingDevice(dev);
-                                  setDeviceFormError(null);
-                                  setDeviceForm({
-                                    deviceCode: dev.deviceCode,
-                                    deviceName: dev.deviceName,
-                                    manufacturer: dev.manufacturer,
-                                    model: dev.model,
-                                    serialNumber: dev.serialNumber,
-                                    workLocationType: dev.workLocationType,
-                                    projectName: dev.projectName || projectNames[0] || "Head Office",
-                                    deviceLocation: dev.deviceLocation,
-                                    protocolType: dev.protocolType || "ADMS_PUSH_HTTP",
-                                    networkTopology:
-                                      dev.networkTopology || "Separate Site Network (ADMS Cloud Push)",
-                                    admsPath: dev.admsPath || "/iclock/cdata",
-                                    supportedCapabilities:
-                                      dev.supportedCapabilities || ["Fingerprint", "Face"],
-                                    status: dev.status,
-                                    notes: dev.notes || "",
-                                  });
-                                  setShowDeviceModal(true);
-                                }}
-                                className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold cursor-pointer"
-                              >
-                                Edit
-                              </button>
+                              <div className="flex justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  disabled={connectorBusy}
+                                  onClick={async () => {
+                                    setConnectorBusy(true);
+                                    try {
+                                      const statusRes = await fetchBiometricConnectorStatus();
+                                      setConnectorStatus({
+                                        hardwareConnected: statusRes.hardwareConnected,
+                                        sharedKeyConfigured: statusRes.sharedKeyConfigured,
+                                        pendingQueueCount: statusRes.pendingQueueCount,
+                                        discardedTemplatePackets: statusRes.discardedTemplatePackets,
+                                        handshakenDevices: statusRes.handshakenDevices || [],
+                                      });
+                                      const matchedHs = (statusRes.handshakenDevices || []).find(
+                                        (h) =>
+                                          String(h.serialNumber || "").toLowerCase() ===
+                                          String(dev.serialNumber || "").toLowerCase()
+                                      );
+                                      if (matchedHs) {
+                                        await DbService.saveBiometricDevice({
+                                          ...dev,
+                                          connectionVerified: true,
+                                          lastHandshakeAt: matchedHs.lastHandshakeAt,
+                                          updatedAt: new Date().toISOString(),
+                                        });
+                                        showToast(
+                                          "success",
+                                          `ADMS handshake verified for ${dev.deviceName} (${dev.serialNumber}).`
+                                        );
+                                      } else {
+                                        showToast(
+                                          "info",
+                                          `No live ADMS handshake received yet from S/N "${dev.serialNumber}". Point the terminal ADMS Server URL to ${window.location.origin}/iclock/cdata or run the LAN TCP probe above.`
+                                        );
+                                      }
+                                    } catch (err: any) {
+                                      showToast(
+                                        "error",
+                                        err?.message || "Failed to query connector handshake status."
+                                      );
+                                    } finally {
+                                      setConnectorBusy(false);
+                                    }
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-emerald-300 font-bold cursor-pointer disabled:opacity-50"
+                                >
+                                  Verify Sync
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingDevice(dev);
+                                    setDeviceFormError(null);
+                                    setDeviceForm({
+                                      deviceCode: dev.deviceCode,
+                                      deviceName: dev.deviceName,
+                                      manufacturer: dev.manufacturer,
+                                      model: dev.model,
+                                      serialNumber: dev.serialNumber,
+                                      workLocationType: dev.workLocationType,
+                                      projectName: dev.projectName || projectNames[0] || "Head Office",
+                                      deviceLocation: dev.deviceLocation,
+                                      protocolType: dev.protocolType || "ADMS_PUSH_HTTP",
+                                      networkTopology:
+                                        dev.networkTopology || "Separate Site Network (ADMS Cloud Push)",
+                                      admsPath: dev.admsPath || "/iclock/cdata",
+                                      supportedCapabilities:
+                                        dev.supportedCapabilities || ["Fingerprint", "Face"],
+                                      status: dev.status,
+                                      notes: dev.notes || "",
+                                    });
+                                    setShowDeviceModal(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-amber-300 font-bold cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                              </div>
                             </td>
                           )}
                         </tr>

@@ -14,6 +14,7 @@ import {
   FileSpreadsheet,
   FileText,
   Fingerprint,
+  History,
   Landmark,
   Layers,
   Lock,
@@ -28,6 +29,7 @@ import {
   UserPlus,
   Users,
   Wifi,
+  X,
   XCircle,
 } from "lucide-react";
 import {
@@ -41,10 +43,17 @@ import {
   YAxis,
 } from "recharts";
 import {
+  AttendanceApprovalStatus,
+  AttendanceAuditLog,
+  AttendanceCorrectionRequest,
+  AttendanceCorrectionType,
+  AttendanceDeductionPolicy,
   AttendanceMethod,
   AttendanceRecord,
   BiometricDeviceMapping,
   BiometricDeviceRecord,
+  BiometricEnrollmentStatus,
+  BiometricMappingAuditLog,
   EmployeeTransferRecord,
   ErpTask,
   EthiopianTaxBracket,
@@ -70,9 +79,17 @@ import { DbService } from "../../services/db";
 import { offlineSyncService } from "../../services/offlineSyncService";
 import { verifyWorkerFingerprint, getBiometricCapabilities } from "../../services/biometricService";
 import {
+  activateEmployeeBiometricAttendance,
+  completeEmployeeBiometricMappingWorkflow,
+  computeEmployeeBiometricProfileState,
+  computeHrmBiometricEnrollmentStats,
+  enrollEmployeeOnBiometricDevice,
+  isDeviceVerifiedForBiometricAttendance,
   processBiometricDeviceAttendanceEvent,
   pullAndProcessConnectorQueue,
   resolveBiometricMappingPermissions,
+  stripProhibitedBiometricTemplateFields,
+  suspendEmployeeBiometricEnrollment,
 } from "../../services/biometricMappingService";
 import { EmployeeBiometricMappingModule } from "./EmployeeBiometricMappingModule";
 import {
@@ -85,6 +102,7 @@ import {
   advanceRecruitmentApproval,
   buildHrmPayrollRunDraft,
   canActorApproveRecruitmentStage,
+  canRequesterResubmitRecruitmentRequest,
   completeApprovedEmployeeOnboarding,
   computeEthiopianIncomeTaxAndPension,
   computeHrmDashboardState,
@@ -95,6 +113,7 @@ import {
   downloadHrmPayslipPdf,
   exportHrmReport,
   generateNextEmployeeId,
+  HrmRoutingUser,
   inferWorkerWorkLocationType,
   maskSensitiveValue,
   recalculatePayrollRunLineItem,
@@ -106,9 +125,17 @@ import {
 } from "../../services/hrmService";
 import {
   AttendancePeriodMode,
+  AttendanceReportTypeId,
+  buildAttendanceReportRows,
   computeAttendanceWorkflowDashboard,
   detectMissingPunchType,
+  formatAddisAbabaDateTime,
+  reconcileEmployeeAttendanceDay,
+  reportAttendanceDiscrepancy,
   reviewAttendanceException,
+  reviewManualCorrectionRequest,
+  submitManualCorrectionRequest,
+  transitionAttendanceApprovalStatus,
   WorkLocationFilterType,
 } from "../../services/attendanceWorkflowService";
 
@@ -141,7 +168,8 @@ type HrmReportKind =
   | "leave-absence"
   | "payroll"
   | "project-labor"
-  | "payment-history";
+  | "payment-history"
+  | AttendanceReportTypeId;
 
 const fmtMoney = (v: number) =>
   Number(v || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -194,9 +222,14 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const [decryptedPiiMap, setDecryptedPiiMap] = useState<Record<string, { faydaId: string; bankAccountNumber: string; mobileMoneyNumber: string }>>({});
   const [personalPayslips, setPersonalPayslips] = useState<HrmPayslipRecord[]>([]);
   const [erpTasks, setErpTasks] = useState<ErpTask[]>([]);
+  const [systemUsers, setSystemUsers] = useState<HrmRoutingUser[]>([]);
   const [biometricDevices, setBiometricDevices] = useState<BiometricDeviceRecord[]>([]);
   const [biometricDeviceMappings, setBiometricDeviceMappings] = useState<BiometricDeviceMapping[]>([]);
+  const [biometricMappingAuditLogs, setBiometricMappingAuditLogs] = useState<BiometricMappingAuditLog[]>([]);
   const [unmappedBiometricEvents, setUnmappedBiometricEvents] = useState<UnmappedBiometricEvent[]>([]);
+  const [attendanceCorrections, setAttendanceCorrections] = useState<AttendanceCorrectionRequest[]>([]);
+  const [attendanceDeductionPolicies, setAttendanceDeductionPolicies] = useState<AttendanceDeductionPolicy[]>([]);
+  const [attendanceAuditLogs, setAttendanceAuditLogs] = useState<AttendanceAuditLog[]>([]);
 
   const [offlineStats, setOfflineStats] = useState(() => offlineSyncService.getStats());
 
@@ -220,15 +253,20 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       unsubs.push(DbService.subscribeRecruitmentRequests(setRecruitmentRequests));
       unsubs.push(DbService.subscribeEmployeeTransfers(setEmployeeTransfers));
       unsubs.push(DbService.subscribeTasks(setErpTasks));
+      unsubs.push(DbService.subscribeUsers((users) => setSystemUsers(users as HrmRoutingUser[])));
+      unsubs.push(DbService.subscribeAttendanceCorrections(setAttendanceCorrections));
+      unsubs.push(DbService.subscribeAttendanceAuditLogs(setAttendanceAuditLogs));
     }
 
     if (biometricMappingPerms.canView) {
       unsubs.push(DbService.subscribeBiometricDevices(setBiometricDevices));
       unsubs.push(DbService.subscribeBiometricDeviceMappings(setBiometricDeviceMappings));
+      unsubs.push(DbService.subscribeBiometricMappingAuditLogs(setBiometricMappingAuditLogs));
       unsubs.push(DbService.subscribeUnmappedBiometricEvents(setUnmappedBiometricEvents));
     }
 
     unsubs.push(DbService.subscribeWorkSchedules(setWorkSchedules));
+    unsubs.push(DbService.subscribeAttendanceDeductionPolicies(setAttendanceDeductionPolicies));
 
     // Scope leave, overtime & loans to creator UID for standard Employee self-service
     const selfUidFilter = perms.isEmployee ? actorUid : undefined;
@@ -287,6 +325,20 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     return DEFAULT_ETHIOPIAN_TAX_PENSION_CONFIG;
   }, [taxPensionConfigs]);
 
+  const latestDeductionPolicy = useMemo<AttendanceDeductionPolicy | undefined>(() => {
+    if (attendanceDeductionPolicies.length > 0) {
+      return [...attendanceDeductionPolicies].sort((a, b) =>
+        (b.updatedAt || "").localeCompare(a.updatedAt || "")
+      )[0];
+    }
+    return undefined;
+  }, [attendanceDeductionPolicies]);
+
+  const approvedDeductionPolicy = useMemo<AttendanceDeductionPolicy | undefined>(
+    () => (latestDeductionPolicy?.isApproved ? latestDeductionPolicy : undefined),
+    [latestDeductionPolicy]
+  );
+
   const [selectedMonth, setSelectedMonth] = useState(() => new Date().toISOString().slice(0, 7));
 
   const dash = useMemo(
@@ -315,6 +367,16 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       workSchedules,
       selectedMonth,
     ]
+  );
+
+  const bioDash = useMemo(
+    () =>
+      computeHrmBiometricEnrollmentStats(
+        workers,
+        biometricDeviceMappings,
+        biometricDevices
+      ),
+    [workers, biometricDeviceMappings, biometricDevices]
   );
 
   const projectNames = useMemo(() => {
@@ -380,6 +442,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     experienceRequired: "",
     qualificationsRequired: "",
     justification: "",
+    supportingDocuments: [] as RecruitmentSupportingDocument[],
     notes: "",
   });
 
@@ -418,12 +481,14 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const returnedRequestsForUser = useMemo(
     () =>
-      recruitmentRequests.filter(
-        (r) =>
-          r.workflowStage === "Returned for Correction" &&
-          (r.requestedById === actorUid || perms.isSectionHead || perms.isDirector)
+      recruitmentRequests.filter((r) =>
+        canRequesterResubmitRecruitmentRequest({
+          request: r,
+          actorUid,
+          actorRole: currentUserRole,
+        })
       ),
-    [recruitmentRequests, actorUid, perms.isSectionHead, perms.isDirector]
+    [recruitmentRequests, actorUid, currentUserRole]
   );
 
   const handleSaveManpowerPlan = async (e: React.FormEvent) => {
@@ -480,8 +545,40 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     }
   };
 
+  const handleUploadResubmitDocument = async (file: File) => {
+    setUploadingRecDoc(true);
+    try {
+      const nowIso = new Date().toISOString();
+      const path = `hrm/recruitment/docs/${Date.now()}_${file.name}`;
+      const res = await DbService.uploadHrmFile(file, path);
+      const docMeta: RecruitmentSupportingDocument = {
+        id: `RECDOC-${Date.now()}`,
+        name: file.name,
+        url: res.url,
+        storagePath: res.storagePath,
+        uploadedAt: nowIso,
+        uploadedBy: actorName,
+      };
+      setResubmitForm((p) => ({
+        ...p,
+        supportingDocuments: [...p.supportingDocuments, docMeta],
+      }));
+      showToast("success", `Attached updated document "${file.name}".`);
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to upload supporting document.");
+    } finally {
+      setUploadingRecDoc(false);
+    }
+  };
+
   const handleSubmitRecruitment = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!perms.canSubmitManpowerRequest) {
+      return showToast(
+        "error",
+        "Only Section Head (or Super Admin) can submit a new Manpower Recruitment Request."
+      );
+    }
     if (!recForm.justification.trim()) {
       return showToast("error", "Please enter a recruitment reason / justification.");
     }
@@ -498,6 +595,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         actorRole: currentUserRole,
         manpowerPlans,
         workers,
+        existingRequests: recruitmentRequests,
+        users: systemUsers,
       });
       onLogAction(
         "HRM Recruitment Requested",
@@ -549,6 +648,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         actorUid,
         actorRole: currentUserRole,
         notes: recDecisionNotes,
+        users: systemUsers,
+        tasks: erpTasks,
       });
       onLogAction(
         "HRM Recruitment Workflow",
@@ -558,7 +659,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         decision === "Rejected" ? "info" : "success",
         updated.workflowStage === "Approved"
           ? `${req.requestNo} received Director Final Approval! HR Manager is now authorized to register employee(s).`
-          : `${req.requestNo} updated to "${updated.workflowStage}". Notifications dispatched.`
+          : `${req.requestNo} updated to "${updated.workflowStage}". Notifications & department tasks dispatched.`
       );
       setRecDecisionModal(null);
     } catch (err: any) {
@@ -567,6 +668,18 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   };
 
   const openResubmitModal = (req: RecruitmentRequestRecord) => {
+    if (
+      !canRequesterResubmitRecruitmentRequest({
+        request: req,
+        actorUid,
+        actorRole: currentUserRole,
+      })
+    ) {
+      return showToast(
+        "error",
+        `Only the original requester (${req.requestedBy}) or Super Admin can revise and resubmit ${req.requestNo}.`
+      );
+    }
     setResubmittingRec(req);
     setResubmitForm({
       project: req.project,
@@ -581,6 +694,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       experienceRequired: req.experienceRequired || "",
       qualificationsRequired: req.qualificationsRequired,
       justification: req.justification,
+      supportingDocuments: req.supportingDocuments || [],
       notes: "",
     });
   };
@@ -604,12 +718,15 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
           experienceRequired: resubmitForm.experienceRequired,
           qualificationsRequired: resubmitForm.qualificationsRequired,
           justification: resubmitForm.justification,
+          supportingDocuments: resubmitForm.supportingDocuments,
         },
         actorName,
         actorUid,
         actorRole: currentUserRole,
         manpowerPlans,
         workers,
+        users: systemUsers,
+        tasks: erpTasks,
         notes: resubmitForm.notes,
       });
       onLogAction("HRM Recruitment Resubmitted", `${updated.requestNo} revised & resubmitted to HR Manager`);
@@ -739,13 +856,198 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       transportAllowance: Number(w.transportAllowance || 0),
       positionAllowance: Number(w.positionAllowance || 0),
       medicalAllowance: Number(w.medicalAllowance || 0),
-      biometricRegistered: Boolean(w.biometricRegistered || w.fingerprint || w.faceRecognitionData),
+      biometricRegistered: Boolean(
+        w.biometricEnrollmentStatus === "Active" || w.biometricAttendanceActivated || w.biometricRegistered
+      ),
       photo: w.photo || "",
       photoStoragePath: w.photoStoragePath || "",
       documents: w.documents || [],
       status: w.status || "Active",
     });
     setShowEmpModal(true);
+  };
+
+  // Integrated Employee Biometric Enrollment Profile Modal State & Handlers
+  const [viewingBioProfileWorkerId, setViewingBioProfileWorkerId] = useState<string | null>(null);
+  const [bioProfileBusy, setBioProfileBusy] = useState(false);
+  const [bioSuspendReason, setBioSuspendReason] = useState("");
+  const [bioEnrollForm, setBioEnrollForm] = useState({
+    deviceId: "",
+    biometricUserId: "",
+    workLocationType: "Construction Site" as "Head Office" | "Construction Site",
+    projectSite: "",
+    enrollmentDate: new Date().toISOString().slice(0, 10),
+    markMappingPending: false,
+    notes: "",
+  });
+
+  const viewingBioProfileWorker = useMemo(
+    () => workers.find((w) => w.id === viewingBioProfileWorkerId) || null,
+    [workers, viewingBioProfileWorkerId]
+  );
+
+  const viewingBioProfileState = useMemo(
+    () =>
+      viewingBioProfileWorker
+        ? computeEmployeeBiometricProfileState(
+            viewingBioProfileWorker,
+            biometricDeviceMappings,
+            biometricDevices
+          )
+        : null,
+    [viewingBioProfileWorker, biometricDeviceMappings, biometricDevices]
+  );
+
+  const openEmployeeBiometricProfileModal = (w: Worker) => {
+    const state = computeEmployeeBiometricProfileState(
+      w,
+      biometricDeviceMappings,
+      biometricDevices
+    );
+    const firstActiveDev = biometricDevices.find((d) => d.status === "Active");
+    setViewingBioProfileWorkerId(w.id);
+    setBioSuspendReason("");
+    setBioEnrollForm({
+      deviceId: state.biometricDeviceId || firstActiveDev?.id || "",
+      biometricUserId: state.deviceUserId || "",
+      workLocationType: state.workLocationType,
+      projectSite: state.projectSite || w.assignedProject || w.currentSite || "Head Office",
+      enrollmentDate: state.enrollmentDate || new Date().toISOString().slice(0, 10),
+      markMappingPending: state.enrollmentStatus === "Mapping Pending",
+      notes: "",
+    });
+  };
+
+  const handleStage2DeviceEnroll = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!viewingBioProfileWorker) return;
+    setBioProfileBusy(true);
+    try {
+      const res = await enrollEmployeeOnBiometricDevice({
+        worker: viewingBioProfileWorker,
+        deviceId: bioEnrollForm.deviceId,
+        biometricUserId: bioEnrollForm.biometricUserId,
+        workLocationType: bioEnrollForm.workLocationType,
+        projectSite: bioEnrollForm.projectSite,
+        enrollmentDate: bioEnrollForm.enrollmentDate,
+        markMappingPending: bioEnrollForm.markMappingPending,
+        notes: bioEnrollForm.notes,
+        devices: biometricDevices,
+        existingMappings: biometricDeviceMappings,
+        allWorkers: workers,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveWorker: onUpdateWorker,
+      });
+      onLogAction(
+        "Employee Biometric Device Enrollment",
+        `${res.updatedWorker.name} (${res.updatedWorker.employeeId || res.updatedWorker.id}) enrolled on ${res.updatedWorker.biometricDeviceName} [BioID: ${res.updatedWorker.biometricDeviceUserId}] (${res.updatedWorker.biometricEnrollmentStatus})`
+      );
+      showToast(
+        "success",
+        `Biometric Enrollment saved (${res.updatedWorker.biometricEnrollmentStatus}). Next step: Complete Employee Biometric Mapping.`
+      );
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to save biometric enrollment.");
+    } finally {
+      setBioProfileBusy(false);
+    }
+  };
+
+  const handleStage3CompleteMapping = async () => {
+    if (!viewingBioProfileWorker || !viewingBioProfileState) return;
+    setBioProfileBusy(true);
+    try {
+      const res = await completeEmployeeBiometricMappingWorkflow({
+        worker: viewingBioProfileWorker,
+        editingMapping: viewingBioProfileState.activeMapping || null,
+        deviceId: bioEnrollForm.deviceId || viewingBioProfileState.biometricDeviceId,
+        biometricUserId: bioEnrollForm.biometricUserId || viewingBioProfileState.deviceUserId,
+        workLocationType: bioEnrollForm.workLocationType,
+        projectSite: bioEnrollForm.projectSite,
+        effectiveDate: bioEnrollForm.enrollmentDate,
+        notes: bioEnrollForm.notes,
+        workers,
+        devices: biometricDevices,
+        existingMappings: biometricDeviceMappings,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveWorker: onUpdateWorker,
+      });
+      onLogAction(
+        "Employee Biometric Mapping Completed",
+        `${res.updatedWorker.name} (${res.mapping.employeeId}) <-> ${res.mapping.deviceNameSnapshot} [BioID: ${res.mapping.biometricUserId}]`
+      );
+      showToast(
+        "success",
+        `Mapping completed (${res.mapping.deviceNameSnapshot} · BioID ${res.mapping.biometricUserId}). Next step: Verify device connection & Activate Attendance.`
+      );
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to complete biometric mapping.");
+    } finally {
+      setBioProfileBusy(false);
+    }
+  };
+
+  const handleStage4ActivateAttendance = async () => {
+    if (!viewingBioProfileWorker) return;
+    setBioProfileBusy(true);
+    try {
+      const res = await activateEmployeeBiometricAttendance({
+        worker: viewingBioProfileWorker,
+        mappings: biometricDeviceMappings,
+        devices: biometricDevices,
+        notes: bioEnrollForm.notes,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveWorker: onUpdateWorker,
+      });
+      onLogAction(
+        "Employee Biometric Attendance Activated",
+        `${res.updatedWorker.name} (${res.updatedWorker.employeeId || res.updatedWorker.id}) -> Status: Active on ${res.updatedWorker.biometricDeviceName}`
+      );
+      showToast(
+        "success",
+        `Biometric attendance is now ACTIVE for ${res.updatedWorker.name}. Punches will now sync directly to Attendance.`
+      );
+    } catch (err: any) {
+      showToast("error", err?.message || "Cannot activate biometric attendance yet.");
+    } finally {
+      setBioProfileBusy(false);
+    }
+  };
+
+  const handleSuspendBiometricEnrollment = async () => {
+    if (!viewingBioProfileWorker) return;
+    setBioProfileBusy(true);
+    try {
+      const res = await suspendEmployeeBiometricEnrollment({
+        worker: viewingBioProfileWorker,
+        mappings: biometricDeviceMappings,
+        devices: biometricDevices,
+        reason: bioSuspendReason,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveWorker: onUpdateWorker,
+      });
+      onLogAction(
+        "Employee Biometric Enrollment Suspended",
+        `${res.updatedWorker.name} (${res.updatedWorker.employeeId || res.updatedWorker.id}): ${bioSuspendReason}`
+      );
+      setBioSuspendReason("");
+      showToast(
+        "info",
+        `Biometric enrollment suspended for ${res.updatedWorker.name}. Historical audit logs preserved.`
+      );
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to suspend biometric enrollment.");
+    } finally {
+      setBioProfileBusy(false);
+    }
   };
 
   const handlePhotoUpload = async (file: File) => {
@@ -816,7 +1118,19 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     const nowIso = new Date().toISOString();
     const nowDate = nowIso.slice(0, 10);
     const existing = editingWorkerId ? workers.find((w) => w.id === editingWorkerId) : undefined;
-    const targetWorkerId = existing ? existing.id : empForm.employeeId;
+    // Guarantee strict uniqueness on newly assigned Employee IDs even under concurrent registrations
+    const assignedEmployeeId = existing
+      ? existing.employeeId || existing.id
+      : workers.some(
+          (w) =>
+            String(w.employeeId || "").trim().toUpperCase() ===
+              String(empForm.employeeId || "").trim().toUpperCase() ||
+            String(w.id || "").trim().toUpperCase() ===
+              String(empForm.employeeId || "").trim().toUpperCase()
+        )
+      ? generateNextEmployeeId(workers)
+      : empForm.employeeId;
+    const targetWorkerId = existing ? existing.id : assignedEmployeeId;
     const prevDecrypted = decryptedPiiMap[targetWorkerId];
 
     // Preserve unmasked PII if form still contains masked asterisks from unrevealed state
@@ -837,27 +1151,25 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         ? prevDecrypted.mobileMoneyNumber
         : empForm.mobileMoneyNumber.trim();
 
-    // Encrypt sensitive PII into role-restricted hrmPrivateProfiles collection
+    // Encrypt sensitive PII into role-restricted hrmPrivateProfiles collection (ZERO raw biometric templates stored)
     const [
       faydaEnc,
       nationalEnc,
       bankEnc,
       mobileEnc,
       emergencyEnc,
-      bioRefEnc,
     ] = await Promise.all([
       encryptSensitiveText(resolvedFayda),
       encryptSensitiveText(resolvedNationalId),
       encryptSensitiveText(resolvedBankAcc),
       encryptSensitiveText(resolvedMobileMoney),
       encryptSensitiveText(empForm.emergencyContact.trim()),
-      encryptSensitiveText(existing?.fingerprint || existing?.faceRecognitionData || ""),
     ]);
 
     const privateProfile: HrmPrivateProfileRecord = {
       id: targetWorkerId,
       workerId: targetWorkerId,
-      employeeId: empForm.employeeId,
+      employeeId: assignedEmployeeId,
       userId: empForm.userId.trim() || existing?.userId || targetWorkerId,
       faydaIdEncrypted: faydaEnc,
       nationalIdEncrypted: nationalEnc,
@@ -866,7 +1178,6 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       mobileMoneyType: empForm.mobileMoneyType,
       mobileMoneyNumberEncrypted: mobileEnc,
       emergencyContactEncrypted: emergencyEnc,
-      biometricTemplateEncrypted: bioRefEnc || undefined,
       encryptionAlgorithm: "AES-GCM-256",
       updatedBy: actorName,
       createdAt: existing?.joinedDate ? `${existing.joinedDate}T00:00:00.000Z` : nowIso,
@@ -880,7 +1191,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     const maskedBank = resolvedBankAcc ? buildMaskedPreview(resolvedBankAcc) : "";
     const maskedMobile = resolvedMobileMoney ? buildMaskedPreview(resolvedMobileMoney) : "";
 
-    const workerPayload: Worker = {
+    const workerPayload: Worker = stripProhibitedBiometricTemplateFields({
       ...(existing || {
         company: "OVID Real Estate — Digital Construction ERP",
         joinedDate: nowDate,
@@ -888,7 +1199,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         leaveBalances: { annual: 16, sick: 10, maternityPaternity: 15, unpaidUsed: 0 },
       }),
       id: targetWorkerId,
-      employeeId: empForm.employeeId,
+      employeeId: assignedEmployeeId,
       userId: empForm.userId.trim() || existing?.userId || undefined,
       name: empForm.name.trim(),
       phoneNumber: empForm.phoneNumber,
@@ -919,13 +1230,19 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       transportAllowance: Number(empForm.transportAllowance || 0),
       positionAllowance: Number(empForm.positionAllowance || 0),
       medicalAllowance: Number(empForm.medicalAllowance || 0),
-      biometricRegistered: empForm.biometricRegistered,
+      biometricRegistered: existing?.biometricRegistered || false,
+      biometricEnrollmentStatus:
+        existing?.biometricEnrollmentStatus || ("Not Registered" as BiometricEnrollmentStatus),
+      biometricWorkflowStage:
+        existing?.biometricWorkflowStage || "Employee Registration",
+      biometricMappingStatus: existing?.biometricMappingStatus || "Unmapped",
+      biometricAttendanceActivated: existing?.biometricAttendanceActivated || false,
       photo: empForm.photo,
       photoStoragePath: empForm.photoStoragePath,
       documents: empForm.documents,
       status: empForm.status,
       recruitmentRequestId: onboardingFromRec?.id || existing?.recruitmentRequestId,
-    };
+    });
 
     if (existing) {
       await onUpdateWorker(workerPayload);
@@ -960,7 +1277,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         onboardingOutcome.exceededManpowerAlert ? "info" : "success",
         onboardingOutcome.exceededManpowerAlert
           ? `Registered ${workerPayload.name} (${workerPayload.employeeId}). Alert sent to Director: active headcount exceeds approved quota.`
-          : `Employee ${workerPayload.name} registered with ID ${workerPayload.employeeId}.`
+          : `Employee ${workerPayload.name} registered with unique ID ${workerPayload.employeeId}. Ready for HR Biometric Enrollment.`
       );
     }
     setShowEmpModal(false);
@@ -986,8 +1303,9 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   // 3. ATTENDANCE, SCHEDULE, LEAVE, OVERTIME & TRANSFER STATE
   // ============================================================
   const [attSubView, setAttSubView] = useState<
-    "board" | "exceptions" | "schedules" | "leaves" | "overtime" | "transfers"
+    "board" | "exceptions" | "corrections" | "schedules" | "leaves" | "overtime" | "transfers"
   >("board");
+  const [approvalStatusFilter, setApprovalStatusFilter] = useState<"ALL" | AttendanceApprovalStatus>("ALL");
   const [quickClock, setQuickClock] = useState({
     workerId: "",
     date: new Date().toISOString().slice(0, 10),
@@ -1013,6 +1331,61 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     biometricUserId: "",
     punchType: "Check-In" as "Check-In" | "Check-Out",
   });
+  const [correctionForm, setCorrectionForm] = useState({
+    attendanceId: "",
+    workerId: "",
+    date: new Date().toISOString().slice(0, 10),
+    correctionType: "Missing Check-Out" as AttendanceCorrectionType,
+    proposedCheckIn: "08:00",
+    proposedCheckOut: "17:00",
+    proposedStatus: "Present" as AttendanceRecord["status"],
+    reason: "",
+    supportingEvidenceUrl: "",
+    supportingEvidenceName: "",
+    supportingEvidenceNote: "",
+  });
+  const [uploadingCorrectionEvidence, setUploadingCorrectionEvidence] = useState(false);
+  const [correctionReviewNotes, setCorrectionReviewNotes] = useState<Record<string, string>>({});
+  const [attActionModal, setAttActionModal] = useState<{
+    record: AttendanceRecord;
+    mode:
+      | "Prepare / Mark Under Review"
+      | "Return for Correction"
+      | "Final Approve"
+      | "Reject"
+      | "Report Discrepancy";
+  } | null>(null);
+  const [attActionComments, setAttActionComments] = useState("");
+  const [enforceStrictAttendanceGate, setEnforceStrictAttendanceGate] = useState(false);
+  const [policyForm, setPolicyForm] = useState({
+    policyName: "OVID Standard Ethiopian Construction Attendance Policy",
+    isApproved: false,
+    deductUnpaidLeave: true,
+    deductUnexcusedAbsence: true,
+    absenceDailyMultiplier: 1,
+    lateDeductionEnabled: false,
+    graceMinutesBeforeDeduction: 15,
+    lateDeductionHourlyFactor: 1,
+    standardWorkingDaysPerMonth: 26,
+    notes: "",
+  });
+  useEffect(() => {
+    if (latestDeductionPolicy) {
+      setPolicyForm({
+        policyName: latestDeductionPolicy.policyName,
+        isApproved: latestDeductionPolicy.isApproved,
+        deductUnpaidLeave: latestDeductionPolicy.deductUnpaidLeave,
+        deductUnexcusedAbsence: latestDeductionPolicy.deductUnexcusedAbsence,
+        absenceDailyMultiplier: latestDeductionPolicy.absenceDailyMultiplier,
+        lateDeductionEnabled: latestDeductionPolicy.lateDeductionEnabled,
+        graceMinutesBeforeDeduction: latestDeductionPolicy.graceMinutesBeforeDeduction,
+        lateDeductionHourlyFactor: latestDeductionPolicy.lateDeductionHourlyFactor,
+        standardWorkingDaysPerMonth: latestDeductionPolicy.standardWorkingDaysPerMonth,
+        notes: latestDeductionPolicy.notes || "",
+      });
+    }
+  }, [latestDeductionPolicy]);
+  const [reportSearch, setReportSearch] = useState("");
 
   const [schedForm, setSchedForm] = useState({
     scheduleName: "Standard Construction Day Shift",
@@ -1369,6 +1742,275 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     }
   };
 
+  const handleOpenCorrectionForRecord = (record: AttendanceRecord) => {
+    setCorrectionForm({
+      attendanceId: record.id,
+      workerId: record.workerId,
+      date: record.date,
+      correctionType:
+        detectMissingPunchType(record) === "Missing Check-In"
+          ? "Missing Check-In"
+          : detectMissingPunchType(record) === "Missing Check-Out"
+          ? "Missing Check-Out"
+          : "Incorrect Attendance Record",
+      proposedCheckIn: (record.checkIn || "08:00").slice(0, 5),
+      proposedCheckOut: (record.checkOut || "17:00").slice(0, 5),
+      proposedStatus: record.status === "Absent" ? "Present" : record.status,
+      reason: "",
+      supportingEvidenceUrl: "",
+      supportingEvidenceName: "",
+      supportingEvidenceNote: "",
+    });
+    setAttSubView("corrections");
+  };
+
+  const handleUploadCorrectionEvidence = async (file: File) => {
+    setUploadingCorrectionEvidence(true);
+    try {
+      const path = `hrm/attendance-corrections/${Date.now()}_${file.name}`;
+      const url = await DbService.uploadHrmFile(file, path);
+      setCorrectionForm((p) => ({
+        ...p,
+        supportingEvidenceUrl: url,
+        supportingEvidenceName: file.name,
+      }));
+      showToast("success", `Uploaded evidence: ${file.name}`);
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to upload supporting evidence.");
+    } finally {
+      setUploadingCorrectionEvidence(false);
+    }
+  };
+
+  const handleSubmitManualCorrection = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      let targetRecord = attendance.find((a) => a.id === correctionForm.attendanceId);
+      const targetWorker =
+        workers.find((w) => w.id === (targetRecord?.workerId || correctionForm.workerId)) || workers[0];
+      if (!targetWorker) {
+        return showToast("error", "Select an employee first.");
+      }
+      if (!targetRecord) {
+        targetRecord = {
+          id: `ATT-SYNC-${targetWorker.id}-${correctionForm.date}-${Date.now().toString().slice(-4)}`,
+          workerId: targetWorker.id,
+          workerName: targetWorker.name,
+          department: targetWorker.department || "Operations",
+          trade: targetWorker.trade || targetWorker.position || "Staff",
+          company: targetWorker.company || "OVID Real Estate",
+          building: targetWorker.assignedProject || targetWorker.currentSite || "Head Office",
+          floor: 0,
+          zone: targetWorker.assignedProject || targetWorker.currentSite || "Head Office",
+          workLocationType: inferWorkerWorkLocationType(targetWorker),
+          date: correctionForm.date,
+          checkIn: null,
+          checkOut: null,
+          status: "Absent",
+          workingHours: 0,
+          overtime: 0,
+          punchCompleteness: "Missing Check-In",
+          missingPunchType: "Missing Check-In",
+          hrReviewStatus: "Pending HR Review",
+          finalApprovalStatus: "Pending",
+          timezone: "Africa/Addis_Ababa",
+          recordedByUid: actorUid,
+          method: AttendanceMethod.MANUAL_ENTRY,
+        };
+      }
+      const res = await submitManualCorrectionRequest({
+        record: targetRecord,
+        worker: targetWorker,
+        correctionType: correctionForm.correctionType,
+        proposedCheckIn: correctionForm.proposedCheckIn || null,
+        proposedCheckOut: correctionForm.proposedCheckOut || null,
+        proposedStatus: correctionForm.proposedStatus,
+        reason: correctionForm.reason,
+        supportingEvidenceUrl: correctionForm.supportingEvidenceUrl || undefined,
+        supportingEvidenceName: correctionForm.supportingEvidenceName || undefined,
+        supportingEvidenceNote: correctionForm.supportingEvidenceNote || undefined,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveAttendance: onAddAttendance,
+      });
+      onLogAction(
+        "HRM Manual Correction Submitted",
+        `${res.correction.requestNo} (${targetWorker.name} on ${targetRecord.date}): ${res.correction.correctionType}`
+      );
+      showToast(
+        "success",
+        `Correction ${res.correction.requestNo} submitted. Original biometric punch preserved until HR Manager approval.`
+      );
+      setCorrectionForm((p) => ({ ...p, reason: "", supportingEvidenceNote: "", supportingEvidenceUrl: "", supportingEvidenceName: "" }));
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to submit manual correction request.");
+    }
+  };
+
+  const handleReviewCorrection = async (
+    correction: AttendanceCorrectionRequest,
+    action: "Mark Under Review" | "Return for Correction" | "Approve" | "Reject"
+  ) => {
+    const notes = correctionReviewNotes[correction.id] || "";
+    const linkedAtt = attendance.find((a) => a.id === correction.attendanceId) || {
+      id: correction.attendanceId,
+      workerId: correction.workerId,
+      workerName: correction.workerName,
+      department: correction.department,
+      trade: "Staff",
+      company: "OVID Real Estate",
+      building: correction.project,
+      floor: 0,
+      zone: correction.project,
+      workLocationType: correction.workLocationType,
+      date: correction.date,
+      checkIn: correction.originalSnapshot.checkIn,
+      checkOut: correction.originalSnapshot.checkOut,
+      status: correction.originalSnapshot.status,
+      workingHours: correction.originalSnapshot.workingHours,
+      overtime: correction.originalSnapshot.overtime,
+      originalBiometricSnapshot: correction.originalSnapshot,
+      method: correction.originalSnapshot.method,
+    };
+    const linkedWorker = workers.find(
+      (w) => w.id === correction.workerId || w.employeeId === correction.employeeId
+    );
+    try {
+      const res = await reviewManualCorrectionRequest({
+        correction,
+        attendanceRecord: linkedAtt,
+        action,
+        comments: notes || (action === "Mark Under Review" ? "Checked by HR Officer" : ""),
+        worker: linkedWorker,
+        schedules: workSchedules,
+        approvedLeaves: leaveRequests,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveAttendance: onAddAttendance,
+      });
+      onLogAction(
+        `HRM Correction ${action}`,
+        `${correction.requestNo} (${correction.workerName} ${correction.date}) -> ${res.updatedCorrection.status}`
+      );
+      showToast("success", `Correction ${correction.requestNo} updated to ${res.updatedCorrection.status}.`);
+      setCorrectionReviewNotes((p) => {
+        const next = { ...p };
+        delete next[correction.id];
+        return next;
+      });
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to review manual correction.");
+    }
+  };
+
+  const handleSubmitAttendanceActionModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!attActionModal) return;
+    try {
+      if (attActionModal.mode === "Report Discrepancy") {
+        await reportAttendanceDiscrepancy({
+          record: attActionModal.record,
+          discrepancyNotes: attActionComments,
+          actorName,
+          actorUid,
+          actorRole: currentUserRole,
+          onSaveAttendance: onAddAttendance,
+        });
+        showToast("info", `Discrepancy flagged for ${attActionModal.record.workerName}. Moved to Under Review.`);
+      } else {
+        const updated = await transitionAttendanceApprovalStatus({
+          record: attActionModal.record,
+          action: attActionModal.mode,
+          comments: attActionComments,
+          actorName,
+          actorUid,
+          actorRole: currentUserRole,
+          onSaveAttendance: onAddAttendance,
+        });
+        showToast(
+          "success",
+          `${updated.workerName} (${updated.date}) -> ${updated.finalApprovalStatus}`
+        );
+      }
+      onLogAction(
+        `HRM Attendance ${attActionModal.mode}`,
+        `${attActionModal.record.workerName} (${attActionModal.record.date}): ${attActionComments || attActionModal.mode}`
+      );
+      setAttActionModal(null);
+      setAttActionComments("");
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to update attendance workflow.");
+    }
+  };
+
+  const handleBulkFinalApproveReady = async () => {
+    if (!perms.canFinalApproveAttendance) {
+      return showToast("error", "Authorization Error: Only HR Manager can grant final attendance approval.");
+    }
+    const eligible = attDashboard.filteredRecords.filter(
+      (a) =>
+        a.finalApprovalStatus !== "Approved" &&
+        a.finalApprovalStatus !== "Rejected" &&
+        detectMissingPunchType(a) === "None"
+    );
+    if (eligible.length === 0) {
+      return showToast("info", "No complete pending attendance records in current filter require final approval.");
+    }
+    let count = 0;
+    for (const rec of eligible) {
+      await transitionAttendanceApprovalStatus({
+        record: rec,
+        action: "Final Approve",
+        comments: "Bulk final approval by HR Manager for payroll",
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        onSaveAttendance: onAddAttendance,
+      });
+      count += 1;
+    }
+    onLogAction("HRM Attendance Bulk Final Approved", `${count} complete record(s) finalized for payroll`);
+    showToast("success", `HR Manager approved ${count} complete attendance record(s) for payroll.`);
+  };
+
+  const handleSaveDeductionPolicy = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!perms.canFinalApproveAttendance && !perms.isDirector) {
+      return showToast("error", "Only HR Manager or Director can approve/save attendance deduction policy.");
+    }
+    const nowIso = new Date().toISOString();
+    const policy: AttendanceDeductionPolicy = {
+      id: latestDeductionPolicy?.id || "OVID-ATT-DED-POLICY-DEFAULT",
+      policyName: policyForm.policyName.trim() || "Company Attendance Deduction Policy",
+      isApproved: policyForm.isApproved,
+      approvedBy: policyForm.isApproved ? actorName : undefined,
+      approvedByRole: policyForm.isApproved ? String(currentUserRole) : undefined,
+      approvedAt: policyForm.isApproved ? nowIso : undefined,
+      deductUnpaidLeave: policyForm.deductUnpaidLeave,
+      deductUnexcusedAbsence: policyForm.deductUnexcusedAbsence,
+      absenceDailyMultiplier: Number(policyForm.absenceDailyMultiplier || 1),
+      lateDeductionEnabled: policyForm.lateDeductionEnabled,
+      graceMinutesBeforeDeduction: Number(policyForm.graceMinutesBeforeDeduction || 0),
+      lateDeductionHourlyFactor: Number(policyForm.lateDeductionHourlyFactor || 1),
+      standardWorkingDaysPerMonth: Number(policyForm.standardWorkingDaysPerMonth || 26),
+      notes: policyForm.notes,
+      updatedBy: actorName,
+      createdAt: latestDeductionPolicy?.createdAt || nowIso,
+      updatedAt: nowIso,
+    };
+    await DbService.saveAttendanceDeductionPolicy(policy);
+    onLogAction(
+      "HRM Attendance Deduction Policy Updated",
+      `${policy.policyName} (${policy.isApproved ? "APPROVED" : "Draft / Inactive"})`
+    );
+    showToast(
+      "success",
+      `Attendance Deduction Policy saved (${policy.isApproved ? "Approved for Payroll" : "Inactive — Zero Automatic Deductions"}).`
+    );
+  };
+
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!perms.canManageEmployees && !perms.isOperationManager && !perms.isProjectManager) {
@@ -1688,6 +2330,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         salaryStructures,
         loans,
         taxConfig: activeTaxConfig,
+        deductionPolicy: approvedDeductionPolicy,
+        enforceStrictApprovedAttendance: enforceStrictAttendanceGate,
         existingRuns: payrollRuns,
         actorName,
         actorUid,
@@ -1696,7 +2340,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       setSelectedRunId(draft.id);
       onLogAction(
         "HRM Payroll Generated",
-        `${draft.runNo} (${draft.payPeriod}, ${draft.totalEmployees} staff, Net ETB ${fmtMoney(draft.totalNetPay)})`
+        `${draft.runNo} (${draft.payPeriod}, ${draft.totalEmployees} staff, Net ETB ${fmtMoney(draft.totalNetPay)}, Approved Att: ${draft.attendanceAuditSummary?.approvedRecordsUsed || 0}, Excluded: ${draft.attendanceAuditSummary?.unapprovedRecordsExcluded || 0})`
       );
       showToast("success", `Generated ${draft.runNo} for ${draft.totalEmployees} staff. Submitted to HR Verification.`);
     } catch (err: any) {
@@ -2019,8 +2663,50 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
           "Remaining Balance": l.remainingBalance,
           Status: l.status,
         }));
+      default:
+        return buildAttendanceReportRows({
+          reportType: selectedReport as AttendanceReportTypeId,
+          workers,
+          attendance,
+          schedules: workSchedules,
+          leaveRequests,
+          overtimeRequests,
+          devices: biometricDevices,
+          mappings: biometricDeviceMappings,
+          unmappedEvents: unmappedBiometricEvents,
+          filters: {
+            periodMode: quickClock.attViewMode,
+            anchorDate: quickClock.dailyFilterDate,
+            selectedMonth,
+            employeeFilter: quickClock.filterEmployeeId,
+            departmentFilter: quickClock.filterDepartment,
+            projectFilter: quickClock.dailyFilterProject,
+            workLocationFilter: quickClock.filterWorkLocation,
+            searchQuery: reportSearch,
+            approvalStatusFilter,
+          },
+        });
     }
-  }, [selectedReport, dash, recruitmentRequests, leaveRequests, workers, payrollRuns, loans, perms.canViewPayrollAmounts]);
+  }, [
+    selectedReport,
+    dash,
+    recruitmentRequests,
+    leaveRequests,
+    workers,
+    payrollRuns,
+    loans,
+    perms.canViewPayrollAmounts,
+    attendance,
+    workSchedules,
+    overtimeRequests,
+    biometricDevices,
+    biometricDeviceMappings,
+    unmappedBiometricEvents,
+    quickClock,
+    selectedMonth,
+    reportSearch,
+    approvalStatusFilter,
+  ]);
 
   const activeRun = useMemo(() => {
     if (selectedRunId) {
@@ -2348,6 +3034,268 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </div>
           </div>
 
+          {/* Biometric Enrollment & Mapping Progress Card */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-xl bg-purple-600/20 border border-purple-500/30 text-purple-400">
+                  <Fingerprint size={18} />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">
+                    {isAmharic
+                      ? "የሠራተኛ ባዮሜትሪክ ምዝገባ እና ማጣመሪያ ሂደት"
+                      : "Integrated Biometric Enrollment & Mapping Progress"}
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Workflow: Employee Registration &rarr; Biometric Enrollment &rarr; Employee Biometric Mapping &rarr; Attendance Activation (HR Department Only)
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] font-bold text-slate-300">
+                  Verified Terminals:{" "}
+                  <strong className="font-mono text-emerald-400">
+                    {bioDash.verifiedDevicesCount}/{bioDash.activeDevicesCount}
+                  </strong>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("employees")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 cursor-pointer"
+                >
+                  Open Employee Profiles
+                </button>
+                {biometricMappingPerms.canView && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("biometric-mapping")}
+                    className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white cursor-pointer"
+                  >
+                    Employee Biometric Mapping
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-400">
+                  Biometric Attendance Activation Coverage ({bioDash.activeAttendanceCount} /{" "}
+                  {bioDash.totalEmployees} active employees)
+                </span>
+                <span className="font-mono font-bold text-emerald-400">
+                  {bioDash.completionRatePercent}% Active
+                </span>
+              </div>
+              <div className="w-full h-2.5 rounded-full bg-slate-900 overflow-hidden border border-slate-800">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-500 via-blue-500 to-emerald-500 transition-all"
+                  style={{ width: `${bioDash.completionRatePercent}%` }}
+                />
+              </div>
+              <div className="flex flex-wrap gap-4 text-[11px] text-slate-400 pt-1">
+                <span>
+                  Head Office Active:{" "}
+                  <strong className="font-mono text-white">
+                    {bioDash.headOfficeActiveCount}/{bioDash.headOfficeTotalCount}
+                  </strong>
+                </span>
+                <span>
+                  Construction Sites Active:{" "}
+                  <strong className="font-mono text-white">
+                    {bioDash.siteActiveCount}/{bioDash.siteTotalCount}
+                  </strong>
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {(
+                [
+                  {
+                    label: "Not Registered",
+                    count: bioDash.notRegisteredCount,
+                    color: "text-slate-300",
+                    border: "border-slate-800",
+                  },
+                  {
+                    label: "Registered on Device",
+                    count: bioDash.enrolledOnDeviceCount,
+                    color: "text-blue-400",
+                    border: "border-blue-500/30",
+                  },
+                  {
+                    label: "Mapping Pending",
+                    count: bioDash.mappingPendingCount,
+                    color: "text-amber-400",
+                    border: "border-amber-500/30",
+                  },
+                  {
+                    label: "Mapping Completed",
+                    count: bioDash.mappingCompletedCount,
+                    color: "text-cyan-400",
+                    border: "border-cyan-500/30",
+                  },
+                  {
+                    label: "Active",
+                    count: bioDash.activeAttendanceCount,
+                    color: "text-emerald-400",
+                    border: "border-emerald-500/40",
+                  },
+                  {
+                    label: "Suspended",
+                    count: bioDash.suspendedCount,
+                    color: "text-red-400",
+                    border: "border-red-500/30",
+                  },
+                ] as const
+              ).map((item) => (
+                <div
+                  key={item.label}
+                  className={`p-3 rounded-xl bg-slate-900/70 border ${item.border}`}
+                >
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold">
+                    {item.label}
+                  </div>
+                  <div className={`text-xl font-black font-mono tabular-nums mt-1 ${item.color}`}>
+                    {item.count}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Pending Department Recruitment & Onboarding Tasks Card */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                  <ShieldCheck size={16} className="text-emerald-400" />
+                  <span>
+                    {isAmharic
+                      ? "የክፍልዎ የቅጥር ማጽደቂያ እና የተግባር ወረፋ"
+                      : `Pending Department Recruitment & Onboarding Queue (${currentUserRole})`}
+                  </span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Section Head &rarr; HR Manager &rarr; Office Engineer Manager &rarr; Finance Manager &rarr; Operation Dept &rarr; Director Final Approval
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab("recruitment")}
+                className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                {isAmharic ? "የቅጥር ሂደቱን ክፈት" : "Open Recruitment Workflow"}
+              </button>
+            </div>
+            {actionableRequestsForRole.length === 0 &&
+            returnedRequestsForUser.length === 0 &&
+            !(perms.canRegisterApprovedEmployees && approvedRequestsWithOpenSlots.length > 0) ? (
+              <div className="text-xs text-slate-500 py-2">
+                {isAmharic
+                  ? "ለአሁኑ የክፍልዎ ሚና የተመደበ በመጠባበቅ ላይ ያለ የቅጥር ተግባር የለም።"
+                  : `No pending manpower recruitment or onboarding actions currently assigned to ${currentUserRole}.`}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {actionableRequestsForRole.map((req) => (
+                  <div
+                    key={`dash-rec-${req.id}`}
+                    className="p-3.5 rounded-xl bg-slate-900 border border-slate-700 text-xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-white">{req.requestNo}</span>
+                      <span className="px-2 py-0.5 rounded bg-blue-950/70 border border-blue-500/40 text-blue-300 text-[10px] font-bold">
+                        {req.workflowStage}
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-200">
+                      {req.requestedCount}x {req.jobPosition} · {req.project}
+                    </div>
+                    <div className="text-[11px] text-slate-400">
+                      Requested by {req.requestedBy} · Salary: ETB {fmtMoney(req.proposedMonthlySalary)}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => openRecruitmentDecisionModal(req, "Approved")}
+                        className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Review & Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openRecruitmentDecisionModal(req, "Returned")}
+                        className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Return
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setViewingRecAudit(req)}
+                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold cursor-pointer"
+                      >
+                        Docs & Audit
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {returnedRequestsForUser.map((req) => (
+                  <div
+                    key={`dash-ret-${req.id}`}
+                    className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/40 text-xs space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono font-bold text-white">{req.requestNo}</span>
+                      <span className="px-2 py-0.5 rounded bg-amber-600/30 text-amber-200 text-[10px] font-bold">
+                        Returned for Correction
+                      </span>
+                    </div>
+                    <div className="font-semibold text-slate-200">
+                      {req.jobPosition} ({req.project})
+                    </div>
+                    <div className="text-[11px] text-amber-200">
+                      {req.returnedBy}: {req.correctionNotes}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => openResubmitModal(req)}
+                      className="px-3 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Edit & Resubmit
+                    </button>
+                  </div>
+                ))}
+                {perms.canRegisterApprovedEmployees &&
+                  approvedRequestsWithOpenSlots.map((req) => (
+                    <div
+                      key={`dash-hr-${req.id}`}
+                      className="p-3.5 rounded-xl bg-emerald-950/30 border border-emerald-500/40 text-xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-white">{req.requestNo}</span>
+                        <span className="px-2 py-0.5 rounded bg-emerald-600/30 text-emerald-200 text-[10px] font-bold">
+                          Authorized for HR Onboarding
+                        </span>
+                      </div>
+                      <div className="font-semibold text-slate-200">
+                        {req.jobPosition} — {req.hiredCount || 0}/{req.requestedCount} Registered
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => openNewEmployeeModal(req)}
+                        className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold cursor-pointer"
+                      >
+                        Register Employee
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <div className="text-sm font-bold text-white">
@@ -2480,206 +3428,241 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </form>
 
             {/* Manpower Recruitment Request Form (Section Head) */}
-            <form
-              onSubmit={handleSubmitRecruitment}
-              className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4"
-            >
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-extrabold text-white">
-                  {isAmharic ? "2. የሠራተኛ ቅጥር መጠየቂያ ቅጽ" : "2. Manpower Recruitment Request Form"}
-                </h3>
-                <span className="text-[11px] text-emerald-400 font-semibold">
-                  {isAmharic
-                    ? "Section Head → HR → Office Eng → Finance → Operation → Director → HR ምዝገባ"
-                    : "Section Head → HR → Office Eng → Finance → Operation → Director → HR Reg"}
-                </span>
-              </div>
+            {perms.canSubmitManpowerRequest ? (
+              <form
+                onSubmit={handleSubmitRecruitment}
+                className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4"
+              >
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-extrabold text-white">
+                    {isAmharic ? "2. የሠራተኛ ቅጥር መጠየቂያ ቅጽ" : "2. Manpower Request Form (Section Head)"}
+                  </h3>
+                  <span className="text-[11px] text-emerald-400 font-semibold">
+                    {isAmharic
+                      ? "Section Head → HR → Office Engineer → Finance → Operation → Director → HR ምዝገባ"
+                      : "Section Head → HR → Office Eng Mgr → Finance → Operation → Director → HR Reg"}
+                  </span>
+                </div>
 
-              {liveRecManpowerPreview.exceeds && (
-                <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2">
-                  <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-400" />
-                  <div>
-                    <div className="font-bold">
-                      {isAmharic
-                        ? `ከተፈቀደው የሰው ኃይል ገደብ በላይ (+${liveRecManpowerPreview.excess} ትርፍ)`
-                        : `Exceeds Approved Manpower Limit (+${liveRecManpowerPreview.excess} Excess)`}
-                    </div>
+                {liveRecManpowerPreview.exceeds && (
+                  <div className="p-3 rounded-xl bg-amber-950/60 border border-amber-500/40 text-amber-200 text-xs flex items-start gap-2">
+                    <AlertTriangle size={16} className="shrink-0 mt-0.5 text-amber-400" />
                     <div>
-                      {isAmharic
-                        ? `የጸደቀ: ${liveRecManpowerPreview.approved} · የተቀጠሩ: ${liveRecManpowerPreview.hired} · ቀሪ ክፍት ቦታ: ${liveRecManpowerPreview.remaining}። ማቅረብ ለዳይሬክተሩ በራስ-ሰር ማሳወቂያ ይልካል።`
-                        : `Approved: ${liveRecManpowerPreview.approved} · Active Hired: ${liveRecManpowerPreview.hired} · Remaining Vacancies: ${liveRecManpowerPreview.remaining}. Submitting automatically alerts the Director.`}
+                      <div className="font-bold">
+                        {isAmharic
+                          ? `ከተፈቀደው የሰው ኃይል ገደብ በላይ (+${liveRecManpowerPreview.excess} ትርፍ)`
+                          : `Exceeds Approved Manpower Limit (+${liveRecManpowerPreview.excess} Excess)`}
+                      </div>
+                      <div>
+                        {isAmharic
+                          ? `የጸደቀ: ${liveRecManpowerPreview.approved} · የተቀጠሩ: ${liveRecManpowerPreview.hired} · ቀሪ ክፍት ቦታ: ${liveRecManpowerPreview.remaining}። ማቅረብ ለዳይሬክተሩ በራስ-ሰር ማሳወቂያ ይልካል።`
+                          : `Approved: ${liveRecManpowerPreview.approved} · Active Hired: ${liveRecManpowerPreview.hired} · Remaining Vacancies: ${liveRecManpowerPreview.remaining}. Submitting automatically alerts the Director.`}
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Project *</label>
-                  <select
-                    value={recForm.project}
-                    onChange={(e) => setRecForm((p) => ({ ...p, project: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                  >
-                    {projectNames.map((pr) => (
-                      <option key={pr} value={pr}>{pr}</option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Department *</label>
-                  <input
-                    value={recForm.department}
-                    onChange={(e) => setRecForm((p) => ({ ...p, department: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Job Position *</label>
-                  <input
-                    value={recForm.jobPosition}
-                    onChange={(e) => setRecForm((p) => ({ ...p, jobPosition: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Employees Required *</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={recForm.requestedCount}
-                    onChange={(e) => setRecForm((p) => ({ ...p, requestedCount: Number(e.target.value) }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Employment Type</label>
-                  <select
-                    value={recForm.employmentType}
-                    onChange={(e) => setRecForm((p) => ({ ...p, employmentType: e.target.value as any }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                  >
-                    <option value="Permanent">Permanent</option>
-                    <option value="Contract">Contract</option>
-                    <option value="Daily Labourer">Daily Labourer</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Expected Employment Date *</label>
-                  <input
-                    type="date"
-                    value={recForm.requiredByDate}
-                    onChange={(e) => setRecForm((p) => ({ ...p, requiredByDate: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Proposed Salary (ETB)</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={recForm.proposedMonthlySalary}
-                    onChange={(e) =>
-                      setRecForm((p) => ({ ...p, proposedMonthlySalary: Number(e.target.value) }))
-                    }
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Urgency</label>
-                  <select
-                    value={recForm.urgency}
-                    onChange={(e) => setRecForm((p) => ({ ...p, urgency: e.target.value as any }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                  >
-                    <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Required Experience</label>
-                  <input
-                    value={recForm.experienceRequired}
-                    onChange={(e) => setRecForm((p) => ({ ...p, experienceRequired: e.target.value }))}
-                    placeholder="e.g. 3+ Years Building Structural Work"
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Job Responsibilities *</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Key duties, site reporting line, safety & deliverable responsibilities..."
-                    value={recForm.jobResponsibilities}
-                    onChange={(e) => setRecForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Required Qualifications</label>
-                  <textarea
-                    rows={2}
-                    placeholder="Academic / TVET / Professional licenses required..."
-                    value={recForm.qualificationsRequired}
-                    onChange={(e) => setRecForm((p) => ({ ...p, qualificationsRequired: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">Reason for Recruitment *</label>
-                  <input
-                    placeholder="Justification / Project Milestone or Replacement Need *"
-                    value={recForm.justification}
-                    onChange={(e) => setRecForm((p) => ({ ...p, justification: e.target.value }))}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-slate-400 mb-1">
-                    Supporting Documents ({recForm.supportingDocuments.length} attached) {uploadingRecDoc && "(Uploading...)"}
-                  </label>
-                  <input
-                    type="file"
-                    onChange={(e) => e.target.files?.[0] && handleUploadRecDocument(e.target.files[0])}
-                    className="w-full text-xs text-slate-300"
-                  />
-                </div>
-              </div>
-
-              {recForm.supportingDocuments.length > 0 && (
-                <div className="flex flex-wrap gap-2 text-[11px]">
-                  {recForm.supportingDocuments.map((docItem) => (
-                    <span
-                      key={docItem.id}
-                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 flex items-center gap-1.5"
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Project *</label>
+                    <select
+                      value={recForm.project}
+                      onChange={(e) => setRecForm((p) => ({ ...p, project: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
                     >
-                      <FileText size={12} className="text-blue-400" />
-                      <span>{docItem.name}</span>
-                    </span>
-                  ))}
+                      {projectNames.map((pr) => (
+                        <option key={pr} value={pr}>{pr}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Department *</label>
+                    <input
+                      value={recForm.department}
+                      onChange={(e) => setRecForm((p) => ({ ...p, department: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Job Position *</label>
+                    <input
+                      value={recForm.jobPosition}
+                      onChange={(e) => setRecForm((p) => ({ ...p, jobPosition: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Employees Required *</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={recForm.requestedCount}
+                      onChange={(e) => setRecForm((p) => ({ ...p, requestedCount: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Employment Type</label>
+                    <select
+                      value={recForm.employmentType}
+                      onChange={(e) => setRecForm((p) => ({ ...p, employmentType: e.target.value as any }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="Permanent">Permanent</option>
+                      <option value="Contract">Contract</option>
+                      <option value="Daily Labourer">Daily Labourer</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Expected Employment Date *</label>
+                    <input
+                      type="date"
+                      value={recForm.requiredByDate}
+                      onChange={(e) => setRecForm((p) => ({ ...p, requiredByDate: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Proposed Salary (ETB)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={recForm.proposedMonthlySalary}
+                      onChange={(e) =>
+                        setRecForm((p) => ({ ...p, proposedMonthlySalary: Number(e.target.value) }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Urgency</label>
+                    <select
+                      value={recForm.urgency}
+                      onChange={(e) => setRecForm((p) => ({ ...p, urgency: e.target.value as any }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="Normal">Normal</option>
+                      <option value="High">High</option>
+                      <option value="Critical">Critical</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Required Experience</label>
+                    <input
+                      value={recForm.experienceRequired}
+                      onChange={(e) => setRecForm((p) => ({ ...p, experienceRequired: e.target.value }))}
+                      placeholder="e.g. 3+ Years Building Structural Work"
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    />
+                  </div>
                 </div>
-              )}
 
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                {isAmharic ? "የቅጥር ጥያቄ አቅርብ (ወደ HR አስተላልፍ)" : "Submit Manpower Request (Route to HR Manager)"}
-              </button>
-            </form>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Job Responsibilities *</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Key duties, site reporting line, safety & deliverable responsibilities..."
+                      value={recForm.jobResponsibilities}
+                      onChange={(e) => setRecForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Required Qualifications</label>
+                    <textarea
+                      rows={2}
+                      placeholder="Academic / TVET / Professional licenses required..."
+                      value={recForm.qualificationsRequired}
+                      onChange={(e) => setRecForm((p) => ({ ...p, qualificationsRequired: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Reason for Recruitment *</label>
+                    <input
+                      placeholder="Justification / Project Milestone or Replacement Need *"
+                      value={recForm.justification}
+                      onChange={(e) => setRecForm((p) => ({ ...p, justification: e.target.value }))}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">
+                      Supporting Documents ({recForm.supportingDocuments.length} attached) {uploadingRecDoc && "(Uploading...)"}
+                    </label>
+                    <input
+                      type="file"
+                      onChange={(e) => e.target.files?.[0] && handleUploadRecDocument(e.target.files[0])}
+                      className="w-full text-xs text-slate-300"
+                    />
+                  </div>
+                </div>
+
+                {recForm.supportingDocuments.length > 0 && (
+                  <div className="flex flex-wrap gap-2 text-[11px]">
+                    {recForm.supportingDocuments.map((docItem) => (
+                      <span
+                        key={docItem.id}
+                        className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 flex items-center gap-1.5"
+                      >
+                        <FileText size={12} className="text-blue-400" />
+                        <span>{docItem.name}</span>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setRecForm((p) => ({
+                              ...p,
+                              supportingDocuments: p.supportingDocuments.filter((d) => d.id !== docItem.id),
+                            }))
+                          }
+                          className="text-slate-400 hover:text-red-400 cursor-pointer ml-1"
+                          title="Remove document"
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  {isAmharic ? "የቅጥር ጥያቄ አቅርብ (ወደ HR አስተላልፍ)" : "Submit Manpower Request (Route to HR Manager)"}
+                </button>
+              </form>
+            ) : (
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3 flex flex-col justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                      <Lock size={15} className="text-amber-400" />
+                      <span>2. Manpower Request Form (Section Head Only)</span>
+                    </h3>
+                    <span className="text-[11px] font-bold text-slate-400">{currentUserRole}</span>
+                  </div>
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    New Manpower Requests originate from <strong>Section Head</strong> (Step 1) and automatically advance through{" "}
+                    <strong>HR Manager</strong> &rarr; <strong>Office Engineer Manager</strong> &rarr; <strong>Finance Manager</strong> &rarr;{" "}
+                    <strong>Operation Department</strong> &rarr; <strong>Director Final Approval</strong>.
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-300">
+                  Your role has <strong>{actionableRequestsForRole.length}</strong> stage approval(s) currently awaiting review in the queue below.
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Actionable Department Task Queue Banner */}
@@ -2908,8 +3891,15 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                                 : "text-blue-300"
                             }`}
                           >
-                            {req.workflowStage}
+                            {req.workflowStage === "Pending Office Manager"
+                              ? "Pending Office Engineer Manager"
+                              : req.workflowStage}
                           </span>
+                          {req.currentStageAssigneeNames && req.currentStageAssigneeNames.length > 0 && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              Assigned: {req.currentStageAssigneeNames.join(", ")}
+                            </div>
+                          )}
                           {req.rejectionReason && (
                             <div className="text-[10px] text-red-300">Reason: {req.rejectionReason}</div>
                           )}
@@ -2952,16 +3942,19 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                                 </button>
                               </>
                             )}
-                            {req.workflowStage === "Returned for Correction" &&
-                              (req.requestedById === actorUid || perms.isSectionHead || perms.isDirector) && (
-                                <button
-                                  type="button"
-                                  onClick={() => openResubmitModal(req)}
-                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
-                                >
-                                  Edit & Resubmit
-                                </button>
-                              )}
+                            {canRequesterResubmitRecruitmentRequest({
+                              request: req,
+                              actorUid,
+                              actorRole: currentUserRole,
+                            }) && (
+                              <button
+                                type="button"
+                                onClick={() => openResubmitModal(req)}
+                                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                              >
+                                Edit & Resubmit
+                              </button>
+                            )}
                             {req.status === "Approved" &&
                               req.hrRegistrationAuthorized &&
                               (req.hiredCount || 0) < req.requestedCount &&
@@ -3128,28 +4121,59 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                           : "Restricted"}
                       </td>
                       <td className="py-3 px-3">
-                        {w.biometricRegistered || w.fingerprint || w.faceRecognitionData ? (
-                          <span className="px-2 py-1 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px] font-bold">
-                            Enrolled
-                          </span>
-                        ) : (
-                          <button
-                            onClick={() => onNavigateToTab("biometricBoard")}
-                            className="px-2 py-1 rounded bg-slate-800 hover:bg-purple-700 text-purple-300 hover:text-white text-[11px] font-bold cursor-pointer"
-                          >
-                            Enroll Bio
-                          </button>
-                        )}
+                        {(() => {
+                          const bioState = computeEmployeeBiometricProfileState(
+                            w,
+                            biometricDeviceMappings,
+                            biometricDevices
+                          );
+                          const badgeCls =
+                            bioState.enrollmentStatus === "Active"
+                              ? "bg-emerald-950/70 border-emerald-500/40 text-emerald-300"
+                              : bioState.enrollmentStatus === "Mapping Completed"
+                              ? "bg-cyan-950/70 border-cyan-500/40 text-cyan-300"
+                              : bioState.enrollmentStatus === "Mapping Pending"
+                              ? "bg-amber-950/70 border-amber-500/40 text-amber-300"
+                              : bioState.enrollmentStatus === "Registered on Device"
+                              ? "bg-blue-950/70 border-blue-500/40 text-blue-300"
+                              : bioState.enrollmentStatus === "Suspended"
+                              ? "bg-red-950/70 border-red-500/40 text-red-300"
+                              : "bg-slate-900 border-slate-700 text-slate-400";
+                          return (
+                            <div className="space-y-1">
+                              <span
+                                className={`inline-block px-2 py-0.5 rounded border text-[11px] font-bold ${badgeCls}`}
+                              >
+                                {bioState.enrollmentStatus}
+                              </span>
+                              <div className="text-[10px] text-slate-400 font-mono">
+                                {bioState.deviceUserId
+                                  ? `BioID: ${bioState.deviceUserId} · Map: ${bioState.mappingStatus}`
+                                  : `Map: ${bioState.mappingStatus}`}
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 px-3 text-right">
-                        {perms.canManageEmployees && (
+                        <div className="flex justify-end gap-1.5">
                           <button
-                            onClick={() => openEditEmployeeModal(w)}
-                            className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold cursor-pointer"
+                            type="button"
+                            onClick={() => openEmployeeBiometricProfileModal(w)}
+                            className="px-2.5 py-1 rounded-lg bg-purple-950/60 hover:bg-purple-800/70 border border-purple-500/30 text-purple-200 text-[11px] font-bold cursor-pointer"
                           >
-                            Edit / Docs
+                            {perms.canManageBiometricEnrollment ? "Profile & Biometric" : "View Profile"}
                           </button>
-                        )}
+                          {perms.canManageEmployees && (
+                            <button
+                              type="button"
+                              onClick={() => openEditEmployeeModal(w)}
+                              className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-bold cursor-pointer"
+                            >
+                              Edit / Docs
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );
@@ -3175,6 +4199,12 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                     label: isAmharic
                       ? `የሰዓት ግድፈቶች እና HR ማጽደቂያ (${attDashboard.exceptionItems.length})`
                       : `Exceptions & HR Review (${attDashboard.exceptionItems.length})`,
+                  },
+                  {
+                    id: "corrections",
+                    label: isAmharic
+                      ? `የእጅ ማስተካከያ እና የHR ማጽደቂያ (${attendanceCorrections.filter((c) => c.status !== "Approved" && c.status !== "Rejected").length})`
+                      : `Manual Corrections & Approval Audit (${attendanceCorrections.filter((c) => c.status !== "Approved" && c.status !== "Rejected").length})`,
                   },
                   {
                     id: "schedules",
@@ -3689,10 +4719,47 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               {quickClock.attViewMode === "daily" ? (
                 <div className="space-y-4">
                   <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
-                    <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">
-                        Daily Attendance Log ({attDashboard.filteredRecords.length} record{attDashboard.filteredRecords.length === 1 ? "" : "s"})
-                      </h4>
+                    <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+                      <div>
+                        <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                          Daily Attendance Log & HR Manager Approval Workflow (
+                          {
+                            attDashboard.filteredRecords.filter(
+                              (a) =>
+                                approvalStatusFilter === "ALL" ||
+                                (a.finalApprovalStatus || "Pending") === approvalStatusFilter
+                            ).length
+                          }
+                          )
+                        </h4>
+                        <p className="text-[11px] text-slate-400 mt-0.5">
+                          Timezone: <span className="font-mono text-emerald-400">Africa/Addis_Ababa (EAT, UTC+3)</span> ·{" "}
+                          Final Payroll Approval restricted strictly to <strong className="text-white">HR Manager</strong>.
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <select
+                          value={approvalStatusFilter}
+                          onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
+                          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                        >
+                          <option value="ALL">All Approval Statuses</option>
+                          <option value="Pending">Pending</option>
+                          <option value="Under Review">Under Review</option>
+                          <option value="Returned for Correction">Returned for Correction</option>
+                          <option value="Approved">Approved (Payroll Ready)</option>
+                          <option value="Rejected">Rejected</option>
+                        </select>
+                        {perms.canFinalApproveAttendance && (
+                          <button
+                            type="button"
+                            onClick={handleBulkFinalApproveReady}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
+                          >
+                            HR Manager Final Approve Complete Records
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <table className="w-full text-xs text-left">
                       <thead>
@@ -3702,131 +4769,265 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                           <th className="py-2.5 px-3">Location / Site</th>
                           <th className="py-2.5 px-3">Check-In</th>
                           <th className="py-2.5 px-3">Check-Out</th>
-                          <th className="py-2.5 px-3 text-right">Late (min)</th>
-                          <th className="py-2.5 px-3 text-right">Early Exit (min)</th>
-                          <th className="py-2.5 px-3 text-right">Work Hrs</th>
-                          <th className="py-2.5 px-3 text-right">OT (Appr / Cand)</th>
-                          <th className="py-2.5 px-3">Status & Review</th>
+                          <th className="py-2.5 px-3 text-right">Late / Early</th>
+                          <th className="py-2.5 px-3 text-right">Work / OT Hrs</th>
+                          <th className="py-2.5 px-3">Attendance & Approval Status</th>
                           <th className="py-2.5 px-3">Device / Method</th>
+                          <th className="py-2.5 px-3 text-right">Workflow Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {attDashboard.filteredRecords.length === 0 ? (
+                        {attDashboard.filteredRecords.filter(
+                          (a) =>
+                            approvalStatusFilter === "ALL" ||
+                            (a.finalApprovalStatus || "Pending") === approvalStatusFilter
+                        ).length === 0 ? (
                           <tr>
-                            <td colSpan={11} className="py-6 text-center text-slate-500">
+                            <td colSpan={10} className="py-6 text-center text-slate-500">
                               No attendance punches match the selected filters on {quickClock.dailyFilterDate}.
                             </td>
                           </tr>
                         ) : (
-                          attDashboard.filteredRecords.map((a) => {
-                            const missingType = detectMissingPunchType(a);
-                            return (
-                              <tr key={a.id} className="border-b border-slate-900">
-                                <td className="py-2.5 px-3 font-mono text-slate-300">{a.date}</td>
-                                <td className="py-2.5 px-3">
-                                  <div className="font-semibold text-white">{a.workerName}</div>
-                                  <div className="text-[10px] text-slate-500 font-mono">
-                                    {a.workerId} · {a.department || "General"}
-                                  </div>
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-300">
-                                  <div>{a.zone || a.gpsLocationString || "Site"}</div>
-                                  <div className="text-[10px] text-slate-500">{a.workLocationType || "Construction Site"}</div>
-                                </td>
-                                <td className="py-2.5 px-3 font-mono text-emerald-300">
-                                  {a.checkIn || <span className="text-rose-400">MISSING</span>}
-                                </td>
-                                <td className="py-2.5 px-3 font-mono text-slate-200">
-                                  {a.checkOut || <span className="text-rose-400">MISSING</span>}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-amber-400">
-                                  {Number(a.lateArrivalMinutes || 0)}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-slate-300">
-                                  {Number(a.earlyDepartureMinutes || Math.round(Number(a.underTime || 0) * 60))}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-white font-bold">
-                                  {Number(a.workingHours || 0)}h
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono text-purple-400">
-                                  {Number(a.overtime || 0)}h
-                                  {Number(a.overtimeCandidateHours || 0) > Number(a.overtime || 0) && (
-                                    <span className="block text-[10px] text-amber-300">
-                                      ({a.overtimeCandidateHours}h cand)
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 space-y-1">
-                                  <span
-                                    className={`inline-block px-2 py-0.5 rounded text-[11px] font-bold ${
-                                      a.status === "Present"
-                                        ? "bg-emerald-950/70 text-emerald-300"
-                                        : a.status === "Late"
-                                        ? "bg-amber-950/70 text-amber-300"
-                                        : a.status === "Leave" || a.status === "Holiday"
-                                        ? "bg-blue-950/70 text-blue-300"
-                                        : "bg-red-950/70 text-red-300"
-                                    }`}
-                                  >
-                                    {a.status}
-                                  </span>
-                                  {missingType !== "None" && (
-                                    <div className="text-[10px] font-bold text-rose-400">{missingType}</div>
-                                  )}
-                                  {a.hrReviewStatus === "Pending HR Review" && (
-                                    <div className="text-[10px] font-semibold text-amber-300">Pending HR Review</div>
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 text-slate-400">
-                                  <div>{a.method}</div>
-                                  {(a.biometricDeviceName || a.biometricUserId) && (
-                                    <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
-                                      {a.biometricDeviceName || a.biometricDeviceId}
-                                      {a.biometricUserId ? ` · BioID ${a.biometricUserId}` : ""}
+                          attDashboard.filteredRecords
+                            .filter(
+                              (a) =>
+                                approvalStatusFilter === "ALL" ||
+                                (a.finalApprovalStatus || "Pending") === approvalStatusFilter
+                            )
+                            .map((a) => {
+                              const missingType = detectMissingPunchType(a);
+                              const finalStat = a.finalApprovalStatus || "Pending";
+                              return (
+                                <tr key={a.id} className="border-b border-slate-900">
+                                  <td className="py-2.5 px-3 font-mono text-slate-300">{a.date}</td>
+                                  <td className="py-2.5 px-3">
+                                    <div className="font-semibold text-white">{a.workerName}</div>
+                                    <div className="text-[10px] text-slate-500 font-mono">
+                                      {a.workerId} · {a.department || "General"}
                                     </div>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-300">
+                                    <div>{a.zone || a.gpsLocationString || "Site"}</div>
+                                    <div className="text-[10px] text-slate-500">{a.workLocationType || "Construction Site"}</div>
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono text-emerald-300">
+                                    {a.checkIn || <span className="text-rose-400">MISSING</span>}
+                                    {a.originalBiometricSnapshot &&
+                                      a.originalBiometricSnapshot.checkIn !== a.checkIn && (
+                                        <div className="text-[10px] text-slate-500">
+                                          Orig: {a.originalBiometricSnapshot.checkIn || "MISSING"}
+                                        </div>
+                                      )}
+                                  </td>
+                                  <td className="py-2.5 px-3 font-mono text-slate-200">
+                                    {a.checkOut || <span className="text-rose-400">MISSING</span>}
+                                    {a.originalBiometricSnapshot &&
+                                      a.originalBiometricSnapshot.checkOut !== a.checkOut && (
+                                        <div className="text-[10px] text-slate-500">
+                                          Orig: {a.originalBiometricSnapshot.checkOut || "MISSING"}
+                                        </div>
+                                      )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono">
+                                    <span className="text-amber-400">{Number(a.lateArrivalMinutes || 0)}m</span>
+                                    <span className="text-slate-500"> / </span>
+                                    <span className="text-slate-300">
+                                      {Number(a.earlyDepartureMinutes || Math.round(Number(a.underTime || 0) * 60))}m
+                                    </span>
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right font-mono">
+                                    <div className="text-white font-bold">{Number(a.workingHours || 0)}h</div>
+                                    <div className="text-[10px] text-purple-400">
+                                      OT {Number(a.overtime || 0)}h
+                                      {Number(a.overtimeCandidateHours || 0) > Number(a.overtime || 0)
+                                        ? ` (${a.overtimeCandidateHours}h cand)`
+                                        : ""}
+                                    </div>
+                                  </td>
+                                  <td className="py-2.5 px-3 space-y-1">
+                                    <div className="flex flex-wrap gap-1">
+                                      <span
+                                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                          a.status === "Present"
+                                            ? "bg-emerald-950/70 text-emerald-300"
+                                            : a.status === "Late"
+                                            ? "bg-amber-950/70 text-amber-300"
+                                            : a.status === "Leave" || a.status === "Holiday"
+                                            ? "bg-blue-950/70 text-blue-300"
+                                            : "bg-red-950/70 text-red-300"
+                                        }`}
+                                      >
+                                        {a.status}
+                                      </span>
+                                      <span
+                                        className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                                          finalStat === "Approved"
+                                            ? "bg-emerald-900/70 text-emerald-200 border border-emerald-500/40"
+                                            : finalStat === "Rejected"
+                                            ? "bg-red-950 text-red-300 border border-red-500/40"
+                                            : finalStat === "Returned for Correction"
+                                            ? "bg-orange-950 text-orange-300 border border-orange-500/40"
+                                            : finalStat === "Under Review"
+                                            ? "bg-blue-950 text-blue-300 border border-blue-500/40"
+                                            : "bg-slate-800 text-amber-300"
+                                        }`}
+                                      >
+                                        {finalStat}
+                                      </span>
+                                    </div>
+                                    {missingType !== "None" && (
+                                      <div className="text-[10px] font-bold text-rose-400">{missingType}</div>
+                                    )}
+                                    {a.discrepancyFlag && a.discrepancyFlag.status === "Open" && (
+                                      <div className="text-[10px] text-amber-300">
+                                        Discrepancy ({a.discrepancyFlag.reportedByRole}): {a.discrepancyFlag.notes}
+                                      </div>
+                                    )}
+                                    {a.finalApprovedBy && (
+                                      <div className="text-[10px] text-emerald-400">
+                                        Finalized by {a.finalApprovedBy}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-slate-400">
+                                    <div>{a.method}</div>
+                                    {(a.biometricDeviceName || a.biometricUserId) && (
+                                      <div className="text-[10px] font-mono text-emerald-400 mt-0.5">
+                                        {a.biometricDeviceName || a.biometricDeviceId}
+                                        {a.biometricUserId ? ` · BioID ${a.biometricUserId}` : ""}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-2.5 px-3 text-right">
+                                    <div className="flex flex-wrap justify-end gap-1">
+                                      {perms.canFinalApproveAttendance && finalStat !== "Approved" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAttActionModal({ record: a, mode: "Final Approve" });
+                                            setAttActionComments("Verified and finalized for payroll");
+                                          }}
+                                          className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Final Approve
+                                        </button>
+                                      )}
+                                      {perms.canFinalApproveAttendance && finalStat !== "Rejected" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAttActionModal({ record: a, mode: "Reject" });
+                                            setAttActionComments("");
+                                          }}
+                                          className="px-2 py-1 rounded bg-red-700 hover:bg-red-600 text-white text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Reject
+                                        </button>
+                                      )}
+                                      {perms.canPrepareAttendanceReview && finalStat === "Pending" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAttActionModal({ record: a, mode: "Prepare / Mark Under Review" });
+                                            setAttActionComments("Prepared & reviewed by HR Officer");
+                                          }}
+                                          className="px-2 py-1 rounded bg-blue-700 hover:bg-blue-600 text-white text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Under Review
+                                        </button>
+                                      )}
+                                      {perms.canPrepareAttendanceReview && finalStat !== "Approved" && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAttActionModal({ record: a, mode: "Return for Correction" });
+                                            setAttActionComments("");
+                                          }}
+                                          className="px-2 py-1 rounded bg-amber-700 hover:bg-amber-600 text-white text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Return
+                                        </button>
+                                      )}
+                                      {perms.canReportAttendanceDiscrepancy && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setAttActionModal({ record: a, mode: "Report Discrepancy" });
+                                            setAttActionComments("");
+                                          }}
+                                          className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Flag Discrepancy
+                                        </button>
+                                      )}
+                                      {perms.canSubmitManualCorrection && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleOpenCorrectionForRecord(a)}
+                                          className="px-2 py-1 rounded bg-slate-800 hover:bg-purple-700 text-purple-300 hover:text-white text-[10px] font-bold cursor-pointer"
+                                        >
+                                          Correction
+                                        </button>
+                                      )}
+                                    </div>
+                                  </td>
+                                </tr>
+                              );
+                            })
                         )}
                       </tbody>
                     </table>
                   </div>
 
-                  {/* Employees Without Attendance Punch on Selected Date (Absent / Approved Leave / Holiday / Rest Day) */}
+                  {/* Employees Without Attendance Punch on Selected Date (Leave & Absence Reconciliation) */}
                   {attDashboard.absentWorkersToday.length > 0 && (
                     <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-2">
                       <h4 className="text-xs font-extrabold uppercase tracking-wider text-slate-300">
-                        Roster Status Without Clock-In on {quickClock.dailyFilterDate} ({attDashboard.absentWorkersToday.length})
+                        Leave & Absence Reconciliation on {quickClock.dailyFilterDate} ({attDashboard.absentWorkersToday.length})
                       </h4>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {attDashboard.absentWorkersToday.map((aw) => (
-                          <div
-                            key={aw.workerId}
-                            className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-2 text-xs"
-                          >
-                            <div className="min-w-0">
-                              <div className="font-bold text-white truncate">
-                                {aw.employeeId} — {aw.workerName}
-                              </div>
-                              <div className="text-[10px] text-slate-400 truncate">
-                                {aw.department} · {aw.project} ({aw.workLocationType})
-                              </div>
-                            </div>
-                            <span
-                              className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
-                                aw.dayStatus === "Absent"
-                                  ? "bg-red-950/80 text-red-300 border border-red-500/30"
-                                  : aw.dayStatus === "Leave"
-                                  ? "bg-blue-950/80 text-blue-300 border border-blue-500/30"
-                                  : "bg-slate-800 text-slate-300"
-                              }`}
+                        {attDashboard.absentWorkersToday.map((aw) => {
+                          const wObj = workers.find((x) => x.id === aw.workerId);
+                          const rec = wObj
+                            ? reconcileEmployeeAttendanceDay({
+                                worker: wObj,
+                                date: quickClock.dailyFilterDate,
+                                attendanceRecords: attendance,
+                                schedules: workSchedules,
+                                leaveRequests,
+                              })
+                            : null;
+                          const label = rec?.reconciledStatus || aw.dayStatus;
+                          return (
+                            <div
+                              key={aw.workerId}
+                              className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-2 text-xs"
                             >
-                              {aw.dayStatus}
-                            </span>
-                          </div>
-                        ))}
+                              <div className="min-w-0">
+                                <div className="font-bold text-white truncate">
+                                  {aw.employeeId} — {aw.workerName}
+                                </div>
+                                <div className="text-[10px] text-slate-400 truncate">
+                                  {aw.department} · {aw.project} ({aw.workLocationType})
+                                  {rec?.leaveType ? ` · ${rec.leaveType}` : ""}
+                                </div>
+                              </div>
+                              <span
+                                className={`px-2 py-0.5 rounded text-[10px] font-bold shrink-0 ${
+                                  label === "Absent"
+                                    ? "bg-red-950/80 text-red-300 border border-red-500/30"
+                                    : label === "Approved Leave"
+                                    ? "bg-blue-950/80 text-blue-300 border border-blue-500/30"
+                                    : label === "Unpaid Leave"
+                                    ? "bg-amber-950/80 text-amber-300 border border-amber-500/30"
+                                    : "bg-slate-800 text-slate-300"
+                                }`}
+                              >
+                                {label}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
@@ -3886,6 +5087,375 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   </table>
                 </div>
               )}
+            </div>
+          )}
+
+          {attSubView === "corrections" && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <form
+                  onSubmit={handleSubmitManualCorrection}
+                  className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3"
+                >
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white">
+                      Submit Manual Attendance Correction
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5">
+                      Preserves unmodified original biometric events. Requires reason & HR Manager approval before payroll.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">
+                      Target Attendance Record (optional for Sync Failure)
+                    </label>
+                    <select
+                      value={correctionForm.attendanceId}
+                      onChange={(e) => {
+                        const chosen = attendance.find((a) => a.id === e.target.value);
+                        setCorrectionForm((p) => ({
+                          ...p,
+                          attendanceId: e.target.value,
+                          ...(chosen
+                            ? {
+                                workerId: chosen.workerId,
+                                date: chosen.date,
+                                proposedCheckIn: (chosen.checkIn || "08:00").slice(0, 5),
+                                proposedCheckOut: (chosen.checkOut || "17:00").slice(0, 5),
+                              }
+                            : {}),
+                        }));
+                      }}
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="">-- New Sync Failure / Missing Record --</option>
+                      {attendance.slice(0, 80).map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.date} · {a.workerName} ({a.checkIn || "MISSING"} - {a.checkOut || "MISSING"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {!correctionForm.attendanceId && (
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">Employee</label>
+                        <select
+                          value={correctionForm.workerId || workers[0]?.id || ""}
+                          onChange={(e) => setCorrectionForm((p) => ({ ...p, workerId: e.target.value }))}
+                          className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                        >
+                          {workers.map((w) => (
+                            <option key={w.id} value={w.id}>
+                              {w.employeeId || w.id} — {w.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">Date</label>
+                        <input
+                          type="date"
+                          value={correctionForm.date}
+                          onChange={(e) => setCorrectionForm((p) => ({ ...p, date: e.target.value }))}
+                          className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Correction Type</label>
+                    <select
+                      value={correctionForm.correctionType}
+                      onChange={(e) =>
+                        setCorrectionForm((p) => ({
+                          ...p,
+                          correctionType: e.target.value as AttendanceCorrectionType,
+                        }))
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    >
+                      <option value="Missing Check-In">Missing Check-In</option>
+                      <option value="Missing Check-Out">Missing Check-Out</option>
+                      <option value="Incorrect Attendance Record">Incorrect Attendance Record</option>
+                      <option value="Device Synchronization Failure">Device Synchronization Failure</option>
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Proposed Check-In</label>
+                      <input
+                        type="time"
+                        value={correctionForm.proposedCheckIn}
+                        onChange={(e) => setCorrectionForm((p) => ({ ...p, proposedCheckIn: e.target.value }))}
+                        className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Proposed Check-Out</label>
+                      <input
+                        type="time"
+                        value={correctionForm.proposedCheckOut}
+                        onChange={(e) => setCorrectionForm((p) => ({ ...p, proposedCheckOut: e.target.value }))}
+                        className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">Proposed Status</label>
+                      <select
+                        value={correctionForm.proposedStatus}
+                        onChange={(e) =>
+                          setCorrectionForm((p) => ({
+                            ...p,
+                            proposedStatus: e.target.value as AttendanceRecord["status"],
+                          }))
+                        }
+                        className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                      >
+                        <option value="Present">Present</option>
+                        <option value="Late">Late</option>
+                        <option value="Leave">Leave</option>
+                        <option value="Holiday">Holiday</option>
+                        <option value="Absent">Absent</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">Mandatory Correction Reason *</label>
+                    <textarea
+                      required
+                      rows={2}
+                      value={correctionForm.reason}
+                      onChange={(e) => setCorrectionForm((p) => ({ ...p, reason: e.target.value }))}
+                      placeholder="Explain why the correction is needed (gate log, device power outage, supervisor verification)..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] text-slate-400">
+                      Supporting Evidence (Signed Log / Document) {uploadingCorrectionEvidence && "— Uploading..."}
+                    </label>
+                    <input
+                      type="file"
+                      onChange={(e) => e.target.files?.[0] && handleUploadCorrectionEvidence(e.target.files[0])}
+                      className="text-xs text-slate-300"
+                    />
+                    {correctionForm.supportingEvidenceName && (
+                      <div className="text-[11px] text-emerald-400">
+                        Attached: {correctionForm.supportingEvidenceName}
+                      </div>
+                    )}
+                    <input
+                      placeholder="Evidence reference / gate book note (optional)"
+                      value={correctionForm.supportingEvidenceNote}
+                      onChange={(e) =>
+                        setCorrectionForm((p) => ({ ...p, supportingEvidenceNote: e.target.value }))
+                      }
+                      className="w-full px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    className="w-full py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer"
+                  >
+                    Submit Correction for HR Review
+                  </button>
+                </form>
+
+                <div className="lg:col-span-2 bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <h3 className="text-sm font-extrabold text-white">
+                        Manual Correction Requests ({attendanceCorrections.length})
+                      </h3>
+                      <p className="text-[11px] text-slate-400">
+                        HR Officer prepares/returns ·{" "}
+                        <strong className="text-emerald-400">ONLY HR Manager</strong> gives final Approval or Rejection.
+                      </p>
+                    </div>
+                    {!perms.canFinalApproveAttendance && (
+                      <span className="px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-[10px] text-amber-300">
+                        Final Approve restricted to HR Manager
+                      </span>
+                    )}
+                  </div>
+
+                  {attendanceCorrections.length === 0 ? (
+                    <div className="p-8 text-center text-xs text-slate-500 border border-dashed border-slate-800 rounded-xl">
+                      No manual attendance correction requests submitted yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-3 max-h-[560px] overflow-y-auto pr-1">
+                      {attendanceCorrections.map((cor) => (
+                        <div
+                          key={cor.id}
+                          className="p-4 rounded-xl bg-slate-900 border border-slate-800 space-y-2.5 text-xs"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <div>
+                              <span className="font-mono font-bold text-white">{cor.requestNo}</span>{" "}
+                              <span className="text-slate-300 font-semibold">· {cor.workerName}</span>{" "}
+                              <span className="text-slate-500 font-mono">({cor.employeeId} · {cor.date})</span>
+                              <div className="text-[11px] text-purple-300 font-semibold mt-0.5">
+                                {cor.correctionType} · Submitted by {cor.submittedBy} ({cor.submittedByRole})
+                              </div>
+                            </div>
+                            <span
+                              className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                                cor.status === "Approved"
+                                  ? "bg-emerald-950 text-emerald-300 border border-emerald-500/40"
+                                  : cor.status === "Rejected"
+                                  ? "bg-red-950 text-red-300 border border-red-500/40"
+                                  : cor.status === "Returned for Correction"
+                                  ? "bg-orange-950 text-orange-300"
+                                  : "bg-amber-950 text-amber-300"
+                              }`}
+                            >
+                              {cor.status}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+                            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                              <div className="font-bold text-slate-400 uppercase text-[10px]">
+                                Original Biometric Event (Preserved)
+                              </div>
+                              <div className="font-mono text-slate-200 mt-1">
+                                In: {cor.originalSnapshot.checkIn || "MISSING"} · Out:{" "}
+                                {cor.originalSnapshot.checkOut || "MISSING"}
+                              </div>
+                              <div className="text-slate-400">
+                                Hours: {cor.originalSnapshot.workingHours}h · Status: {cor.originalSnapshot.status}
+                              </div>
+                            </div>
+                            <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                              <div className="font-bold text-emerald-400 uppercase text-[10px]">
+                                Proposed Correction
+                              </div>
+                              <div className="font-mono text-white mt-1">
+                                In: {cor.proposedCheckIn || "MISSING"} · Out: {cor.proposedCheckOut || "MISSING"}
+                              </div>
+                              <div className="text-slate-300">Proposed Status: {cor.proposedStatus}</div>
+                            </div>
+                          </div>
+
+                          <div className="text-slate-300">
+                            <strong className="text-slate-400">Reason:</strong> {cor.reason}
+                          </div>
+
+                          {(cor.supportingEvidenceUrl || cor.supportingEvidenceNote) && (
+                            <div className="flex flex-wrap items-center gap-3 text-[11px] text-blue-300">
+                              {cor.supportingEvidenceUrl && (
+                                <a
+                                  href={cor.supportingEvidenceUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="underline font-bold"
+                                >
+                                  View Evidence ({cor.supportingEvidenceName || "Attachment"})
+                                </a>
+                              )}
+                              {cor.supportingEvidenceNote && (
+                                <span className="text-slate-400">Note: {cor.supportingEvidenceNote}</span>
+                              )}
+                            </div>
+                          )}
+
+                          {cor.status !== "Approved" && cor.status !== "Rejected" && (
+                            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                              <input
+                                placeholder="HR Officer / HR Manager review comments..."
+                                value={correctionReviewNotes[cor.id] || ""}
+                                onChange={(e) =>
+                                  setCorrectionReviewNotes((p) => ({ ...p, [cor.id]: e.target.value }))
+                                }
+                                className="flex-1 min-w-[200px] px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                              />
+                              {perms.canPrepareAttendanceReview && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewCorrection(cor, "Mark Under Review")}
+                                    className="px-2.5 py-1.5 rounded-lg bg-blue-700 hover:bg-blue-600 text-white text-[11px] font-bold cursor-pointer"
+                                  >
+                                    Mark Under Review
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewCorrection(cor, "Return for Correction")}
+                                    className="px-2.5 py-1.5 rounded-lg bg-amber-700 hover:bg-amber-600 text-white text-[11px] font-bold cursor-pointer"
+                                  >
+                                    Return
+                                  </button>
+                                </>
+                              )}
+                              {perms.canFinalApproveAttendance && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewCorrection(cor, "Approve")}
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer"
+                                  >
+                                    HR Manager Approve & Apply
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleReviewCorrection(cor, "Reject")}
+                                    className="px-2.5 py-1.5 rounded-lg bg-red-700 hover:bg-red-600 text-white text-[11px] font-bold cursor-pointer"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Immutable Attendance Approval & Correction Audit Log */}
+              <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+                <h4 className="text-xs font-extrabold uppercase tracking-wider text-white">
+                  Immutable Attendance Approval & Correction Audit History ({attendanceAuditLogs.length}) — Africa/Addis_Ababa
+                </h4>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {attendanceAuditLogs.slice(0, 40).map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs flex flex-wrap items-center justify-between gap-2"
+                    >
+                      <div>
+                        <span className="font-bold text-white">{log.action}</span> ·{" "}
+                        <span className="text-slate-300">{log.workerName}</span> ({log.date})
+                        {log.previousStatus && log.newStatus && (
+                          <span className="ml-2 text-[11px] font-mono text-emerald-400">
+                            {log.previousStatus} → {log.newStatus}
+                          </span>
+                        )}
+                        <div className="text-[11px] text-slate-400">
+                          Actor: {log.actorName} ({log.actorRole}) {log.comments ? `— ${log.comments}` : ""}
+                        </div>
+                      </div>
+                      <div className="font-mono text-[11px] text-slate-500">
+                        {formatAddisAbabaDateTime(log.timestamp)}
+                      </div>
+                    </div>
+                  ))}
+                  {attendanceAuditLogs.length === 0 && (
+                    <div className="text-xs text-slate-500 py-4 text-center">No attendance audit entries recorded yet.</div>
+                  )}
+                </div>
+              </div>
             </div>
           )}
 
@@ -4914,45 +6484,79 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
               {/* Generate Monthly Run */}
               {(perms.canManageEmployees || perms.canApproveFinanceStage) && (
-                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-end justify-between gap-4">
-                  <div className="flex flex-wrap items-end gap-3">
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">
-                        {isAmharic ? "የክፍያ ወር" : "Pay Period"}
-                      </label>
-                      <input
-                        type="month"
-                        value={payPeriodInput}
-                        onChange={(e) => setPayPeriodInput(e.target.value)}
-                        className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[11px] text-slate-400 mb-1">
-                        {isAmharic ? "የፕሮጀክት ወሰን" : "Project Scope"}
-                      </label>
-                      <select
-                        value={payProjectScope}
-                        onChange={(e) => setPayProjectScope(e.target.value)}
-                        className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-end justify-between gap-4">
+                    <div className="flex flex-wrap items-end gap-3">
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          {isAmharic ? "የክፍያ ወር" : "Pay Period"}
+                        </label>
+                        <input
+                          type="month"
+                          value={payPeriodInput}
+                          onChange={(e) => setPayPeriodInput(e.target.value)}
+                          className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] text-slate-400 mb-1">
+                          {isAmharic ? "የፕሮጀክት ወሰን" : "Project Scope"}
+                        </label>
+                        <select
+                          value={payProjectScope}
+                          onChange={(e) => setPayProjectScope(e.target.value)}
+                          className="px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                        >
+                          <option value="ALL">{isAmharic ? "ሁሉም ፕሮጀክቶች" : "All Projects"}</option>
+                          {projectNames.map((p) => (
+                            <option key={p} value={p}>{p}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <button
+                        onClick={handleGeneratePayrollRun}
+                        className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
                       >
-                        <option value="ALL">{isAmharic ? "ሁሉም ፕሮጀክቶች" : "All Projects"}</option>
-                        {projectNames.map((p) => (
-                          <option key={p} value={p}>{p}</option>
-                        ))}
-                      </select>
+                        {isAmharic ? "የተረጋገጠ ደመወዝ አዘጋጅ" : "Generate Verified Payroll Run"}
+                      </button>
                     </div>
-                    <button
-                      onClick={handleGeneratePayrollRun}
-                      className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold whitespace-nowrap shrink-0 cursor-pointer"
-                    >
-                      {isAmharic ? "የተረጋገጠ ደመወዝ አዘጋጅ" : "Generate Verified Payroll Run"}
-                    </button>
+                    <div className="text-[11px] text-slate-400 text-right">
+                      <div>
+                        {isAmharic
+                          ? `ድርብ ክፍያ መከላከያ: ነቅቷል · ጡረታ: ${activeTaxConfig.employeePensionPercent}% ሠራተኛ / ${activeTaxConfig.employerPensionPercent}% አሠሪ`
+                          : `Duplicate Pay Guard: Active · Tax Config: ${activeTaxConfig.employeePensionPercent}% Emp / ${activeTaxConfig.employerPensionPercent}% Er Pension`}
+                      </div>
+                      <div className="mt-0.5 text-emerald-400">
+                        {approvedDeductionPolicy
+                          ? `Approved Deduction Policy: ${approvedDeductionPolicy.policyName}`
+                          : "Deduction Policy: None Approved (0 automatic attendance deductions applied)"}
+                      </div>
+                    </div>
                   </div>
-                  <div className="text-[11px] text-slate-400">
-                    {isAmharic
-                      ? `ድርብ ክፍያ መከላከያ: ነቅቷል · ጡረታ: ${activeTaxConfig.employeePensionPercent}% ሠራተኛ / ${activeTaxConfig.employerPensionPercent}% አሠሪ`
-                      : `Duplicate Pay Guard: Active · Tax Config: ${activeTaxConfig.employeePensionPercent}% Emp / ${activeTaxConfig.employerPensionPercent}% Er Pension`}
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                    <label className="flex items-center gap-2 text-slate-300 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enforceStrictAttendanceGate}
+                        onChange={(e) => setEnforceStrictAttendanceGate(e.target.checked)}
+                      />
+                      <span>
+                        Strict Gate: Block payroll generation if an employee has unapproved attendance in {payPeriodInput} (recommended)
+                      </span>
+                    </label>
+                    <span className="text-[11px] text-amber-300">
+                      Unapproved records in {payPeriodInput}:{" "}
+                      <strong className="font-mono">
+                        {
+                          attendance.filter(
+                            (a) =>
+                              a.date?.startsWith(payPeriodInput) &&
+                              a.finalApprovalStatus !== "Approved" &&
+                              a.hrReviewStatus !== "Approved"
+                          ).length
+                        }
+                      </strong>
+                    </span>
                   </div>
                 </div>
               )}
@@ -5075,10 +6679,30 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               {/* Active Run Employee Line Items & Payslips */}
               {activeRun && (
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
-                  <div className="flex items-center justify-between mb-3">
-                    <h4 className="text-sm font-extrabold text-white">
-                      Payslip Breakdown — {activeRun.runNo} ({activeRun.payPeriod})
-                    </h4>
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div>
+                      <h4 className="text-sm font-extrabold text-white">
+                        Payslip Breakdown — {activeRun.runNo} ({activeRun.payPeriod})
+                      </h4>
+                      {activeRun.attendanceAuditSummary && (
+                        <div className="text-[11px] text-slate-400 mt-0.5">
+                          Approved Attendance Used:{" "}
+                          <strong className="text-emerald-400 font-mono">
+                            {activeRun.attendanceAuditSummary.approvedRecordsUsed}
+                          </strong>{" "}
+                          · Unapproved Excluded:{" "}
+                          <strong className="text-amber-300 font-mono">
+                            {activeRun.attendanceAuditSummary.unapprovedRecordsExcluded}
+                          </strong>{" "}
+                          · Policy Deductions:{" "}
+                          <strong className="text-white">
+                            {activeRun.attendanceAuditSummary.approvedDeductionPolicyApplied
+                              ? activeRun.attendanceAuditSummary.policyName
+                              : "None (Unapproved / Inactive)"}
+                          </strong>
+                        </div>
+                      )}
+                    </div>
                     <span className="text-xs text-slate-400">
                       Employer Pension (11%): ETB{" "}
                       <strong className="font-mono text-white">
@@ -5091,6 +6715,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
                         <th className="py-2 px-2">Employee</th>
                         <th className="py-2 px-2">Project</th>
+                        <th className="py-2 px-2 text-right">Appr Days / Leave / Abs</th>
                         <th className="py-2 px-2 text-right">Basic</th>
                         <th className="py-2 px-2 text-right">Allowances</th>
                         <th className="py-2 px-2 text-right">OT Pay</th>
@@ -5098,7 +6723,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                         <th className="py-2 px-2 text-right">Gross</th>
                         <th className="py-2 px-2 text-right">Tax</th>
                         <th className="py-2 px-2 text-right">Pen (7%)</th>
-                        <th className="py-2 px-2 text-right">Loan/Other</th>
+                        <th className="py-2 px-2 text-right">Loan/Pol Ded</th>
                         <th className="py-2 px-2 text-right">Net Pay</th>
                         <th className="py-2 px-2 text-right">Payslip & Edit</th>
                       </tr>
@@ -5111,6 +6736,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                             <div className="text-[10px] font-mono text-slate-500">{item.employeeId}</div>
                           </td>
                           <td className="py-2.5 px-2 text-slate-300">{item.project}</td>
+                          <td className="py-2.5 px-2 text-right font-mono text-[11px]">
+                            <span className="text-emerald-400">{item.approvedWorkingDays ?? item.daysWorked}d</span>
+                            <span className="text-slate-500"> / </span>
+                            <span className="text-blue-400">{item.approvedLeaveDays ?? 0}L</span>
+                            <span className="text-slate-500"> / </span>
+                            <span className="text-rose-400">{item.unpaidAbsenceDays ?? item.absentDays}A</span>
+                          </td>
                           <td className="py-2.5 px-2 text-right font-mono">{perms.canViewPayrollAmounts ? fmtMoney(item.basicSalary) : "***"}</td>
                           <td className="py-2.5 px-2 text-right font-mono">{perms.canViewPayrollAmounts ? fmtMoney(item.allowances) : "***"}</td>
                           <td className="py-2.5 px-2 text-right font-mono text-purple-300">{perms.canViewPayrollAmounts ? fmtMoney(item.overtimePay) : "***"}</td>
@@ -5120,6 +6752,11 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                           <td className="py-2.5 px-2 text-right font-mono text-blue-300">{perms.canViewPayrollAmounts ? fmtMoney(item.employeePension) : "***"}</td>
                           <td className="py-2.5 px-2 text-right font-mono text-rose-300">
                             {perms.canViewPayrollAmounts ? fmtMoney(item.advanceLoanDeduction + item.otherDeductions) : "***"}
+                            {Number(item.policyAttendanceDeductions || 0) > 0 && (
+                              <span className="block text-[10px] text-amber-300">
+                                (Att Pol: {fmtMoney(item.policyAttendanceDeductions!)})
+                              </span>
+                            )}
                           </td>
                           <td className="py-2.5 px-2 text-right font-mono font-black text-emerald-400">{perms.canViewPayrollAmounts ? fmtMoney(item.netPay) : "***"}</td>
                           <td className="py-2.5 px-2 text-right">
@@ -5378,6 +7015,112 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </form>
           )}
 
+          {payrollSubView === "tax" && (
+            <form
+              onSubmit={handleSaveDeductionPolicy}
+              className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4 mt-4"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">
+                    Company Attendance Deduction Policy (Payroll Gate)
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    System NEVER applies automatic salary deductions for absence/unpaid leave/lateness unless an HR Manager or Director explicitly marks this policy as Approved.
+                  </p>
+                </div>
+                <span
+                  className={`px-2.5 py-1 rounded text-[11px] font-bold ${
+                    policyForm.isApproved
+                      ? "bg-emerald-950 text-emerald-300 border border-emerald-500/40"
+                      : "bg-slate-800 text-amber-300"
+                  }`}
+                >
+                  {policyForm.isApproved ? "APPROVED & ACTIVE" : "DRAFT / INACTIVE"}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Policy Title</label>
+                  <input
+                    value={policyForm.policyName}
+                    onChange={(e) => setPolicyForm((p) => ({ ...p, policyName: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Standard Working Days / Month</label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={31}
+                    value={policyForm.standardWorkingDaysPerMonth}
+                    onChange={(e) =>
+                      setPolicyForm((p) => ({ ...p, standardWorkingDaysPerMonth: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] text-slate-400 mb-1">Absence Daily Multiplier</label>
+                  <input
+                    type="number"
+                    step="0.25"
+                    min={0}
+                    value={policyForm.absenceDailyMultiplier}
+                    onChange={(e) =>
+                      setPolicyForm((p) => ({ ...p, absenceDailyMultiplier: Number(e.target.value) }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs font-mono text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-5 text-xs text-slate-200">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyForm.deductUnpaidLeave}
+                    onChange={(e) => setPolicyForm((p) => ({ ...p, deductUnpaidLeave: e.target.checked }))}
+                  />
+                  <span>Deduct Approved Unpaid Leave</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyForm.deductUnexcusedAbsence}
+                    onChange={(e) => setPolicyForm((p) => ({ ...p, deductUnexcusedAbsence: e.target.checked }))}
+                  />
+                  <span>Deduct Unexcused Absence Days</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={policyForm.lateDeductionEnabled}
+                    onChange={(e) => setPolicyForm((p) => ({ ...p, lateDeductionEnabled: e.target.checked }))}
+                  />
+                  <span>Enable Late Minutes Deduction</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer font-bold text-emerald-400">
+                  <input
+                    type="checkbox"
+                    checked={policyForm.isApproved}
+                    onChange={(e) => setPolicyForm((p) => ({ ...p, isApproved: e.target.checked }))}
+                  />
+                  <span>Approve & Activate Policy for Payroll</span>
+                </label>
+              </div>
+
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer"
+              >
+                Save Attendance Deduction Policy
+              </button>
+            </form>
+          )}
+
           {payrollSubView === "loans" && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <form
@@ -5510,6 +7253,18 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   { id: "payroll", label: isAmharic ? "ወርሃዊ ደመወዝ እና ግብር" : "Monthly Payroll & Tax/Pension" },
                   { id: "project-labor", label: isAmharic ? "የፕሮጀክት የጉልበት ወጪ" : "Project Labor Expenses" },
                   { id: "payment-history", label: isAmharic ? "ቅድሚያ ክፍያ እና ብድር ታሪክ" : "Advances & Loans History" },
+                  { id: "daily-attendance", label: "Daily Attendance" },
+                  { id: "weekly-attendance", label: "Weekly Attendance" },
+                  { id: "monthly-attendance", label: "Monthly Attendance" },
+                  { id: "employee-history", label: "Employee History" },
+                  { id: "department-attendance", label: "Department Attendance" },
+                  { id: "project-site-attendance", label: "Project/Site Attendance" },
+                  { id: "late-arrival", label: "Late Arrival" },
+                  { id: "absence", label: "Absence & Leave" },
+                  { id: "overtime", label: "Overtime Report" },
+                  { id: "missing-punch", label: "Missing Punch" },
+                  { id: "hr-approval", label: "HR Approval Report" },
+                  { id: "biometric-device-sync", label: "Biometric Device Sync" },
                 ] as { id: HrmReportKind; label: string }[]
               ).map((r) => (
                 <button
@@ -5553,6 +7308,97 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 <Printer size={14} />
                 <span>{isAmharic ? "አትም" : "Print"}</span>
               </button>
+            </div>
+          </div>
+
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-7 gap-2 items-end">
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Search</label>
+              <input
+                value={reportSearch}
+                onChange={(e) => setReportSearch(e.target.value)}
+                placeholder="Employee, device, site..."
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Anchor Date</label>
+              <input
+                type="date"
+                value={quickClock.dailyFilterDate}
+                onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterDate: e.target.value }))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Employee</label>
+              <select
+                value={quickClock.filterEmployeeId}
+                onChange={(e) => setQuickClock((p) => ({ ...p, filterEmployeeId: e.target.value }))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+              >
+                <option value="ALL">All Employees</option>
+                {workers.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.employeeId || w.id} — {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Department</label>
+              <select
+                value={quickClock.filterDepartment}
+                onChange={(e) => setQuickClock((p) => ({ ...p, filterDepartment: e.target.value }))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+              >
+                <option value="ALL">All Departments</option>
+                {departmentOptions.map((d) => (
+                  <option key={d} value={d}>{d}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Project / Site</label>
+              <select
+                value={quickClock.dailyFilterProject}
+                onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterProject: e.target.value }))}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+              >
+                <option value="ALL">All Projects</option>
+                {projectNames.map((p) => (
+                  <option key={p} value={p}>{p}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Work Location</label>
+              <select
+                value={quickClock.filterWorkLocation}
+                onChange={(e) =>
+                  setQuickClock((p) => ({ ...p, filterWorkLocation: e.target.value as WorkLocationFilterType }))
+                }
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+              >
+                <option value="ALL">All Locations</option>
+                <option value="Head Office">Head Office</option>
+                <option value="Construction Site">Construction Site</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] text-slate-400 mb-1">Approval Status</label>
+              <select
+                value={approvalStatusFilter}
+                onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
+                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+              >
+                <option value="ALL">All Statuses</option>
+                <option value="Pending">Pending</option>
+                <option value="Under Review">Under Review</option>
+                <option value="Returned for Correction">Returned for Correction</option>
+                <option value="Approved">Approved</option>
+                <option value="Rejected">Rejected</option>
+              </select>
             </div>
           </div>
 
@@ -5742,15 +7588,16 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                 />
               </div>
-              <div className="flex items-end gap-4">
-                <label className="flex items-center gap-2 text-xs text-slate-200 cursor-pointer pb-2">
-                  <input
-                    type="checkbox"
-                    checked={empForm.biometricRegistered}
-                    onChange={(e) => setEmpForm((p) => ({ ...p, biometricRegistered: e.target.checked }))}
-                  />
-                  <span>Biometric Registered</span>
-                </label>
+              <div className="flex items-end">
+                <div className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
+                  Biometric Status:{" "}
+                  <strong className="text-purple-300">
+                    {editingWorkerId
+                      ? workers.find((w) => w.id === editingWorkerId)?.biometricEnrollmentStatus ||
+                        "Not Registered"
+                      : "Not Registered (Enroll via HR Biometric Profile after saving)"}
+                  </strong>
+                </div>
               </div>
               <div className="sm:col-span-3">
                 <label className="text-[11px] text-slate-400">
@@ -6132,30 +7979,563 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
           workSchedules={workSchedules}
           projectNames={projectNames}
           onAddAttendance={onAddAttendance}
+          onUpdateWorker={onUpdateWorker}
           onLogAction={onLogAction}
         />
+      )}
+
+      {/* ============================================================
+          MODAL: EMPLOYEE PROFILE & INTEGRATED BIOMETRIC ENROLLMENT
+         ============================================================ */}
+      {viewingBioProfileWorker && viewingBioProfileState && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 space-y-5 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div className="flex items-center gap-3">
+                {viewingBioProfileWorker.photo ? (
+                  <img
+                    src={viewingBioProfileWorker.photo}
+                    alt={viewingBioProfileWorker.name}
+                    className="w-11 h-11 rounded-xl object-cover border border-slate-700"
+                  />
+                ) : (
+                  <div className="w-11 h-11 rounded-xl bg-purple-600/20 border border-purple-500/30 flex items-center justify-center text-purple-300 font-bold">
+                    {viewingBioProfileWorker.name.slice(0, 2).toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-base font-extrabold text-white">
+                    Employee Profile &amp; Biometric Enrollment — {viewingBioProfileWorker.name}
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Employee ID:{" "}
+                    <strong className="font-mono text-emerald-400">
+                      {viewingBioProfileState.employeeId}
+                    </strong>{" "}
+                    · {viewingBioProfileWorker.department} ·{" "}
+                    {viewingBioProfileWorker.position || viewingBioProfileWorker.trade} ·{" "}
+                    {viewingBioProfileWorker.status}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setViewingBioProfileWorkerId(null)}
+                className="p-1.5 rounded-lg bg-slate-900 text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* 4-Stage Workflow Stepper */}
+            <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
+              <div className="text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
+                Integrated Biometric Registration Workflow
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 text-xs">
+                {(
+                  [
+                    { idx: 1, title: "1. Employee Registration", sub: viewingBioProfileState.employeeId },
+                    {
+                      idx: 2,
+                      title: "2. Biometric Enrollment",
+                      sub: viewingBioProfileState.deviceUserId
+                        ? `Device BioID ${viewingBioProfileState.deviceUserId}`
+                        : "Enroll on terminal",
+                    },
+                    {
+                      idx: 3,
+                      title: "3. Employee Biometric Mapping",
+                      sub: `Mapping: ${viewingBioProfileState.mappingStatus}`,
+                    },
+                    {
+                      idx: 4,
+                      title: "4. Attendance Activation",
+                      sub: viewingBioProfileState.attendanceActivated
+                        ? "Active & Verified"
+                        : "Requires Mapping + Device Verify",
+                    },
+                  ] as const
+                ).map((step) => {
+                  const completed =
+                    step.idx < viewingBioProfileState.stageIndex ||
+                    (step.idx === 4 && viewingBioProfileState.enrollmentStatus === "Active");
+                  const current = step.idx === viewingBioProfileState.stageIndex;
+                  return (
+                    <div
+                      key={step.idx}
+                      className={`p-3 rounded-xl border ${
+                        completed
+                          ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-200"
+                          : current
+                          ? "bg-blue-950/40 border-blue-500/40 text-blue-200"
+                          : "bg-slate-950 border-slate-800 text-slate-400"
+                      }`}
+                    >
+                      <div className="font-extrabold">{step.title}</div>
+                      <div className="text-[11px] font-mono mt-0.5 truncate">{step.sub}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Required 7-Field Biometric Enrollment Section Summary */}
+            <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-extrabold uppercase tracking-wider text-purple-300 flex items-center gap-1.5">
+                  <Fingerprint size={14} />
+                  <span>Biometric Enrollment Profile Section (Zero Raw Templates Stored)</span>
+                </div>
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-950 border border-slate-700 text-slate-300">
+                  {viewingBioProfileState.deviceVerified
+                    ? "Linked Device Verified"
+                    : "Device Verification Pending"}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Enrollment Status</div>
+                  <div className="font-extrabold text-white mt-0.5">
+                    {viewingBioProfileState.enrollmentStatus}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Biometric Device</div>
+                  <div className="font-semibold text-slate-200 mt-0.5">
+                    {viewingBioProfileState.biometricDeviceName
+                      ? `${viewingBioProfileState.biometricDeviceName} (${viewingBioProfileState.biometricDeviceModel})`
+                      : "Not Assigned"}
+                  </div>
+                  {viewingBioProfileState.biometricDeviceSerialNumber && (
+                    <div className="text-[10px] font-mono text-slate-500">
+                      S/N: {viewingBioProfileState.biometricDeviceSerialNumber}
+                    </div>
+                  )}
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Device User ID</div>
+                  <div className="font-mono font-bold text-emerald-400 mt-0.5">
+                    {viewingBioProfileState.deviceUserId || "—"}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Mapping Status</div>
+                  <div className="font-bold text-cyan-300 mt-0.5">
+                    {viewingBioProfileState.mappingStatus}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Work Location</div>
+                  <div className="font-semibold text-slate-200 mt-0.5">
+                    {viewingBioProfileState.workLocationType}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Project / Site</div>
+                  <div className="font-semibold text-slate-200 mt-0.5">
+                    {viewingBioProfileState.projectSite}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Enrollment Date</div>
+                  <div className="font-mono text-slate-200 mt-0.5">
+                    {viewingBioProfileState.enrollmentDate || "—"}
+                  </div>
+                </div>
+                <div className="p-2.5 rounded-lg bg-slate-950 border border-slate-800">
+                  <div className="text-[10px] uppercase text-slate-500">Attendance Activation</div>
+                  <div className="font-bold text-emerald-400 mt-0.5">
+                    {viewingBioProfileState.attendanceActivated
+                      ? "Active"
+                      : "Pending Verification / Mapping"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* HR Department ONLY Enrollment & Mapping Controls */}
+            {perms.canManageBiometricEnrollment ? (
+              <div className="space-y-4">
+                <form
+                  onSubmit={handleStage2DeviceEnroll}
+                  className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 space-y-3"
+                >
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-xs font-extrabold text-blue-300">
+                      HR Department Actions — Stage 2 (Biometric Enrollment) &amp; Stage 3 (Mapping)
+                    </div>
+                    <span className="text-[11px] text-slate-400">
+                      Authorized HR Personnel Only
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">
+                        Registered Biometric Device *
+                      </label>
+                      <select
+                        required
+                        value={bioEnrollForm.deviceId}
+                        onChange={(e) => {
+                          const dev = biometricDevices.find((d) => d.id === e.target.value);
+                          setBioEnrollForm((p) => ({
+                            ...p,
+                            deviceId: e.target.value,
+                            workLocationType: dev?.workLocationType || p.workLocationType,
+                            projectSite: dev?.projectName || p.projectSite,
+                          }));
+                        }}
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
+                      >
+                        <option value="">-- Select Biometric Device --</option>
+                        {biometricDevices
+                          .filter((d) => d.status === "Active")
+                          .map((d) => (
+                            <option key={d.id} value={d.id}>
+                              {d.deviceName} ({d.model} · S/N: {d.serialNumber}){" "}
+                              {isDeviceVerifiedForBiometricAttendance(d) ? "[Verified]" : "[Unverified]"}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">
+                        Device User ID (Biometric User ID) *
+                      </label>
+                      <input
+                        required
+                        value={bioEnrollForm.biometricUserId}
+                        onChange={(e) =>
+                          setBioEnrollForm((p) => ({ ...p, biometricUserId: e.target.value }))
+                        }
+                        placeholder="e.g. 1042"
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">
+                        Enrollment Date *
+                      </label>
+                      <input
+                        type="date"
+                        required
+                        value={bioEnrollForm.enrollmentDate}
+                        onChange={(e) =>
+                          setBioEnrollForm((p) => ({ ...p, enrollmentDate: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">
+                        Work Location *
+                      </label>
+                      <select
+                        value={bioEnrollForm.workLocationType}
+                        onChange={(e) =>
+                          setBioEnrollForm((p) => ({
+                            ...p,
+                            workLocationType: e.target.value as "Head Office" | "Construction Site",
+                            projectSite:
+                              e.target.value === "Head Office"
+                                ? "Head Office"
+                                : projectNames[0] || "Bole Tower",
+                          }))
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
+                      >
+                        <option value="Head Office">Head Office</option>
+                        <option value="Construction Site">Construction Site</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-[11px] text-slate-400 mb-1">
+                        Project / Site *
+                      </label>
+                      <select
+                        value={bioEnrollForm.projectSite}
+                        onChange={(e) =>
+                          setBioEnrollForm((p) => ({ ...p, projectSite: e.target.value }))
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
+                      >
+                        {Array.from(new Set(["Head Office", ...projectNames])).map((pr) => (
+                          <option key={pr} value={pr}>
+                            {pr}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="flex items-end">
+                      <label className="flex items-center gap-2 text-xs text-slate-300 cursor-pointer pb-2">
+                        <input
+                          type="checkbox"
+                          checked={bioEnrollForm.markMappingPending}
+                          onChange={(e) =>
+                            setBioEnrollForm((p) => ({
+                              ...p,
+                              markMappingPending: e.target.checked,
+                            }))
+                          }
+                        />
+                        <span>Mark Mapping Pending</span>
+                      </label>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] text-slate-400 mb-1">
+                      Enrollment / Mapping Notes
+                    </label>
+                    <input
+                      value={bioEnrollForm.notes}
+                      onChange={(e) => setBioEnrollForm((p) => ({ ...p, notes: e.target.value }))}
+                      placeholder="Physical terminal ID verification notes (no raw templates stored)..."
+                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-slate-800">
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="submit"
+                        disabled={bioProfileBusy}
+                        className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                      >
+                        Stage 2: Save Device Enrollment
+                      </button>
+                      <button
+                        type="button"
+                        disabled={bioProfileBusy || !bioEnrollForm.deviceId || !bioEnrollForm.biometricUserId.trim()}
+                        onClick={handleStage3CompleteMapping}
+                        className="px-3.5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold cursor-pointer disabled:opacity-50"
+                      >
+                        Stage 3: Complete Biometric Mapping
+                      </button>
+                      <button
+                        type="button"
+                        disabled={
+                          bioProfileBusy ||
+                          !viewingBioProfileState.activeMapping ||
+                          !viewingBioProfileState.deviceVerified
+                        }
+                        title={
+                          !viewingBioProfileState.activeMapping
+                            ? "Complete Stage 3 Employee Biometric Mapping first"
+                            : !viewingBioProfileState.deviceVerified
+                            ? "Linked biometric device must pass ADMS/connector verification first"
+                            : "Activate Biometric Attendance"
+                        }
+                        onClick={handleStage4ActivateAttendance}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        Stage 4: Activate Attendance
+                      </button>
+                    </div>
+                  </div>
+
+                  {!viewingBioProfileState.deviceVerified && (
+                    <div className="p-2.5 rounded-lg bg-amber-950/40 border border-amber-500/30 text-[11px] text-amber-200">
+                      <strong>Attendance Activation Gate:</strong> Biometric attendance cannot be activated until BOTH an Active Employee Biometric Mapping exists AND the linked ZKTeco device passes connection/handshake verification.
+                    </div>
+                  )}
+                </form>
+
+                {perms.isHrManager && (
+                  <div className="bg-slate-900/40 border border-red-500/20 rounded-xl p-3.5 flex flex-wrap items-center gap-2">
+                    <input
+                      value={bioSuspendReason}
+                      onChange={(e) => setBioSuspendReason(e.target.value)}
+                      placeholder="Mandatory reason to suspend enrollment & deactivate mapping..."
+                      className="flex-1 min-w-[220px] px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-white"
+                    />
+                    <button
+                      type="button"
+                      disabled={bioProfileBusy || !bioSuspendReason.trim()}
+                      onClick={handleSuspendBiometricEnrollment}
+                      className="px-3 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer disabled:opacity-40"
+                    >
+                      Suspend Enrollment
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-3.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-xs text-amber-200 flex items-center gap-2.5">
+                <Lock size={15} className="text-amber-400 shrink-0" />
+                <span>
+                  <strong>HR Department Only:</strong> Site Managers and other departments have view-only access and cannot perform biometric enrollment or manage employee biometric mappings.
+                </span>
+              </div>
+            )}
+
+            {/* Employee Biometric Audit History */}
+            <div className="bg-slate-900/40 border border-slate-800 rounded-xl p-4 space-y-2">
+              <div className="text-xs font-extrabold text-slate-300 flex items-center gap-1.5">
+                <History size={14} className="text-blue-400" />
+                <span>Immutable Biometric Enrollment &amp; Mapping History</span>
+              </div>
+              <div className="max-h-44 overflow-y-auto space-y-2">
+                {biometricMappingAuditLogs
+                  .filter(
+                    (l) =>
+                      l.employeeId === viewingBioProfileState.employeeId ||
+                      l.employeeId === viewingBioProfileWorker.id
+                  )
+                  .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
+                  .map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-2.5 rounded-lg bg-slate-950 border border-slate-800 text-[11px] flex flex-wrap justify-between gap-2"
+                    >
+                      <div>
+                        <span className="font-bold text-emerald-400">{log.action}</span> ·{" "}
+                        <span className="text-slate-300">{log.deviceName || log.deviceId}</span> ·{" "}
+                        <span className="font-mono text-white">BioID {log.biometricUserId}</span>
+                        {log.reason && (
+                          <div className="text-slate-400 mt-0.5">{log.reason}</div>
+                        )}
+                      </div>
+                      <div className="text-right text-slate-500 font-mono">
+                        <div>{log.actorName} ({log.actorRole})</div>
+                        <div>{formatAddisAbabaDateTime(log.timestamp)}</div>
+                      </div>
+                    </div>
+                  ))}
+                {biometricMappingAuditLogs.filter(
+                  (l) =>
+                    l.employeeId === viewingBioProfileState.employeeId ||
+                    l.employeeId === viewingBioProfileWorker.id
+                ).length === 0 && (
+                  <div className="text-xs text-slate-500 py-3 text-center">
+                    No biometric enrollment or mapping events recorded yet for this employee.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* ============================================================
           MODAL: RECRUITMENT STAGE DECISION (APPROVE / RETURN / REJECT)
          ============================================================ */}
       {recDecisionModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <form
             onSubmit={handleSubmitRecruitmentDecision}
-            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4"
+            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8"
           >
-            <h3 className="text-base font-extrabold text-white">
-              {recDecisionModal.decision === "Approved"
-                ? `Approve Stage — ${recDecisionModal.req.requestNo}`
-                : recDecisionModal.decision === "Returned"
-                ? `Return for Correction — ${recDecisionModal.req.requestNo}`
-                : `Reject Recruitment Request — ${recDecisionModal.req.requestNo}`}
-            </h3>
-            <div className="text-xs text-slate-300">
-              Current Stage: <strong className="text-blue-300">{recDecisionModal.req.workflowStage}</strong> · Position:{" "}
-              <strong>{recDecisionModal.req.requestedCount}x {recDecisionModal.req.jobPosition}</strong> ({recDecisionModal.req.project})
+            <div className="flex items-start justify-between border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-base font-extrabold text-white">
+                  {recDecisionModal.decision === "Approved"
+                    ? `Approve Stage — ${recDecisionModal.req.requestNo}`
+                    : recDecisionModal.decision === "Returned"
+                    ? `Return for Correction — ${recDecisionModal.req.requestNo}`
+                    : `Reject Recruitment Request — ${recDecisionModal.req.requestNo}`}
+                </h3>
+                <div className="text-xs text-slate-300 mt-1">
+                  Stage: <strong className="text-blue-300">{recDecisionModal.req.workflowStage}</strong> · Position:{" "}
+                  <strong>{recDecisionModal.req.requestedCount}x {recDecisionModal.req.jobPosition}</strong> ({recDecisionModal.req.project} / {recDecisionModal.req.department})
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setRecDecisionModal(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
             </div>
+
+            {/* Full Manpower Request Review Snapshot before Decision (Mandatory for Director & Reviewers) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-900/70 p-3.5 rounded-xl border border-slate-800">
+              <div>
+                <span className="text-slate-500">Employment Type / Expected Date:</span>
+                <div className="text-slate-200 font-semibold">
+                  {recDecisionModal.req.employmentType} · {recDecisionModal.req.requiredByDate}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Proposed Monthly Salary:</span>
+                <div className="text-emerald-400 font-mono font-bold">
+                  ETB {fmtMoney(recDecisionModal.req.proposedMonthlySalary)}
+                </div>
+              </div>
+              <div>
+                <span className="text-slate-500">Job Responsibilities:</span>
+                <div className="text-slate-200">{recDecisionModal.req.jobResponsibilities || "—"}</div>
+              </div>
+              <div>
+                <span className="text-slate-500">Qualifications & Experience:</span>
+                <div className="text-slate-200">
+                  {recDecisionModal.req.qualificationsRequired} ({recDecisionModal.req.experienceRequired || "Standard"})
+                </div>
+              </div>
+              <div className="sm:col-span-2">
+                <span className="text-slate-500">Reason for Recruitment:</span>
+                <div className="text-slate-200">{recDecisionModal.req.justification}</div>
+              </div>
+            </div>
+
+            {recDecisionModal.req.supportingDocuments && recDecisionModal.req.supportingDocuments.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-300">
+                  Supporting Documents ({recDecisionModal.req.supportingDocuments.length})
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {recDecisionModal.req.supportingDocuments.map((d) => (
+                    <a
+                      key={d.id}
+                      href={d.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-[11px] text-blue-300 hover:underline flex items-center gap-1.5"
+                    >
+                      <FileText size={12} />
+                      <span>{d.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {recDecisionModal.req.approvalHistory && recDecisionModal.req.approvalHistory.length > 0 && (
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-bold text-slate-300">
+                  Previous Department Approvals & Reviewer Comments ({recDecisionModal.req.approvalHistory.length})
+                </div>
+                <div className="max-h-36 overflow-y-auto space-y-1.5">
+                  {recDecisionModal.req.approvalHistory.map((h, i) => (
+                    <div
+                      key={i}
+                      className="p-2 rounded-lg bg-slate-900 border border-slate-800 text-[11px] flex flex-wrap justify-between gap-2"
+                    >
+                      <div>
+                        <span className="font-bold text-white">{h.stage}</span> —{" "}
+                        <span
+                          className={
+                            h.decision === "Rejected"
+                              ? "text-red-400 font-bold"
+                              : h.decision === "Returned"
+                              ? "text-amber-300 font-bold"
+                              : "text-emerald-400 font-bold"
+                          }
+                        >
+                          {h.decision}
+                        </span>
+                        <div className="text-slate-400">
+                          {h.actorName} ({h.actorRole}){h.notes ? ` — "${h.notes}"` : ""}
+                        </div>
+                      </div>
+                      <div className="font-mono text-[10px] text-slate-500">{h.timestamp.slice(0, 16).replace("T", " ")}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">
                 {recDecisionModal.decision === "Approved"
@@ -6304,16 +8684,46 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             onSubmit={handleResubmitRecruitment}
             className="bg-slate-950 border border-slate-800 rounded-2xl max-w-2xl w-full p-6 space-y-4 my-8"
           >
-            <h3 className="text-base font-extrabold text-white">
-              Revise & Resubmit Request — {resubmittingRec.requestNo}
-            </h3>
+            <div className="flex items-start justify-between">
+              <h3 className="text-base font-extrabold text-white">
+                Revise & Resubmit Request — {resubmittingRec.requestNo}
+              </h3>
+              <button
+                type="button"
+                onClick={() => setResubmittingRec(null)}
+                className="text-slate-400 hover:text-white cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
             <div className="p-3 rounded-xl bg-amber-950/50 border border-amber-500/40 text-xs text-amber-200">
               Returned by {resubmittingRec.returnedBy} ({resubmittingRec.returnedAtStage}):{" "}
               {resubmittingRec.correctionNotes}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Job Position</label>
+                <label className="block text-[11px] text-slate-400 mb-1">Project *</label>
+                <select
+                  value={resubmitForm.project}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, project: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  {projectNames.map((pr) => (
+                    <option key={pr} value={pr}>{pr}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Department *</label>
+                <input
+                  required
+                  value={resubmitForm.department}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, department: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Job Position *</label>
                 <input
                   required
                   value={resubmitForm.jobPosition}
@@ -6322,7 +8732,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Requested Count</label>
+                <label className="block text-[11px] text-slate-400 mb-1">Requested Count *</label>
                 <input
                   type="number"
                   min={1}
@@ -6331,6 +8741,30 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   onChange={(e) => setResubmitForm((p) => ({ ...p, requestedCount: Number(e.target.value) }))}
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                 />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Employment Type</label>
+                <select
+                  value={resubmitForm.employmentType}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, employmentType: e.target.value as any }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  <option value="Permanent">Permanent</option>
+                  <option value="Contract">Contract</option>
+                  <option value="Daily Labourer">Daily Labourer</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Urgency</label>
+                <select
+                  value={resubmitForm.urgency}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, urgency: e.target.value as any }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  <option value="Normal">Normal</option>
+                  <option value="High">High</option>
+                  <option value="Critical">Critical</option>
+                </select>
               </div>
               <div>
                 <label className="block text-[11px] text-slate-400 mb-1">Proposed Salary (ETB)</label>
@@ -6351,16 +8785,35 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
                 />
               </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Required Experience</label>
+                <input
+                  value={resubmitForm.experienceRequired}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, experienceRequired: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Job Responsibilities *</label>
-              <textarea
-                rows={2}
-                required
-                value={resubmitForm.jobResponsibilities}
-                onChange={(e) => setResubmitForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
-                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-              />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Job Responsibilities *</label>
+                <textarea
+                  rows={2}
+                  required
+                  value={resubmitForm.jobResponsibilities}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-400 mb-1">Required Qualifications</label>
+                <textarea
+                  rows={2}
+                  value={resubmitForm.qualificationsRequired}
+                  onChange={(e) => setResubmitForm((p) => ({ ...p, qualificationsRequired: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                />
+              </div>
             </div>
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">Justification *</label>
@@ -6370,6 +8823,44 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 onChange={(e) => setResubmitForm((p) => ({ ...p, justification: e.target.value }))}
                 className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
               />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[11px] text-slate-400">
+                Supporting Documents ({resubmitForm.supportingDocuments.length} attached) {uploadingRecDoc && "(Uploading...)"}
+              </label>
+              <input
+                type="file"
+                onChange={(e) => e.target.files?.[0] && handleUploadResubmitDocument(e.target.files[0])}
+                className="w-full text-xs text-slate-300"
+              />
+              {resubmitForm.supportingDocuments.length > 0 && (
+                <div className="flex flex-wrap gap-2 text-[11px]">
+                  {resubmitForm.supportingDocuments.map((docItem) => (
+                    <span
+                      key={docItem.id}
+                      className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700 text-slate-200 flex items-center gap-1.5"
+                    >
+                      <FileText size={12} className="text-blue-400" />
+                      <a href={docItem.url} target="_blank" rel="noreferrer" className="hover:underline text-blue-300">
+                        {docItem.name}
+                      </a>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setResubmitForm((p) => ({
+                            ...p,
+                            supportingDocuments: p.supportingDocuments.filter((d) => d.id !== docItem.id),
+                          }))
+                        }
+                        className="text-slate-400 hover:text-red-400 cursor-pointer ml-1"
+                        title="Remove document"
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div>
               <label className="block text-[11px] text-slate-400 mb-1">Resubmission Notes</label>
@@ -6393,6 +8884,72 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white cursor-pointer"
               >
                 Resubmit to HR Manager
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ============================================================
+          MODAL: ATTENDANCE APPROVAL / RETURN / DISCREPANCY ACTION
+         ============================================================ */}
+      {attActionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSubmitAttendanceActionModal}
+            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4"
+          >
+            <h3 className="text-base font-extrabold text-white">
+              {attActionModal.mode} — {attActionModal.record.workerName}
+            </h3>
+            <div className="text-xs text-slate-400">
+              Date: <strong className="font-mono text-white">{attActionModal.record.date}</strong> · Current Approval Status:{" "}
+              <strong className="text-amber-300">{attActionModal.record.finalApprovalStatus || "Pending"}</strong>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">
+                Comments / Audit Justification{" "}
+                {attActionModal.mode === "Reject" ||
+                attActionModal.mode === "Return for Correction" ||
+                attActionModal.mode === "Report Discrepancy"
+                  ? "(Required *)"
+                  : "(Optional)"}
+              </label>
+              <textarea
+                rows={3}
+                required={
+                  attActionModal.mode === "Reject" ||
+                  attActionModal.mode === "Return for Correction" ||
+                  attActionModal.mode === "Report Discrepancy"
+                }
+                value={attActionComments}
+                onChange={(e) => setAttActionComments(e.target.value)}
+                placeholder="Enter verification comments, discrepancy details, or correction notes..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAttActionModal(null);
+                  setAttActionComments("");
+                }}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className={`px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer ${
+                  attActionModal.mode === "Final Approve"
+                    ? "bg-emerald-600 hover:bg-emerald-500"
+                    : attActionModal.mode === "Reject"
+                    ? "bg-red-600 hover:bg-red-500"
+                    : "bg-blue-600 hover:bg-blue-500"
+                }`}
+              >
+                Confirm {attActionModal.mode}
               </button>
             </div>
           </form>

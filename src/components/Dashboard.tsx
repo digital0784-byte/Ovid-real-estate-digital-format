@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { 
   Users, 
   CheckCircle2, 
@@ -14,10 +14,29 @@ import {
   Activity,
   Star,
   MapPin,
-  TrendingDown
+  TrendingDown,
+  ClipboardCheck
 } from "lucide-react";
-import { Worker, Team, ProjectZone, AttendanceRecord, UserRole, PerformanceEvaluation, AluminumFormworkPanel, PanelMovementLog } from "../types";
+import {
+  Worker,
+  Team,
+  ProjectZone,
+  AttendanceRecord,
+  UserRole,
+  PerformanceEvaluation,
+  AluminumFormworkPanel,
+  PanelMovementLog,
+  RecruitmentRequestRecord,
+  ErpTask,
+} from "../types";
 import { BiometricHeatmap } from "./BiometricHeatmap";
+import { DbService } from "../services/db";
+import { isFirebaseReady, db } from "../firebase";
+import {
+  canActorApproveRecruitmentStage,
+  canRequesterResubmitRecruitmentRequest,
+  resolveHrmPermissions,
+} from "../services/hrmService";
 
 interface DashboardProps {
   workers: Worker[];
@@ -28,11 +47,15 @@ interface DashboardProps {
   t: (key: string) => string;
   activeTab: string;
   setActiveTab: (tab: string) => void;
+  onNavigateToTab?: (tab: string) => void;
   currentUserRole: UserRole;
+  currentUserProfile?: any;
   evaluations: PerformanceEvaluation[];
   formworkPanels?: AluminumFormworkPanel[];
   panelMovementLogs?: PanelMovementLog[];
   onAddAttendance?: (record: AttendanceRecord) => void;
+  recruitmentRequests?: RecruitmentRequestRecord[];
+  erpTasks?: ErpTask[];
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -43,12 +66,88 @@ export const Dashboard: React.FC<DashboardProps> = ({
   isAmharic,
   t,
   setActiveTab,
+  onNavigateToTab,
   currentUserRole,
+  currentUserProfile,
   evaluations,
   formworkPanels = [],
   panelMovementLogs = [],
-  onAddAttendance
+  onAddAttendance,
+  recruitmentRequests: propRecruitmentRequests,
+  erpTasks: propErpTasks,
 }) => {
+  const [liveRecRequests, setLiveRecRequests] = useState<RecruitmentRequestRecord[]>([]);
+  const [liveErpTasks, setLiveErpTasks] = useState<ErpTask[]>([]);
+
+  useEffect(() => {
+    if (propRecruitmentRequests !== undefined || !isFirebaseReady || !db) return;
+    const unsub = DbService.subscribeRecruitmentRequests(setLiveRecRequests);
+    return () => unsub();
+  }, [propRecruitmentRequests]);
+
+  useEffect(() => {
+    if (propErpTasks !== undefined || !isFirebaseReady || !db) return;
+    const unsub = DbService.subscribeTasks(setLiveErpTasks);
+    return () => unsub();
+  }, [propErpTasks]);
+
+  const recruitmentRequests = propRecruitmentRequests ?? liveRecRequests;
+  const erpTasks = propErpTasks ?? liveErpTasks;
+  const actorUid = currentUserProfile?.uid || currentUserProfile?.id || String(currentUserRole);
+  const hrmPerms = useMemo(() => resolveHrmPermissions(currentUserRole), [currentUserRole]);
+
+  const navigateTarget = (tab: string) => {
+    if (onNavigateToTab) {
+      onNavigateToTab(tab);
+    } else {
+      setActiveTab(tab);
+    }
+  };
+
+  const pendingDepartmentRecruitments = useMemo(
+    () =>
+      recruitmentRequests.filter(
+        (r) =>
+          (r.status === "Pending" && canActorApproveRecruitmentStage(currentUserRole, r.workflowStage)) ||
+          canRequesterResubmitRecruitmentRequest({
+            request: r,
+            actorUid,
+            actorRole: currentUserRole,
+          }) ||
+          (hrmPerms.canRegisterApprovedEmployees &&
+            r.workflowStage === "Approved" &&
+            r.status === "Approved" &&
+            Boolean(r.hrRegistrationAuthorized) &&
+            (r.hiredCount || 0) < r.requestedCount)
+      ),
+    [recruitmentRequests, currentUserRole, actorUid, hrmPerms.canRegisterApprovedEmployees]
+  );
+
+  const pendingDepartmentRecTasks = useMemo(
+    () =>
+      erpTasks.filter((task) => {
+        if (task.status === "Completed" || task.status === "Cancelled" || task.status === "Rejected") {
+          return false;
+        }
+        const isHrmCategory =
+          task.category === "HRM Recruitment Approval" ||
+          task.category === "HRM Recruitment Correction" ||
+          task.category === "HRM Employee Registration";
+        if (!isHrmCategory) return false;
+        const matchesUser =
+          (Array.isArray(task.assignedToUserIds) && task.assignedToUserIds.includes(actorUid)) ||
+          task.assignedToId === actorUid;
+        const matchesRole =
+          task.assignedToRole === currentUserRole ||
+          (task.assignedToRole === UserRole.OFFICE_MANAGER &&
+            currentUserRole === UserRole.OFFICE_AND_TECHNICAL_ENGINEERING) ||
+          (task.assignedToRole === UserRole.DIRECTOR &&
+            (currentUserRole === UserRole.DIRECTORY || currentUserRole === UserRole.HEAD_OFFICE)) ||
+          (task.assignedToRole === UserRole.HR_MANAGER && currentUserRole === UserRole.HR);
+        return matchesUser || matchesRole || currentUserRole === UserRole.SUPER_ADMIN;
+      }),
+    [erpTasks, actorUid, currentUserRole]
+  );
   // Compute Stats
   const totalWorkers = workers.length;
   const presentCount = attendance.filter(a => a.status === "Present" || a.status === "Late").length;
@@ -631,6 +730,120 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </div>
       </div>
+
+      {/* PENDING DEPARTMENT MANPOWER & RECRUITMENT TASKS */}
+      {(pendingDepartmentRecruitments.length > 0 || pendingDepartmentRecTasks.length > 0) && (
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-red-50 text-red-600 border border-red-100">
+                <ClipboardCheck size={18} />
+              </div>
+              <div>
+                <h2 className="text-sm font-extrabold text-slate-900">
+                  {isAmharic
+                    ? `የክፍልዎ የሰው ኃይል እና የቅጥር ተግባራት (${pendingDepartmentRecruitments.length + pendingDepartmentRecTasks.length})`
+                    : `Pending Department Manpower & Recruitment Tasks (${pendingDepartmentRecruitments.length})`}
+                </h2>
+                <p className="text-[11px] text-slate-500">
+                  {isAmharic
+                    ? "በክፍልዎ ደረጃ ማጽደቅ፣ ማስተካከል ወይም የሠራተኛ ምዝገባ የሚጠባበቁ የቅጥር ጥያቄዎች"
+                    : `Actionable recruitment stages, returned requests, and onboarding tasks assigned to ${currentUserRole}`}
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigateTarget("hrmEnterprise:recruitment")}
+              className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1 cursor-pointer"
+            >
+              <span>{isAmharic ? "ወደ HRM ቅጥር ሂድ" : "Open Recruitment Workflow"}</span>
+              <ChevronRight size={14} />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pendingDepartmentRecruitments.map((req) => {
+              const isReturned = req.workflowStage === "Returned for Correction";
+              const isHrReady = req.workflowStage === "Approved" && req.hrRegistrationAuthorized;
+              return (
+                <div
+                  key={`dept-rec-${req.id}`}
+                  className={`p-3.5 rounded-xl border text-xs space-y-2 ${
+                    isReturned
+                      ? "bg-amber-50/70 border-amber-200"
+                      : isHrReady
+                      ? "bg-emerald-50/70 border-emerald-200"
+                      : "bg-slate-50 border-slate-200"
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-extrabold text-slate-900">{req.requestNo}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                        isReturned
+                          ? "bg-amber-100 text-amber-800"
+                          : isHrReady
+                          ? "bg-emerald-100 text-emerald-800"
+                          : "bg-blue-100 text-blue-800"
+                      }`}
+                    >
+                      {req.workflowStage === "Pending Office Manager"
+                        ? "Pending Office Engineer Manager"
+                        : isHrReady
+                        ? "HR Registration Authorized"
+                        : req.workflowStage}
+                    </span>
+                  </div>
+                  <div className="font-bold text-slate-800">
+                    {req.requestedCount}x {req.jobPosition} · {req.project}
+                  </div>
+                  <div className="text-[11px] text-slate-600">
+                    Dept: {req.department} · Requested by {req.requestedBy}
+                  </div>
+                  {req.stageSummary && (
+                    <div className="text-[11px] text-slate-500 truncate">{req.stageSummary}</div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => navigateTarget("hrmEnterprise:recruitment")}
+                    className="w-full py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    {isReturned
+                      ? "Revise & Resubmit"
+                      : isHrReady
+                      ? "Register Approved Employee"
+                      : "Review & Decide"}
+                  </button>
+                </div>
+              );
+            })}
+            {pendingDepartmentRecruitments.length === 0 &&
+              pendingDepartmentRecTasks.map((task) => (
+                <div
+                  key={`dept-task-${task.id}`}
+                  className="p-3.5 rounded-xl border bg-slate-50 border-slate-200 text-xs space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-mono font-extrabold text-slate-900">{task.taskId}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold">
+                      {task.status}
+                    </span>
+                  </div>
+                  <div className="font-bold text-slate-800">{task.taskName}</div>
+                  <div className="text-[11px] text-slate-600 line-clamp-2">{task.description}</div>
+                  <button
+                    type="button"
+                    onClick={() => navigateTarget("hrmEnterprise:recruitment")}
+                    className="w-full py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-[11px] font-bold cursor-pointer"
+                  >
+                    Open Task in HRM Recruitment
+                  </button>
+                </div>
+              ))}
+          </div>
+        </div>
+      )}
 
       {/* BIOMETRIC REAL-TIME HEATMAP MODULE */}
       <BiometricHeatmap 

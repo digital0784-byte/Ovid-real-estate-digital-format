@@ -4,9 +4,11 @@ import {
   BiometricDeviceMapping,
   BiometricDeviceProtocolType,
   BiometricDeviceRecord,
+  BiometricEnrollmentStatus,
   BiometricMappingAuditAction,
   BiometricMappingAuditLog,
   BiometricMappingStatus,
+  BiometricWorkflowStage,
   LeaveRequestRecord,
   UnmappedBiometricEvent,
   UserRole,
@@ -23,6 +25,8 @@ export interface BiometricMappingPermissions {
   canManageDevices: boolean;
   canCreateEdit: boolean;
   canDeactivateReactivate: boolean;
+  canManageBiometricEnrollment: boolean;
+  canActivateAttendance: boolean;
   canResolveUnmappedEvents: boolean;
   canExport: boolean;
   scopeToAssignedSite: boolean;
@@ -37,16 +41,19 @@ export function resolveBiometricMappingPermissions(role: UserRole | string): Bio
   const isScopedManager =
     role === UserRole.PROJECT_MANAGER ||
     role === UserRole.SECTION_HEAD ||
+    role === UserRole.SUPERVISOR ||
     role === UserRole.OPERATION_MANAGER ||
     role === UserRole.OFFICE_MANAGER ||
     role === UserRole.SITE_ENGINEER;
 
-  if (isSuperAdmin || isHrManager) {
+  if (isHrManager) {
     return {
       canView: true,
       canManageDevices: true,
       canCreateEdit: true,
       canDeactivateReactivate: true,
+      canManageBiometricEnrollment: true,
+      canActivateAttendance: true,
       canResolveUnmappedEvents: true,
       canExport: true,
       scopeToAssignedSite: false,
@@ -59,7 +66,25 @@ export function resolveBiometricMappingPermissions(role: UserRole | string): Bio
       canManageDevices: false,
       canCreateEdit: true,
       canDeactivateReactivate: false,
+      canManageBiometricEnrollment: true,
+      canActivateAttendance: true,
       canResolveUnmappedEvents: true,
+      canExport: true,
+      scopeToAssignedSite: false,
+    };
+  }
+
+  // Super Admin can administer registered hardware entries & view,
+  // while employee biometric enrollment & mappings remain HR Department ONLY.
+  if (isSuperAdmin) {
+    return {
+      canView: true,
+      canManageDevices: true,
+      canCreateEdit: false,
+      canDeactivateReactivate: false,
+      canManageBiometricEnrollment: false,
+      canActivateAttendance: false,
+      canResolveUnmappedEvents: false,
       canExport: true,
       scopeToAssignedSite: false,
     };
@@ -71,6 +96,8 @@ export function resolveBiometricMappingPermissions(role: UserRole | string): Bio
       canManageDevices: false,
       canCreateEdit: false,
       canDeactivateReactivate: false,
+      canManageBiometricEnrollment: false,
+      canActivateAttendance: false,
       canResolveUnmappedEvents: false,
       canExport: true,
       scopeToAssignedSite: false,
@@ -83,6 +110,8 @@ export function resolveBiometricMappingPermissions(role: UserRole | string): Bio
       canManageDevices: false,
       canCreateEdit: false,
       canDeactivateReactivate: false,
+      canManageBiometricEnrollment: false,
+      canActivateAttendance: false,
       canResolveUnmappedEvents: false,
       canExport: false,
       scopeToAssignedSite: true,
@@ -94,6 +123,8 @@ export function resolveBiometricMappingPermissions(role: UserRole | string): Bio
     canManageDevices: false,
     canCreateEdit: false,
     canDeactivateReactivate: false,
+    canManageBiometricEnrollment: false,
+    canActivateAttendance: false,
     canResolveUnmappedEvents: false,
     canExport: false,
     scopeToAssignedSite: true,
@@ -348,7 +379,7 @@ export async function saveValidatedBiometricMapping(params: {
   const perms = resolveBiometricMappingPermissions(params.actorRole);
   if (!perms.canCreateEdit) {
     throw new Error(
-      `Authorization Error: Role "${params.actorRole}" does not have permission to create or edit biometric mappings.`
+      `Authorization Error: HR Department Only — Role "${params.actorRole}" does not have permission to create or edit biometric mappings.`
     );
   }
 
@@ -642,7 +673,22 @@ export async function processBiometricDeviceAttendanceEvent(params: {
       )
     : undefined;
 
-  if (!device || device.status !== "Active" || !activeMapping || !worker || worker.status !== "Active") {
+  const enrollmentNotActivated =
+    Boolean(worker && worker.biometricAttendanceActivated === false) ||
+    Boolean(
+      worker &&
+        worker.biometricEnrollmentStatus &&
+        worker.biometricEnrollmentStatus !== "Active"
+    );
+
+  if (
+    !device ||
+    device.status !== "Active" ||
+    !activeMapping ||
+    !worker ||
+    worker.status !== "Active" ||
+    enrollmentNotActivated
+  ) {
     const exceptionCategory: UnmappedBiometricEvent["exceptionCategory"] = !device
       ? "Unauthorized Device"
       : device.status !== "Active"
@@ -659,7 +705,9 @@ export async function processBiometricDeviceAttendanceEvent(params: {
       ? `No Active mapping for Biometric User ID "${cleanBioId}" on device "${device.deviceName}".`
       : !worker
       ? `Mapped Employee (${activeMapping.employeeId}) not found in ERP.`
-      : `Mapped Employee (${worker.name}) is Inactive.`;
+      : worker.status !== "Active"
+      ? `Mapped Employee (${worker.name}) is Inactive.`
+      : `Employee biometric enrollment status is "${worker.biometricEnrollmentStatus || "Not Activated"}". Attendance Activation is required before punches count.`;
 
     const sanitizedMeta = sanitizeBiometricMetadata({
       ...(params.rawEventMeta || {}),
@@ -762,8 +810,32 @@ export async function processBiometricDeviceAttendanceEvent(params: {
   });
 
   const protocolUsed = params.sourceProtocol || device.protocolType || "ADMS_PUSH_HTTP";
+  const nowCapturedIso = new Date().toISOString();
+  const existingSnapshot = existingDayRecord?.originalBiometricSnapshot;
+  // Preserve unmodified biometric event snapshot (only update raw punch if no manual correction / final approval yet)
+  const originalBiometricSnapshot =
+    existingSnapshot &&
+    existingDayRecord?.finalApprovalStatus === "Approved"
+      ? existingSnapshot
+      : {
+          checkIn: existingSnapshot?.checkIn ?? nextCheckIn,
+          checkOut: nextCheckOut ?? existingSnapshot?.checkOut ?? null,
+          lunchOut: nextLunchOut ?? existingSnapshot?.lunchOut ?? null,
+          lunchIn: nextLunchIn ?? existingSnapshot?.lunchIn ?? null,
+          status: metrics.status,
+          workingHours: metrics.workingHours,
+          overtime: metrics.overtime,
+          method: AttendanceMethod.FINGERPRINT,
+          biometricDeviceId: device.id,
+          biometricDeviceName: device.deviceName,
+          biometricUserId: activeMapping.biometricUserId,
+          biometricMappingId: activeMapping.id,
+          capturedAt: existingSnapshot?.capturedAt || nowCapturedIso,
+          timezone: "Africa/Addis_Ababa" as const,
+        };
 
   const record: AttendanceRecord = {
+    ...(existingDayRecord || {}),
     id: existingDayRecord?.id || `ATT-BIO-${worker.id}-${date}`,
     workerId: worker.id,
     workerName: worker.name,
@@ -792,6 +864,13 @@ export async function processBiometricDeviceAttendanceEvent(params: {
     punchCompleteness: metrics.punchCompleteness,
     missingPunchType: metrics.missingPunchType,
     hrReviewStatus: metrics.hrReviewStatus,
+    finalApprovalStatus:
+      existingDayRecord?.finalApprovalStatus &&
+      existingDayRecord.finalApprovalStatus !== "Pending"
+        ? existingDayRecord.finalApprovalStatus
+        : "Pending",
+    originalBiometricSnapshot,
+    timezone: "Africa/Addis_Ababa",
     ...(metrics.missingPunchType !== "None"
       ? { exceptionReason: `${metrics.missingPunchType} detected on biometric terminal ${device.deviceName}` }
       : {}),
@@ -1086,4 +1165,686 @@ export async function resolveUnmappedBiometricEventRecord(params: {
   });
 
   return { attendanceRecord: res.attendanceRecord, updatedEvent };
+}
+
+// ============================================================================
+// INTEGRATED EMPLOYEE BIOMETRIC REGISTRATION WORKFLOW
+// Employee Registration -> Biometric Enrollment -> Mapping -> Attendance Activation
+// ============================================================================
+
+export function stripProhibitedBiometricTemplateFields(worker: Worker): Worker {
+  const clean = { ...worker } as any;
+  delete clean.fingerprint;
+  delete clean.faceRecognitionData;
+  delete clean.fingerprintTemplate;
+  delete clean.faceTemplate;
+  delete clean.rawBiometricTemplate;
+  delete clean.biometricTemplate;
+  delete clean.biometricTemplateEncrypted;
+  return clean as Worker;
+}
+
+export function isDeviceVerifiedForBiometricAttendance(
+  device?: BiometricDeviceRecord | null
+): boolean {
+  if (!device || device.status !== "Active") return false;
+  return device.connectionVerified === true || Boolean(device.lastHandshakeAt);
+}
+
+export interface EmployeeBiometricProfileState {
+  employeeId: string;
+  workerId: string;
+  enrollmentStatus: BiometricEnrollmentStatus;
+  workflowStage: BiometricWorkflowStage;
+  stageIndex: 1 | 2 | 3 | 4;
+  biometricDeviceId: string;
+  biometricDeviceName: string;
+  biometricDeviceModel: string;
+  biometricDeviceSerialNumber: string;
+  deviceUserId: string;
+  workLocationType: "Head Office" | "Construction Site";
+  projectSite: string;
+  enrollmentDate: string;
+  mappingStatus: "Unmapped" | "Pending" | "Active" | "Inactive";
+  activeMapping?: BiometricDeviceMapping;
+  linkedDevice?: BiometricDeviceRecord;
+  deviceVerified: boolean;
+  attendanceActivated: boolean;
+  attendanceActivatedAt?: string;
+}
+
+export function computeEmployeeBiometricProfileState(
+  worker: Worker,
+  mappings: BiometricDeviceMapping[],
+  devices: BiometricDeviceRecord[]
+): EmployeeBiometricProfileState {
+  const empId = worker.employeeId || worker.id;
+  const workerMappings = (mappings || []).filter(
+    (m) => m.workerRecordId === worker.id || m.employeeId === empId
+  );
+  const activeMapping = workerMappings.find((m) => m.status === "Active");
+  const latestMapping =
+    activeMapping ||
+    [...workerMappings].sort((a, b) =>
+      String(b.updatedAt || b.createdAt || "").localeCompare(String(a.updatedAt || a.createdAt || ""))
+    )[0];
+
+  const targetDeviceId =
+    activeMapping?.deviceId || worker.biometricDeviceId || latestMapping?.deviceId || "";
+  const linkedDevice = targetDeviceId
+    ? devices.find((d) => d.id === targetDeviceId)
+    : undefined;
+  const deviceVerified = isDeviceVerifiedForBiometricAttendance(linkedDevice);
+
+  let enrollmentStatus: BiometricEnrollmentStatus =
+    worker.biometricEnrollmentStatus || "Not Registered";
+
+  if (!worker.biometricEnrollmentStatus) {
+    if (activeMapping && worker.biometricAttendanceActivated) {
+      enrollmentStatus = "Active";
+    } else if (activeMapping) {
+      enrollmentStatus = "Mapping Completed";
+    } else if (worker.biometricDeviceId && worker.biometricDeviceUserId) {
+      enrollmentStatus = "Registered on Device";
+    } else if (latestMapping?.status === "Inactive") {
+      enrollmentStatus = "Suspended";
+    } else {
+      enrollmentStatus = "Not Registered";
+    }
+  } else if (
+    enrollmentStatus === "Active" &&
+    (!activeMapping || !deviceVerified)
+  ) {
+    // Safety guard: never treat attendance as active without an active mapping + verified device
+    enrollmentStatus = activeMapping ? "Mapping Completed" : "Mapping Pending";
+  }
+
+  let mappingStatus: "Unmapped" | "Pending" | "Active" | "Inactive" = "Unmapped";
+  if (activeMapping) {
+    mappingStatus = "Active";
+  } else if (worker.biometricMappingStatus) {
+    mappingStatus = worker.biometricMappingStatus;
+  } else if (latestMapping?.status === "Inactive") {
+    mappingStatus = "Inactive";
+  } else if (enrollmentStatus === "Mapping Pending" || enrollmentStatus === "Registered on Device") {
+    mappingStatus = "Pending";
+  }
+
+  let workflowStage: BiometricWorkflowStage = "Employee Registration";
+  let stageIndex: 1 | 2 | 3 | 4 = 1;
+  if (enrollmentStatus === "Active") {
+    workflowStage = "Attendance Activation";
+    stageIndex = 4;
+  } else if (enrollmentStatus === "Mapping Completed" || activeMapping) {
+    workflowStage = "Employee Biometric Mapping";
+    stageIndex = 3;
+  } else if (
+    enrollmentStatus === "Registered on Device" ||
+    enrollmentStatus === "Mapping Pending" ||
+    enrollmentStatus === "Suspended"
+  ) {
+    workflowStage = "Biometric Enrollment";
+    stageIndex = 2;
+  }
+
+  const workLocationType: "Head Office" | "Construction Site" =
+    activeMapping?.workLocationType ||
+    worker.workLocationType ||
+    linkedDevice?.workLocationType ||
+    (String(worker.assignedProject || worker.currentSite || "")
+      .toLowerCase()
+      .includes("head office")
+      ? "Head Office"
+      : "Construction Site");
+
+  const projectSite =
+    activeMapping?.projectNameSnapshot ||
+    (workLocationType === "Head Office"
+      ? "Head Office"
+      : worker.assignedProject || worker.currentSite || linkedDevice?.projectName || "Head Office");
+
+  return {
+    employeeId: empId,
+    workerId: worker.id,
+    enrollmentStatus,
+    workflowStage,
+    stageIndex,
+    biometricDeviceId: targetDeviceId,
+    biometricDeviceName:
+      linkedDevice?.deviceName ||
+      activeMapping?.deviceNameSnapshot ||
+      worker.biometricDeviceName ||
+      "",
+    biometricDeviceModel:
+      (linkedDevice ? `${linkedDevice.manufacturer} ${linkedDevice.model}`.trim() : "") ||
+      activeMapping?.deviceModelSnapshot ||
+      worker.biometricDeviceModel ||
+      "",
+    biometricDeviceSerialNumber:
+      linkedDevice?.serialNumber ||
+      activeMapping?.deviceSerialNumberSnapshot ||
+      worker.biometricDeviceSerialNumber ||
+      "",
+    deviceUserId:
+      activeMapping?.biometricUserId ||
+      worker.biometricDeviceUserId ||
+      latestMapping?.biometricUserId ||
+      "",
+    workLocationType,
+    projectSite,
+    enrollmentDate:
+      worker.biometricEnrollmentDate || activeMapping?.effectiveDate || "",
+    mappingStatus,
+    activeMapping,
+    linkedDevice,
+    deviceVerified,
+    attendanceActivated:
+      enrollmentStatus === "Active" &&
+      Boolean(activeMapping) &&
+      deviceVerified &&
+      worker.biometricAttendanceActivated !== false,
+    attendanceActivatedAt: worker.biometricAttendanceActivatedAt,
+  };
+}
+
+export interface HrmBiometricEnrollmentDashboardStats {
+  totalEmployees: number;
+  statusCounts: Record<BiometricEnrollmentStatus, number>;
+  notRegisteredCount: number;
+  enrolledOnDeviceCount: number;
+  mappingPendingCount: number;
+  mappingCompletedCount: number;
+  activeAttendanceCount: number;
+  suspendedCount: number;
+  headOfficeActiveCount: number;
+  headOfficeTotalCount: number;
+  siteActiveCount: number;
+  siteTotalCount: number;
+  verifiedDevicesCount: number;
+  activeDevicesCount: number;
+  completionRatePercent: number;
+}
+
+export function computeHrmBiometricEnrollmentStats(
+  workers: Worker[],
+  mappings: BiometricDeviceMapping[],
+  devices: BiometricDeviceRecord[]
+): HrmBiometricEnrollmentDashboardStats {
+  const activeWorkers = (workers || []).filter((w) => w && w.status === "Active");
+  const statusCounts: Record<BiometricEnrollmentStatus, number> = {
+    "Not Registered": 0,
+    "Registered on Device": 0,
+    "Mapping Pending": 0,
+    "Mapping Completed": 0,
+    Active: 0,
+    Suspended: 0,
+  };
+  let headOfficeTotalCount = 0;
+  let headOfficeActiveCount = 0;
+  let siteTotalCount = 0;
+  let siteActiveCount = 0;
+
+  for (const w of activeWorkers) {
+    const state = computeEmployeeBiometricProfileState(w, mappings, devices);
+    statusCounts[state.enrollmentStatus] = (statusCounts[state.enrollmentStatus] || 0) + 1;
+    if (state.workLocationType === "Head Office") {
+      headOfficeTotalCount += 1;
+      if (state.enrollmentStatus === "Active") headOfficeActiveCount += 1;
+    } else {
+      siteTotalCount += 1;
+      if (state.enrollmentStatus === "Active") siteActiveCount += 1;
+    }
+  }
+
+  const activeDevices = (devices || []).filter((d) => d.status === "Active");
+  const verifiedDevicesCount = activeDevices.filter((d) =>
+    isDeviceVerifiedForBiometricAttendance(d)
+  ).length;
+
+  const totalEmployees = activeWorkers.length;
+  const activeAttendanceCount = statusCounts.Active;
+  const completionRatePercent =
+    totalEmployees > 0
+      ? Math.round((activeAttendanceCount / totalEmployees) * 100)
+      : 0;
+
+  return {
+    totalEmployees,
+    statusCounts,
+    notRegisteredCount: statusCounts["Not Registered"],
+    enrolledOnDeviceCount: statusCounts["Registered on Device"],
+    mappingPendingCount: statusCounts["Mapping Pending"],
+    mappingCompletedCount: statusCounts["Mapping Completed"],
+    activeAttendanceCount,
+    suspendedCount: statusCounts.Suspended,
+    headOfficeActiveCount,
+    headOfficeTotalCount,
+    siteActiveCount,
+    siteTotalCount,
+    verifiedDevicesCount,
+    activeDevicesCount: activeDevices.length,
+    completionRatePercent,
+  };
+}
+
+export async function enrollEmployeeOnBiometricDevice(params: {
+  worker: Worker;
+  deviceId: string;
+  biometricUserId: string;
+  workLocationType: "Head Office" | "Construction Site";
+  projectSite: string;
+  enrollmentDate?: string;
+  markMappingPending?: boolean;
+  notes?: string;
+  devices: BiometricDeviceRecord[];
+  existingMappings: BiometricDeviceMapping[];
+  allWorkers?: Worker[];
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  onSaveWorker?: (updatedWorker: Worker) => Promise<void> | void;
+}): Promise<{ updatedWorker: Worker; auditLog: BiometricMappingAuditLog }> {
+  const perms = resolveBiometricMappingPermissions(params.actorRole);
+  if (!perms.canManageBiometricEnrollment) {
+    throw new Error(
+      `Authorization Error: HR Department Only — Role "${params.actorRole}" is not authorized to perform employee biometric enrollment. Site Managers and other departments cannot enroll employees.`
+    );
+  }
+  if (!params.worker || params.worker.status !== "Active") {
+    throw new Error("Biometric enrollment requires an Active registered employee.");
+  }
+
+  const cleanBioUserId = String(params.biometricUserId || "").trim();
+  if (!cleanBioUserId) {
+    throw new Error("Device User ID (Biometric User ID) is required.");
+  }
+
+  const device = params.devices.find((d) => d.id === params.deviceId);
+  if (!device) {
+    throw new Error("Selected Biometric Device does not exist in registered biometric devices.");
+  }
+  if (device.status !== "Active") {
+    throw new Error(`Biometric Device "${device.deviceName}" is Inactive.`);
+  }
+
+  const empId = params.worker.employeeId || params.worker.id;
+
+  // Duplicate guard against active mappings on same device
+  const dupActiveMapping = params.existingMappings.find(
+    (m) =>
+      m.status === "Active" &&
+      m.deviceId === device.id &&
+      m.workerRecordId !== params.worker.id &&
+      m.employeeId !== empId &&
+      String(m.biometricUserId || "").trim().toLowerCase() === cleanBioUserId.toLowerCase()
+  );
+  if (dupActiveMapping) {
+    throw new Error(
+      `Duplicate Device User ID: "${cleanBioUserId}" on ${device.deviceName} is already mapped to ${dupActiveMapping.employeeNameSnapshot} (${dupActiveMapping.employeeId}).`
+    );
+  }
+
+  // Also check pending device enrollments on other workers
+  const dupPendingWorker = (params.allWorkers || []).find(
+    (w) =>
+      w.id !== params.worker.id &&
+      w.biometricDeviceId === device.id &&
+      w.biometricEnrollmentStatus !== "Suspended" &&
+      String(w.biometricDeviceUserId || "").trim().toLowerCase() === cleanBioUserId.toLowerCase()
+  );
+  if (dupPendingWorker) {
+    throw new Error(
+      `Duplicate Device User ID: "${cleanBioUserId}" on ${device.deviceName} is already reserved for ${dupPendingWorker.name} (${dupPendingWorker.employeeId || dupPendingWorker.id}).`
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const enrollDate = params.enrollmentDate || extractAddisAbabaDateAndTime(nowIso).date;
+  const nextStatus: BiometricEnrollmentStatus = params.markMappingPending
+    ? "Mapping Pending"
+    : "Registered on Device";
+  const resolvedProject =
+    params.workLocationType === "Head Office"
+      ? "Head Office"
+      : params.projectSite?.trim() || params.worker.assignedProject || device.projectName || "Head Office";
+
+  const updatedWorker = stripProhibitedBiometricTemplateFields({
+    ...params.worker,
+    workLocationType: params.workLocationType,
+    assignedProject: resolvedProject,
+    currentSite: resolvedProject,
+    biometricEnrollmentStatus: nextStatus,
+    biometricWorkflowStage: "Biometric Enrollment",
+    biometricDeviceId: device.id,
+    biometricDeviceName: device.deviceName,
+    biometricDeviceModel: `${device.manufacturer} ${device.model}`.trim(),
+    biometricDeviceSerialNumber: device.serialNumber,
+    biometricDeviceUserId: cleanBioUserId,
+    biometricEnrollmentDate: enrollDate,
+    biometricMappingStatus: "Pending",
+    biometricAttendanceActivated: false,
+    biometricEnrolledBy: params.actorName,
+    biometricEnrolledByUid: params.actorUid,
+  });
+
+  if (params.onSaveWorker) {
+    await params.onSaveWorker(updatedWorker);
+  } else {
+    await DbService.updateWorker(updatedWorker);
+  }
+
+  const auditLog: BiometricMappingAuditLog = {
+    id: `BIOLOG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    mappingId: params.worker.biometricMappingId || `ENROLL-${params.worker.id}`,
+    employeeId: empId,
+    employeeName: params.worker.name,
+    deviceId: device.id,
+    deviceName: device.deviceName,
+    biometricUserId: cleanBioUserId,
+    action: "Device Registration Recorded",
+    previousValue: {
+      enrollmentStatus: params.worker.biometricEnrollmentStatus || "Not Registered",
+      deviceId: params.worker.biometricDeviceId || null,
+      deviceUserId: params.worker.biometricDeviceUserId || null,
+    },
+    newValue: {
+      enrollmentStatus: nextStatus,
+      deviceId: device.id,
+      deviceUserId: cleanBioUserId,
+      workLocationType: params.workLocationType,
+      projectSite: resolvedProject,
+      enrollmentDate: enrollDate,
+    },
+    reason: params.notes?.trim() || "Registered biometric User ID on terminal for mapping",
+    actorName: params.actorName,
+    actorUid: params.actorUid,
+    actorRole: String(params.actorRole),
+    timestamp: nowIso,
+  };
+  await DbService.addBiometricMappingAuditLog(auditLog);
+
+  return { updatedWorker, auditLog };
+}
+
+export async function completeEmployeeBiometricMappingWorkflow(params: {
+  worker: Worker;
+  editingMapping?: BiometricDeviceMapping | null;
+  deviceId: string;
+  biometricUserId: string;
+  workLocationType: "Head Office" | "Construction Site";
+  projectSite: string;
+  effectiveDate?: string;
+  notes?: string;
+  workers: Worker[];
+  devices: BiometricDeviceRecord[];
+  existingMappings: BiometricDeviceMapping[];
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  onSaveWorker?: (updatedWorker: Worker) => Promise<void> | void;
+}): Promise<{
+  mapping: BiometricDeviceMapping;
+  updatedWorker: Worker;
+  auditLogs: BiometricMappingAuditLog[];
+}> {
+  const perms = resolveBiometricMappingPermissions(params.actorRole);
+  if (!perms.canManageBiometricEnrollment || !perms.canCreateEdit) {
+    throw new Error(
+      `Authorization Error: HR Department Only — Role "${params.actorRole}" cannot manage employee biometric mappings.`
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const effectiveDate =
+    params.effectiveDate ||
+    params.worker.biometricEnrollmentDate ||
+    extractAddisAbabaDateAndTime(nowIso).date;
+  const resolvedProject =
+    params.workLocationType === "Head Office"
+      ? "Head Office"
+      : params.projectSite?.trim() || params.worker.assignedProject || "Head Office";
+
+  const { mapping, auditLogs } = await saveValidatedBiometricMapping({
+    editingMapping: params.editingMapping,
+    employeeIdOrWorkerId: params.worker.id,
+    deviceId: params.deviceId,
+    biometricUserId: params.biometricUserId,
+    workLocationType: params.workLocationType,
+    projectId: resolvedProject,
+    effectiveDate,
+    status: "Active",
+    notes: params.notes,
+    workers: params.workers,
+    devices: params.devices,
+    existingMappings: params.existingMappings,
+    actorName: params.actorName,
+    actorUid: params.actorUid,
+    actorRole: params.actorRole,
+  });
+
+  const device = params.devices.find((d) => d.id === mapping.deviceId);
+  const keepActive =
+    params.worker.biometricEnrollmentStatus === "Active" &&
+    isDeviceVerifiedForBiometricAttendance(device);
+
+  const updatedWorker = stripProhibitedBiometricTemplateFields({
+    ...params.worker,
+    workLocationType: mapping.workLocationType,
+    assignedProject: mapping.projectNameSnapshot,
+    currentSite: mapping.projectNameSnapshot,
+    biometricEnrollmentStatus: keepActive ? "Active" : "Mapping Completed",
+    biometricWorkflowStage: keepActive ? "Attendance Activation" : "Employee Biometric Mapping",
+    biometricDeviceId: mapping.deviceId,
+    biometricDeviceName: mapping.deviceNameSnapshot,
+    biometricDeviceModel: mapping.deviceModelSnapshot,
+    biometricDeviceSerialNumber: mapping.deviceSerialNumberSnapshot,
+    biometricDeviceUserId: mapping.biometricUserId,
+    biometricEnrollmentDate: params.worker.biometricEnrollmentDate || effectiveDate,
+    biometricMappingId: mapping.id,
+    biometricMappingStatus: "Active",
+    biometricAttendanceActivated: keepActive,
+    biometricRegistered: keepActive,
+    biometricEnrolledBy: params.worker.biometricEnrolledBy || params.actorName,
+    biometricEnrolledByUid: params.worker.biometricEnrolledByUid || params.actorUid,
+  });
+
+  if (params.onSaveWorker) {
+    await params.onSaveWorker(updatedWorker);
+  } else {
+    await DbService.updateWorker(updatedWorker);
+  }
+
+  return { mapping, updatedWorker, auditLogs };
+}
+
+export async function activateEmployeeBiometricAttendance(params: {
+  worker: Worker;
+  mappings: BiometricDeviceMapping[];
+  devices: BiometricDeviceRecord[];
+  notes?: string;
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  onSaveWorker?: (updatedWorker: Worker) => Promise<void> | void;
+}): Promise<{ updatedWorker: Worker; auditLog: BiometricMappingAuditLog }> {
+  const perms = resolveBiometricMappingPermissions(params.actorRole);
+  if (!perms.canActivateAttendance || !perms.canManageBiometricEnrollment) {
+    throw new Error(
+      `Authorization Error: HR Department Only — Role "${params.actorRole}" cannot activate employee biometric attendance.`
+    );
+  }
+  if (!params.worker || params.worker.status !== "Active") {
+    throw new Error("Cannot activate biometric attendance for an Inactive employee.");
+  }
+
+  const empId = params.worker.employeeId || params.worker.id;
+  const activeMapping = params.mappings.find(
+    (m) =>
+      m.status === "Active" &&
+      (m.workerRecordId === params.worker.id || m.employeeId === empId)
+  );
+  if (!activeMapping) {
+    throw new Error(
+      `Mapping Required: Employee ${params.worker.name} (${empId}) must have an Active Biometric Mapping before Attendance Activation.`
+    );
+  }
+
+  const device = params.devices.find((d) => d.id === activeMapping.deviceId);
+  if (!device || device.status !== "Active") {
+    throw new Error(
+      `Device Unavailable: Linked biometric device "${activeMapping.deviceNameSnapshot}" is missing or Inactive.`
+    );
+  }
+  if (!isDeviceVerifiedForBiometricAttendance(device)) {
+    throw new Error(
+      `Device Verification Required: Device "${device.deviceName}" (${device.serialNumber}) has not passed connection verification yet. Verify ADMS handshake or site bridge connectivity before activating attendance.`
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const updatedWorker = stripProhibitedBiometricTemplateFields({
+    ...params.worker,
+    biometricEnrollmentStatus: "Active",
+    biometricWorkflowStage: "Attendance Activation",
+    biometricDeviceId: device.id,
+    biometricDeviceName: device.deviceName,
+    biometricDeviceModel: `${device.manufacturer} ${device.model}`.trim(),
+    biometricDeviceSerialNumber: device.serialNumber,
+    biometricDeviceUserId: activeMapping.biometricUserId,
+    biometricEnrollmentDate:
+      params.worker.biometricEnrollmentDate || activeMapping.effectiveDate,
+    biometricMappingId: activeMapping.id,
+    biometricMappingStatus: "Active",
+    biometricAttendanceActivated: true,
+    biometricAttendanceActivatedAt: nowIso,
+    biometricRegistered: true,
+  });
+
+  if (params.onSaveWorker) {
+    await params.onSaveWorker(updatedWorker);
+  } else {
+    await DbService.updateWorker(updatedWorker);
+  }
+
+  const auditLog: BiometricMappingAuditLog = {
+    id: `BIOLOG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    mappingId: activeMapping.id,
+    employeeId: empId,
+    employeeName: params.worker.name,
+    deviceId: device.id,
+    deviceName: device.deviceName,
+    biometricUserId: activeMapping.biometricUserId,
+    action: "Attendance Activated",
+    previousValue: {
+      enrollmentStatus: params.worker.biometricEnrollmentStatus || "Mapping Completed",
+      attendanceActivated: Boolean(params.worker.biometricAttendanceActivated),
+    },
+    newValue: {
+      enrollmentStatus: "Active",
+      attendanceActivated: true,
+      deviceVerified: true,
+      lastHandshakeAt: device.lastHandshakeAt || null,
+    },
+    reason:
+      params.notes?.trim() ||
+      `Biometric attendance activated after mapping & device verification (${device.deviceName})`,
+    actorName: params.actorName,
+    actorUid: params.actorUid,
+    actorRole: String(params.actorRole),
+    timestamp: nowIso,
+  };
+  await DbService.addBiometricMappingAuditLog(auditLog);
+
+  return { updatedWorker, auditLog };
+}
+
+export async function suspendEmployeeBiometricEnrollment(params: {
+  worker: Worker;
+  mappings: BiometricDeviceMapping[];
+  devices: BiometricDeviceRecord[];
+  reason: string;
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  onSaveWorker?: (updatedWorker: Worker) => Promise<void> | void;
+}): Promise<{
+  updatedWorker: Worker;
+  deactivatedMapping?: BiometricDeviceMapping;
+  auditLog: BiometricMappingAuditLog;
+}> {
+  const perms = resolveBiometricMappingPermissions(params.actorRole);
+  if (!perms.canManageBiometricEnrollment || !perms.canDeactivateReactivate) {
+    throw new Error(
+      `Authorization Error: Only HR Manager can suspend employee biometric enrollment and deactivate active mappings.`
+    );
+  }
+  const cleanReason = String(params.reason || "").trim();
+  if (!cleanReason) {
+    throw new Error("A clear suspension reason is required to preserve biometric audit history.");
+  }
+
+  const empId = params.worker.employeeId || params.worker.id;
+  const activeMapping = params.mappings.find(
+    (m) =>
+      m.status === "Active" &&
+      (m.workerRecordId === params.worker.id || m.employeeId === empId)
+  );
+
+  let deactivatedMapping: BiometricDeviceMapping | undefined;
+  if (activeMapping) {
+    const toggled = await toggleBiometricMappingStatus({
+      mapping: activeMapping,
+      targetStatus: "Inactive",
+      reason: cleanReason,
+      workers: [params.worker],
+      devices: params.devices,
+      existingMappings: params.mappings,
+      actorName: params.actorName,
+      actorUid: params.actorUid,
+      actorRole: params.actorRole,
+    });
+    deactivatedMapping = toggled.mapping;
+  }
+
+  const nowIso = new Date().toISOString();
+  const updatedWorker = stripProhibitedBiometricTemplateFields({
+    ...params.worker,
+    biometricEnrollmentStatus: "Suspended",
+    biometricWorkflowStage: "Biometric Enrollment",
+    biometricMappingStatus: activeMapping ? "Inactive" : params.worker.biometricMappingStatus || "Unmapped",
+    biometricAttendanceActivated: false,
+    biometricRegistered: false,
+  });
+
+  if (params.onSaveWorker) {
+    await params.onSaveWorker(updatedWorker);
+  } else {
+    await DbService.updateWorker(updatedWorker);
+  }
+
+  const auditLog: BiometricMappingAuditLog = {
+    id: `BIOLOG-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`,
+    mappingId: activeMapping?.id || params.worker.biometricMappingId || `ENROLL-${params.worker.id}`,
+    employeeId: empId,
+    employeeName: params.worker.name,
+    deviceId: activeMapping?.deviceId || params.worker.biometricDeviceId || "NONE",
+    deviceName: activeMapping?.deviceNameSnapshot || params.worker.biometricDeviceName || "Unassigned",
+    biometricUserId: activeMapping?.biometricUserId || params.worker.biometricDeviceUserId || "NONE",
+    action: "Enrollment Suspended",
+    previousValue: {
+      enrollmentStatus: params.worker.biometricEnrollmentStatus || "Active",
+    },
+    newValue: {
+      enrollmentStatus: "Suspended",
+      attendanceActivated: false,
+    },
+    reason: cleanReason,
+    actorName: params.actorName,
+    actorUid: params.actorUid,
+    actorRole: String(params.actorRole),
+    timestamp: nowIso,
+  };
+  await DbService.addBiometricMappingAuditLog(auditLog);
+
+  return { updatedWorker, deactivatedMapping, auditLog };
 }

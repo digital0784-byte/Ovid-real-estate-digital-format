@@ -218,11 +218,17 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
     const newWorker: Worker = {
       ...addForm,
       id: addForm.id.trim(),
+      employeeId: addForm.id.trim(),
       name: addForm.name.trim(),
       phoneNumber: addForm.phoneNumber.trim() || undefined,
       emergencyContact: addForm.emergencyContact.trim() || undefined,
       skills: addForm.skills.trim() || undefined,
-      zone: addForm.zone || undefined
+      zone: addForm.zone || undefined,
+      biometricEnrollmentStatus: "Not Registered",
+      biometricWorkflowStage: "Employee Registration",
+      biometricMappingStatus: "Unmapped",
+      biometricAttendanceActivated: false,
+      biometricRegistered: false,
     };
 
     onAddWorker(newWorker);
@@ -699,14 +705,35 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                 </div>
 
                 {!isEditing && (
-                  <div className="bg-red-50/45 p-3 rounded-xl border border-red-100 flex items-center gap-3">
-                    <Briefcase size={18} className="text-red-500 shrink-0" />
-                    <div>
-                      <div className="text-[10px] font-black uppercase text-red-600">
-                        {isAmharic ? "በራስ-ሰር የተሰላ የስራ ልምድ" : "Auto-Calculated Work Experience"}
+                  <div className="space-y-3">
+                    <div className="bg-red-50/45 p-3 rounded-xl border border-red-100 flex items-center gap-3">
+                      <Briefcase size={18} className="text-red-500 shrink-0" />
+                      <div>
+                        <div className="text-[10px] font-black uppercase text-red-600">
+                          {isAmharic ? "በራስ-ሰር የተሰላ የስራ ልምድ" : "Auto-Calculated Work Experience"}
+                        </div>
+                        <div className="text-xs font-bold text-slate-800">
+                          {calculateExperience(activeWorker.joinedDate, isAmharic)}
+                        </div>
                       </div>
-                      <div className="text-xs font-bold text-slate-800">
-                        {calculateExperience(activeWorker.joinedDate, isAmharic)}
+                    </div>
+                    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80 space-y-1.5">
+                      <div className="text-[10px] font-black uppercase text-slate-500 flex items-center justify-between">
+                        <span>{isAmharic ? "የባዮሜትሪክ ምዝገባ ሁኔታ (HR ብቻ)" : "Biometric Enrollment (HR Only)"}</span>
+                        <span className="px-2 py-0.5 rounded bg-slate-900 text-white text-[10px] font-bold">
+                          {activeWorker.biometricEnrollmentStatus || "Not Registered"}
+                        </span>
+                      </div>
+                      <div className="text-[11px] text-slate-600 flex flex-wrap gap-x-3 gap-y-0.5">
+                        <span>
+                          Device: <strong>{activeWorker.biometricDeviceName || "Unassigned"}</strong>
+                        </span>
+                        <span>
+                          BioID: <strong className="font-mono">{activeWorker.biometricDeviceUserId || "—"}</strong>
+                        </span>
+                        <span>
+                          Mapping: <strong>{activeWorker.biometricMappingStatus || "Unmapped"}</strong>
+                        </span>
                       </div>
                     </div>
                   </div>

@@ -56,16 +56,19 @@ service cloud.firestore {
       return !isSensitiveRole() || hasFreshMfa();
     }
 
-    // Role membership predicates (active & non-Pending required)
+    // Role membership predicates (active & non-Pending required; single AST lookup per set)
     function hasRole(role) {
       return isApprovedUser() && getUserRole() == role;
     }
 
+    function hasAnyRole(roles) {
+      return isApprovedUser() && getUserRole() in roles;
+    }
+
     function isSuperAdmin() {
-      return hasRole('Super Admin') || (
-        isApprovedUser() &&
-        ('role' in request.auth.token) &&
-        request.auth.token.role == 'Super Admin'
+      return isApprovedUser() && (
+        getUserRole() == 'Super Admin' ||
+        (('role' in request.auth.token) && request.auth.token.role == 'Super Admin')
       );
     }
 
@@ -98,23 +101,23 @@ service cloud.firestore {
     }
 
     function isWarehouseManager() {
-      return hasRole('Warehouse Manager') || hasRole('warehouse_manager');
+      return hasAnyRole(['Warehouse Manager', 'warehouse_manager']);
     }
 
     function isStoreOwner() {
-      return hasRole('Store Owner') || hasRole('Site Store Owner') || hasRole('site_store_owner');
+      return hasAnyRole(['Store Owner', 'Site Store Owner', 'site_store_owner']);
     }
 
     function isAdminOrHeadOffice() {
-      return isSuperAdmin() || isHeadOffice() || hasRole('admin') || hasRole('head_office');
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office']);
     }
 
     function isWarehouseRole() {
-      return isAdminOrHeadOffice() || isWarehouseManager();
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Warehouse Manager', 'warehouse_manager']);
     }
 
     function isSiteStoreRole() {
-      return isAdminOrHeadOffice() || isStoreOwner() || isStoreManager();
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Store Owner', 'Site Store Owner', 'site_store_owner', 'Store Manager']);
     }
 
     function isAuthorizedForSite(siteName) {
@@ -140,8 +143,12 @@ service cloud.firestore {
       );
     }
 
+    function isStrictHrManagerRole() {
+      return hasRole('HR Manager');
+    }
+
     function isHRManager() {
-      return hasRole('HR Manager') || hasRole('HR');
+      return hasAnyRole(['HR Manager', 'HR']);
     }
 
     function isOfficeManager() {
@@ -157,19 +164,27 @@ service cloud.firestore {
     }
 
     function isDirectorOrAdmin() {
-      return isAdminOrHeadOffice() || hasRole('Director') || hasRole('Directory');
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Director', 'Directory']);
     }
 
     function isHrmOfficer() {
-      return isDirectorOrAdmin() || isHRManager();
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Director', 'Directory', 'HR Manager', 'HR']);
     }
 
     function isHrmWorkflowApprover() {
-      return isHrmOfficer() || isOfficeManager() || isOfficeTechnicalEngineering() || isOperationManager() || isFinanceManager() || isProjectManager() || isSectionHead();
+      return isSuperAdmin() || hasAnyRole([
+        'Head Office', 'admin', 'head_office', 'Director', 'Directory',
+        'HR Manager', 'HR', 'Office Manager', 'Office & Technical Engineering',
+        'Operation Manager', 'Finance Manager', 'Project Manager', 'Section Head'
+      ]);
     }
 
     function isBiometricMappingViewer() {
-      return isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSectionHead() || isOperationManager() || isOfficeManager() || isOfficeTechnicalEngineering() || isSiteEngineer();
+      return isSuperAdmin() || hasAnyRole([
+        'Head Office', 'admin', 'head_office', 'Director', 'Directory',
+        'HR Manager', 'HR', 'Project Manager', 'Section Head',
+        'Operation Manager', 'Office Manager', 'Office & Technical Engineering', 'Site Engineer'
+      ]);
     }
 
     function isFinanceManager() {
@@ -181,7 +196,7 @@ service cloud.firestore {
     }
 
     function isFinanceStaff() {
-      return isDirectorOrAdmin() || isFinanceManager() || isAccountant();
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Director', 'Directory', 'Finance Manager', 'Accountant']);
     }
 
     function isAuditor() {
@@ -394,21 +409,60 @@ service cloud.firestore {
     }
 
     // 3. Employees, Workers & Teams
+    function hasNoProhibitedBiometricTemplates() {
+      return !incoming().keys().hasAny([
+        'fingerprintTemplate', 'faceTemplate', 'rawBiometricTemplate',
+        'biometricTemplate', 'biometricTemplateEncrypted', 'fingerprint',
+        'faceRecognitionData', 'devicePassword', 'commKey'
+      ]);
+    }
+
+    function biometricEnrollmentFieldsUnchanged() {
+      return !incoming().diff(existing()).affectedKeys().hasAny([
+        'biometricEnrollmentStatus', 'biometricWorkflowStage', 'biometricDeviceId',
+        'biometricDeviceName', 'biometricDeviceModel', 'biometricDeviceSerialNumber',
+        'biometricDeviceUserId', 'biometricEnrollmentDate', 'biometricMappingStatus',
+        'biometricMappingId', 'biometricAttendanceActivated',
+        'biometricAttendanceActivatedAt', 'biometricEnrolledBy',
+        'biometricEnrolledByUid', 'biometricRegistered'
+      ]);
+    }
+
+    function hasNoEnrollmentActivationOnCreate() {
+      return (!('biometricDeviceId' in incoming()) || incoming().biometricDeviceId == '') &&
+        (!('biometricDeviceUserId' in incoming()) || incoming().biometricDeviceUserId == '') &&
+        (!('biometricAttendanceActivated' in incoming()) || incoming().biometricAttendanceActivated == false) &&
+        (!('biometricEnrollmentStatus' in incoming()) || incoming().biometricEnrollmentStatus == 'Not Registered');
+    }
+
     match /employees/{employeeId} {
-      allow read: if isAdminOrHeadOffice() || isHRManager() || isFinanceManager() || (
+      allow read: if isHrmOfficer() || isFinanceManager() || (
         isApprovedUser() && (
           ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
           ('uid' in resource.data && resource.data.uid == request.auth.uid)
         )
       );
-      allow create: if isSuperAdmin() || (
-        (isAdminOrHeadOffice() || isHRManager()) &&
-        (!('role' in incoming()) || incoming().role != 'Super Admin')
+      allow create: if hasNoProhibitedBiometricTemplates() && (
+        (isSuperAdmin() && hasNoEnrollmentActivationOnCreate()) || (
+          isHRManager() &&
+          (!('role' in incoming()) || incoming().role != 'Super Admin')
+        ) || (
+          hasAnyRole(['Head Office', 'admin', 'head_office']) &&
+          hasNoEnrollmentActivationOnCreate() &&
+          (!('role' in incoming()) || incoming().role != 'Super Admin')
+        )
       );
-      allow update: if isSuperAdmin() || (
-        (isAdminOrHeadOffice() || isHRManager()) &&
-        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
-        (!('role' in existing()) || existing().role != 'Super Admin')
+      allow update: if hasNoProhibitedBiometricTemplates() && (
+        (isSuperAdmin() && biometricEnrollmentFieldsUnchanged()) || (
+          isHRManager() &&
+          (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+          (!('role' in existing()) || existing().role != 'Super Admin')
+        ) || (
+          hasAnyRole(['Head Office', 'admin', 'head_office']) &&
+          biometricEnrollmentFieldsUnchanged() &&
+          (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+          (!('role' in existing()) || existing().role != 'Super Admin')
+        )
       );
       allow delete: if isSuperAdmin() || (
         isAdminOrHeadOffice() &&
@@ -418,8 +472,15 @@ service cloud.firestore {
 
     match /workers/{workerId} {
       allow read: if isApprovedUser();
-      allow create, update: if isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSupervisor() || isSectionHead();
-      allow delete: if isDirectorOrAdmin() || isHRManager();
+      allow create: if hasNoProhibitedBiometricTemplates() && (
+        isHRManager() ||
+        ((isDirectorOrAdmin() || hasAnyRole(['Project Manager', 'Supervisor', 'Section Head'])) && hasNoEnrollmentActivationOnCreate())
+      );
+      allow update: if hasNoProhibitedBiometricTemplates() && (
+        isHRManager() ||
+        ((isDirectorOrAdmin() || hasAnyRole(['Project Manager', 'Supervisor', 'Section Head'])) && biometricEnrollmentFieldsUnchanged())
+      );
+      allow delete: if isHrmOfficer();
     }
 
     match /teams/{teamId} {
@@ -431,15 +492,52 @@ service cloud.firestore {
     // 4. Attendance & Worker Evaluations
     match /attendance/{attendanceId} {
       allow read: if isApprovedUser();
-      allow create, update: if (isDirectorOrAdmin() || isHRManager() || isTimeKeeper() || isSupervisor() || isSectionHead() || isProjectManager() || isOperationManager() || (
-        isApprovedUser() && ('recordedByUid' in incoming()) && incoming().recordedByUid == request.auth.uid
-      )) &&
+      allow create: if isValidId(attendanceId) &&
+        (isDirectorOrAdmin() || isHRManager() || isTimeKeeper() || isSupervisor() || isSectionHead() || isProjectManager() || isOperationManager() || (
+          isApprovedUser() && ('recordedByUid' in incoming()) && incoming().recordedByUid == request.auth.uid
+        )) &&
         !('fingerprintTemplate' in incoming()) &&
         !('faceTemplate' in incoming()) &&
         !('rawBiometricTemplate' in incoming()) &&
         !('biometricTemplate' in incoming()) &&
         !('devicePassword' in incoming()) &&
-        !('commKey' in incoming());
+        !('commKey' in incoming()) &&
+        (!('finalApprovalStatus' in incoming()) || !(incoming().finalApprovalStatus in ['Approved', 'Rejected']) || isStrictHrManagerRole()) &&
+        (!('payrollFinalized' in incoming()) || incoming().payrollFinalized == false || isStrictHrManagerRole());
+      allow update: if isValidId(attendanceId) &&
+        (
+          isDirectorOrAdmin() || isHRManager() || isTimeKeeper() || isSupervisor() || isSectionHead() || isProjectManager() || isOperationManager() || (
+            isApprovedUser() && ('recordedByUid' in incoming()) && incoming().recordedByUid == request.auth.uid
+          ) || (
+            (isSiteEngineer() || isOfficeManager()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'discrepancyFlag', 'finalApprovalStatus', 'hrReviewStatus', 'payrollFinalized',
+              'approvalAuditHistory', 'originalBiometricSnapshot', 'timezone', 'capturedAt', 'serverReceivedAt'
+            ]) &&
+            incoming().finalApprovalStatus == 'Under Review'
+          )
+        ) &&
+        !('fingerprintTemplate' in incoming()) &&
+        !('faceTemplate' in incoming()) &&
+        !('rawBiometricTemplate' in incoming()) &&
+        !('biometricTemplate' in incoming()) &&
+        !('devicePassword' in incoming()) &&
+        !('commKey' in incoming()) &&
+        // Never overwrite or erase the original biometric event snapshot once captured
+        (!('originalBiometricSnapshot' in existing()) || ('originalBiometricSnapshot' in incoming() && incoming().originalBiometricSnapshot == existing().originalBiometricSnapshot)) &&
+        // ONLY HR Manager can set finalApprovalStatus to Approved/Rejected or finalize for payroll
+        (
+          !('finalApprovalStatus' in incoming()) ||
+          !(incoming().finalApprovalStatus in ['Approved', 'Rejected']) ||
+          (('finalApprovalStatus' in existing()) && incoming().finalApprovalStatus == existing().finalApprovalStatus) ||
+          isStrictHrManagerRole()
+        ) &&
+        (
+          !('payrollFinalized' in incoming()) ||
+          incoming().payrollFinalized == false ||
+          (('payrollFinalized' in existing()) && existing().payrollFinalized == true) ||
+          isStrictHrManagerRole()
+        );
       allow delete: if isDirectorOrAdmin();
     }
 
@@ -810,14 +908,26 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice();
     }
 
-    // 12.1 Tasks (Digital Construction ERP Tasks Management + HRM Authorized Onboarding Tasks)
+    // 12.1 Tasks (Digital Construction ERP Tasks Management + HRM Recruitment & Onboarding Tasks)
     match /tasks/{taskId} {
       allow read: if isApprovedUser();
-      allow create, update: if isDirectorOrAdmin() || isHRManager() || isProjectManager() || isSiteEngineer() || isOfficeTechnicalEngineering() || isSupervisor() || hasRole('Team Leader') || hasRole('Gang Chief') || (
-        isApprovedUser() && (
+      allow create: if mfaSafe() && (
+        isHrmWorkflowApprover() ||
+        isSiteEngineer() ||
+        isSupervisor() ||
+        hasAnyRole(['Team Leader', 'Gang Chief']) ||
+        (isApprovedUser() && ('createdById' in incoming()) && incoming().createdById == request.auth.uid)
+      );
+      allow update: if mfaSafe() && (
+        isHrmWorkflowApprover() ||
+        isSiteEngineer() ||
+        isSupervisor() ||
+        hasAnyRole(['Team Leader', 'Gang Chief']) ||
+        (isApprovedUser() && resource != null && (
           ('assignedToId' in resource.data && resource.data.assignedToId == request.auth.uid) ||
+          ('assignedToUserIds' in resource.data && request.auth.uid in resource.data.assignedToUserIds) ||
           ('createdById' in resource.data && resource.data.createdById == request.auth.uid)
-        )
+        ))
       );
       allow delete: if isDirectorOrAdmin() || isProjectManager();
     }
@@ -1152,11 +1262,38 @@ service cloud.firestore {
       allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
-    // 21B.2 recruitmentRequests (5-stage Recruitment + Director Excess Approval)
+    // 21B.2 recruitmentRequests (Strict 6-step Sequential Manpower & Recruitment Approval Workflow)
     match /recruitmentRequests/{requestId} {
-      allow read: if isHrmWorkflowApprover() || isOfficeTechnicalEngineering() || isAuditor();
-      allow create: if (isHrmWorkflowApprover() || isApprovedUser()) && mfaSafe();
-      allow update: if isHrmWorkflowApprover() && mfaSafe();
+      allow read: if isHrmWorkflowApprover() || isAuditor() || (
+        isApprovedUser() && resource != null && ('requestedById' in existing() && existing().requestedById == request.auth.uid)
+      );
+      allow create: if mfaSafe() &&
+        (isSectionHead() || isSuperAdmin()) &&
+        incoming().requestedById == request.auth.uid &&
+        incoming().workflowStage == 'Pending HR Manager' &&
+        incoming().status == 'Pending' &&
+        incoming().hrRegistrationAuthorized == false;
+      allow update: if mfaSafe() &&
+        !(existing().workflowStage in ['Rejected', 'Fulfilled']) && (
+          isSuperAdmin() ||
+          (existing().workflowStage == 'Returned for Correction' &&
+            existing().requestedById == request.auth.uid &&
+            incoming().requestedById == request.auth.uid &&
+            incoming().workflowStage == 'Pending HR Manager' &&
+            incoming().status == 'Pending') ||
+          (existing().workflowStage == 'Pending HR Manager' && isHRManager() &&
+            incoming().workflowStage in ['Pending Office Manager', 'Returned for Correction', 'Rejected']) ||
+          (existing().workflowStage == 'Pending Office Manager' && (isOfficeManager() || isOfficeTechnicalEngineering()) &&
+            incoming().workflowStage in ['Pending Finance Manager', 'Returned for Correction', 'Rejected']) ||
+          (existing().workflowStage == 'Pending Finance Manager' && isFinanceManager() &&
+            incoming().workflowStage in ['Pending Operation Department', 'Returned for Correction', 'Rejected']) ||
+          (existing().workflowStage == 'Pending Operation Department' && isOperationManager() &&
+            incoming().workflowStage in ['Pending Director Final Approval', 'Returned for Correction', 'Rejected']) ||
+          (existing().workflowStage in ['Pending Director Final Approval', 'Pending Director Excess Approval'] && isDirectorOrAdmin() &&
+            incoming().workflowStage in ['Approved', 'Returned for Correction', 'Rejected']) ||
+          (existing().workflowStage == 'Approved' && isHRManager() &&
+            incoming().workflowStage in ['Approved', 'Fulfilled'])
+        );
       allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
@@ -1312,7 +1449,8 @@ service cloud.firestore {
       ]) &&
       incoming().action in [
         'Mapping Created', 'Mapping Edited', 'Biometric User ID Changed',
-        'Device Changed', 'Mapping Activated', 'Mapping Deactivated', 'Unmapped Event Resolved'
+        'Device Changed', 'Mapping Activated', 'Mapping Deactivated', 'Unmapped Event Resolved',
+        'Device Registration Recorded', 'Enrollment Status Changed', 'Attendance Activated', 'Enrollment Suspended'
       ] &&
       incoming().biometricUserId is string && incoming().biometricUserId.size() >= 1 && incoming().biometricUserId.size() <= 64 &&
       incoming().actorName is string && incoming().actorName.size() >= 1 && incoming().actorName.size() <= 120;
@@ -1347,26 +1485,26 @@ service cloud.firestore {
       allow delete: if false; // Preserve device history; use status = 'Inactive'
     }
 
-    // 21C.2 biometricDeviceMappings (Links ERP employees to biometric device User IDs)
+    // 21C.2 biometricDeviceMappings (HR Department ONLY — Links ERP employees to biometric device User IDs)
     match /biometricDeviceMappings/{mappingId} {
       allow read: if isBiometricMappingViewer();
       allow create: if isValidId(mappingId) &&
-        (isSuperAdmin() || isHRManager()) &&
+        isHRManager() &&
         mfaSafe() &&
         isValidBiometricDeviceMapping();
       allow update: if isValidId(mappingId) &&
-        (isSuperAdmin() || isHRManager()) &&
+        isHRManager() &&
         mfaSafe() &&
         isValidBiometricDeviceMapping() &&
-        (incoming().status == existing().status || isSuperAdmin() || hasRole('HR Manager'));
+        (incoming().status == existing().status || isStrictHrManagerRole());
       allow delete: if false; // Never hard-delete mapping history; use status = 'Inactive'
     }
 
-    // 21C.3 biometricMappingAuditLogs (Strictly immutable create-only audit history)
+    // 21C.3 biometricMappingAuditLogs (Strictly immutable create-only audit history — HR Department writes)
     match /biometricMappingAuditLogs/{logId} {
       allow read: if isBiometricMappingViewer();
       allow create: if isValidId(logId) &&
-        (isSuperAdmin() || isHRManager()) &&
+        isHRManager() &&
         mfaSafe() &&
         isValidBiometricMappingAuditLog();
       allow update, delete: if false; // Strictly immutable audit log
@@ -1376,10 +1514,126 @@ service cloud.firestore {
     match /unmappedBiometricEvents/{eventId} {
       allow read: if isBiometricMappingViewer();
       allow create, update: if isValidId(eventId) &&
-        (isSuperAdmin() || isHRManager()) &&
+        isHRManager() &&
         mfaSafe() &&
         isValidUnmappedBiometricEvent();
       allow delete: if false;
+    }
+
+    // ==========================================
+    // 21D. ATTENDANCE PART 2 APPROVAL, CORRECTIONS & POLICY COLLECTIONS
+    // ==========================================
+    function isValidAttendanceCorrection() {
+      return incoming().keys().hasAll([
+        'id', 'requestNo', 'attendanceId', 'workerId', 'workerName', 'date',
+        'correctionType', 'originalSnapshot', 'reason', 'submittedBy', 'submittedByUid', 'status'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'requestNo', 'attendanceId', 'workerId', 'employeeId', 'workerName',
+        'project', 'department', 'workLocationType', 'date', 'correctionType',
+        'originalSnapshot', 'proposedCheckIn', 'proposedCheckOut', 'proposedStatus',
+        'reason', 'supportingEvidenceUrl', 'supportingEvidenceName', 'supportingEvidenceNote',
+        'submittedBy', 'submittedByUid', 'submittedByRole', 'status',
+        'hrOfficerReviewedBy', 'hrOfficerReviewedByUid', 'hrOfficerReviewedAt', 'hrOfficerNotes',
+        'hrManagerDecisionBy', 'hrManagerDecisionByUid', 'hrManagerDecisionAt', 'hrManagerComments',
+        'createdAt', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+      ]) &&
+      incoming().requestNo is string && incoming().requestNo.size() >= 1 && incoming().requestNo.size() <= 64 &&
+      incoming().attendanceId is string && incoming().attendanceId.size() >= 1 && incoming().attendanceId.size() <= 128 &&
+      incoming().workerId is string && incoming().workerId.size() >= 1 && incoming().workerId.size() <= 128 &&
+      incoming().workerName is string && incoming().workerName.size() >= 1 && incoming().workerName.size() <= 160 &&
+      incoming().date is string && incoming().date.size() >= 8 && incoming().date.size() <= 32 &&
+      incoming().correctionType in ['Missing Check-In', 'Missing Check-Out', 'Incorrect Attendance Record', 'Device Synchronization Failure'] &&
+      incoming().originalSnapshot is map &&
+      incoming().reason is string && incoming().reason.size() >= 1 && incoming().reason.size() <= 1000 &&
+      incoming().submittedBy is string && incoming().submittedBy.size() >= 1 && incoming().submittedBy.size() <= 120 &&
+      incoming().submittedByUid is string && incoming().submittedByUid.size() >= 1 && incoming().submittedByUid.size() <= 128 &&
+      incoming().status in ['Pending', 'Under Review', 'Approved', 'Rejected', 'Returned for Correction'] &&
+      (!('supportingEvidenceUrl' in incoming()) || incoming().supportingEvidenceUrl is string && incoming().supportingEvidenceUrl.size() <= 1000) &&
+      (!('supportingEvidenceName' in incoming()) || incoming().supportingEvidenceName is string && incoming().supportingEvidenceName.size() <= 240) &&
+      (!('supportingEvidenceNote' in incoming()) || incoming().supportingEvidenceNote is string && incoming().supportingEvidenceNote.size() <= 500) &&
+      (!('hrOfficerNotes' in incoming()) || incoming().hrOfficerNotes is string && incoming().hrOfficerNotes.size() <= 1000) &&
+      (!('hrManagerComments' in incoming()) || incoming().hrManagerComments is string && incoming().hrManagerComments.size() <= 1000);
+    }
+
+    function isValidAttendanceDeductionPolicy() {
+      return incoming().keys().hasAll([
+        'id', 'policyName', 'isApproved', 'standardWorkingDaysPerMonth'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'policyName', 'isApproved', 'approvedBy', 'approvedByRole', 'approvedAt',
+        'deductUnpaidLeave', 'deductUnexcusedAbsence', 'absenceDailyMultiplier',
+        'lateDeductionEnabled', 'graceMinutesBeforeDeduction', 'lateDeductionHourlyFactor',
+        'standardWorkingDaysPerMonth', 'notes', 'updatedBy', 'createdAt', 'updatedAt',
+        'capturedAt', 'serverReceivedAt'
+      ]) &&
+      incoming().policyName is string && incoming().policyName.size() >= 1 && incoming().policyName.size() <= 140 &&
+      incoming().isApproved is bool &&
+      incoming().standardWorkingDaysPerMonth is number &&
+      incoming().standardWorkingDaysPerMonth >= 1 && incoming().standardWorkingDaysPerMonth <= 31 &&
+      (!('notes' in incoming()) || incoming().notes is string && incoming().notes.size() <= 1000);
+    }
+
+    function isValidAttendanceAuditLog() {
+      return incoming().keys().hasAll([
+        'id', 'attendanceId', 'workerId', 'workerName', 'date',
+        'action', 'actorName', 'actorUid', 'actorRole', 'timestamp'
+      ]) &&
+      incoming().keys().hasOnly([
+        'id', 'attendanceId', 'correctionId', 'workerId', 'employeeId', 'workerName',
+        'date', 'action', 'previousStatus', 'newStatus', 'comments',
+        'actorName', 'actorUid', 'actorRole', 'timestamp', 'timezone',
+        'capturedAt', 'serverReceivedAt'
+      ]) &&
+      incoming().attendanceId is string && incoming().attendanceId.size() >= 1 && incoming().attendanceId.size() <= 128 &&
+      incoming().workerId is string && incoming().workerId.size() >= 1 && incoming().workerId.size() <= 128 &&
+      incoming().workerName is string && incoming().workerName.size() >= 1 && incoming().workerName.size() <= 160 &&
+      incoming().date is string && incoming().date.size() >= 8 && incoming().date.size() <= 32 &&
+      incoming().action is string && incoming().action.size() >= 1 && incoming().action.size() <= 140 &&
+      incoming().actorName is string && incoming().actorName.size() >= 1 && incoming().actorName.size() <= 120 &&
+      incoming().actorUid is string && incoming().actorUid.size() >= 1 && incoming().actorUid.size() <= 128 &&
+      incoming().actorRole is string && incoming().actorRole.size() >= 1 && incoming().actorRole.size() <= 64 &&
+      incoming().timestamp is string && incoming().timestamp.size() >= 8 && incoming().timestamp.size() <= 64 &&
+      (!('comments' in incoming()) || incoming().comments is string && incoming().comments.size() <= 1000);
+    }
+
+    // 21D.1 attendanceCorrections (Preserves original biometric event; HR Manager-only approve/reject)
+    match /attendanceCorrections/{correctionId} {
+      allow read: if isApprovedUser();
+      allow create: if isValidId(correctionId) &&
+        (isHRManager() || isDirectorOrAdmin() || isProjectManager() || isOperationManager() || isSectionHead() || isOfficeManager() || isSupervisor() || isTimeKeeper()) &&
+        isValidAttendanceCorrection() &&
+        incoming().status == 'Pending' &&
+        incoming().submittedByUid == request.auth.uid;
+      allow update: if isValidId(correctionId) &&
+        isValidAttendanceCorrection() &&
+        incoming().originalSnapshot == existing().originalSnapshot &&
+        incoming().submittedByUid == existing().submittedByUid &&
+        (
+          (incoming().status in ['Under Review', 'Returned for Correction'] && isHRManager()) ||
+          (incoming().status in ['Approved', 'Rejected'] && isStrictHrManagerRole())
+        );
+      allow delete: if false;
+    }
+
+    // 21D.2 attendanceDeductionPolicies (Approved company policy gating attendance salary deductions)
+    match /attendanceDeductionPolicies/{policyId} {
+      allow read: if isApprovedUser();
+      allow create, update: if isValidId(policyId) &&
+        (isStrictHrManagerRole() || isDirectorOrAdmin()) &&
+        mfaSafe() &&
+        isValidAttendanceDeductionPolicy();
+      allow delete: if false;
+    }
+
+    // 21D.3 attendanceAuditLogs (Strictly immutable create-only attendance approval & correction history)
+    match /attendanceAuditLogs/{logId} {
+      allow read: if isHrmWorkflowApprover() || isDirectorOrAdmin() || isHRManager() || isAuditor() || isTimeKeeper() || isSupervisor() || isSiteEngineer();
+      allow create: if isValidId(logId) &&
+        isApprovedUser() &&
+        isValidAttendanceAuditLog() &&
+        incoming().actorUid == request.auth.uid;
+      allow update, delete: if false;
     }
 
     // ==========================================

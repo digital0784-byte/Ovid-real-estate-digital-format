@@ -703,7 +703,7 @@ export async function analyzeFaceCanvas(
   const borderSkinRatio = borderCount > 0 ? borderSkinCount / borderCount : 0;
   const meanEdge = roiEdgeSum / Math.max(1, roiCount);
 
-  if (centerSkinRatio < 0.14 || meanEdge < 8) {
+  if (centerSkinRatio < 0.14 || meanEdge < 7) {
     return {
       detected: false,
       confidence: 0,
