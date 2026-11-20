@@ -58,6 +58,7 @@ import {
   ErpTask,
   EthiopianTaxBracket,
   EthiopianTaxPensionConfig,
+  ExcessRecruitmentRequestRecord,
   FinancialAccount,
   HrmPayrollLineItem,
   HrmPayrollRunRecord,
@@ -96,30 +97,37 @@ import {
   buildMaskedPreview,
   decryptSensitiveText,
   encryptSensitiveText,
+  hashSensitiveIdentifier,
 } from "../../utils/cryptoPii";
 import {
   advancePayrollRunStage,
   advanceRecruitmentApproval,
   buildHrmPayrollRunDraft,
+  buildRecruitmentByProjectAndDepartmentReport,
   canActorApproveRecruitmentStage,
   canRequesterResubmitRecruitmentRequest,
-  completeApprovedEmployeeOnboarding,
+  checkDuplicateEmployeeRegistration,
   computeEthiopianIncomeTaxAndPension,
   computeHrmDashboardState,
   computeScheduleAttendanceMetrics,
+  decideExcessRecruitmentRequest,
   DEFAULT_ETHIOPIAN_TAX_BRACKETS,
   DEFAULT_ETHIOPIAN_TAX_PENSION_CONFIG,
   disburseApprovedHrmPayrollRun,
   downloadHrmPayslipPdf,
   exportHrmReport,
   generateNextEmployeeId,
+  getRecruitmentFillStatus,
   HrmRoutingUser,
   inferWorkerWorkLocationType,
   maskSensitiveValue,
   recalculatePayrollRunLineItem,
+  recordExcessRegistrationAttemptAlert,
+  registerApprovedEmployeeFromRecruitment,
   resolveHrmPermissions,
   resolveWorkerSchedule,
   resubmitReturnedRecruitmentRequest,
+  submitExcessRecruitmentRequest,
   submitRecruitmentRequestWithManpowerCheck,
   validateEmployeeRegistrationAuthorization,
 } from "../../services/hrmService";
@@ -163,6 +171,7 @@ export type HrmSubTab =
   | "reports";
 type HrmReportKind =
   | "manpower"
+  | "recruitment-project-dept"
   | "recruitment"
   | "attendance"
   | "leave-absence"
@@ -210,6 +219,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const [bankAccounts, setBankAccounts] = useState<FinancialAccount[]>([]);
   const [manpowerPlans, setManpowerPlans] = useState<ManpowerPlanRecord[]>([]);
   const [recruitmentRequests, setRecruitmentRequests] = useState<RecruitmentRequestRecord[]>([]);
+  const [excessRecruitmentRequests, setExcessRecruitmentRequests] = useState<ExcessRecruitmentRequestRecord[]>([]);
   const [workSchedules, setWorkSchedules] = useState<WorkScheduleConfig[]>([]);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequestRecord[]>([]);
   const [overtimeRequests, setOvertimeRequests] = useState<OvertimeRequestRecord[]>([]);
@@ -251,6 +261,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     if (!perms.isEmployee) {
       unsubs.push(DbService.subscribeManpowerPlans(setManpowerPlans));
       unsubs.push(DbService.subscribeRecruitmentRequests(setRecruitmentRequests));
+      unsubs.push(DbService.subscribeExcessRecruitmentRequests(setExcessRecruitmentRequests));
       unsubs.push(DbService.subscribeEmployeeTransfers(setEmployeeTransfers));
       unsubs.push(DbService.subscribeTasks(setErpTasks));
       unsubs.push(DbService.subscribeUsers((users) => setSystemUsers(users as HrmRoutingUser[])));
@@ -348,6 +359,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         attendance,
         manpowerPlans,
         recruitmentRequests,
+        excessRequests: excessRecruitmentRequests,
         leaveRequests,
         overtimeRequests,
         payrollRuns,
@@ -360,6 +372,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       attendance,
       manpowerPlans,
       recruitmentRequests,
+      excessRecruitmentRequests,
       leaveRequests,
       overtimeRequests,
       payrollRuns,
@@ -421,7 +434,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   });
   const [uploadingRecDoc, setUploadingRecDoc] = useState(false);
 
-  // Recruitment Decision / Audit / Resubmit Modals
+  // Recruitment Decision / Audit / Resubmit / Excess Approval Modals
   const [recDecisionModal, setRecDecisionModal] = useState<{
     req: RecruitmentRequestRecord;
     decision: "Approved" | "Rejected" | "Returned";
@@ -429,6 +442,15 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const [recDecisionNotes, setRecDecisionNotes] = useState("");
   const [viewingRecAudit, setViewingRecAudit] = useState<RecruitmentRequestRecord | null>(null);
   const [resubmittingRec, setResubmittingRec] = useState<RecruitmentRequestRecord | null>(null);
+  const [excessModalReq, setExcessModalReq] = useState<RecruitmentRequestRecord | null>(null);
+  const [excessCountInput, setExcessCountInput] = useState(1);
+  const [excessJustificationInput, setExcessJustificationInput] = useState("");
+  const [excessBusy, setExcessBusy] = useState(false);
+  const [excessDecisionModal, setExcessDecisionModal] = useState<{
+    excess: ExcessRecruitmentRequestRecord;
+    decision: "Approved" | "Rejected";
+  } | null>(null);
+  const [excessDecisionNotes, setExcessDecisionNotes] = useState("");
   const [resubmitForm, setResubmitForm] = useState({
     project: "",
     department: "",
@@ -459,16 +481,33 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     return { approved, hired, remaining, excess, exceeds: excess > 0 };
   }, [dash.manpowerRows, recForm.project, recForm.jobPosition, recForm.requestedCount]);
 
-  const approvedRequestsWithOpenSlots = useMemo(
+  const allDirectorApprovedRecruitmentRequests = useMemo(
     () =>
       recruitmentRequests.filter(
         (r) =>
-          r.workflowStage === "Approved" &&
-          r.status === "Approved" &&
-          Boolean(r.hrRegistrationAuthorized) &&
-          (r.hiredCount || 0) < r.requestedCount
+          (r.workflowStage === "Approved" ||
+            r.workflowStage === "Fulfilled" ||
+            r.status === "Approved" ||
+            r.status === "Fulfilled") &&
+          Boolean(r.hrRegistrationAuthorized)
       ),
     [recruitmentRequests]
+  );
+
+  const approvedRequestsWithOpenSlots = useMemo(
+    () =>
+      allDirectorApprovedRecruitmentRequests.filter(
+        (r) =>
+          r.workflowStage === "Approved" &&
+          r.status === "Approved" &&
+          (r.hiredCount || 0) < r.requestedCount
+      ),
+    [allDirectorApprovedRecruitmentRequests]
+  );
+
+  const pendingExcessRequests = useMemo(
+    () => excessRecruitmentRequests.filter((e) => e.status === "Pending Director"),
+    [excessRecruitmentRequests]
   );
 
   const actionableRequestsForRole = useMemo(
@@ -490,6 +529,90 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       ),
     [recruitmentRequests, actorUid, currentUserRole]
   );
+
+  const openExcessRequestModal = (req: RecruitmentRequestRecord, prefillReason?: string) => {
+    if (!perms.canRegisterApprovedEmployees) {
+      return showToast(
+        "error",
+        "Only HR Manager (or Super Admin) can submit an Excess Recruitment Approval Request."
+      );
+    }
+    setExcessModalReq(req);
+    setExcessCountInput(1);
+    setExcessJustificationInput(prefillReason || "");
+  };
+
+  const handleSubmitExcessRecruitment = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!excessModalReq) return;
+    setExcessBusy(true);
+    try {
+      const created = await submitExcessRecruitmentRequest({
+        recruitmentRequest: excessModalReq,
+        excessCount: Number(excessCountInput || 1),
+        justification: excessJustificationInput,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        existingExcessRequests: excessRecruitmentRequests,
+        users: systemUsers,
+      });
+      onLogAction(
+        "HRM Excess Recruitment Requested",
+        `${created.requestNo} (+${created.excessCount}x ${created.jobPosition} on ${created.recruitmentRequestNo}) sent to Director`
+      );
+      showToast(
+        "info",
+        `Excess Recruitment Request ${created.requestNo} (+${created.excessCount}) submitted to Director. Excess registration remains blocked until Director approves.`
+      );
+      setExcessModalReq(null);
+      setExcessJustificationInput("");
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to submit excess recruitment request.");
+    } finally {
+      setExcessBusy(false);
+    }
+  };
+
+  const handleSubmitExcessDecision = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!excessDecisionModal) return;
+    const parentReq = recruitmentRequests.find(
+      (r) => r.id === excessDecisionModal.excess.recruitmentRequestId
+    );
+    if (!parentReq) {
+      return showToast("error", "Parent recruitment request could not be found.");
+    }
+    setExcessBusy(true);
+    try {
+      const res = await decideExcessRecruitmentRequest({
+        excessRequest: excessDecisionModal.excess,
+        recruitmentRequest: parentReq,
+        decision: excessDecisionModal.decision,
+        actorName,
+        actorUid,
+        actorRole: currentUserRole,
+        notes: excessDecisionNotes,
+        users: systemUsers,
+      });
+      onLogAction(
+        "HRM Excess Recruitment Decision",
+        `${res.updatedExcess.requestNo} -> ${res.updatedExcess.status} (Authorized Qty: ${res.updatedRecruitment.requestedCount})`
+      );
+      showToast(
+        res.updatedExcess.status === "Approved" ? "success" : "info",
+        res.updatedExcess.status === "Approved"
+          ? `Director approved ${res.updatedExcess.requestNo}! Authorized qty for ${res.updatedRecruitment.requestNo} is now ${res.updatedRecruitment.requestedCount}. HR Manager may finalize registration.`
+          : `Director rejected ${res.updatedExcess.requestNo}. Excess registration remains blocked.`
+      );
+      setExcessDecisionModal(null);
+      setExcessDecisionNotes("");
+    } catch (err: any) {
+      showToast("error", err?.message || "Failed to process excess decision.");
+    } finally {
+      setExcessBusy(false);
+    }
+  };
 
   const handleSaveManpowerPlan = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -765,17 +888,22 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     department: "Construction",
     position: "Engineer",
     trade: "Site Engineer",
+    jobResponsibilities: "",
     employmentType: "Permanent",
+    joinedDate: new Date().toISOString().slice(0, 10),
     assignedProject: projectNames[0] || "Bole Tower",
     workLocationType: "Construction Site" as "Head Office" | "Construction Site",
     qualifications: "",
     experienceYears: 3,
     experienceSummary: "",
+    skills: "",
+    certifications: "",
     bankName: "Commercial Bank of Ethiopia",
     bankAccountNumber: "",
     mobileMoneyType: "Telebirr",
     mobileMoneyNumber: "",
     salaryStructureId: "",
+    salaryGrade: "",
     basicMonthlySalary: 14000,
     housingAllowance: 0,
     transportAllowance: 0,
@@ -791,12 +919,37 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const [empForm, setEmpForm] = useState(emptyEmpForm);
 
   const openNewEmployeeModal = (fromRec?: RecruitmentRequestRecord) => {
-    const targetRec = fromRec || approvedRequestsWithOpenSlots[0] || null;
+    if (!perms.canRegisterApprovedEmployees) {
+      return showToast(
+        "error",
+        "Employee registration is strictly restricted to HR Manager after Director final approval."
+      );
+    }
+    const targetRec =
+      fromRec || approvedRequestsWithOpenSlots[0] || allDirectorApprovedRecruitmentRequests[0] || null;
+    if (!targetRec) {
+      return showToast(
+        "error",
+        "Employee registration is blocked until Director gives Final Approval on a Recruitment Request."
+      );
+    }
     const authCheck = validateEmployeeRegistrationAuthorization({
       role: currentUserRole,
       recruitmentRequest: targetRec,
     });
     if (!authCheck.allowed) {
+      if (authCheck.excessDetected) {
+        showToast(
+          "error",
+          authCheck.reason ||
+            "Approved manpower quantity already filled. Submit an Additional Excess Approval Request to Director."
+        );
+        openExcessRequestModal(
+          targetRec,
+          `Additional headcount needed beyond approved ${targetRec.requestedCount} for ${targetRec.jobPosition} at ${targetRec.project}.`
+        );
+        return;
+      }
       return showToast(
         "error",
         authCheck.reason ||
@@ -804,20 +957,33 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       );
     }
     const base = emptyEmpForm();
-    if (targetRec) {
-      setOnboardingFromRec(targetRec);
-      setEmpForm({
-        ...base,
-        assignedProject: targetRec.project,
-        workLocationType: inferWorkerWorkLocationType({ assignedProject: targetRec.project }),
-        department: targetRec.department,
-        position: targetRec.jobPosition,
-        trade: targetRec.jobPosition,
-        employmentType: targetRec.employmentType,
-        basicMonthlySalary: targetRec.proposedMonthlySalary || 14000,
-        qualifications: targetRec.qualificationsRequired || "",
-      });
-    }
+    const matchedStructure = salaryStructures.find(
+      (s) =>
+        s.isActive &&
+        (s.structureName.toLowerCase().includes(targetRec.jobPosition.toLowerCase()) ||
+          s.department.toLowerCase() === targetRec.department.toLowerCase())
+    );
+    setOnboardingFromRec(targetRec);
+    setEmpForm({
+      ...base,
+      assignedProject: targetRec.project,
+      workLocationType: inferWorkerWorkLocationType({ assignedProject: targetRec.project }),
+      department: targetRec.department,
+      position: targetRec.jobPosition,
+      trade: targetRec.jobPosition,
+      jobResponsibilities: targetRec.jobResponsibilities || "",
+      employmentType: targetRec.employmentType,
+      joinedDate: targetRec.requiredByDate || new Date().toISOString().slice(0, 10),
+      salaryStructureId: matchedStructure?.id || "",
+      salaryGrade: matchedStructure?.jobGrade || "",
+      basicMonthlySalary: targetRec.proposedMonthlySalary || matchedStructure?.basicSalary || 14000,
+      housingAllowance: matchedStructure?.housingAllowance || 0,
+      transportAllowance: matchedStructure?.transportAllowance || 0,
+      positionAllowance: matchedStructure?.positionAllowance || 0,
+      medicalAllowance: matchedStructure?.medicalAllowance || 0,
+      qualifications: targetRec.qualificationsRequired || "",
+      experienceSummary: targetRec.experienceRequired || "",
+    });
     setEditingWorkerId(null);
     setShowEmpModal(true);
   };
@@ -840,17 +1006,22 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       department: w.department || "Construction",
       position: w.position || w.trade || "Staff",
       trade: w.trade || w.position || "Staff",
+      jobResponsibilities: w.jobResponsibilities || "",
       employmentType: String(w.employmentType || "Permanent"),
+      joinedDate: w.joinedDate || new Date().toISOString().slice(0, 10),
       assignedProject: w.assignedProject || w.currentSite || projectNames[0] || "Bole Tower",
       workLocationType: inferWorkerWorkLocationType(w),
       qualifications: w.qualifications || "",
       experienceYears: Number(w.experienceYears || 0),
       experienceSummary: w.experienceSummary || "",
+      skills: w.skills || "",
+      certifications: w.certifications || "",
       bankName: w.bankName || "Commercial Bank of Ethiopia",
       bankAccountNumber: dec?.bankAccountNumber || w.bankAccountNumber || "",
       mobileMoneyType: String(w.mobileMoneyType || "Telebirr"),
       mobileMoneyNumber: dec?.mobileMoneyNumber || w.mobileMoneyNumber || "",
       salaryStructureId: w.salaryStructureId || "",
+      salaryGrade: w.salaryGrade || "",
       basicMonthlySalary: Number(w.basicMonthlySalary || 14000),
       housingAllowance: Number(w.housingAllowance || 0),
       transportAllowance: Number(w.transportAllowance || 0),
@@ -1151,19 +1322,41 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         ? prevDecrypted.mobileMoneyNumber
         : empForm.mobileMoneyNumber.trim();
 
-    // Encrypt sensitive PII into role-restricted hrmPrivateProfiles collection (ZERO raw biometric templates stored)
+    // Check duplicate Employee ID / Phone / Fayda ID / National ID / Name+DOB
+    const dupCheck = await checkDuplicateEmployeeRegistration({
+      employeeId: assignedEmployeeId,
+      phoneNumber: empForm.phoneNumber,
+      faydaId: resolvedFayda,
+      nationalId: resolvedNationalId,
+      name: empForm.name,
+      dateOfBirth: empForm.dateOfBirth,
+      ignoreWorkerId: existing?.id,
+      existingWorkers: workers,
+      existingPrivateProfiles: privateProfiles,
+    });
+    if (dupCheck.isDuplicate) {
+      return showToast("error", dupCheck.reason || "Duplicate employee registration blocked.");
+    }
+
+    // Encrypt sensitive PII & compute deterministic hashes for duplicate blocking
     const [
       faydaEnc,
       nationalEnc,
       bankEnc,
       mobileEnc,
       emergencyEnc,
+      faydaIdHash,
+      nationalIdHash,
+      phoneNormalizedHash,
     ] = await Promise.all([
       encryptSensitiveText(resolvedFayda),
       encryptSensitiveText(resolvedNationalId),
       encryptSensitiveText(resolvedBankAcc),
       encryptSensitiveText(resolvedMobileMoney),
       encryptSensitiveText(empForm.emergencyContact.trim()),
+      hashSensitiveIdentifier(resolvedFayda),
+      hashSensitiveIdentifier(resolvedNationalId),
+      hashSensitiveIdentifier(empForm.phoneNumber.replace(/\D/g, "").replace(/^251/, "").replace(/^0/, "")),
     ]);
 
     const privateProfile: HrmPrivateProfileRecord = {
@@ -1178,12 +1371,14 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       mobileMoneyType: empForm.mobileMoneyType,
       mobileMoneyNumberEncrypted: mobileEnc,
       emergencyContactEncrypted: emergencyEnc,
+      faydaIdHash: faydaIdHash || undefined,
+      nationalIdHash: nationalIdHash || undefined,
+      phoneNormalizedHash: phoneNormalizedHash || undefined,
       encryptionAlgorithm: "AES-GCM-256",
       updatedBy: actorName,
       createdAt: existing?.joinedDate ? `${existing.joinedDate}T00:00:00.000Z` : nowIso,
       updatedAt: nowIso,
     };
-    await DbService.saveHrmPrivateProfile(privateProfile);
 
     // Store only safe masked previews on public Worker document
     const maskedFayda = resolvedFayda ? buildMaskedPreview(resolvedFayda) : "";
@@ -1194,7 +1389,6 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     const workerPayload: Worker = stripProhibitedBiometricTemplateFields({
       ...(existing || {
         company: "OVID Real Estate — Digital Construction ERP",
-        joinedDate: nowDate,
         teamId: "TEAM-GENERAL",
         leaveBalances: { annual: 16, sick: 10, maternityPaternity: 15, unpaidUsed: 0 },
       }),
@@ -1212,18 +1406,23 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       department: empForm.department,
       position: empForm.position,
       trade: empForm.trade || empForm.position,
+      jobResponsibilities: empForm.jobResponsibilities,
       employmentType: empForm.employmentType,
+      joinedDate: empForm.joinedDate || existing?.joinedDate || nowDate,
       assignedProject: empForm.assignedProject,
       currentSite: empForm.assignedProject,
       workLocationType: empForm.workLocationType,
       qualifications: empForm.qualifications,
       experienceYears: Number(empForm.experienceYears || 0),
       experienceSummary: empForm.experienceSummary,
+      skills: empForm.skills,
+      certifications: empForm.certifications,
       bankName: empForm.bankName,
       bankAccountNumber: maskedBank,
       mobileMoneyType: empForm.mobileMoneyType,
       mobileMoneyNumber: maskedMobile,
       salaryStructureId: empForm.salaryStructureId || undefined,
+      salaryGrade: empForm.salaryGrade || undefined,
       basicMonthlySalary: Number(empForm.basicMonthlySalary || 0),
       hourlyRate: Math.round((Number(empForm.basicMonthlySalary || 0) / 208) * 100) / 100,
       housingAllowance: Number(empForm.housingAllowance || 0),
@@ -1245,42 +1444,89 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
     });
 
     if (existing) {
+      await DbService.saveHrmPrivateProfile(privateProfile);
       await onUpdateWorker(workerPayload);
       onLogAction("HRM Employee Updated", `Updated ${workerPayload.name} (${workerPayload.employeeId}) with encrypted PII`);
       showToast("success", `Employee ${workerPayload.name} updated & PII encrypted.`);
+      setShowEmpModal(false);
     } else {
       const authCheck = validateEmployeeRegistrationAuthorization({
         role: currentUserRole,
         recruitmentRequest: onboardingFromRec,
       });
       if (!authCheck.allowed || !onboardingFromRec) {
+        if (authCheck.excessDetected && onboardingFromRec) {
+          recordExcessRegistrationAttemptAlert({
+            recruitmentRequest: onboardingFromRec,
+            candidateName: empForm.name.trim(),
+            actorName,
+            actorUid,
+            actorRole: currentUserRole,
+            users: systemUsers,
+          }).catch(() => {});
+          showToast(
+            "error",
+            authCheck.reason ||
+              "Excess recruitment blocked: Director has been alerted. Submit Additional Excess Approval Request."
+          );
+          setShowEmpModal(false);
+          openExcessRequestModal(
+            onboardingFromRec,
+            `Attempted registration for ${empForm.name.trim()} (${empForm.position}) beyond approved quantity (${onboardingFromRec.requestedCount}).`
+          );
+          return;
+        }
         return showToast(
           "error",
           authCheck.reason || "Director Final Approval on a Recruitment Request is required before employee registration."
         );
       }
-      await onAddWorker(workerPayload);
-      const onboardingOutcome = await completeApprovedEmployeeOnboarding({
-        recruitmentRequest: onboardingFromRec,
-        newWorker: workerPayload,
-        manpowerPlans,
-        allWorkersAfterAdd: [workerPayload, ...workers],
-        tasks: erpTasks,
-        actorName,
-        actorRole: currentUserRole,
-      });
-      onLogAction(
-        "HRM Employee Onboarded",
-        `Registered ${workerPayload.employeeId} — ${workerPayload.name} (Linked Request: ${onboardingFromRec.requestNo})`
-      );
-      showToast(
-        onboardingOutcome.exceededManpowerAlert ? "info" : "success",
-        onboardingOutcome.exceededManpowerAlert
-          ? `Registered ${workerPayload.name} (${workerPayload.employeeId}). Alert sent to Director: active headcount exceeds approved quota.`
-          : `Employee ${workerPayload.name} registered with unique ID ${workerPayload.employeeId}. Ready for HR Biometric Enrollment.`
-      );
+      try {
+        const onboardingOutcome = await registerApprovedEmployeeFromRecruitment({
+          recruitmentRequest: onboardingFromRec,
+          worker: workerPayload,
+          privateProfile,
+          existingWorkers: workers,
+          existingPrivateProfiles: privateProfiles,
+          manpowerPlans,
+          tasks: erpTasks,
+          actorName,
+          actorUid,
+          actorRole: currentUserRole,
+        });
+        onLogAction(
+          "HRM Employee Onboarded",
+          `Registered ${workerPayload.employeeId} — ${workerPayload.name} (Linked Request: ${onboardingFromRec.requestNo}, ${onboardingOutcome.updatedRequest.hiredCount}/${onboardingOutcome.updatedRequest.requestedCount})`
+        );
+        showToast(
+          onboardingOutcome.exceededManpowerAlert ? "info" : "success",
+          onboardingOutcome.exceededManpowerAlert
+            ? `Registered ${workerPayload.name} (${workerPayload.employeeId}) [${onboardingOutcome.updatedRequest.hiredCount}/${onboardingOutcome.updatedRequest.requestedCount}]. Alert sent to Director: active headcount exceeds project manpower quota.`
+            : `Employee ${workerPayload.name} registered (${workerPayload.employeeId}) under ${onboardingFromRec.requestNo} (${onboardingOutcome.updatedRequest.hiredCount}/${onboardingOutcome.updatedRequest.requestedCount} filled).`
+        );
+        setShowEmpModal(false);
+      } catch (err: any) {
+        const msg = err?.message || "Failed to register employee.";
+        if (msg.includes("EXCESS_QUOTA_EXCEEDED") && onboardingFromRec) {
+          recordExcessRegistrationAttemptAlert({
+            recruitmentRequest: onboardingFromRec,
+            candidateName: empForm.name.trim(),
+            actorName,
+            actorUid,
+            actorRole: currentUserRole,
+            users: systemUsers,
+          }).catch(() => {});
+          showToast("error", msg);
+          setShowEmpModal(false);
+          openExcessRequestModal(
+            onboardingFromRec,
+            `Attempted registration for ${empForm.name.trim()} beyond approved quantity (${onboardingFromRec.requestedCount}).`
+          );
+          return;
+        }
+        showToast("error", msg);
+      }
     }
-    setShowEmpModal(false);
   };
 
   const filteredWorkers = useMemo(() => {
@@ -2559,6 +2805,32 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   // 5. REPORTS BUILDER
   // ============================================================
   const [selectedReport, setSelectedReport] = useState<HrmReportKind>("manpower");
+  const [recReportStatusFilter, setRecReportStatusFilter] = useState<string>("ALL");
+  const [recReportMonthFilter, setRecReportMonthFilter] = useState<string>("");
+
+  const recruitmentReportData = useMemo(
+    () =>
+      buildRecruitmentByProjectAndDepartmentReport({
+        recruitmentRequests,
+        excessRequests: excessRecruitmentRequests,
+        filters: {
+          project: quickClock.dailyFilterProject,
+          department: quickClock.filterDepartment,
+          status: recReportStatusFilter,
+          searchQuery: reportSearch,
+          monthPrefix: recReportMonthFilter || undefined,
+        },
+      }),
+    [
+      recruitmentRequests,
+      excessRecruitmentRequests,
+      quickClock.dailyFilterProject,
+      quickClock.filterDepartment,
+      recReportStatusFilter,
+      reportSearch,
+      recReportMonthFilter,
+    ]
+  );
 
   const activeReportRows = useMemo<Record<string, any>[]>(() => {
     switch (selectedReport) {
@@ -2572,20 +2844,10 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
           "Remaining Vacancies": r.remainingVacancies,
           "Excess Above Limit": r.excessCount,
         }));
+      case "recruitment-project-dept":
+        return recruitmentReportData.summaryRows;
       case "recruitment":
-        return recruitmentRequests.map((req) => ({
-          "Request No": req.requestNo,
-          Project: req.project,
-          Department: req.department,
-          "Job Position": req.jobPosition,
-          "Employment Type": req.employmentType,
-          "Requested Count": req.requestedCount,
-          "Hired Count": req.hiredCount || 0,
-          "Within Quota": req.exceedsManpowerLimit ? `Excess (+${req.excessCount})` : "Within Quota",
-          "Workflow Stage": req.workflowStage,
-          Status: req.status,
-          "Requested By": req.requestedBy,
-        }));
+        return recruitmentReportData.detailRows;
       case "attendance":
         return dash.attendanceSummaryRows.map((a) => ({
           "Employee ID": a.employeeId,
@@ -2690,7 +2952,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   }, [
     selectedReport,
     dash,
-    recruitmentRequests,
+    recruitmentReportData,
     leaveRequests,
     workers,
     payrollRuns,
@@ -2943,6 +3205,68 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </div>
           </div>
 
+          {/* Recruitment & Approved Manpower Real-Time KPIs */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-extrabold text-white">
+                  {isAmharic
+                    ? "የቅጥር ጥያቄዎች እና የጸደቀ የሰው ኃይል ቁጥጥር KPI"
+                    : "Recruitment Requests & Approved Manpower Control KPIs"}
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  Live requisition pipeline, approved manpower capacity, onboarding fill progress, and excess alerts
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("recruitment")}
+                  className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-bold text-slate-200 cursor-pointer"
+                >
+                  Open Recruitment
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedReport("recruitment-project-dept");
+                    setActiveTab("reports");
+                  }}
+                  className="px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-500 text-xs font-bold text-white cursor-pointer"
+                >
+                  Project & Dept Report
+                </button>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
+              {[
+                { label: "Total Requests", val: dash.totalManpowerRequests, color: "text-white", border: "border-slate-800" },
+                { label: "Pending", val: dash.pendingRecruitmentApprovals, color: "text-blue-400", border: "border-blue-500/30" },
+                { label: "Approved", val: dash.approvedRecruitmentRequests, color: "text-emerald-400", border: "border-emerald-500/30" },
+                { label: "Rejected", val: dash.rejectedRecruitmentRequests, color: "text-red-400", border: "border-red-500/30" },
+                { label: "Awaiting Correction", val: dash.returnedRecruitmentRequests, color: "text-amber-300", border: "border-amber-500/30" },
+                { label: "Approved Qty", val: dash.totalApprovedManpowerQty, color: "text-cyan-300", border: "border-cyan-500/30" },
+                { label: "Registered", val: dash.registeredEmployeesFromRequests, color: "text-emerald-300", border: "border-emerald-500/40" },
+                { label: "Remaining Vacancies", val: dash.remainingRecruitmentVacancies, color: "text-indigo-300", border: "border-indigo-500/30" },
+                {
+                  label: "Excess Alerts",
+                  val: dash.pendingExcessRequestsCount + dash.excessRecruitmentCount,
+                  color: dash.pendingExcessRequestsCount > 0 ? "text-rose-400" : "text-slate-300",
+                  border: dash.pendingExcessRequestsCount > 0 ? "border-rose-500/50" : "border-slate-800",
+                },
+              ].map((kpi) => (
+                <div key={kpi.label} className={`p-3 rounded-xl bg-slate-900/70 border ${kpi.border}`}>
+                  <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold leading-tight">
+                    {kpi.label}
+                  </div>
+                  <div className={`text-xl font-black font-mono tabular-nums mt-1 ${kpi.color}`}>
+                    {kpi.val}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
               <h3 className="text-sm font-extrabold text-white mb-4">
@@ -3192,6 +3516,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </div>
             {actionableRequestsForRole.length === 0 &&
             returnedRequestsForUser.length === 0 &&
+            !(perms.canApproveDirectorStage && pendingExcessRequests.length > 0) &&
             !(perms.canRegisterApprovedEmployees && approvedRequestsWithOpenSlots.length > 0) ? (
               <div className="text-xs text-slate-500 py-2">
                 {isAmharic
@@ -3200,6 +3525,46 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                {perms.canApproveDirectorStage &&
+                  pendingExcessRequests.map((exc) => (
+                    <div
+                      key={`dash-exc-${exc.id}`}
+                      className="p-3.5 rounded-xl bg-rose-950/30 border border-rose-500/40 text-xs space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono font-bold text-white">{exc.requestNo}</span>
+                        <span className="px-2 py-0.5 rounded bg-rose-600/30 text-rose-200 text-[10px] font-bold">
+                          Excess Alert (+{exc.excessCount})
+                        </span>
+                      </div>
+                      <div className="font-semibold text-slate-200">
+                        {exc.jobPosition} · {exc.project} ({exc.recruitmentRequestNo})
+                      </div>
+                      <div className="text-[11px] text-rose-200 line-clamp-2">{exc.justification}</div>
+                      <div className="flex flex-wrap gap-1.5 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExcessDecisionNotes("");
+                            setExcessDecisionModal({ excess: exc, decision: "Approved" });
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[11px] font-bold cursor-pointer"
+                        >
+                          Approve Excess
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExcessDecisionNotes("");
+                            setExcessDecisionModal({ excess: exc, decision: "Rejected" });
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white text-[11px] font-bold cursor-pointer"
+                        >
+                          Reject Excess
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 {actionableRequestsForRole.map((req) => (
                   <div
                     key={`dash-rec-${req.id}`}
@@ -3332,6 +3697,35 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
          ============================================================ */}
       {activeTab === "recruitment" && (
         <div className="space-y-6">
+          {/* Recruitment Part 2 KPIs Bar */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-2.5">
+            {[
+              { label: "Total Requests", val: dash.totalManpowerRequests, color: "text-white", border: "border-slate-800" },
+              { label: "Pending", val: dash.pendingRecruitmentApprovals, color: "text-blue-400", border: "border-blue-500/30" },
+              { label: "Approved", val: dash.approvedRecruitmentRequests, color: "text-emerald-400", border: "border-emerald-500/30" },
+              { label: "Rejected", val: dash.rejectedRecruitmentRequests, color: "text-red-400", border: "border-red-500/30" },
+              { label: "Awaiting Correction", val: dash.returnedRecruitmentRequests, color: "text-amber-300", border: "border-amber-500/30" },
+              { label: "Approved Qty", val: dash.totalApprovedManpowerQty, color: "text-cyan-300", border: "border-cyan-500/30" },
+              { label: "Registered", val: dash.registeredEmployeesFromRequests, color: "text-emerald-300", border: "border-emerald-500/40" },
+              { label: "Remaining", val: dash.remainingRecruitmentVacancies, color: "text-indigo-300", border: "border-indigo-500/30" },
+              {
+                label: "Excess Alerts",
+                val: dash.pendingExcessRequestsCount + dash.excessRecruitmentCount,
+                color: dash.pendingExcessRequestsCount > 0 ? "text-rose-400" : "text-slate-300",
+                border: dash.pendingExcessRequestsCount > 0 ? "border-rose-500/50" : "border-slate-800",
+              },
+            ].map((kpi) => (
+              <div key={`rec-kpi-${kpi.label}`} className={`bg-slate-950 p-3 rounded-xl border ${kpi.border}`}>
+                <div className="text-[10px] uppercase tracking-wider text-slate-400 font-bold leading-tight">
+                  {kpi.label}
+                </div>
+                <div className={`text-xl font-black font-mono tabular-nums mt-1 ${kpi.color}`}>
+                  {kpi.val}
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Approved Manpower Quota Registration */}
             <form
@@ -3828,12 +4222,111 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             </div>
           </div>
 
+          {/* Excess Recruitment Alerts & Director Additional Approval Queue */}
+          {excessRecruitmentRequests.length > 0 && (
+            <div className="bg-slate-950 border border-rose-500/40 rounded-2xl p-5 space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="text-sm font-extrabold text-rose-300 flex items-center gap-2">
+                  <AlertTriangle size={16} />
+                  <span>
+                    Excess Recruitment Alerts & Additional Director Approvals ({pendingExcessRequests.length} Pending)
+                  </span>
+                </h3>
+                <span className="text-[11px] text-slate-400">
+                  HR Manager is strictly blocked from exceeding Director-approved headcount unless Director approves below.
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left">
+                  <thead>
+                    <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
+                      <th className="py-2 px-3">Excess Req</th>
+                      <th className="py-2 px-3">Parent Requisition</th>
+                      <th className="py-2 px-3">Project / Role</th>
+                      <th className="py-2 px-3 text-right">Approved / Reg / +Excess</th>
+                      <th className="py-2 px-3">Justification</th>
+                      <th className="py-2 px-3">Status</th>
+                      <th className="py-2 px-3 text-right">Director Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {excessRecruitmentRequests.map((exc) => (
+                      <tr key={exc.id} className="border-b border-slate-900 hover:bg-slate-900/50">
+                        <td className="py-2.5 px-3 font-mono font-bold text-white">{exc.requestNo}</td>
+                        <td className="py-2.5 px-3 font-mono text-slate-300">{exc.recruitmentRequestNo}</td>
+                        <td className="py-2.5 px-3">
+                          <div className="font-semibold text-white">{exc.jobPosition}</div>
+                          <div className="text-[10px] text-slate-400">
+                            {exc.project} · {exc.department}
+                          </div>
+                        </td>
+                        <td className="py-2.5 px-3 text-right font-mono tabular-nums">
+                          {exc.approvedQuantitySnapshot} / {exc.registeredCountSnapshot} /{" "}
+                          <span className="text-rose-400 font-bold">+{exc.excessCount}</span>
+                        </td>
+                        <td className="py-2.5 px-3 text-slate-300 max-w-xs">{exc.justification}</td>
+                        <td className="py-2.5 px-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              exc.status === "Approved"
+                                ? "bg-emerald-950/70 text-emerald-300 border border-emerald-500/40"
+                                : exc.status === "Rejected"
+                                ? "bg-red-950/70 text-red-300 border border-red-500/40"
+                                : "bg-amber-950/70 text-amber-200 border border-amber-500/40"
+                            }`}
+                          >
+                            {exc.status}
+                          </span>
+                          {exc.directorNotes && (
+                            <div className="text-[10px] text-slate-400 mt-0.5">
+                              {exc.directorDecisionBy}: {exc.directorNotes}
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-2.5 px-3 text-right">
+                          {exc.status === "Pending Director" && perms.canApproveDirectorStage ? (
+                            <div className="flex justify-end gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExcessDecisionNotes("");
+                                  setExcessDecisionModal({ excess: exc, decision: "Approved" });
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] cursor-pointer"
+                              >
+                                Approve +{exc.excessCount}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setExcessDecisionNotes("");
+                                  setExcessDecisionModal({ excess: exc, decision: "Rejected" });
+                                }}
+                                className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] cursor-pointer"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-slate-500">
+                              {exc.status === "Pending Director" ? "Awaiting Director" : exc.directorDecisionAt?.slice(0, 10) || "Decided"}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {/* 6-Step Sequential Recruitment Pipeline */}
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5">
             <h3 className="text-sm font-extrabold text-white mb-3">
               {isAmharic
                 ? "የቅጥር ጥያቄዎች ሂደት (Section Head → HR → ቢሮ/ምህንድስና → ፋይናንስ → ኦፕሬሽን → ዳይሬክተር → HR ምዝገባ)"
-                : "Manpower Recruitment Pipeline (Section Head → HR → Office Eng → Finance → Operation → Director Final → HR Registration)"}
+                : "Manpower Recruitment Pipeline & Approved Manpower Control"}
             </h3>
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left">
@@ -3841,8 +4334,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   <tr className="border-b border-slate-800 text-slate-400 uppercase text-[11px]">
                     <th className="py-2.5 px-3">{isAmharic ? "መለያ ቁጥር" : "Req No"}</th>
                     <th className="py-2.5 px-3">{isAmharic ? "ፕሮጀክት / የሥራ መደብ" : "Project / Position"}</th>
-                    <th className="py-2.5 px-3 text-right">{isAmharic ? "የተጠየቀ / የተቀጠረ" : "Req / Hired"}</th>
-                    <th className="py-2.5 px-3">{isAmharic ? "የኮታ ሁኔታ" : "Quota Status"}</th>
+                    <th className="py-2.5 px-3 text-right">Approved / Reg / Left</th>
+                    <th className="py-2.5 px-3">Fill & Quota Status</th>
                     <th className="py-2.5 px-3">{isAmharic ? "የአሁኑ ደረጃ" : "Current Workflow Stage"}</th>
                     <th className="py-2.5 px-3">{isAmharic ? "ጠያቂ" : "Requested By"}</th>
                     <th className="py-2.5 px-3 text-right">{isAmharic ? "እርምጃ" : "Actions"}</th>
@@ -3856,121 +4349,157 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                       </td>
                     </tr>
                   ) : (
-                    recruitmentRequests.map((req) => (
-                      <tr key={req.id} className="border-b border-slate-900 hover:bg-slate-900/50">
-                        <td className="py-3 px-3 font-mono text-white font-bold">{req.requestNo}</td>
-                        <td className="py-3 px-3">
-                          <div className="font-semibold text-white">{req.jobPosition}</div>
-                          <div className="text-[11px] text-slate-400">
-                            {req.project} · {req.department} ({req.employmentType}) · Expected: {req.requiredByDate}
-                          </div>
-                        </td>
-                        <td className="py-3 px-3 text-right font-mono tabular-nums">
-                          {req.requestedCount} / <span className="text-emerald-400">{req.hiredCount || 0}</span>
-                        </td>
-                        <td className="py-3 px-3">
-                          {req.exceedsManpowerLimit ? (
-                            <span className="px-2 py-1 rounded bg-amber-950/70 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
-                              +{req.excessCount} Excess ({req.excessApprovalStatus})
-                            </span>
-                          ) : (
-                            <span className="px-2 py-1 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[11px]">
-                              Within Quota
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-3 px-3">
-                          <span
-                            className={`font-semibold ${
-                              req.workflowStage === "Rejected"
-                                ? "text-red-400"
-                                : req.workflowStage === "Returned for Correction"
-                                ? "text-amber-300"
-                                : req.workflowStage === "Approved" || req.workflowStage === "Fulfilled"
-                                ? "text-emerald-400"
-                                : "text-blue-300"
-                            }`}
-                          >
-                            {req.workflowStage === "Pending Office Manager"
-                              ? "Pending Office Engineer Manager"
-                              : req.workflowStage}
-                          </span>
-                          {req.currentStageAssigneeNames && req.currentStageAssigneeNames.length > 0 && (
-                            <div className="text-[10px] text-slate-400 mt-0.5">
-                              Assigned: {req.currentStageAssigneeNames.join(", ")}
+                    recruitmentRequests.map((req) => {
+                      const fill = getRecruitmentFillStatus(req);
+                      const isDirectorApproved =
+                        (req.status === "Approved" || req.status === "Fulfilled") &&
+                        Boolean(req.hrRegistrationAuthorized);
+                      return (
+                        <tr key={req.id} className="border-b border-slate-900 hover:bg-slate-900/50">
+                          <td className="py-3 px-3 font-mono text-white font-bold">{req.requestNo}</td>
+                          <td className="py-3 px-3">
+                            <div className="font-semibold text-white">{req.jobPosition}</div>
+                            <div className="text-[11px] text-slate-400">
+                              {req.project} · {req.department} ({req.employmentType}) · Expected: {req.requiredByDate}
                             </div>
-                          )}
-                          {req.rejectionReason && (
-                            <div className="text-[10px] text-red-300">Reason: {req.rejectionReason}</div>
-                          )}
-                        </td>
-                        <td className="py-3 px-3 text-slate-300">
-                          <div>{req.requestedBy}</div>
-                          <div className="text-[10px] text-slate-500">{req.requestedByRole}</div>
-                        </td>
-                        <td className="py-3 px-3 text-right">
-                          <div className="flex justify-end gap-1.5 flex-wrap">
-                            <button
-                              type="button"
-                              onClick={() => setViewingRecAudit(req)}
-                              className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px] font-bold cursor-pointer"
-                            >
-                              Details / Audit
-                            </button>
-                            {req.status === "Pending" && canActOnRecruitmentStage(req.workflowStage) && (
-                              <>
-                                <button
-                                  type="button"
-                                  onClick={() => openRecruitmentDecisionModal(req, "Approved")}
-                                  className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono tabular-nums">
+                            <span className="text-white font-bold">{fill.approvedQty}</span> /{" "}
+                            <span className="text-emerald-400">{fill.registeredCount}</span> /{" "}
+                            <span className={fill.remainingVacancies > 0 ? "text-cyan-300" : "text-slate-500"}>
+                              {fill.remainingVacancies}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 space-y-1">
+                            {isDirectorApproved && (
+                              <div>
+                                <span
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                    fill.fillStatus === "Filled"
+                                      ? "bg-emerald-950/70 border border-emerald-500/40 text-emerald-300"
+                                      : fill.fillStatus === "Partially Filled"
+                                      ? "bg-blue-950/70 border border-blue-500/40 text-blue-300"
+                                      : "bg-cyan-950/70 border border-cyan-500/40 text-cyan-300"
+                                  }`}
                                 >
-                                  {isAmharic ? "ደረጃውን አጽድቅ" : "Approve Stage"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openRecruitmentDecisionModal(req, "Returned")}
-                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
-                                >
-                                  {isAmharic ? "ለእርማት መልስ" : "Return"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => openRecruitmentDecisionModal(req, "Rejected")}
-                                  className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-200 hover:text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
-                                >
-                                  {isAmharic ? "ውድቅ አድርግ" : "Reject"}
-                                </button>
-                              </>
+                                  {fill.fillStatus}
+                                </span>
+                              </div>
                             )}
-                            {canRequesterResubmitRecruitmentRequest({
-                              request: req,
-                              actorUid,
-                              actorRole: currentUserRole,
-                            }) && (
+                            {req.exceedsManpowerLimit ? (
+                              <span className="inline-block px-2 py-0.5 rounded bg-amber-950/70 border border-amber-500/40 text-amber-300 text-[10px] font-bold">
+                                +{req.excessApprovedAdded || req.excessCount} Excess ({req.excessApprovalStatus})
+                              </span>
+                            ) : (
+                              <span className="inline-block px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 text-[10px]">
+                                Within Quota
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-3">
+                            <span
+                              className={`font-semibold ${
+                                req.workflowStage === "Rejected"
+                                  ? "text-red-400"
+                                  : req.workflowStage === "Returned for Correction"
+                                  ? "text-amber-300"
+                                  : req.workflowStage === "Approved" || req.workflowStage === "Fulfilled"
+                                  ? "text-emerald-400"
+                                  : "text-blue-300"
+                              }`}
+                            >
+                              {req.workflowStage === "Pending Office Manager"
+                                ? "Pending Office Engineer Manager"
+                                : req.workflowStage}
+                            </span>
+                            {req.currentStageAssigneeNames && req.currentStageAssigneeNames.length > 0 && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                Assigned: {req.currentStageAssigneeNames.join(", ")}
+                              </div>
+                            )}
+                            {req.rejectionReason && (
+                              <div className="text-[10px] text-red-300">Reason: {req.rejectionReason}</div>
+                            )}
+                          </td>
+                          <td className="py-3 px-3 text-slate-300">
+                            <div>{req.requestedBy}</div>
+                            <div className="text-[10px] text-slate-500">{req.requestedByRole}</div>
+                          </td>
+                          <td className="py-3 px-3 text-right">
+                            <div className="flex justify-end gap-1.5 flex-wrap">
                               <button
                                 type="button"
-                                onClick={() => openResubmitModal(req)}
-                                className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                onClick={() => setViewingRecAudit(req)}
+                                className="px-2 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 text-slate-300 text-[11px] font-bold cursor-pointer"
                               >
-                                Edit & Resubmit
+                                Details / Audit
                               </button>
-                            )}
-                            {req.status === "Approved" &&
-                              req.hrRegistrationAuthorized &&
-                              (req.hiredCount || 0) < req.requestedCount &&
-                              perms.canRegisterApprovedEmployees && (
+                              {req.status === "Pending" && canActOnRecruitmentStage(req.workflowStage) && (
+                                <>
+                                  <button
+                                    type="button"
+                                    onClick={() => openRecruitmentDecisionModal(req, "Approved")}
+                                    className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                  >
+                                    {isAmharic ? "ደረጃውን አጽድቅ" : "Approve Stage"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openRecruitmentDecisionModal(req, "Returned")}
+                                    className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                  >
+                                    {isAmharic ? "ለእርማት መልስ" : "Return"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => openRecruitmentDecisionModal(req, "Rejected")}
+                                    className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-red-600 text-slate-200 hover:text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                  >
+                                    {isAmharic ? "ውድቅ አድርግ" : "Reject"}
+                                  </button>
+                                </>
+                              )}
+                              {canRequesterResubmitRecruitmentRequest({
+                                request: req,
+                                actorUid,
+                                actorRole: currentUserRole,
+                              }) && (
+                                <button
+                                  type="button"
+                                  onClick={() => openResubmitModal(req)}
+                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                >
+                                  Edit & Resubmit
+                                </button>
+                              )}
+                              {isDirectorApproved && fill.remainingVacancies > 0 && perms.canRegisterApprovedEmployees && (
                                 <button
                                   type="button"
                                   onClick={() => openNewEmployeeModal(req)}
                                   className="px-2.5 py-1 rounded-lg bg-red-600 hover:bg-red-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
                                 >
-                                  {isAmharic ? "ሠራተኛ መዝግብ" : "Register Employee"}
+                                  {isAmharic ? "ሠራተኛ መዝግብ" : `Register (${fill.remainingVacancies} left)`}
                                 </button>
                               )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))
+                              {isDirectorApproved && fill.remainingVacancies === 0 && perms.canRegisterApprovedEmployees && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    openExcessRequestModal(
+                                      req,
+                                      `Additional employees required beyond approved ${fill.approvedQty} in ${req.requestNo}.`
+                                    )
+                                  }
+                                  className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white font-bold text-[11px] whitespace-nowrap shrink-0 cursor-pointer"
+                                >
+                                  Request Excess (+)
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })
                   )}
                 </tbody>
               </table>
@@ -4037,26 +4566,41 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               </select>
             </div>
             {perms.canRegisterApprovedEmployees && (
-              <button
-                type="button"
-                onClick={() => openNewEmployeeModal()}
-                disabled={approvedRequestsWithOpenSlots.length === 0}
-                title={
-                  approvedRequestsWithOpenSlots.length === 0
-                    ? "Requires a Director-approved Manpower Recruitment Request with open slots"
-                    : "Register Employee from Director-Approved Recruitment Request"
-                }
-                className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
-              >
-                <Plus size={15} />
-                <span>
-                  {approvedRequestsWithOpenSlots.length === 0
-                    ? "Registration Locked (Needs Director Approval)"
-                    : isAmharic
-                    ? "አዲስ ሠራተኛ መዝግብ"
-                    : "Register New Employee"}
-                </span>
-              </button>
+              approvedRequestsWithOpenSlots.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => openNewEmployeeModal()}
+                  title="Register Employee from Director-Approved Recruitment Request"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <Plus size={15} />
+                  <span>{isAmharic ? "አዲስ ሠራተኛ መዝግብ" : "Register New Employee"}</span>
+                </button>
+              ) : allDirectorApprovedRecruitmentRequests.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    openExcessRequestModal(
+                      allDirectorApprovedRecruitmentRequests[0],
+                      "All Director-approved recruitment slots are filled; requesting additional capacity."
+                    )
+                  }
+                  className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0 cursor-pointer"
+                >
+                  <AlertTriangle size={15} />
+                  <span>Request Excess Approval (Quota Filled)</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  disabled
+                  title="Requires a Director-approved Manpower Recruitment Request with open slots"
+                  className="px-4 py-2 rounded-xl bg-red-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 whitespace-nowrap shrink-0"
+                >
+                  <Lock size={15} />
+                  <span>Registration Locked (Needs Director Approval)</span>
+                </button>
+              )
             )}
           </div>
 
@@ -7247,7 +7791,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               {(
                 [
                   { id: "manpower", label: isAmharic ? "የሰው ኃይል እና ክፍት ቦታዎች" : "Manpower & Vacancies" },
-                  { id: "recruitment", label: isAmharic ? "የቅጥር ሂደት" : "Recruitment Pipeline" },
+                  { id: "recruitment-project-dept", label: isAmharic ? "የቅጥር ሪፖርት (በፕሮጀክት እና ክፍል)" : "Recruitment Summary (Project & Dept)" },
+                  { id: "recruitment", label: isAmharic ? "የቅጥር ዝርዝር ሂደት" : "Recruitment Detailed Pipeline" },
                   { id: "attendance", label: isAmharic ? "የሰዓት ቁጥጥር ማጠቃለያ" : "Attendance Summary" },
                   { id: "leave-absence", label: isAmharic ? "ፈቃድ እና ቀሪ ቀናት" : "Leave & Absence Balances" },
                   { id: "payroll", label: isAmharic ? "ወርሃዊ ደመወዝ እና ግብር" : "Monthly Payroll & Tax/Pension" },
@@ -7321,15 +7866,27 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
               />
             </div>
-            <div>
-              <label className="block text-[10px] text-slate-400 mb-1">Anchor Date</label>
-              <input
-                type="date"
-                value={quickClock.dailyFilterDate}
-                onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterDate: e.target.value }))}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-              />
-            </div>
+            {selectedReport === "recruitment" || selectedReport === "recruitment-project-dept" ? (
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Submitted Month</label>
+                <input
+                  type="month"
+                  value={recReportMonthFilter}
+                  onChange={(e) => setRecReportMonthFilter(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                />
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Anchor Date</label>
+                <input
+                  type="date"
+                  value={quickClock.dailyFilterDate}
+                  onChange={(e) => setQuickClock((p) => ({ ...p, dailyFilterDate: e.target.value }))}
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                />
+              </div>
+            )}
             <div>
               <label className="block text-[10px] text-slate-400 mb-1">Employee</label>
               <select
@@ -7385,21 +7942,41 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 <option value="Construction Site">Construction Site</option>
               </select>
             </div>
-            <div>
-              <label className="block text-[10px] text-slate-400 mb-1">Approval Status</label>
-              <select
-                value={approvalStatusFilter}
-                onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
-                className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
-              >
-                <option value="ALL">All Statuses</option>
-                <option value="Pending">Pending</option>
-                <option value="Under Review">Under Review</option>
-                <option value="Returned for Correction">Returned for Correction</option>
-                <option value="Approved">Approved</option>
-                <option value="Rejected">Rejected</option>
-              </select>
-            </div>
+            {selectedReport === "recruitment" || selectedReport === "recruitment-project-dept" ? (
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Recruitment / Fill Status</label>
+                <select
+                  value={recReportStatusFilter}
+                  onChange={(e) => setRecReportStatusFilter(e.target.value)}
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Returned for Correction">Awaiting Correction</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                  <option value="Open">Fill: Open</option>
+                  <option value="Partially Filled">Fill: Partially Filled</option>
+                  <option value="Filled">Fill: Filled</option>
+                </select>
+              </div>
+            ) : (
+              <div>
+                <label className="block text-[10px] text-slate-400 mb-1">Approval Status</label>
+                <select
+                  value={approvalStatusFilter}
+                  onChange={(e) => setApprovalStatusFilter(e.target.value as any)}
+                  className="w-full px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-xs text-white"
+                >
+                  <option value="ALL">All Statuses</option>
+                  <option value="Pending">Pending</option>
+                  <option value="Under Review">Under Review</option>
+                  <option value="Returned for Correction">Returned for Correction</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 overflow-x-auto">
@@ -7438,12 +8015,12 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
         <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <form
             onSubmit={handleSaveEmployee}
-            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-3xl w-full p-6 space-y-4 my-8"
+            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-4xl w-full p-6 space-y-5 my-8 max-h-[90vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-extrabold text-white">
-                  {editingWorkerId ? "Edit Employee Profile" : "Register New Employee"}
+                  {editingWorkerId ? "Edit Employee Profile" : "Register New Employee (Director-Approved Recruitment)"}
                 </h3>
                 <p className="text-[11px] text-slate-400">
                   Auto Employee ID: <strong className="font-mono text-emerald-400">{empForm.employeeId}</strong>
@@ -7458,157 +8035,492 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="text-[11px] text-slate-400">Full Name *</label>
-                <input
-                  value={empForm.name}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, name: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+            {/* Linked Approved Recruitment Selector (New Registration) */}
+            {!editingWorkerId && (
+              <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-700 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-[11px] font-bold uppercase tracking-wider text-emerald-300">
+                    Linked Director-Approved Recruitment Request *
+                  </label>
+                  {onboardingFromRec && (() => {
+                    const st = getRecruitmentFillStatus(onboardingFromRec);
+                    return (
+                      <span
+                        className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                          st.remainingVacancies === 0
+                            ? "bg-rose-950/70 text-rose-300 border border-rose-500/40"
+                            : "bg-emerald-950/70 text-emerald-300 border border-emerald-500/40"
+                        }`}
+                      >
+                        Approved: {st.approvedQty} · Registered: {st.registeredCount} · Remaining: {st.remainingVacancies} ({st.fillStatus})
+                      </span>
+                    );
+                  })()}
+                </div>
+                <select
+                  value={onboardingFromRec?.id || ""}
+                  onChange={(e) => {
+                    const picked = allDirectorApprovedRecruitmentRequests.find((r) => r.id === e.target.value);
+                    if (picked) {
+                      setOnboardingFromRec(picked);
+                      setEmpForm((p) => ({
+                        ...p,
+                        assignedProject: picked.project,
+                        workLocationType: inferWorkerWorkLocationType({ assignedProject: picked.project }),
+                        department: picked.department,
+                        position: picked.jobPosition,
+                        trade: picked.jobPosition,
+                        jobResponsibilities: picked.jobResponsibilities || p.jobResponsibilities,
+                        employmentType: picked.employmentType,
+                        joinedDate: picked.requiredByDate || p.joinedDate,
+                        basicMonthlySalary: picked.proposedMonthlySalary || p.basicMonthlySalary,
+                        qualifications: picked.qualificationsRequired || p.qualifications,
+                        experienceSummary: picked.experienceRequired || p.experienceSummary,
+                      }));
+                    }
+                  }}
+                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white"
                   required
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Fayda ID (Digital ID)</label>
-                <input
-                  value={empForm.faydaId}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, faydaId: e.target.value }))}
-                  placeholder="FIN-XXXX-XXXX-XXXX"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Phone Number</label>
-                <input
-                  value={empForm.phoneNumber}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, phoneNumber: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Work Location Type</label>
-                <select
-                  value={empForm.workLocationType}
-                  onChange={(e) =>
-                    setEmpForm((p) => ({
-                      ...p,
-                      workLocationType: e.target.value as "Head Office" | "Construction Site",
-                      assignedProject:
-                        e.target.value === "Head Office"
-                          ? "Head Office"
-                          : p.assignedProject === "Head Office"
-                          ? projectNames[0] || "Bole Tower"
-                          : p.assignedProject,
-                    }))
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
                 >
-                  <option value="Construction Site">Construction Site</option>
-                  <option value="Head Office">Head Office</option>
+                  {allDirectorApprovedRecruitmentRequests.map((r) => {
+                    const st = getRecruitmentFillStatus(r);
+                    return (
+                      <option key={r.id} value={r.id}>
+                        {r.requestNo} — {r.jobPosition} ({r.project} / {r.department}) [{st.registeredCount}/{st.approvedQty} Registered · {st.remainingVacancies} Left]
+                      </option>
+                    );
+                  })}
                 </select>
+                {onboardingFromRec && getRecruitmentFillStatus(onboardingFromRec).remainingVacancies <= 0 && (
+                  <div className="p-2.5 rounded-lg bg-rose-950/50 border border-rose-500/40 text-xs text-rose-200 flex flex-wrap items-center justify-between gap-2">
+                    <span>
+                      Normal registration is blocked: {onboardingFromRec.requestNo} has 0 remaining vacancies. Director Excess Approval is required.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowEmpModal(false);
+                        openExcessRequestModal(
+                          onboardingFromRec,
+                          `Additional capacity needed beyond ${onboardingFromRec.requestedCount} approved positions in ${onboardingFromRec.requestNo}.`
+                        );
+                      }}
+                      className="px-3 py-1 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold cursor-pointer"
+                    >
+                      Submit Excess Request to Director
+                    </button>
+                  </div>
+                )}
               </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Assigned Project / Site</label>
-                <select
-                  value={empForm.assignedProject}
-                  onChange={(e) =>
-                    setEmpForm((p) => ({
-                      ...p,
-                      assignedProject: e.target.value,
-                      workLocationType: e.target.value.toLowerCase().includes("head office")
-                        ? "Head Office"
-                        : p.workLocationType,
-                    }))
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                >
-                  <option value="Head Office">Head Office</option>
-                  {projectNames.map((pr) => (
-                    <option key={pr} value={pr}>{pr}</option>
-                  ))}
-                </select>
+            )}
+
+            {/* Section 1: Personal Details */}
+            <div className="space-y-2.5">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                1. Personal Information
               </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Department</label>
-                <input
-                  value={empForm.department}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, department: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Job Position</label>
-                <input
-                  value={empForm.position}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, position: e.target.value, trade: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Bank Name</label>
-                <input
-                  value={empForm.bankName}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, bankName: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Bank Account Number</label>
-                <input
-                  value={empForm.bankAccountNumber}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, bankAccountNumber: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Basic Monthly Salary (ETB)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={empForm.basicMonthlySalary}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, basicMonthlySalary: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Qualifications</label>
-                <input
-                  value={empForm.qualifications}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, qualifications: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-slate-400">Experience (Years)</label>
-                <input
-                  type="number"
-                  min={0}
-                  value={empForm.experienceYears}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, experienceYears: Number(e.target.value) }))}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                />
-              </div>
-              <div className="flex items-end">
-                <div className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
-                  Biometric Status:{" "}
-                  <strong className="text-purple-300">
-                    {editingWorkerId
-                      ? workers.find((w) => w.id === editingWorkerId)?.biometricEnrollmentStatus ||
-                        "Not Registered"
-                      : "Not Registered (Enroll via HR Biometric Profile after saving)"}
-                  </strong>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] text-slate-400">Full Name *</label>
+                  <input
+                    value={empForm.name}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Gender *</label>
+                  <select
+                    value={empForm.gender}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, gender: e.target.value as any }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Date of Birth *</label>
+                  <input
+                    type="date"
+                    value={empForm.dateOfBirth}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, dateOfBirth: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Phone Number *</label>
+                  <input
+                    value={empForm.phoneNumber}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, phoneNumber: e.target.value }))}
+                    placeholder="+2519..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Residential Address *</label>
+                  <input
+                    value={empForm.address}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, address: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Emergency Contact *</label>
+                  <input
+                    value={empForm.emergencyContact}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, emergencyContact: e.target.value }))}
+                    placeholder="Name & Phone Number"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
                 </div>
               </div>
-              <div className="sm:col-span-3">
-                <label className="text-[11px] text-slate-400">
-                  Self-Service Portal User UID (optional — links Employee login account for personal payslips & leave)
-                </label>
-                <input
-                  value={empForm.userId}
-                  onChange={(e) => setEmpForm((p) => ({ ...p, userId: e.target.value }))}
-                  placeholder="Firebase Auth UID (optional)"
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
-                />
+            </div>
+
+            {/* Section 2: Assignment & Job Responsibilities */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-800">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                2. Department, Project Assignment & Role
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] text-slate-400">Work Location Type</label>
+                  <select
+                    value={empForm.workLocationType}
+                    onChange={(e) =>
+                      setEmpForm((p) => ({
+                        ...p,
+                        workLocationType: e.target.value as "Head Office" | "Construction Site",
+                        assignedProject:
+                          e.target.value === "Head Office"
+                            ? "Head Office"
+                            : p.assignedProject === "Head Office"
+                            ? projectNames[0] || "Bole Tower"
+                            : p.assignedProject,
+                      }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="Construction Site">Construction Site</option>
+                    <option value="Head Office">Head Office</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Assigned Project / Site</label>
+                  <select
+                    value={empForm.assignedProject}
+                    onChange={(e) =>
+                      setEmpForm((p) => ({
+                        ...p,
+                        assignedProject: e.target.value,
+                        workLocationType: e.target.value.toLowerCase().includes("head office")
+                          ? "Head Office"
+                          : p.workLocationType,
+                      }))
+                    }
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="Head Office">Head Office</option>
+                    {projectNames.map((pr) => (
+                      <option key={pr} value={pr}>{pr}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Department *</label>
+                  <input
+                    value={empForm.department}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, department: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Job Position *</label>
+                  <input
+                    value={empForm.position}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, position: e.target.value, trade: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Employment Type *</label>
+                  <select
+                    value={empForm.employmentType}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, employmentType: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="Permanent">Permanent</option>
+                    <option value="Contract">Contract</option>
+                    <option value="Daily Labourer">Daily Labourer</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Employment Start Date *</label>
+                  <input
+                    type="date"
+                    value={empForm.joinedDate}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, joinedDate: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    required
+                  />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="text-[11px] text-slate-400">Job Responsibilities</label>
+                  <textarea
+                    rows={2}
+                    value={empForm.jobResponsibilities}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, jobResponsibilities: e.target.value }))}
+                    placeholder="Primary role duties, site supervision/deliverables, reporting line..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Qualifications, Experience, Skills & Certifications */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-800">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                3. Education, Work Experience, Skills & Certifications
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] text-slate-400">Education & Qualifications</label>
+                  <input
+                    value={empForm.qualifications}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, qualifications: e.target.value }))}
+                    placeholder="e.g. BSc Civil Engineering / TVET III"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Work Experience (Years)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={empForm.experienceYears}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, experienceYears: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Work Experience Summary</label>
+                  <input
+                    value={empForm.experienceSummary}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, experienceSummary: e.target.value }))}
+                    placeholder="Prior projects, roles held..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] text-slate-400">Technical & Field Skills</label>
+                  <input
+                    value={empForm.skills}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, skills: e.target.value }))}
+                    placeholder="AutoCAD, Bar Bending, Rebar Detailing, Safety Supervision..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Certifications & Licenses</label>
+                  <input
+                    value={empForm.certifications}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, certifications: e.target.value }))}
+                    placeholder="COC Level III, HSE Cert..."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Compensation, Salary Grade & Allowances */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-800">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                4. Salary Grade, Basic Salary & Allowances (ETB)
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] text-slate-400">Salary Structure Preset</label>
+                  <select
+                    value={empForm.salaryStructureId}
+                    onChange={(e) => {
+                      const st = salaryStructures.find((s) => s.id === e.target.value);
+                      setEmpForm((p) => ({
+                        ...p,
+                        salaryStructureId: e.target.value,
+                        salaryGrade: st ? st.jobGrade : p.salaryGrade,
+                        basicMonthlySalary: st ? st.basicSalary : p.basicMonthlySalary,
+                        housingAllowance: st ? st.housingAllowance : p.housingAllowance,
+                        transportAllowance: st ? st.transportAllowance : p.transportAllowance,
+                        positionAllowance: st ? st.positionAllowance : p.positionAllowance,
+                        medicalAllowance: st ? st.medicalAllowance : p.medicalAllowance,
+                      }));
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="">Custom / Manual Entry</option>
+                    {salaryStructures.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.structureCode} ({s.jobGrade}) — ETB {fmtMoney(s.basicSalary)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Salary Grade</label>
+                  <input
+                    value={empForm.salaryGrade}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, salaryGrade: e.target.value }))}
+                    placeholder="e.g. Grade V"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Basic Monthly Salary (ETB) *</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={empForm.basicMonthlySalary}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, basicMonthlySalary: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Housing Allowance (ETB)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={empForm.housingAllowance}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, housingAllowance: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Transport Allowance (ETB)</label>
+                  <input
+                    type="number"
+                    min={0}
+                    value={empForm.transportAllowance}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, transportAllowance: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Position & Medical Allowances (ETB)</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      min={0}
+                      title="Position Allowance"
+                      placeholder="Position"
+                      value={empForm.positionAllowance}
+                      onChange={(e) => setEmpForm((p) => ({ ...p, positionAllowance: Number(e.target.value) }))}
+                      className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    />
+                    <input
+                      type="number"
+                      min={0}
+                      title="Medical Allowance"
+                      placeholder="Medical"
+                      value={empForm.medicalAllowance}
+                      onChange={(e) => setEmpForm((p) => ({ ...p, medicalAllowance: Number(e.target.value) }))}
+                      className="w-full px-2.5 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 5: Identification, Bank & Compliance */}
+            <div className="space-y-2.5 pt-2 border-t border-slate-800">
+              <div className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
+                5. Identification, Bank Details & Biometric Status
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="text-[11px] text-slate-400">Fayda ID (Digital ID)</label>
+                  <input
+                    value={empForm.faydaId}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, faydaId: e.target.value }))}
+                    placeholder="FIN-XXXX-XXXX-XXXX"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">National / Kebele ID</label>
+                  <input
+                    value={empForm.nationalId}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, nationalId: e.target.value }))}
+                    placeholder="National / Kebele ID No."
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Bank Name</label>
+                  <input
+                    value={empForm.bankName}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, bankName: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Bank Account Number</label>
+                  <input
+                    value={empForm.bankAccountNumber}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, bankAccountNumber: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Mobile Money Provider</label>
+                  <select
+                    value={empForm.mobileMoneyType}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, mobileMoneyType: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+                  >
+                    <option value="Telebirr">Telebirr</option>
+                    <option value="CBE Birr">CBE Birr</option>
+                    <option value="M-Pesa">M-Pesa</option>
+                    <option value="Amole">Amole</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-slate-400">Mobile Money Number</label>
+                  <input
+                    value={empForm.mobileMoneyNumber}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, mobileMoneyNumber: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  <label className="text-[11px] text-slate-400">
+                    Self-Service Portal User UID (optional — links Employee login account)
+                  </label>
+                  <input
+                    value={empForm.userId}
+                    onChange={(e) => setEmpForm((p) => ({ ...p, userId: e.target.value }))}
+                    placeholder="Firebase Auth UID (optional)"
+                    className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <div className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-800 text-[11px] text-slate-400">
+                    Biometric:{" "}
+                    <strong className="text-purple-300">
+                      {editingWorkerId
+                        ? workers.find((w) => w.id === editingWorkerId)?.biometricEnrollmentStatus || "Not Registered"
+                        : "Not Registered (Enroll after saving)"}
+                    </strong>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -7660,9 +8572,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               </button>
               <button
                 type="submit"
-                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold cursor-pointer"
+                disabled={
+                  !editingWorkerId &&
+                  Boolean(onboardingFromRec && getRecruitmentFillStatus(onboardingFromRec).remainingVacancies <= 0)
+                }
+                className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold cursor-pointer"
               >
-                Save Employee Record
+                {editingWorkerId ? "Update Employee Profile" : "Register Employee Atomically"}
               </button>
             </div>
           </form>
@@ -8950,6 +9866,143 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                 }`}
               >
                 Confirm {attActionModal.mode}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ============================================================
+          MODAL: EXCESS RECRUITMENT ADDITIONAL APPROVAL REQUEST (HR -> DIRECTOR)
+         ============================================================ */}
+      {excessModalReq && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSubmitExcessRecruitment}
+            className="bg-slate-950 border border-rose-500/50 rounded-2xl max-w-lg w-full p-6 space-y-4"
+          >
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-extrabold text-rose-300 flex items-center gap-2">
+                  <AlertTriangle size={18} />
+                  <span>Excess Recruitment Alert — Additional Director Approval</span>
+                </h3>
+                <p className="text-[11px] text-slate-400 mt-0.5">
+                  Requisition <strong className="font-mono text-white">{excessModalReq.requestNo}</strong> ({excessModalReq.jobPosition} · {excessModalReq.project})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExcessModalReq(null)}
+                className="text-slate-400 hover:text-white text-xs font-bold cursor-pointer"
+              >
+                Close
+              </button>
+            </div>
+            <div className="p-3 rounded-xl bg-rose-950/40 border border-rose-500/30 text-xs text-rose-200">
+              Director-approved quantity (<strong>{excessModalReq.requestedCount}</strong>) is already filled ({excessModalReq.hiredCount || 0}/{excessModalReq.requestedCount}). Normal registration is blocked. Submitting this request alerts the Director immediately.
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Additional Excess Employees Requested *</label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={excessCountInput}
+                onChange={(e) => setExcessCountInput(Math.max(1, Number(e.target.value)))}
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">Operational Justification *</label>
+              <textarea
+                rows={3}
+                required
+                maxLength={1000}
+                value={excessJustificationInput}
+                onChange={(e) => setExcessJustificationInput(e.target.value)}
+                placeholder="Explain urgent site need or revised manpower plan..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExcessModalReq(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={excessBusy}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-xs font-bold text-white cursor-pointer"
+              >
+                {excessBusy ? "Sending..." : "Submit Excess Request to Director"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ============================================================
+          MODAL: DIRECTOR EXCESS RECRUITMENT DECISION
+         ============================================================ */}
+      {excessDecisionModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <form
+            onSubmit={handleSubmitExcessDecision}
+            className="bg-slate-950 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4"
+          >
+            <h3 className="text-base font-extrabold text-white">
+              {excessDecisionModal.decision === "Approved" ? "Approve Excess Recruitment" : "Reject Excess Recruitment"} — {excessDecisionModal.excess.requestNo}
+            </h3>
+            <div className="text-xs text-slate-300 space-y-1">
+              <div>
+                Parent Request: <strong className="font-mono text-white">{excessDecisionModal.excess.recruitmentRequestNo}</strong>
+              </div>
+              <div>
+                Role / Project: <strong>{excessDecisionModal.excess.jobPosition}</strong> ({excessDecisionModal.excess.project})
+              </div>
+              <div>
+                Requested Excess Qty: <strong className="text-rose-300">+{excessDecisionModal.excess.excessCount}</strong> (Current Approved: {excessDecisionModal.excess.approvedQuantitySnapshot})
+              </div>
+              <div className="p-2.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 mt-2">
+                Justification: {excessDecisionModal.excess.justification}
+              </div>
+            </div>
+            <div>
+              <label className="block text-[11px] text-slate-400 mb-1">
+                Director Decision Comments {excessDecisionModal.decision === "Rejected" ? "(Required *)" : "(Optional)"}
+              </label>
+              <textarea
+                rows={3}
+                maxLength={1000}
+                required={excessDecisionModal.decision === "Rejected"}
+                value={excessDecisionNotes}
+                onChange={(e) => setExcessDecisionNotes(e.target.value)}
+                placeholder="Enter executive approval or rejection reason..."
+                className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExcessDecisionModal(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                disabled={excessBusy}
+                className={`px-4 py-2 rounded-xl text-xs font-bold text-white cursor-pointer disabled:opacity-50 ${
+                  excessDecisionModal.decision === "Approved"
+                    ? "bg-emerald-600 hover:bg-emerald-500"
+                    : "bg-red-600 hover:bg-red-500"
+                }`}
+              >
+                {excessBusy ? "Saving..." : `Confirm ${excessDecisionModal.decision}`}
               </button>
             </div>
           </form>

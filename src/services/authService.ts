@@ -154,6 +154,10 @@ function getPrefixFromRole(role: string): string {
       return "OM";
     case UserRole.OPERATION_MANAGER:
       return "OP";
+    case UserRole.MATERIAL_HANDLING:
+      return "MH";
+    case UserRole.GATE_SECURITY_OFFICER:
+      return "GS";
     default:
       return "W";
   }

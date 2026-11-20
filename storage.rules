@@ -112,5 +112,30 @@ service firebase.storage {
                         'Finance Manager', 'Operation Manager', 'Site Engineer', 'Office & Technical Engineering'
                       ]) && isDocument() && isValidSize(50 * 1024 * 1024);
     }
+
+    // Commercial Invoices for Goods Receiving Vouchers (PDF/JPG/JPEG/PNG up to 15MB)
+    match /commercialInvoices/{invoiceId}/{fileName} {
+      allow read: if hasAnyRole([
+                        'Super Admin', 'Head Office', 'Director', 'Directory', 'Warehouse Manager',
+                        'Finance Manager', 'Accountant', 'Operation Manager', 'Auditor', 'Project Manager', 'Section Head'
+                      ]);
+      allow write: if hasAnyRole([
+                        'Super Admin', 'Head Office', 'Warehouse Manager'
+                      ]) && request.resource != null && (
+                        request.resource.contentType == 'application/pdf' ||
+                        request.resource.contentType.matches('image/jpeg') ||
+                        request.resource.contentType.matches('image/png') ||
+                        request.resource.contentType.matches('image/jpg')
+                      ) && isValidSize(15 * 1024 * 1024);
+    }
+
+    // Return / Quarantine / Gate Pass Supporting Attachments (up to 15MB)
+    match /materialAttachments/{docId}/{fileName} {
+      allow read: if isApproved();
+      allow write: if hasAnyRole([
+                        'Super Admin', 'Head Office', 'Warehouse Manager', 'Store Owner',
+                        'Store Manager', 'Site Store Owner', 'Gate Security Officer', 'Material Handling', 'Driver'
+                      ]) && isDocument() && isValidSize(15 * 1024 * 1024);
+    }
   }
 }

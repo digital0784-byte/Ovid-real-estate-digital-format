@@ -203,6 +203,46 @@ service cloud.firestore {
       return hasRole('Auditor');
     }
 
+    function isDirectorStrict() {
+      return isSuperAdmin() || hasAnyRole(['Director', 'Directory']);
+    }
+
+    function isWarehouseManagerStrict() {
+      return isSuperAdmin() || hasAnyRole(['Warehouse Manager', 'warehouse_manager']);
+    }
+
+    function isOfficeManagerEngineer() {
+      return hasAnyRole(['Office Manager', 'Office & Technical Engineering', 'Office Manager Engineer']);
+    }
+
+    function isProjectHead() {
+      return hasAnyRole(['Project Manager', 'Section Head', 'Project Head']);
+    }
+
+    function isMaterialHandler() {
+      return hasAnyRole(['Material Handling', 'Driver', 'Assembler']);
+    }
+
+    function isGateSecurityOfficer() {
+      return hasAnyRole(['Gate Security Officer', 'Security Officer']);
+    }
+
+    function canReadWarehouseModule() {
+      return isApprovedUser() && (
+        isDirectorStrict() ||
+        isAdminOrHeadOffice() ||
+        isFinanceManager() ||
+        isWarehouseRole() ||
+        isSiteStoreRole() ||
+        isOfficeManagerEngineer() ||
+        isOperationManager() ||
+        isProjectHead() ||
+        isMaterialHandler() ||
+        isGateSecurityOfficer() ||
+        isAuditor()
+      );
+    }
+
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
@@ -435,6 +475,23 @@ service cloud.firestore {
         (!('biometricEnrollmentStatus' in incoming()) || incoming().biometricEnrollmentStatus == 'Not Registered');
     }
 
+    function isValidHrOnboardingTransaction() {
+      return ('recruitmentRequestId' in incoming()) &&
+        incoming().recruitmentRequestId is string &&
+        incoming().recruitmentRequestId.size() > 0 &&
+        exists(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)) &&
+        get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data.workflowStage == 'Approved' &&
+        get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data.hrRegistrationAuthorized == true &&
+        (
+          (!('hiredCount' in get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data) ? 0 : get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data.hiredCount)
+          < get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data.requestedCount
+        ) &&
+        getAfter(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data.hiredCount ==
+        (
+          (!('hiredCount' in get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data) ? 0 : get(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId)).data.hiredCount) + 1
+        );
+    }
+
     match /employees/{employeeId} {
       allow read: if isHrmOfficer() || isFinanceManager() || (
         isApprovedUser() && (
@@ -442,17 +499,18 @@ service cloud.firestore {
           ('uid' in resource.data && resource.data.uid == request.auth.uid)
         )
       );
-      allow create: if hasNoProhibitedBiometricTemplates() && (
+      allow create: if isValidId(employeeId) && hasNoProhibitedBiometricTemplates() && (
         (isSuperAdmin() && hasNoEnrollmentActivationOnCreate()) || (
           isHRManager() &&
-          (!('role' in incoming()) || incoming().role != 'Super Admin')
+          (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+          isValidHrOnboardingTransaction()
         ) || (
           hasAnyRole(['Head Office', 'admin', 'head_office']) &&
           hasNoEnrollmentActivationOnCreate() &&
           (!('role' in incoming()) || incoming().role != 'Super Admin')
         )
       );
-      allow update: if hasNoProhibitedBiometricTemplates() && (
+      allow update: if isValidId(employeeId) && hasNoProhibitedBiometricTemplates() && (
         (isSuperAdmin() && biometricEnrollmentFieldsUnchanged()) || (
           isHRManager() &&
           (!('role' in incoming()) || incoming().role != 'Super Admin') &&
@@ -472,11 +530,12 @@ service cloud.firestore {
 
     match /workers/{workerId} {
       allow read: if isApprovedUser();
-      allow create: if hasNoProhibitedBiometricTemplates() && (
-        isHRManager() ||
+      allow create: if isValidId(workerId) && hasNoProhibitedBiometricTemplates() && (
+        isSuperAdmin() ||
+        (isHRManager() && isValidHrOnboardingTransaction()) ||
         ((isDirectorOrAdmin() || hasAnyRole(['Project Manager', 'Supervisor', 'Section Head'])) && hasNoEnrollmentActivationOnCreate())
       );
-      allow update: if hasNoProhibitedBiometricTemplates() && (
+      allow update: if isValidId(workerId) && hasNoProhibitedBiometricTemplates() && (
         isHRManager() ||
         ((isDirectorOrAdmin() || hasAnyRole(['Project Manager', 'Supervisor', 'Section Head'])) && biometricEnrollmentFieldsUnchanged())
       );
@@ -727,8 +786,25 @@ service cloud.firestore {
 
     match /materialRequests/{requestId} {
       allow read: if isApprovedUser();
-      allow create: if isApprovedUser();
-      allow update: if isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice() || isProjectManager();
+      allow create: if isApprovedUser() && (
+        isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice() || isProjectHead() || isSupervisor() || isSiteEngineer()
+      ) && (
+        !('status' in incoming()) ||
+        !(incoming().status in ['Director Approved', 'Director Disapproved']) ||
+        isDirectorStrict()
+      );
+      allow update: if isApprovedUser() && (
+        (
+          ('status' in incoming()) &&
+          incoming().status in ['Director Approved', 'Director Disapproved'] &&
+          isDirectorStrict()
+        ) ||
+        (
+          (!('status' in incoming()) || !(incoming().status in ['Director Approved', 'Director Disapproved'])) &&
+          (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice() || isProjectManager()) &&
+          (!('status' in existing()) || !(existing().status in ['Director Approved', 'Director Disapproved']) || isWarehouseRole() || isSuperAdmin())
+        )
+      );
       allow delete: if isAdminOrHeadOffice();
     }
 
@@ -1262,19 +1338,19 @@ service cloud.firestore {
       allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
-    // 21B.2 recruitmentRequests (Strict 6-step Sequential Manpower & Recruitment Approval Workflow)
+    // 21B.2 recruitmentRequests (Strict 6-step Sequential Manpower & Recruitment Approval Workflow + Quota Ceiling)
     match /recruitmentRequests/{requestId} {
       allow read: if isHrmWorkflowApprover() || isAuditor() || (
         isApprovedUser() && resource != null && ('requestedById' in existing() && existing().requestedById == request.auth.uid)
       );
-      allow create: if mfaSafe() &&
+      allow create: if isValidId(requestId) && mfaSafe() &&
         (isSectionHead() || isSuperAdmin()) &&
         incoming().requestedById == request.auth.uid &&
         incoming().workflowStage == 'Pending HR Manager' &&
         incoming().status == 'Pending' &&
         incoming().hrRegistrationAuthorized == false;
-      allow update: if mfaSafe() &&
-        !(existing().workflowStage in ['Rejected', 'Fulfilled']) && (
+      allow update: if isValidId(requestId) && mfaSafe() &&
+        existing().workflowStage != 'Rejected' && (
           isSuperAdmin() ||
           (existing().workflowStage == 'Returned for Correction' &&
             existing().requestedById == request.auth.uid &&
@@ -1291,8 +1367,53 @@ service cloud.firestore {
             incoming().workflowStage in ['Pending Director Final Approval', 'Returned for Correction', 'Rejected']) ||
           (existing().workflowStage in ['Pending Director Final Approval', 'Pending Director Excess Approval'] && isDirectorOrAdmin() &&
             incoming().workflowStage in ['Approved', 'Returned for Correction', 'Rejected']) ||
+          // HR onboarding 1 employee under approved request (strict quota ceiling)
           (existing().workflowStage == 'Approved' && isHRManager() &&
-            incoming().workflowStage in ['Approved', 'Fulfilled'])
+            incoming().requestedCount == existing().requestedCount &&
+            incoming().hiredCount == ((!('hiredCount' in existing()) ? 0 : existing().hiredCount) + 1) &&
+            incoming().hiredCount <= incoming().requestedCount &&
+            incoming().workflowStage == (incoming().hiredCount >= incoming().requestedCount ? 'Fulfilled' : 'Approved')) ||
+          // HR attaching Excess Approval Pending flag without altering requestedCount/hiredCount
+          (existing().workflowStage in ['Approved', 'Fulfilled'] && isHRManager() &&
+            incoming().requestedCount == existing().requestedCount &&
+            (!('hiredCount' in incoming()) || incoming().hiredCount == (!('hiredCount' in existing()) ? 0 : existing().hiredCount)) &&
+            incoming().workflowStage == existing().workflowStage &&
+            incoming().excessApprovalStatus == 'Pending Director') ||
+          // Director deciding an Excess Recruitment Request on an Approved/Fulfilled request
+          (existing().workflowStage in ['Approved', 'Fulfilled'] && isDirectorOrAdmin() && (
+            (incoming().excessApprovalStatus == 'Approved' &&
+              incoming().requestedCount > existing().requestedCount &&
+              incoming().workflowStage == 'Approved' &&
+              incoming().status == 'Approved' &&
+              incoming().hrRegistrationAuthorized == true) ||
+            (incoming().excessApprovalStatus == 'Rejected' &&
+              incoming().requestedCount == existing().requestedCount &&
+              incoming().workflowStage == existing().workflowStage)
+          ))
+        );
+      allow delete: if isDirectorOrAdmin() && mfaSafe();
+    }
+
+    // 21B.2B excessRecruitmentRequests (Additional Director Approval when HR exceeds approved qty)
+    match /excessRecruitmentRequests/{excessId} {
+      allow read: if isHrmWorkflowApprover() || isAuditor();
+      allow create: if isValidId(excessId) && mfaSafe() &&
+        (isHRManager() || isSuperAdmin()) &&
+        incoming().requestedById == request.auth.uid &&
+        incoming().status == 'Pending Director' &&
+        incoming().excessCount is int &&
+        incoming().excessCount >= 1 &&
+        incoming().justification is string &&
+        incoming().justification.size() > 0 &&
+        incoming().justification.size() <= 1000 &&
+        exists(/databases/$(database)/documents/recruitmentRequests/$(incoming().recruitmentRequestId));
+      allow update: if isValidId(excessId) && mfaSafe() &&
+        isDirectorOrAdmin() &&
+        existing().status == 'Pending Director' &&
+        incoming().status in ['Approved', 'Rejected'] && (
+          incoming().status == 'Rejected' ||
+          getAfter(/databases/$(database)/documents/recruitmentRequests/$(existing().recruitmentRequestId)).data.requestedCount ==
+            get(/databases/$(database)/documents/recruitmentRequests/$(existing().recruitmentRequestId)).data.requestedCount + existing().excessCount
         );
       allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
@@ -1694,6 +1815,226 @@ service cloud.firestore {
     match /panelDimensionLibrary/{dimensionId} {
       allow read: if isApprovedUser();
       allow create, update, delete: if isApprovedUser() && isTraceabilityWriter();
+    }
+
+    // ==========================================
+    // 23. Warehouse & Site Store Management (22 Collections + Valuation Settings)
+    // ==========================================
+
+    // 23.1 inventoryCategories
+    match /inventoryCategories/{categoryId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(categoryId) && isWarehouseRole();
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 23.2 inventoryItems
+    match /inventoryItems/{itemId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(itemId) && (isWarehouseRole() || isOfficeManagerEngineer());
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 23.3 projectStores
+    match /projectStores/{storeId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(storeId) && (isWarehouseRole() || isAdminOrHeadOffice() || isSiteStoreRole());
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 23.4 stockBalances (Non-negative available & quarantine stock enforced)
+    match /stockBalances/{balanceId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(balanceId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        ('availableQty' in incoming()) && incoming().availableQty is number && incoming().availableQty >= 0 &&
+        (!('quarantineQty' in incoming()) || (incoming().quarantineQty is number && incoming().quarantineQty >= 0)) &&
+        (!('reservedQty' in incoming()) || (incoming().reservedQty is number && incoming().reservedQty >= 0));
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.5 stockLedger (Strictly create-only immutable stock ledger)
+    match /stockLedger/{entryId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(entryId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        ('voucherNo' in incoming()) && incoming().voucherNo is string && incoming().voucherNo.size() > 0 &&
+        ('balanceAfter' in incoming()) && incoming().balanceAfter is number && incoming().balanceAfter >= 0;
+      allow update, delete: if false;
+    }
+
+    // 23.6 materialPlans (Office Manager Engineer creates & revises; Warehouse/Director/Finance/Site Store read)
+    match /materialPlans/{planId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(planId) &&
+        (isOfficeManagerEngineer() || isAdminOrHeadOffice() || isSuperAdmin());
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.7 materialPlanRevisions (Immutable revision audit log)
+    match /materialPlanRevisions/{revisionId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(revisionId) &&
+        (isOfficeManagerEngineer() || isAdminOrHeadOffice() || isSuperAdmin());
+      allow update, delete: if false;
+    }
+
+    // 23.8 materialRequestItems
+    match /materialRequestItems/{itemId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(itemId) &&
+        (isSiteStoreRole() || isWarehouseRole() || isDirectorStrict() || isAdminOrHeadOffice());
+      allow delete: if isAdminOrHeadOffice();
+    }
+
+    // 23.9 materialApprovals (Director-only final decision enforcement)
+    match /materialApprovals/{approvalId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(approvalId) && (
+        (
+          incoming().stage == 'Warehouse Manager Verification' &&
+          incoming().decision in ['Verified Pending Director', 'Returned by Warehouse Manager'] &&
+          isWarehouseRole()
+        ) ||
+        (
+          incoming().stage == 'Director Final Decision' &&
+          incoming().decision in ['Director Approved', 'Director Disapproved'] &&
+          isDirectorStrict()
+        )
+      );
+      allow update, delete: if false;
+    }
+
+    // 23.10 commercialInvoices (PDF/JPG/PNG metadata + replacement audit trail)
+    match /commercialInvoices/{invoiceId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(invoiceId) &&
+        (isWarehouseRole() || isAdminOrHeadOffice()) &&
+        ('invoiceNumber' in incoming()) && incoming().invoiceNumber is string && incoming().invoiceNumber.size() > 0 &&
+        ('fileUrl' in incoming()) && incoming().fileUrl is string && incoming().fileUrl.size() > 0;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.11 goodsReceivingVouchers (Cannot finalize without mandatory commercial invoice)
+    match /goodsReceivingVouchers/{grvId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(grvId) &&
+        (isWarehouseRole() || isAdminOrHeadOffice()) &&
+        (
+          !(incoming().status in ['Completed', 'Verified']) ||
+          (
+            ('commercialInvoiceId' in incoming()) && incoming().commercialInvoiceId is string && incoming().commercialInvoiceId.size() > 0 &&
+            ('commercialInvoiceNo' in incoming()) && incoming().commercialInvoiceNo is string && incoming().commercialInvoiceNo.size() > 0 &&
+            ('commercialInvoiceUrl' in incoming()) && incoming().commercialInvoiceUrl is string && incoming().commercialInvoiceUrl.size() > 0
+          )
+        );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.12 goodsIssueVouchers (Consumables GIV dispatch)
+    match /goodsIssueVouchers/{givId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(givId) && (isWarehouseRole() || isAdminOrHeadOffice()) &&
+        ('directorApprovalId' in incoming()) && incoming().directorApprovalId is string && incoming().directorApprovalId.size() > 0;
+      allow update: if isValidId(givId) && (isWarehouseRole() || isSiteStoreRole() || isMaterialHandler() || isAdminOrHeadOffice());
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.13 materialReturnVouchers (Two-way MRV)
+    match /materialReturnVouchers/{mrvId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(mrvId) && (isWarehouseRole() || isSiteStoreRole() || isMaterialHandler() || isAdminOrHeadOffice());
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.14 fixedAssets (BIG BALANCE & per-project registers; Asset ID & Original GRV immutable)
+    match /fixedAssets/{assetDocId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(assetDocId) &&
+        (isWarehouseRole() || isAdminOrHeadOffice()) &&
+        ('assetId' in incoming()) && incoming().assetId is string && incoming().assetId.size() > 0 &&
+        ('originalGrvNumber' in incoming()) && incoming().originalGrvNumber is string && incoming().originalGrvNumber.size() > 0;
+      allow update: if isValidId(assetDocId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        incoming().assetId == existing().assetId &&
+        incoming().originalGrvNumber == existing().originalGrvNumber &&
+        incoming().originalGrvId == existing().originalGrvId;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.15 fixedAssetTransfersOut (FATOV)
+    match /fixedAssetTransfersOut/{fatovId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(fatovId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        ('assetId' in incoming()) && incoming().assetId is string && incoming().assetId.size() > 0 &&
+        ('originalGrvNumber' in incoming()) && incoming().originalGrvNumber is string && incoming().originalGrvNumber.size() > 0;
+      allow update: if isValidId(fatovId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isMaterialHandler() || isAdminOrHeadOffice()) &&
+        incoming().assetId == existing().assetId &&
+        incoming().originalGrvNumber == existing().originalGrvNumber;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.16 fixedAssetTransfersIn (FATIV)
+    match /fixedAssetTransfersIn/{fativId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(fativId) &&
+        (isSiteStoreRole() || isWarehouseRole() || isAdminOrHeadOffice()) &&
+        ('fatovId' in incoming()) && incoming().fatovId is string && incoming().fatovId.size() > 0 &&
+        ('assetId' in incoming()) && incoming().assetId is string && incoming().assetId.size() > 0 &&
+        ('originalGrvNumber' in incoming()) && incoming().originalGrvNumber is string && incoming().originalGrvNumber.size() > 0;
+      allow update: if isSuperAdmin() || isAdminOrHeadOffice();
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.17 transportationRecords (11 lifecycle statuses)
+    match /transportationRecords/{transportId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if isValidId(transportId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isMaterialHandler() || isOperationManager() || isGateSecurityOfficer() || isAdminOrHeadOffice());
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.18 gatePasses (QR Verification & Security Exit/Entry Sign-Off)
+    match /gatePasses/{gatePassId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(gatePassId) &&
+        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        ('qrVerificationCode' in incoming()) && incoming().qrVerificationCode is string && incoming().qrVerificationCode.size() > 0;
+      allow update: if isValidId(gatePassId) && (
+        (
+          (isGateSecurityOfficer() || isAdminOrHeadOffice()) &&
+          incoming().itemsSummary == existing().itemsSummary &&
+          incoming().vehicleNumber == existing().vehicleNumber &&
+          incoming().voucherId == existing().voucherId
+        ) ||
+        isSuperAdmin()
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.19 inventoryNotifications
+    match /inventoryNotifications/{notifId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isApprovedUser();
+      allow update: if isApprovedUser();
+      allow delete: if isSuperAdmin();
+    }
+
+    // 23.20 inventoryAuditLogs (Strictly create-only immutable audit ledger)
+    match /inventoryAuditLogs/{logId} {
+      allow read: if canReadWarehouseModule();
+      allow create: if isValidId(logId) && isApprovedUser();
+      allow update, delete: if false;
+    }
+
+    // 23.21 inventorySettings (FIFO vs Weighted Moving Average — Finance Manager or Super Admin only)
+    match /inventorySettings/{settingId} {
+      allow read: if canReadWarehouseModule();
+      allow create, update: if (isFinanceManager() || isSuperAdmin()) &&
+        ('valuationMethod' in incoming()) && incoming().valuationMethod in ['FIFO', 'Weighted Moving Average'];
+      allow delete: if false;
     }
   }
 }

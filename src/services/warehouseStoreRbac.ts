@@ -802,3 +802,441 @@ export function canAccessSiteScope(
   }
   return false;
 }
+
+// ============================================================================
+// EXTENDED 9-ROLE ENTERPRISE WAREHOUSE & SITE STORE RBAC MATRIX
+// ============================================================================
+
+export type ExtendedWarehouseRole =
+  | "super_admin"
+  | "finance_manager"
+  | "warehouse_manager"
+  | "office_manager_engineer"
+  | "operation_manager"
+  | "director"
+  | "project_head"
+  | "material_handling"
+  | "site_store_owner"
+  | "gate_security_officer"
+  | "unauthorized";
+
+export type WarehouseModuleAction =
+  | "VIEW_DASHBOARD"
+  | "VIEW_INVENTORY"
+  | "MANAGE_MASTER_DATA"
+  | "CREATE_REVISE_MATERIAL_PLAN"
+  | "CREATE_MATERIAL_REQUEST"
+  | "VERIFY_RETURN_MATERIAL_REQUEST"
+  | "DIRECTOR_APPROVE_DISAPPROVE_REQUEST"
+  | "CREATE_FINALIZE_GRV"
+  | "UPLOAD_COMMERCIAL_INVOICE"
+  | "REPLACE_COMMERCIAL_INVOICE"
+  | "PREPARE_CONFIRM_DISPATCH_GIV"
+  | "CONFIRM_CONSUMABLE_RECEIPT"
+  | "MANAGE_FIXED_ASSETS_BIG_BALANCE"
+  | "CREATE_FATOV"
+  | "CONFIRM_FATIV"
+  | "MANAGE_TRANSPORT"
+  | "GENERATE_GATE_PASS"
+  | "VERIFY_GATE_PASS_EXIT_ENTRY"
+  | "SUBMIT_TWO_WAY_RETURN"
+  | "CONFIRM_RETURN_RECEIPT"
+  | "RELEASE_QUARANTINE"
+  | "CONFIGURE_VALUATION_METHOD"
+  | "EXPORT_REPORTS"
+  | "VIEW_AUDIT_LOGS";
+
+export type WarehouseSectionKey =
+  | "dashboard"
+  | "warehouse_inventory"
+  | "site_stores"
+  | "material_planning"
+  | "material_requests"
+  | "director_approvals"
+  | "grv"
+  | "commercial_invoices"
+  | "giv_dispatch"
+  | "fixed_assets_big_balance"
+  | "project_fixed_assets"
+  | "fatov_fativ"
+  | "transportation"
+  | "gate_pass"
+  | "returns_mrv"
+  | "quarantine_stock"
+  | "stock_ledger"
+  | "reports"
+  | "notifications"
+  | "audit_logs"
+  | "settings";
+
+export function resolveExtendedWarehouseRole(
+  role?: UserRole | string | null
+): ExtendedWarehouseRole {
+  if (!role) return "unauthorized";
+  const r = String(role).trim().toLowerCase();
+  if (r === "super admin" || r === "admin" || r === "super_admin") return "super_admin";
+  if (r === "finance manager" || r === "finance_manager") return "finance_manager";
+  if (r === "warehouse manager" || r === "warehouse_manager") return "warehouse_manager";
+  if (
+    r === "office manager" ||
+    r === "office_manager" ||
+    r === "office & technical engineering" ||
+    r === "office_and_technical_engineering" ||
+    r === "office manager engineer" ||
+    r === "office_manager_engineer"
+  ) {
+    return "office_manager_engineer";
+  }
+  if (r === "operation manager" || r === "operation_manager") return "operation_manager";
+  if (r === "director" || r === "directory" || r === "head office" || r === "head_office") {
+    return r === "head office" || r === "head_office" ? "director" : "director";
+  }
+  if (
+    r === "project head" ||
+    r === "project_head" ||
+    r === "project manager" ||
+    r === "project_manager" ||
+    r === "section head" ||
+    r === "section_head"
+  ) {
+    return "project_head";
+  }
+  if (
+    r === "material handling" ||
+    r === "material_handling" ||
+    r === "driver" ||
+    r === "assembler"
+  ) {
+    return "material_handling";
+  }
+  if (
+    r === "store owner" ||
+    r === "store_owner" ||
+    r === "site store owner" ||
+    r === "site_store_owner" ||
+    r === "store manager" ||
+    r === "store_manager"
+  ) {
+    return "site_store_owner";
+  }
+  if (
+    r === "gate security officer" ||
+    r === "gate_security_officer" ||
+    r === "security officer" ||
+    r === "security_officer" ||
+    r === "gate security"
+  ) {
+    return "gate_security_officer";
+  }
+  return "unauthorized";
+}
+
+export function isStrictDirectorRole(role?: UserRole | string | null): boolean {
+  if (!role) return false;
+  const r = String(role).trim().toLowerCase();
+  return r === "director" || r === "directory" || r === "super admin" || r === "super_admin";
+}
+
+const EXTENDED_ACTION_MATRIX: Record<ExtendedWarehouseRole, ReadonlySet<WarehouseModuleAction>> = {
+  super_admin: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "MANAGE_MASTER_DATA",
+    "CREATE_REVISE_MATERIAL_PLAN",
+    "CREATE_MATERIAL_REQUEST",
+    "VERIFY_RETURN_MATERIAL_REQUEST",
+    "DIRECTOR_APPROVE_DISAPPROVE_REQUEST",
+    "CREATE_FINALIZE_GRV",
+    "UPLOAD_COMMERCIAL_INVOICE",
+    "REPLACE_COMMERCIAL_INVOICE",
+    "PREPARE_CONFIRM_DISPATCH_GIV",
+    "CONFIRM_CONSUMABLE_RECEIPT",
+    "MANAGE_FIXED_ASSETS_BIG_BALANCE",
+    "CREATE_FATOV",
+    "CONFIRM_FATIV",
+    "MANAGE_TRANSPORT",
+    "GENERATE_GATE_PASS",
+    "VERIFY_GATE_PASS_EXIT_ENTRY",
+    "SUBMIT_TWO_WAY_RETURN",
+    "CONFIRM_RETURN_RECEIPT",
+    "RELEASE_QUARANTINE",
+    "CONFIGURE_VALUATION_METHOD",
+    "EXPORT_REPORTS",
+    "VIEW_AUDIT_LOGS"
+  ]),
+  // Finance Manager: read-only access to warehouse data, transactions, valuation, invoices, reports, audit logs + configure FIFO/Weighted Avg valuation; CANNOT approve requests, modify plans, or alter finalized vouchers.
+  finance_manager: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "CONFIGURE_VALUATION_METHOD",
+    "EXPORT_REPORTS",
+    "VIEW_AUDIT_LOGS"
+  ]),
+  // Warehouse Manager: warehouse inventory, verify/return requests against plans, dispatch (only after Director approval), GRV, invoices, BIG BALANCE, FATOV/FATIV, transport, gate pass generation, return confirmation, quarantine, reports.
+  warehouse_manager: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "MANAGE_MASTER_DATA",
+    "VERIFY_RETURN_MATERIAL_REQUEST",
+    "CREATE_FINALIZE_GRV",
+    "UPLOAD_COMMERCIAL_INVOICE",
+    "REPLACE_COMMERCIAL_INVOICE",
+    "PREPARE_CONFIRM_DISPATCH_GIV",
+    "MANAGE_FIXED_ASSETS_BIG_BALANCE",
+    "CREATE_FATOV",
+    "CONFIRM_FATIV",
+    "MANAGE_TRANSPORT",
+    "GENERATE_GATE_PASS",
+    "SUBMIT_TWO_WAY_RETURN",
+    "CONFIRM_RETURN_RECEIPT",
+    "RELEASE_QUARANTINE",
+    "EXPORT_REPORTS",
+    "VIEW_AUDIT_LOGS"
+  ]),
+  // Office Manager Engineer: material planning, plan revisions, plan vs request tracking, reports.
+  office_manager_engineer: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "CREATE_REVISE_MATERIAL_PLAN",
+    "EXPORT_REPORTS"
+  ]),
+  // Operation Manager: cross-project operational monitoring, transportation oversight, reports, audit logs.
+  operation_manager: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "MANAGE_TRANSPORT",
+    "EXPORT_REPORTS",
+    "VIEW_AUDIT_LOGS"
+  ]),
+  // Director: view everything + ONLY role (with Super Admin) authorized to perform final Director Approve / Disapprove.
+  director: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "DIRECTOR_APPROVE_DISAPPROVE_REQUEST",
+    "EXPORT_REPORTS",
+    "VIEW_AUDIT_LOGS"
+  ]),
+  // Project Head: assigned-project operational visibility, oversight of project store/requests/fixed assets, reports.
+  project_head: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "EXPORT_REPORTS"
+  ]),
+  // Material Handling: transport assignment, loading/delivery status updates & receiving handoffs (cannot edit item quantities/costs or approve vouchers).
+  material_handling: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "MANAGE_TRANSPORT"
+  ]),
+  // Site Store Owner: assigned project site store inventory, create requests against plan, confirm actual received qtys (GIV & FATIV), issue two-way returns, project reports.
+  site_store_owner: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "CREATE_MATERIAL_REQUEST",
+    "CONFIRM_CONSUMABLE_RECEIPT",
+    "CREATE_FATOV",
+    "CONFIRM_FATIV",
+    "SUBMIT_TWO_WAY_RETURN",
+    "GENERATE_GATE_PASS",
+    "EXPORT_REPORTS"
+  ]),
+  // Gate Security Officer: Gate Pass QR verification & confirm physical exit/entry ONLY.
+  gate_security_officer: new Set<WarehouseModuleAction>([
+    "VERIFY_GATE_PASS_EXIT_ENTRY"
+  ]),
+  unauthorized: new Set<WarehouseModuleAction>([])
+};
+
+export function canPerformWarehouseModuleAction(
+  role: UserRole | string | undefined | null,
+  action: WarehouseModuleAction
+): boolean {
+  const resolved = resolveExtendedWarehouseRole(role);
+  if (action === "DIRECTOR_APPROVE_DISAPPROVE_REQUEST") {
+    return isStrictDirectorRole(role);
+  }
+  return EXTENDED_ACTION_MATRIX[resolved]?.has(action) ?? false;
+}
+
+export function getAuthorizedSectionsForRole(
+  role: UserRole | string | undefined | null
+): WarehouseSectionKey[] {
+  const r = resolveExtendedWarehouseRole(role);
+  switch (r) {
+    case "super_admin":
+    case "warehouse_manager":
+      return [
+        "dashboard",
+        "warehouse_inventory",
+        "site_stores",
+        "material_planning",
+        "material_requests",
+        ...(r === "super_admin" ? (["director_approvals"] as WarehouseSectionKey[]) : []),
+        "grv",
+        "commercial_invoices",
+        "giv_dispatch",
+        "fixed_assets_big_balance",
+        "project_fixed_assets",
+        "fatov_fativ",
+        "transportation",
+        "gate_pass",
+        "returns_mrv",
+        "quarantine_stock",
+        "stock_ledger",
+        "reports",
+        "notifications",
+        "audit_logs",
+        "settings"
+      ];
+    case "director":
+      return [
+        "dashboard",
+        "director_approvals",
+        "material_requests",
+        "material_planning",
+        "warehouse_inventory",
+        "site_stores",
+        "grv",
+        "commercial_invoices",
+        "giv_dispatch",
+        "fixed_assets_big_balance",
+        "project_fixed_assets",
+        "fatov_fativ",
+        "transportation",
+        "gate_pass",
+        "returns_mrv",
+        "quarantine_stock",
+        "stock_ledger",
+        "reports",
+        "notifications",
+        "audit_logs"
+      ];
+    case "finance_manager":
+      return [
+        "dashboard",
+        "warehouse_inventory",
+        "site_stores",
+        "grv",
+        "commercial_invoices",
+        "giv_dispatch",
+        "fixed_assets_big_balance",
+        "project_fixed_assets",
+        "returns_mrv",
+        "quarantine_stock",
+        "stock_ledger",
+        "reports",
+        "notifications",
+        "audit_logs",
+        "settings"
+      ];
+    case "office_manager_engineer":
+      return [
+        "dashboard",
+        "material_planning",
+        "material_requests",
+        "warehouse_inventory",
+        "project_fixed_assets",
+        "reports",
+        "notifications"
+      ];
+    case "operation_manager":
+      return [
+        "dashboard",
+        "warehouse_inventory",
+        "site_stores",
+        "material_requests",
+        "giv_dispatch",
+        "fixed_assets_big_balance",
+        "project_fixed_assets",
+        "fatov_fativ",
+        "transportation",
+        "gate_pass",
+        "returns_mrv",
+        "quarantine_stock",
+        "stock_ledger",
+        "reports",
+        "notifications",
+        "audit_logs"
+      ];
+    case "project_head":
+      return [
+        "dashboard",
+        "site_stores",
+        "material_planning",
+        "material_requests",
+        "giv_dispatch",
+        "project_fixed_assets",
+        "fatov_fativ",
+        "transportation",
+        "returns_mrv",
+        "reports",
+        "notifications"
+      ];
+    case "site_store_owner":
+      return [
+        "dashboard",
+        "site_stores",
+        "material_planning",
+        "material_requests",
+        "giv_dispatch",
+        "project_fixed_assets",
+        "fatov_fativ",
+        "transportation",
+        "gate_pass",
+        "returns_mrv",
+        "quarantine_stock",
+        "stock_ledger",
+        "reports",
+        "notifications"
+      ];
+    case "material_handling":
+      return [
+        "dashboard",
+        "transportation",
+        "gate_pass",
+        "giv_dispatch",
+        "fatov_fativ",
+        "returns_mrv",
+        "notifications"
+      ];
+    case "gate_security_officer":
+      return ["gate_pass", "transportation", "notifications"];
+    default:
+      return [];
+  }
+}
+
+export function canUserAccessProjectRecord(
+  role: UserRole | string | undefined | null,
+  assignedProject: string | undefined,
+  assignedSite: string | undefined,
+  targetProjectIdOrName: string | undefined,
+  targetLocationId?: string | undefined
+): boolean {
+  const r = resolveExtendedWarehouseRole(role);
+  if (
+    r === "super_admin" ||
+    r === "director" ||
+    r === "finance_manager" ||
+    r === "operation_manager" ||
+    r === "office_manager_engineer" ||
+    r === "warehouse_manager" ||
+    r === "gate_security_officer" ||
+    r === "material_handling"
+  ) {
+    return true;
+  }
+  if (r === "project_head" || r === "site_store_owner") {
+    const scope = (assignedProject || assignedSite || "").trim().toLowerCase();
+    if (!scope || !targetProjectIdOrName) return true;
+    const target = targetProjectIdOrName.trim().toLowerCase();
+    const loc = (targetLocationId || "").trim().toLowerCase();
+    return (
+      target === scope ||
+      target.includes(scope) ||
+      scope.includes(target) ||
+      (loc !== "" && (loc === scope || loc.includes(scope)))
+    );
+  }
+  return false;
+}
+

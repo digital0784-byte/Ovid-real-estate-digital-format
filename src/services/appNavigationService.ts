@@ -95,6 +95,13 @@ export const ERP_TAB_METADATA: Record<string, TabMetadata> = {
     nameAm: "የሳይት ስቶር አስተዳደር",
     category: "formwork"
   },
+  warehouseSiteStore: {
+    id: "warehouseSiteStore",
+    num: 33,
+    nameEn: "Warehouse & Site Store ERP",
+    nameAm: "መጋዘንና የሳይት ስቶር አስተዳደር",
+    category: "formwork"
+  },
   panelTraceability: {
     id: "panelTraceability",
     num: 9,

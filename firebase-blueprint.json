@@ -68,7 +68,17 @@
         "name": { "type": "string" },
         "role": { "type": "string" },
         "department": { "type": "string" },
+        "position": { "type": "string" },
+        "jobResponsibilities": { "type": "string" },
+        "employmentType": { "type": "string" },
         "joinedDate": { "type": "string" },
+        "qualifications": { "type": "string" },
+        "skills": { "type": "string" },
+        "certifications": { "type": "string" },
+        "salaryGrade": { "type": "string" },
+        "basicMonthlySalary": { "type": "number" },
+        "recruitmentRequestId": { "type": "string" },
+        "excessApprovalRequestId": { "type": "string" },
         "status": { "type": "string", "enum": ["Active", "Inactive"] },
         "biometricEnrollmentStatus": { "type": "string", "enum": ["Not Registered", "Registered on Device", "Mapping Pending", "Mapping Completed", "Active", "Suspended"] },
         "biometricWorkflowStage": { "type": "string", "enum": ["Employee Registration", "Biometric Enrollment", "Employee Biometric Mapping", "Attendance Activation"] },
@@ -1120,12 +1130,21 @@
         "department": { "type": "string" },
         "jobPosition": { "type": "string" },
         "requestedCount": { "type": "number" },
+        "approvedRequestedCount": { "type": "number" },
+        "excessApprovedAdded": { "type": "number" },
+        "hiredCount": { "type": "number" },
+        "remainingVacanciesSnapshot": { "type": "number" },
+        "recruitmentFillStatus": { "type": "string", "enum": ["Open", "Partially Filled", "Filled"] },
+        "hiredWorkerIds": { "type": "array", "items": { "type": "string" } },
+        "hiredEmployeeIds": { "type": "array", "items": { "type": "string" } },
+        "idempotencyKey": { "type": "string" },
         "jobResponsibilities": { "type": "string" },
         "experienceRequired": { "type": "string" },
         "qualificationsRequired": { "type": "string" },
         "workflowStage": { "type": "string", "enum": ["Pending HR Manager", "Pending Office Manager", "Pending Finance Manager", "Pending Operation Department", "Pending Director Final Approval", "Pending Director Excess Approval", "Returned for Correction", "Approved", "Rejected", "Fulfilled"] },
         "status": { "type": "string", "enum": ["Pending", "Approved", "Rejected", "Fulfilled"] },
         "exceedsManpowerLimit": { "type": "boolean" },
+        "excessApprovalStatus": { "type": "string", "enum": ["Not Required", "Pending Director", "Approved", "Rejected"] },
         "hrRegistrationAuthorized": { "type": "boolean" },
         "hrOnboardingTaskId": { "type": "string" },
         "currentStageTaskId": { "type": "string" },
@@ -1134,6 +1153,38 @@
         "stageSummary": { "type": "string" }
       },
       "required": ["id", "requestNo", "project", "jobPosition", "requestedCount", "workflowStage", "status"]
+    },
+    "ExcessRecruitmentRequest": {
+      "title": "ExcessRecruitmentRequest",
+      "description": "Director excess approval requisition raised when HR attempts or requests registration beyond Director-approved manpower quantity.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestNo": { "type": "string", "maxLength": 64 },
+        "recruitmentRequestId": { "type": "string", "maxLength": 128 },
+        "recruitmentRequestNo": { "type": "string", "maxLength": 64 },
+        "project": { "type": "string", "maxLength": 140 },
+        "department": { "type": "string", "maxLength": 120 },
+        "jobPosition": { "type": "string", "maxLength": 120 },
+        "approvedQuantitySnapshot": { "type": "number" },
+        "registeredCountSnapshot": { "type": "number" },
+        "excessCount": { "type": "number" },
+        "justification": { "type": "string", "maxLength": 1000 },
+        "requestedBy": { "type": "string", "maxLength": 120 },
+        "requestedById": { "type": "string", "maxLength": 128 },
+        "requestedByRole": { "type": "string", "maxLength": 64 },
+        "status": { "type": "string", "enum": ["Pending Director", "Approved", "Rejected"] },
+        "directorTaskId": { "type": "string", "maxLength": 128 },
+        "directorDecisionBy": { "type": "string", "maxLength": 120 },
+        "directorDecisionById": { "type": "string", "maxLength": 128 },
+        "directorDecisionRole": { "type": "string", "maxLength": 64 },
+        "directorDecisionAt": { "type": "string", "maxLength": 64 },
+        "directorNotes": { "type": "string", "maxLength": 1000 },
+        "auditHistory": { "type": "array" },
+        "createdAt": { "type": "string", "maxLength": 64 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "requestNo", "recruitmentRequestId", "excessCount", "justification", "requestedById", "status"]
     },
     "WorkSchedule": {
       "title": "WorkSchedule",
@@ -1265,12 +1316,17 @@
       "properties": {
         "id": { "type": "string" },
         "workerId": { "type": "string" },
+        "employeeId": { "type": "string" },
         "userId": { "type": "string" },
         "faydaIdEncrypted": { "type": "string" },
+        "nationalIdEncrypted": { "type": "string" },
         "bankAccountEncrypted": { "type": "string" },
+        "faydaIdHash": { "type": "string", "maxLength": 128 },
+        "nationalIdHash": { "type": "string", "maxLength": 128 },
+        "phoneNormalizedHash": { "type": "string", "maxLength": 128 },
         "keyVersion": { "type": "string" }
       },
-      "required": ["id", "workerId", "keyVersion"]
+      "required": ["id", "workerId"]
     },
     "HrmPayslip": {
       "title": "HrmPayslip",
@@ -1494,6 +1550,328 @@
         "timezone": { "type": "string", "maxLength": 64 }
       },
       "required": ["id", "attendanceId", "workerId", "workerName", "date", "action", "actorName", "actorUid", "actorRole", "timestamp"]
+    },
+    "InventoryCategory": {
+      "title": "InventoryCategory",
+      "description": "Consumable and Fixed Asset inventory classification categories.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 140 },
+        "inventoryType": { "type": "string", "enum": ["Consumable", "Fixed Asset"] },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "code", "name", "inventoryType", "isActive"]
+    },
+    "InventoryItem": {
+      "title": "InventoryItem",
+      "description": "Master item catalog for consumables and fixed assets with reorder thresholds and batch/expiry flags.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "itemCode": { "type": "string", "maxLength": 64 },
+        "itemName": { "type": "string", "maxLength": 180 },
+        "specification": { "type": "string", "maxLength": 300 },
+        "categoryId": { "type": "string", "maxLength": 128 },
+        "categoryName": { "type": "string", "maxLength": 140 },
+        "inventoryType": { "type": "string", "enum": ["Consumable", "Fixed Asset"] },
+        "unit": { "type": "string", "maxLength": 40 },
+        "minStockLevel": { "type": "number" },
+        "reorderPoint": { "type": "number" },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "itemCode", "itemName", "inventoryType", "unit", "isActive"]
+    },
+    "Warehouse": {
+      "title": "Warehouse",
+      "description": "Central and regional construction warehouses.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "code": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "maxLength": 160 },
+        "location": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["id", "name", "status"]
+    },
+    "ProjectStore": {
+      "title": "ProjectStore",
+      "description": "Project-linked construction site stores managed by Site Store Owners.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "storeCode": { "type": "string", "maxLength": 64 },
+        "storeName": { "type": "string", "maxLength": 160 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "projectName": { "type": "string", "maxLength": 160 },
+        "location": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Active", "Inactive"] }
+      },
+      "required": ["id", "storeCode", "storeName", "projectId", "projectName", "status"]
+    },
+    "StockBalance": {
+      "title": "StockBalance",
+      "description": "Real-time location stock balance with usable, reserved, quarantine counts and FIFO/Moving Average valuation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 160 },
+        "locationType": { "type": "string", "enum": ["Warehouse", "ProjectStore"] },
+        "locationId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "availableQty": { "type": "number" },
+        "quarantineQty": { "type": "number" },
+        "valuationMethod": { "type": "string", "enum": ["FIFO", "Weighted Moving Average"] },
+        "averageUnitCost": { "type": "number" },
+        "totalValuation": { "type": "number" }
+      },
+      "required": ["id", "locationType", "locationId", "itemId", "availableQty", "quarantineQty"]
+    },
+    "StockLedger": {
+      "title": "StockLedger",
+      "description": "Immutable stock movement ledger capturing every GRV, GIV, MRV, FATOV, FATIV, and quarantine transaction.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "voucherType": { "type": "string", "enum": ["GRV", "GIV", "MRV", "FATOV", "FATIV", "QUARANTINE_IN", "QUARANTINE_RELEASE", "OPENING_BALANCE"] },
+        "voucherId": { "type": "string", "maxLength": 128 },
+        "voucherNo": { "type": "string", "maxLength": 80 },
+        "locationId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "quantityDelta": { "type": "number" },
+        "balanceAfter": { "type": "number" },
+        "createdByUid": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "voucherType", "voucherId", "voucherNo", "locationId", "itemId", "quantityDelta", "balanceAfter", "createdByUid", "createdAt"]
+    },
+    "MaterialPlan": {
+      "title": "MaterialPlan",
+      "description": "Office Manager Engineer project material plans with revision tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "planNumber": { "type": "string", "maxLength": 64 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "projectName": { "type": "string", "maxLength": 160 },
+        "revisionNumber": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Submitted", "Approved", "Superseded"] }
+      },
+      "required": ["id", "planNumber", "projectId", "projectName", "revisionNumber", "status"]
+    },
+    "MaterialPlanRevision": {
+      "title": "MaterialPlanRevision",
+      "description": "Immutable material plan revision snapshot history.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "planId": { "type": "string", "maxLength": 128 },
+        "revisionNumber": { "type": "number" },
+        "revisedByUid": { "type": "string", "maxLength": 128 },
+        "revisedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "planId", "revisionNumber", "revisedByUid", "revisedAt"]
+    },
+    "MaterialRequest": {
+      "title": "MaterialRequest",
+      "description": "Site Store Owner material requisitions compared against approved plans, verified by Warehouse Manager, and approved by Director.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestNumber": { "type": "string", "maxLength": 64 },
+        "planId": { "type": "string", "maxLength": 128 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string" }
+      },
+      "required": ["id"]
+    },
+    "MaterialRequestItem": {
+      "title": "MaterialRequestItem",
+      "description": "Normalized request line item with plan comparison results.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "requestedQty": { "type": "number" },
+        "comparisonStatus": { "type": "string" }
+      },
+      "required": ["id", "requestId", "itemId", "requestedQty", "comparisonStatus"]
+    },
+    "MaterialApproval": {
+      "title": "MaterialApproval",
+      "description": "Multi-stage approval and verification records separating Warehouse Manager verification from Director-only final decision.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "stage": { "type": "string", "enum": ["Warehouse Manager Verification", "Director Final Decision"] },
+        "decision": { "type": "string", "enum": ["Verified Pending Director", "Returned by Warehouse Manager", "Director Approved", "Director Disapproved"] },
+        "decisionByUid": { "type": "string", "maxLength": 128 },
+        "decidedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "requestId", "stage", "decision", "decisionByUid", "decidedAt"]
+    },
+    "GoodsReceivingVoucher": {
+      "title": "GoodsReceivingVoucher",
+      "description": "Incoming Goods Receiving Voucher requiring a mandatory linked Commercial Invoice attachment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "grvNumber": { "type": "string", "maxLength": 64 },
+        "warehouseId": { "type": "string", "maxLength": 128 },
+        "commercialInvoiceId": { "type": "string", "maxLength": 128 },
+        "commercialInvoiceNo": { "type": "string", "maxLength": 80 },
+        "commercialInvoiceUrl": { "type": "string", "maxLength": 1200 },
+        "status": { "type": "string", "enum": ["Draft", "Pending Invoice", "Completed", "Verified"] }
+      },
+      "required": ["id", "grvNumber", "warehouseId", "commercialInvoiceId", "commercialInvoiceNo", "status"]
+    },
+    "GoodsIssueVoucher": {
+      "title": "GoodsIssueVoucher",
+      "description": "Consumable dispatch GIV issued strictly from Director-approved material requests with partial dispatch tracking.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "givNumber": { "type": "string", "maxLength": 64 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "directorApprovalId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string", "enum": ["Prepared", "Dispatched", "Partially Received", "Delivered", "Cancelled"] }
+      },
+      "required": ["id", "givNumber", "requestId", "directorApprovalId", "status"]
+    },
+    "MaterialReturnVoucher": {
+      "title": "MaterialReturnVoucher",
+      "description": "Two-way consumable and fixed asset return vouchers (MRV) routing damaged/defective items to quarantine.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "mrvNumber": { "type": "string", "maxLength": 64 },
+        "direction": { "type": "string", "enum": ["ProjectToWarehouse", "WarehouseToProject"] },
+        "status": { "type": "string", "enum": ["Submitted", "In Transit", "Confirmed Receipt", "Quarantined", "Rejected"] }
+      },
+      "required": ["id", "mrvNumber", "direction", "status"]
+    },
+    "FixedAsset": {
+      "title": "FixedAsset",
+      "description": "BIG BALANCE and per-project fixed asset register retaining permanent Asset ID and original GRV number across all transfers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "assetId": { "type": "string", "maxLength": 80 },
+        "originalGrvNumber": { "type": "string", "maxLength": 80 },
+        "commercialInvoiceNo": { "type": "string", "maxLength": 80 },
+        "currentLocationId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "assetId", "originalGrvNumber", "commercialInvoiceNo", "currentLocationId", "status"]
+    },
+    "FixedAssetTransferOut": {
+      "title": "FixedAssetTransferOut",
+      "description": "FATOV voucher referencing original GRV and permanent Asset ID for outbound asset transfers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "fatovNumber": { "type": "string", "maxLength": 64 },
+        "assetId": { "type": "string", "maxLength": 80 },
+        "originalGrvNumber": { "type": "string", "maxLength": 80 },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "fatovNumber", "assetId", "originalGrvNumber", "status"]
+    },
+    "FixedAssetTransferIn": {
+      "title": "FixedAssetTransferIn",
+      "description": "FATIV receiving confirmation referencing FATOV, original GRV, and Asset ID to finalize asset relocation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "fativNumber": { "type": "string", "maxLength": 64 },
+        "fatovId": { "type": "string", "maxLength": 128 },
+        "assetId": { "type": "string", "maxLength": 80 },
+        "originalGrvNumber": { "type": "string", "maxLength": 80 },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "fativNumber", "fatovId", "assetId", "originalGrvNumber", "status"]
+    },
+    "TransportationRecord": {
+      "title": "TransportationRecord",
+      "description": "Two-way logistics tracking across the 11-status lifecycle from Pending Preparation to Completed.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "transportNumber": { "type": "string", "maxLength": 64 },
+        "referenceType": { "type": "string", "enum": ["GIV", "FATOV", "MRV"] },
+        "referenceId": { "type": "string", "maxLength": 128 },
+        "status": { "type": "string" }
+      },
+      "required": ["id", "transportNumber", "referenceType", "referenceId", "status"]
+    },
+    "GatePass": {
+      "title": "GatePass",
+      "description": "Mandatory QR-verified gate pass security record for outbound/inbound warehouse & project movements.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "gatePassNumber": { "type": "string", "maxLength": 64 },
+        "voucherType": { "type": "string", "enum": ["GIV", "FATOV", "MRV"] },
+        "voucherId": { "type": "string", "maxLength": 128 },
+        "qrVerificationCode": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Issued", "Exit Verified", "Entry Verified", "Tamper Blocked", "Revoked"] }
+      },
+      "required": ["id", "gatePassNumber", "voucherType", "voucherId", "qrVerificationCode", "status"]
+    },
+    "CommercialInvoice": {
+      "title": "CommercialInvoice",
+      "description": "Mandatory commercial invoice document record (PDF/JPG/PNG) linked to GRVs and fixed assets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "invoiceNumber": { "type": "string", "maxLength": 80 },
+        "invoiceDate": { "type": "string", "maxLength": 32 },
+        "supplierName": { "type": "string", "maxLength": 160 },
+        "fileUrl": { "type": "string", "maxLength": 1200 },
+        "fileName": { "type": "string", "maxLength": 240 }
+      },
+      "required": ["id", "invoiceNumber", "invoiceDate", "supplierName", "fileUrl", "fileName"]
+    },
+    "InventoryNotification": {
+      "title": "InventoryNotification",
+      "description": "Real-time warehouse, planning, request, dispatch, security, and quarantine notifications.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "eventType": { "type": "string", "maxLength": 80 },
+        "title": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "eventType", "title", "createdAt"]
+    },
+    "InventoryAuditLog": {
+      "title": "InventoryAuditLog",
+      "description": "Immutable create-only audit log for all warehouse and site store actions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 140 },
+        "module": { "type": "string", "maxLength": 64 },
+        "entityId": { "type": "string", "maxLength": 128 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "action", "module", "entityId", "actorUid", "timestamp"]
+    },
+    "InventoryValuationSettings": {
+      "title": "InventoryValuationSettings",
+      "description": "Finance-configurable inventory valuation settings (FIFO or Weighted Moving Average).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "valuationMethod": { "type": "string", "enum": ["FIFO", "Weighted Moving Average"] },
+        "updatedByUid": { "type": "string", "maxLength": 128 },
+        "updatedAt": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "valuationMethod", "updatedByUid", "updatedAt"]
     }
   },
   "firestore": {
@@ -1749,6 +2127,10 @@
       "schema": "RecruitmentRequest",
       "description": "Multi-stage manpower recruitment requisitions and Director excess approval tracking."
     },
+    "/excessRecruitmentRequests/{excessId}": {
+      "schema": "ExcessRecruitmentRequest",
+      "description": "Director excess recruitment approval requisitions created when HR needs capacity above approved recruitment quantities."
+    },
     "/workSchedules/{scheduleId}": {
       "schema": "WorkSchedule",
       "description": "Configurable site shifts, holidays, rest days, and overtime multipliers."
@@ -1816,6 +2198,98 @@
     "/attendanceAuditLogs/{logId}": {
       "schema": "AttendanceAuditLog",
       "description": "Immutable create-only attendance approval, correction, and discrepancy audit ledger."
+    },
+    "/inventoryCategories/{categoryId}": {
+      "schema": "InventoryCategory",
+      "description": "Inventory classifications for Consumables and Fixed Assets."
+    },
+    "/inventoryItems/{itemId}": {
+      "schema": "InventoryItem",
+      "description": "Master item catalog with reorder thresholds and batch/expiry tracking."
+    },
+    "/warehouses/{warehouseId}": {
+      "schema": "Warehouse",
+      "description": "Central and regional construction warehouses."
+    },
+    "/projectStores/{storeId}": {
+      "schema": "ProjectStore",
+      "description": "Project-scoped construction site stores."
+    },
+    "/stockBalances/{balanceId}": {
+      "schema": "StockBalance",
+      "description": "Real-time location stock balances, quarantine stock, and FIFO/Average cost layers."
+    },
+    "/stockLedger/{entryId}": {
+      "schema": "StockLedger",
+      "description": "Immutable stock transaction ledger across all warehouses and site stores."
+    },
+    "/materialPlans/{planId}": {
+      "schema": "MaterialPlan",
+      "description": "Project material plans managed by Office Manager Engineer."
+    },
+    "/materialPlanRevisions/{revisionId}": {
+      "schema": "MaterialPlanRevision",
+      "description": "Immutable history of material plan revisions."
+    },
+    "/materialRequests/{requestId}": {
+      "schema": "MaterialRequest",
+      "description": "Site Store material requests linked to approved plans with Director final approval."
+    },
+    "/materialRequestItems/{itemId}": {
+      "schema": "MaterialRequestItem",
+      "description": "Material request line items with plan-vs-request comparison diagnostics."
+    },
+    "/materialApprovals/{approvalId}": {
+      "schema": "MaterialApproval",
+      "description": "Warehouse verification and Director-only final decision records."
+    },
+    "/goodsReceivingVouchers/{grvId}": {
+      "schema": "GoodsReceivingVoucher",
+      "description": "GRV records enforcing mandatory Commercial Invoice attachment."
+    },
+    "/goodsIssueVouchers/{givId}": {
+      "schema": "GoodsIssueVoucher",
+      "description": "Consumable dispatch GIV vouchers supporting partial dispatch."
+    },
+    "/materialReturnVouchers/{mrvId}": {
+      "schema": "MaterialReturnVoucher",
+      "description": "Two-way MRV returns routing damaged/defective goods to quarantine."
+    },
+    "/fixedAssets/{assetDocId}": {
+      "schema": "FixedAsset",
+      "description": "BIG BALANCE and per-project fixed asset register preserving permanent Asset ID and original GRV."
+    },
+    "/fixedAssetTransfersOut/{fatovId}": {
+      "schema": "FixedAssetTransferOut",
+      "description": "FATOV asset transfer out vouchers."
+    },
+    "/fixedAssetTransfersIn/{fativId}": {
+      "schema": "FixedAssetTransferIn",
+      "description": "FATIV asset transfer in confirmations updating location only on receipt."
+    },
+    "/transportationRecords/{transportId}": {
+      "schema": "TransportationRecord",
+      "description": "Two-way transportation logs across 11 lifecycle statuses."
+    },
+    "/gatePasses/{gatePassId}": {
+      "schema": "GatePass",
+      "description": "QR-verifiable gate passes signed off by Gate Security Officer."
+    },
+    "/commercialInvoices/{invoiceId}": {
+      "schema": "CommercialInvoice",
+      "description": "Commercial invoice PDF/image registry linked to GRVs and replacement history."
+    },
+    "/inventoryNotifications/{notificationId}": {
+      "schema": "InventoryNotification",
+      "description": "Role-targeted inventory, dispatch, gate pass, and quarantine notifications."
+    },
+    "/inventoryAuditLogs/{logId}": {
+      "schema": "InventoryAuditLog",
+      "description": "Immutable audit ledger of all warehouse and site store operations."
+    },
+    "/inventorySettings/{settingId}": {
+      "schema": "InventoryValuationSettings",
+      "description": "Finance Manager configurable valuation method (FIFO vs Weighted Moving Average)."
     }
   }
 }

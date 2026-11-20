@@ -203,7 +203,7 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
     expect(memTasks.find((t) => t.id === hrTask.id)?.status).toBe("Completed");
     const engTask = memTasks.find((t) => t.id === step2.currentStageTaskId)!;
     expect(engTask.assignedToUserIds).toEqual(["U-ENG-1"]);
-    expect(engTask.description).toContain("Position & qualifications verified");
+    expect(engTask.notes).toContain("Position & qualifications verified");
 
     // Step 3: Office Engineer Manager (also supports OFFICE_AND_TECHNICAL_ENGINEERING) approves -> Finance Manager
     const step3 = await advanceRecruitmentApproval({
@@ -246,7 +246,7 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
     expect(step5.workflowStage).toBe("Pending Director Final Approval");
     const dirTask = memTasks.find((t) => t.id === step5.currentStageTaskId)!;
     expect(dirTask.assignedToUserIds).toEqual(["U-DIR-1"]);
-    expect(dirTask.description).toContain("Salary budget ETB 21,500 approved within contingency");
+    expect(dirTask.notes).toContain("Salary budget ETB 21,500 approved within contingency");
     expect(dirTask.relatedEvidence?.length).toBe(1);
 
     // Step 6: Director gives Final Approval -> authorizes HR onboarding + notifies HR Manager & original requester
@@ -268,8 +268,8 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
     const hrRegTask = memTasks.find((t) => t.id === finalApproved.hrOnboardingTaskId)!;
     expect(hrRegTask.category).toBe("HRM Employee Registration");
     expect(hrRegTask.assignedToUserIds).toEqual(["U-HR-1"]);
-    expect(memNotifications.some((n) => n.userId === "U-SH-1" && n.type === "HRM Recruitment Finalized")).toBe(true);
-    expect(memNotifications.some((n) => n.userId === "U-HR-1" && n.type === "HRM Onboarding Authorization")).toBe(true);
+    expect(memNotifications.some((n) => n.userId === "U-SH-1" && n.type === "HRM Recruitment Final Approved")).toBe(true);
+    expect(memNotifications.some((n) => n.userId === "U-HR-1" && n.type === "HRM Employee Registration Authorized")).toBe(true);
 
     // Register 2 workers -> marks request Fulfilled & completes onboarding task
     const wA: Worker = { ...sampleWorkers[0], id: "OVID-EMP-2026-0002", employeeId: "OVID-EMP-2026-0002", name: "Hire One" };
@@ -329,7 +329,7 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
         users: sampleUsers,
         tasks: memTasks,
       })
-    ).rejects.toThrow(/Mandatory rejection reason/);
+    ).rejects.toThrow(/rejection reason is mandatory/i);
 
     const rejected = await advanceRecruitmentApproval({
       request: req,
@@ -437,7 +437,7 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
         users: sampleUsers,
         tasks: memTasks,
       })
-    ).rejects.toThrow(/Only the original requester/);
+    ).rejects.toThrow(/Only original requester/i);
 
     // Original Section Head revises salary + attaches supporting doc and resubmits -> restarts at Pending HR Manager preserving prior audit entries
     const resubmitted = await resubmitReturnedRecruitmentRequest({
@@ -479,6 +479,7 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
       department: "Structural",
       jobPosition: "Formwork Foreman",
       requestedCount: 2,
+      hiredCount: 0,
       employmentType: "Permanent",
       urgency: "High",
       requiredByDate: "2026-10-01",
@@ -489,6 +490,9 @@ describe("Recruitment & Hiring Management (PART 1)", () => {
       requestedById: "U-SH-1",
       requestedByRole: UserRole.SECTION_HEAD,
       exceedsManpowerLimit: false,
+      approvedManpowerSnapshot: 5,
+      actualHiredSnapshot: 2,
+      remainingVacanciesSnapshot: 3,
       excessCount: 0,
       excessApprovalStatus: "Not Required",
       workflowStage: "Pending Finance Manager",

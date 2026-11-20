@@ -1627,6 +1627,8 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል / HR (HR Manager)" : "HR / HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
                         { role: UserRole.ACCOUNTANT, label: isAmharic ? "የሒሳብ ባለሙያ (Accountant)" : "Accountant" },
+                        { role: UserRole.MATERIAL_HANDLING, label: isAmharic ? "የዕቃ አያያዝና ጭነት (Material Handling)" : "Material Handling" },
+                        { role: UserRole.GATE_SECURITY_OFFICER, label: isAmharic ? "የበር ደህንነት ኃላፊ (Gate Security Officer)" : "Gate Security Officer" },
                         { role: UserRole.DRIVER, label: isAmharic ? "የተሽከርካሪ አሽከርካሪ (Driver)" : "Driver" },
                         { role: UserRole.AUDITOR, label: isAmharic ? "ኦዲተር (Auditor)" : "Auditor" },
                         { role: UserRole.WORKER, label: isAmharic ? "መደበኛ ሰራተኛ (Worker)" : "Worker" }

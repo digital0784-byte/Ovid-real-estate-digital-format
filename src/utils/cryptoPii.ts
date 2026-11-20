@@ -118,3 +118,18 @@ export function buildMaskedPreview(plainText?: string | null, keepLast = 4): str
   if (clean.length <= keepLast) return "*".repeat(clean.length);
   return `${"*".repeat(Math.max(4, clean.length - keepLast))}${clean.slice(-keepLast)}`;
 }
+
+export async function hashSensitiveIdentifier(value?: string | null): Promise<string> {
+  const normalized = String(value ?? "").trim().replace(/[\s-]+/g, "").toUpperCase();
+  if (!normalized || normalized.includes("*")) return "";
+  const cryptoApi = typeof globalThis !== "undefined" ? globalThis.crypto : undefined;
+  const bytes = new TextEncoder().encode(`OVID-ID-HASH:${normalized}`);
+  if (cryptoApi?.subtle) {
+    const digest = await cryptoApi.subtle.digest("SHA-256", bytes);
+    return Array.from(new Uint8Array(digest))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  return `h:${toBase64(bytes)}`;
+}
+

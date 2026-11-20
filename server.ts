@@ -10,6 +10,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { TOTP, Secret } from "otpauth";
 import { createBiometricConnectorRouter } from "./src/server/biometricConnectorRouter";
+import { createWarehouseStoreRouter } from "./src/server/warehouseStoreRouter";
 import { fetchUserProfileWithIdToken } from "./src/server/firestoreUserLookup";
 let firebaseConfigJson: any = {};
 try {
@@ -1137,6 +1138,18 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
     getSharedKey: () => process.env.BIOMETRIC_CONNECTOR_SHARED_KEY,
   });
   app.use(biometricConnectorRouter);
+
+  // Enterprise Warehouse & Site Store Management Router
+  const { router: warehouseStoreRouter } = createWarehouseStoreRouter({
+    verifyAppCheck,
+    requireAuth,
+    requireActiveUser,
+    getProjectConfig: () => ({
+      projectId: firebaseConfigJson.projectId || process.env.FIREBASE_PROJECT_ID || "digital-construction-erp",
+      databaseId: firebaseConfigJson.firestoreDatabaseId || "(default)",
+    }),
+  });
+  app.use(warehouseStoreRouter);
 
   // Serve static assets or mount Vite dev middleware
   const distPath = path.resolve(process.cwd(), "dist");

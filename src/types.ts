@@ -27,7 +27,9 @@ export enum UserRole {
   OFFICE_AND_TECHNICAL_ENGINEERING = "Office & Technical Engineering",
   EMPLOYEE = "Employee",
   DRIVER = "Driver",
-  WORKER = "Worker"
+  WORKER = "Worker",
+  MATERIAL_HANDLING = "Material Handling",
+  GATE_SECURITY_OFFICER = "Gate Security Officer"
 }
 
 export interface AuditLog {
@@ -139,6 +141,10 @@ export interface Worker {
   workLocationType?: "Head Office" | "Construction Site";
   defaultScheduleId?: string;
   recruitmentRequestId?: string;
+  excessApprovalRequestId?: string;
+  jobResponsibilities?: string;
+  certifications?: string;
+  salaryGrade?: string;
   userId?: string; // Linked Firebase Auth UID for employee self-service access
 }
 
@@ -3681,7 +3687,40 @@ export interface RecruitmentRequestRecord {
   directorFinalApproval?: HrmWorkflowStepLog;
   directorExcessApproval?: HrmWorkflowStepLog;
   approvalHistory: HrmWorkflowStepLog[];
+  approvedRequestedCount?: number;
+  excessApprovedAdded?: number;
+  recruitmentFillStatus?: "Open" | "Partially Filled" | "Filled";
+  hiredWorkerIds?: string[];
+  hiredEmployeeIds?: string[];
+  idempotencyKey?: string;
   directorNotifiedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ExcessRecruitmentRequestRecord {
+  id: string;
+  requestNo: string; // e.g. ERR-2026-0001
+  recruitmentRequestId: string;
+  recruitmentRequestNo: string;
+  project: string;
+  department: string;
+  jobPosition: string;
+  approvedQuantitySnapshot: number;
+  registeredCountSnapshot: number;
+  excessCount: number;
+  justification: string;
+  requestedBy: string;
+  requestedById: string;
+  requestedByRole: string;
+  status: "Pending Director" | "Approved" | "Rejected";
+  directorDecisionBy?: string;
+  directorDecisionById?: string;
+  directorDecisionRole?: string;
+  directorDecisionAt?: string;
+  directorNotes?: string;
+  directorTaskId?: string;
+  auditHistory: HrmWorkflowStepLog[];
   createdAt: string;
   updatedAt: string;
 }
@@ -3942,6 +3981,9 @@ export interface HrmPrivateProfileRecord {
   mobileMoneyNumberEncrypted?: string;
   emergencyContactEncrypted?: string;
   biometricTemplateEncrypted?: string;
+  faydaIdHash?: string;
+  nationalIdHash?: string;
+  phoneNormalizedHash?: string;
   encryptionAlgorithm: "AES-GCM-256";
   updatedBy: string;
   createdAt: string;
@@ -4252,5 +4294,859 @@ export interface AttendanceAuditLog {
   timestamp: string;
   timezone: "Africa/Addis_Ababa";
 }
+
+// ============================================================================
+// WAREHOUSE & SITE STORE MANAGEMENT MODULE — ENTERPRISE TYPES (22 COLLECTIONS)
+// ============================================================================
+
+export type InventoryType = "Consumable" | "Fixed Asset";
+
+export type CostValuationMethod = "FIFO" | "Weighted Moving Average";
+
+export type ItemConditionStatus =
+  | "Good"
+  | "Damaged"
+  | "Defective"
+  | "Under Inspection"
+  | "Not Reusable";
+
+export type MaterialPlanStatus = "Draft" | "Submitted" | "Approved" | "Superseded";
+
+export type EngineeringMaterialRequestStatus =
+  | "Draft"
+  | "Submitted"
+  | "Warehouse Reviewing"
+  | "Returned by Warehouse Manager"
+  | "Verified Pending Director"
+  | "Director Approved"
+  | "Director Disapproved"
+  | "Partially Dispatched"
+  | "Fully Dispatched"
+  | "Closed";
+
+export type TransportationStatus =
+  | "Pending Preparation"
+  | "Approved for Dispatch"
+  | "Ready for Dispatch"
+  | "Dispatched"
+  | "In Transit"
+  | "Arrived"
+  | "Receiving Verification"
+  | "Partially Received"
+  | "Completed"
+  | "Discrepancy Reported"
+  | "Cancelled";
+
+export type GatePassStatus =
+  | "Issued"
+  | "Exit Verified"
+  | "Entry Verified"
+  | "Tamper Blocked"
+  | "Revoked";
+
+export interface InventoryCategoryRecord {
+  id: string;
+  code: string;
+  name: string;
+  nameAm?: string;
+  inventoryType: InventoryType;
+  description?: string;
+  isActive: boolean;
+  createdByUid?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryItemRecord {
+  id: string;
+  itemCode: string;
+  itemName: string;
+  itemNameAm?: string;
+  specification: string;
+  description?: string;
+  categoryId: string;
+  categoryName: string;
+  inventoryType: InventoryType;
+  unit: string;
+  minStockLevel: number;
+  reorderPoint: number;
+  maxStockLevel?: number;
+  standardUnitCost?: number;
+  batchTrackingEnabled?: boolean;
+  expiryTrackingEnabled?: boolean;
+  linkedMaterialId?: string;
+  isActive: boolean;
+  createdByUid?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface WarehouseRecord {
+  id: string;
+  code: string;
+  name: string;
+  location: string;
+  projectId?: string;
+  projectName?: string;
+  managerUid?: string;
+  managerName?: string;
+  capacityNote?: string;
+  status: "Active" | "Inactive";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProjectStoreRecord {
+  id: string;
+  storeCode: string;
+  storeName: string;
+  projectId: string;
+  projectName: string;
+  siteId?: string;
+  siteName?: string;
+  location: string;
+  storeOwnerUid?: string;
+  storeOwnerName?: string;
+  status: "Active" | "Inactive";
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FifoCostLayer {
+  layerId: string;
+  grvId: string;
+  grvNumber: string;
+  receivedDate: string;
+  batchNumber?: string;
+  expiryDate?: string;
+  originalQty: number;
+  remainingQty: number;
+  unitCost: number;
+}
+
+export interface StockBalanceRecord {
+  id: string;
+  locationType: "Warehouse" | "ProjectStore";
+  locationId: string;
+  locationName: string;
+  projectId?: string;
+  projectName?: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  categoryName: string;
+  inventoryType: InventoryType;
+  unit: string;
+  openingQty: number;
+  receivedQty: number;
+  returnedQty: number;
+  issuedQty: number;
+  transferOutQty: number;
+  transferInQty: number;
+  availableQty: number;
+  reservedQty: number;
+  quarantineQty: number;
+  damagedQty: number;
+  defectiveQty: number;
+  underInspectionQty: number;
+  valuationMethod: CostValuationMethod;
+  averageUnitCost: number;
+  totalValuation: number;
+  fifoLayers: FifoCostLayer[];
+  batchNumber?: string;
+  expiryDate?: string;
+  reorderPoint: number;
+  minStockLevel: number;
+  lastMovementAt: string;
+  updatedAt: string;
+}
+
+export type StockLedgerVoucherType =
+  | "GRV"
+  | "GIV"
+  | "MRV"
+  | "FATOV"
+  | "FATIV"
+  | "QUARANTINE_IN"
+  | "QUARANTINE_RELEASE"
+  | "OPENING_BALANCE";
+
+export interface StockLedgerEntry {
+  id: string;
+  voucherType: StockLedgerVoucherType;
+  voucherId: string;
+  voucherNo: string;
+  originalGrvNumber?: string;
+  referenceRequestId?: string;
+  locationType: "Warehouse" | "ProjectStore";
+  locationId: string;
+  locationName: string;
+  projectId?: string;
+  projectName?: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  inventoryType: InventoryType;
+  unit: string;
+  direction: "IN" | "OUT" | "QUARANTINE" | "RELEASE";
+  quantity: number;
+  quantityDelta: number;
+  quarantineDelta: number;
+  unitCost: number;
+  totalCost: number;
+  valuationMethodUsed: CostValuationMethod;
+  openingBefore: number;
+  balanceAfter: number;
+  quarantineAfter: number;
+  batchNumber?: string;
+  expiryDate?: string;
+  condition?: ItemConditionStatus;
+  notes?: string;
+  createdByUid: string;
+  createdByName: string;
+  createdByRole: string;
+  createdAt: string;
+}
+
+export interface MaterialPlanItem {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  specification: string;
+  inventoryType: InventoryType;
+  unit: string;
+  plannedQty: number;
+  consumedOrRequestedQty?: number;
+  notes?: string;
+}
+
+export interface MaterialPlanRecord {
+  id: string;
+  planNumber: string;
+  title: string;
+  projectId: string;
+  projectName: string;
+  department?: string;
+  revisionNumber: number;
+  status: MaterialPlanStatus;
+  items: MaterialPlanItem[];
+  createdByUid: string;
+  createdByName: string;
+  createdByRole: string;
+  submittedAt?: string;
+  approvedAt?: string;
+  approvedByUid?: string;
+  approvedByName?: string;
+  revisionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaterialPlanRevisionRecord {
+  id: string;
+  planId: string;
+  planNumber: string;
+  projectId: string;
+  projectName: string;
+  revisionNumber: number;
+  previousItemsSnapshot: MaterialPlanItem[];
+  newItemsSnapshot: MaterialPlanItem[];
+  changeSummary: string;
+  reason: string;
+  revisedByUid: string;
+  revisedByName: string;
+  revisedByRole: string;
+  revisedAt: string;
+}
+
+export type PlanComparisonStatus =
+  | "Matched"
+  | "Item Not in Plan"
+  | "Spec/Unit Mismatch"
+  | "Exceeds Remaining Plan"
+  | "Insufficient Stock";
+
+export interface MaterialRequestItem {
+  id: string;
+  requestId: string;
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  specification: string;
+  inventoryType: InventoryType;
+  unit: string;
+  plannedQty: number;
+  previouslyApprovedOrIssuedQty: number;
+  remainingPlanQty: number;
+  requestedQty: number;
+  approvedQty: number;
+  dispatchedQty: number;
+  remainingDispatchQty: number;
+  warehouseAvailableQty: number;
+  comparisonStatus: PlanComparisonStatus;
+  mismatchReason?: string;
+}
+
+export interface EngineeringMaterialRequest {
+  id: string;
+  requestNumber: string;
+  planId: string;
+  planNumber: string;
+  planRevisionNumber: number;
+  projectId: string;
+  projectName: string;
+  projectStoreId: string;
+  projectStoreName: string;
+  warehouseId: string;
+  warehouseName: string;
+  requestedDate: string;
+  requiredByDate?: string;
+  purpose: string;
+  status: EngineeringMaterialRequestStatus;
+  hasPlanMismatch: boolean;
+  mismatchSummary?: string;
+  items: MaterialRequestItem[];
+  requestedByUid: string;
+  requestedByName: string;
+  requestedByRole: string;
+  warehouseVerifiedByUid?: string;
+  warehouseVerifiedByName?: string;
+  warehouseVerifiedAt?: string;
+  warehouseRemarks?: string;
+  returnedReason?: string;
+  directorDecisionByUid?: string;
+  directorDecisionByName?: string;
+  directorDecisionByRole?: string;
+  directorDecisionAt?: string;
+  directorDecisionPermanent?: boolean;
+  directorComments?: string;
+  disapprovalReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MaterialApprovalRecord {
+  id: string;
+  requestId: string;
+  requestNumber: string;
+  planId: string;
+  stage: "Warehouse Manager Verification" | "Director Final Decision";
+  decision:
+    | "Verified Pending Director"
+    | "Returned by Warehouse Manager"
+    | "Director Approved"
+    | "Director Disapproved";
+  decisionByUid: string;
+  decisionByName: string;
+  decisionByRole: string;
+  comments: string;
+  mismatchDetails?: string;
+  isPermanent: boolean;
+  decidedAt: string;
+}
+
+export interface CommercialInvoiceReplacementEntry {
+  id: string;
+  previousInvoiceNumber: string;
+  previousFileName: string;
+  previousFileUrl: string;
+  newInvoiceNumber: string;
+  newFileName: string;
+  newFileUrl: string;
+  reason: string;
+  replacedByUid: string;
+  replacedByName: string;
+  replacedByRole: string;
+  replacedAt: string;
+}
+
+export interface CommercialInvoiceRecord {
+  id: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  supplierId: string;
+  supplierName: string;
+  poNumber?: string;
+  grvId?: string;
+  grvNumber?: string;
+  fileUrl: string;
+  fileName: string;
+  mimeType: "application/pdf" | "image/jpeg" | "image/png" | "image/jpg" | string;
+  fileSizeBytes: number;
+  totalAmount: number;
+  currency: "ETB" | "USD" | "EUR" | string;
+  replacementHistory: CommercialInvoiceReplacementEntry[];
+  uploadedByUid: string;
+  uploadedByName: string;
+  uploadedByRole: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GrvLineItem {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  inventoryType: InventoryType;
+  unit: string;
+  quantityReceived: number;
+  unitCost: number;
+  totalCost: number;
+  batchNumber?: string;
+  expiryDate?: string;
+  serialNumbers?: string[];
+  condition: ItemConditionStatus;
+}
+
+export interface GoodsReceivingVoucher {
+  id: string;
+  grvNumber: string;
+  poNumber?: string;
+  procurementId?: string;
+  supplierId: string;
+  supplierName: string;
+  warehouseId: string;
+  warehouseName: string;
+  receivedDate: string;
+  commercialInvoiceId: string;
+  commercialInvoiceNo: string;
+  commercialInvoiceDate: string;
+  commercialInvoiceUrl: string;
+  commercialInvoiceFileName: string;
+  commercialInvoiceMimeType: string;
+  status: "Draft" | "Pending Invoice" | "Completed" | "Verified";
+  items: GrvLineItem[];
+  totalAmount: number;
+  remarks?: string;
+  receivedByUid: string;
+  receivedByName: string;
+  receivedByRole: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GivLineItem {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  unit: string;
+  approvedQty: number;
+  previouslyDispatchedQty: number;
+  dispatchedQty: number;
+  remainingPendingQty: number;
+  unitCost: number;
+  totalCost: number;
+  batchNumber?: string;
+  originalGrvNumber?: string;
+}
+
+export interface GoodsIssueVoucher {
+  id: string;
+  givNumber: string;
+  requestId: string;
+  requestNumber: string;
+  directorApprovalId: string;
+  warehouseId: string;
+  warehouseName: string;
+  projectId: string;
+  projectName: string;
+  projectStoreId: string;
+  projectStoreName: string;
+  vehicleNumber: string;
+  driverName: string;
+  driverPhone?: string;
+  status: "Prepared" | "Dispatched" | "Partially Received" | "Delivered" | "Cancelled";
+  items: GivLineItem[];
+  totalCost: number;
+  gatePassId?: string;
+  gatePassNumber?: string;
+  transportId?: string;
+  transportNumber?: string;
+  issuedByUid: string;
+  issuedByName: string;
+  dispatchedAt?: string;
+  receivedByUid?: string;
+  receivedByName?: string;
+  receivedAt?: string;
+  discrepancyNote?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MrvLineItem {
+  itemId: string;
+  itemCode: string;
+  itemName: string;
+  inventoryType: InventoryType;
+  unit: string;
+  quantityReturned: number;
+  quantityAcceptedGood: number;
+  quantityQuarantined: number;
+  condition: ItemConditionStatus;
+  originalGivNumber?: string;
+  originalGrvNumber?: string;
+  assetId?: string;
+  unitCost: number;
+  reason?: string;
+}
+
+export interface MaterialReturnVoucher {
+  id: string;
+  mrvNumber: string;
+  direction: "ProjectToWarehouse" | "WarehouseToProject";
+  sourceLocationType: "Warehouse" | "ProjectStore";
+  sourceLocationId: string;
+  sourceLocationName: string;
+  destinationLocationType: "Warehouse" | "ProjectStore";
+  destinationLocationId: string;
+  destinationLocationName: string;
+  projectId?: string;
+  projectName?: string;
+  originalGivId?: string;
+  originalGivNumber?: string;
+  originalGrvId?: string;
+  originalGrvNumber?: string;
+  inventoryType: InventoryType;
+  vehicleNumber?: string;
+  driverName?: string;
+  status: "Submitted" | "In Transit" | "Confirmed Receipt" | "Quarantined" | "Rejected";
+  items: MrvLineItem[];
+  gatePassId?: string;
+  gatePassNumber?: string;
+  transportId?: string;
+  transportNumber?: string;
+  submittedByUid: string;
+  submittedByName: string;
+  submittedByRole: string;
+  confirmedByUid?: string;
+  confirmedByName?: string;
+  confirmedAt?: string;
+  remarks?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FixedAssetTransferHistoryEntry {
+  id: string;
+  date: string;
+  voucherType: "GRV" | "FATOV" | "FATIV" | "MRV";
+  voucherNumber: string;
+  fromLocation: string;
+  toLocation: string;
+  projectName?: string;
+  issuerName: string;
+  receiverName: string;
+  condition: ItemConditionStatus;
+  notes?: string;
+}
+
+export interface FixedAssetRecord {
+  id: string;
+  assetId: string; // Permanent Asset ID e.g. OVID-FA-0001 (never changes on transfer)
+  itemId: string;
+  itemCode: string;
+  assetName: string;
+  description: string;
+  categoryName: string;
+  serialNumber: string;
+  originalGrvId: string;
+  originalGrvNumber: string;
+  commercialInvoiceId: string;
+  commercialInvoiceNo: string;
+  purchaseDate: string;
+  purchaseCost: number;
+  currentLocationType: "Warehouse" | "ProjectStore";
+  currentLocationId: string;
+  currentLocationName: string;
+  currentProjectId?: string;
+  currentProjectName?: string;
+  previousLocationName?: string;
+  issuerName?: string;
+  receiverName?: string;
+  condition: ItemConditionStatus;
+  status:
+    | "In Warehouse"
+    | "In Transit"
+    | "Assigned to Project"
+    | "Under Maintenance"
+    | "Quarantined"
+    | "Retired";
+  transferHistory: FixedAssetTransferHistoryEntry[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FixedAssetTransferOut {
+  id: string;
+  fatovNumber: string;
+  assetDocId: string;
+  assetId: string;
+  assetName: string;
+  itemCode: string;
+  serialNumber: string;
+  originalGrvId: string;
+  originalGrvNumber: string;
+  requestId?: string;
+  requestNumber?: string;
+  fromLocationType: "Warehouse" | "ProjectStore";
+  fromLocationId: string;
+  fromLocationName: string;
+  toLocationType: "Warehouse" | "ProjectStore";
+  toLocationId: string;
+  toLocationName: string;
+  projectId?: string;
+  projectName?: string;
+  quantitySent: number;
+  conditionSent: ItemConditionStatus;
+  vehicleNumber: string;
+  driverName: string;
+  status:
+    | "Prepared"
+    | "Dispatched"
+    | "In Transit"
+    | "Arrived"
+    | "Partially Received"
+    | "Completed"
+    | "Discrepancy Reported"
+    | "Cancelled";
+  fativId?: string;
+  fativNumber?: string;
+  gatePassId?: string;
+  gatePassNumber?: string;
+  transportId?: string;
+  transportNumber?: string;
+  issuedByUid: string;
+  issuedByName: string;
+  dispatchedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FixedAssetTransferIn {
+  id: string;
+  fativNumber: string;
+  fatovId: string;
+  fatovNumber: string;
+  assetDocId: string;
+  assetId: string;
+  assetName: string;
+  itemCode: string;
+  serialNumber: string;
+  originalGrvId: string;
+  originalGrvNumber: string;
+  fromLocationName: string;
+  receivingLocationType: "Warehouse" | "ProjectStore";
+  receivingLocationId: string;
+  receivingLocationName: string;
+  projectId?: string;
+  projectName?: string;
+  quantitySent: number;
+  quantityReceived: number;
+  discrepancyQty: number;
+  discrepancyReason?: string;
+  conditionReceived: ItemConditionStatus;
+  status: "Confirmed" | "Partially Received" | "Discrepancy Reported";
+  receivedByUid: string;
+  receivedByName: string;
+  confirmedAt: string;
+  createdAt: string;
+}
+
+export interface TransportStatusEvent {
+  status: TransportationStatus;
+  timestamp: string;
+  actorUid: string;
+  actorName: string;
+  actorRole: string;
+  notes?: string;
+}
+
+export interface TransportationRecord {
+  id: string;
+  transportNumber: string;
+  direction: "WarehouseToProject" | "ProjectToWarehouse" | "WarehouseToWarehouse";
+  referenceType: "GIV" | "FATOV" | "MRV";
+  referenceId: string;
+  referenceNumber: string;
+  originalGrvNumber?: string;
+  originLocationId: string;
+  originLocationName: string;
+  destinationLocationId: string;
+  destinationLocationName: string;
+  projectId?: string;
+  projectName?: string;
+  vehicleId?: string;
+  vehicleNumber: string;
+  driverName: string;
+  driverPhone?: string;
+  handlerUid?: string;
+  handlerName?: string;
+  itemsSummary: string;
+  status: TransportationStatus;
+  statusHistory: TransportStatusEvent[];
+  dispatchedAt?: string;
+  arrivedAt?: string;
+  completedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GatePassRecord {
+  id: string;
+  gatePassNumber: string;
+  voucherType: "GIV" | "FATOV" | "MRV";
+  voucherId: string;
+  voucherNumber: string;
+  originalGrvNumber?: string;
+  originLocationId: string;
+  originLocationName: string;
+  destinationLocationId: string;
+  destinationLocationName: string;
+  projectId?: string;
+  projectName?: string;
+  vehicleNumber: string;
+  driverName: string;
+  itemsSummary: string;
+  totalQuantity: number;
+  qrVerificationCode: string;
+  verificationHash: string;
+  status: GatePassStatus;
+  issuedByUid: string;
+  issuedByName: string;
+  issuedByRole: string;
+  issuedAt: string;
+  exitVerifiedByUid?: string;
+  exitVerifiedByName?: string;
+  exitVerifiedAt?: string;
+  entryVerifiedByUid?: string;
+  entryVerifiedByName?: string;
+  entryVerifiedAt?: string;
+  securityRemarks?: string;
+  lockedForEdit: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InventoryNotificationRecord {
+  id: string;
+  eventType:
+    | "MATERIAL_PLAN_SUBMITTED"
+    | "MATERIAL_PLAN_REVISED"
+    | "MATERIAL_REQUEST_SUBMITTED"
+    | "MATERIAL_REQUEST_RETURNED"
+    | "MATERIAL_REQUEST_VERIFIED"
+    | "MATERIAL_REQUEST_DIRECTOR_APPROVED"
+    | "MATERIAL_REQUEST_DIRECTOR_DISAPPROVED"
+    | "PARTIAL_DISPATCH_PERFORMED"
+    | "FULL_DISPATCH_PERFORMED"
+    | "GATE_PASS_GENERATED"
+    | "GATE_PASS_EXIT_VERIFIED"
+    | "GATE_PASS_ENTRY_VERIFIED"
+    | "TRANSPORT_STATUS_CHANGED"
+    | "DELIVERY_RECEIVED"
+    | "TRANSFER_DISCREPANCY"
+    | "GRV_COMPLETED"
+    | "COMMERCIAL_INVOICE_REPLACED"
+    | "RETURN_SUBMITTED"
+    | "DAMAGED_QUARANTINED"
+    | "LOW_STOCK_ALERT";
+  title: string;
+  message: string;
+  severity: "info" | "warning" | "critical" | "success";
+  targetRoles: string[];
+  projectId?: string;
+  locationId?: string;
+  referenceId?: string;
+  referenceNumber?: string;
+  readByUids: string[];
+  createdAt: string;
+}
+
+export interface InventoryAuditLogRecord {
+  id: string;
+  action: string;
+  module:
+    | "MasterData"
+    | "MaterialPlan"
+    | "MaterialRequest"
+    | "GRV"
+    | "CommercialInvoice"
+    | "GIVDispatch"
+    | "FixedAsset"
+    | "FATOV"
+    | "FATIV"
+    | "Transport"
+    | "GatePass"
+    | "ReturnMRV"
+    | "Quarantine"
+    | "ValuationSettings"
+    | "Security";
+  entityType: string;
+  entityId: string;
+  entityNumber?: string;
+  previousState?: Record<string, any> | null;
+  newState?: Record<string, any> | null;
+  details: string;
+  projectId?: string;
+  locationId?: string;
+  actorUid: string;
+  actorName: string;
+  actorRole: string;
+  timestamp: string;
+}
+
+export interface InventoryValuationSettingsRecord {
+  id: string; // e.g., "default"
+  valuationMethod: CostValuationMethod;
+  enforceCommercialInvoiceOnGrv: boolean;
+  enforcePlanComparisonOnRequest: boolean;
+  quarantineDamagedReturnsAutomatically: boolean;
+  updatedByUid: string;
+  updatedByName: string;
+  updatedByRole: string;
+  updatedAt: string;
+  history: {
+    previousMethod: CostValuationMethod;
+    newMethod: CostValuationMethod;
+    changedByUid: string;
+    changedByName: string;
+    changedAt: string;
+    reason?: string;
+  }[];
+}
+
+export interface WarehouseDashboardFilters {
+  dateFrom: string;
+  dateTo: string;
+  projectId: string;
+  locationId: string;
+  categoryId: string;
+  inventoryType: "ALL" | InventoryType;
+}
+
+export type WarehouseReportType =
+  | "WAREHOUSE_STOCK_BALANCE"
+  | "PROJECT_SITE_STORE_BALANCE"
+  | "STOCK_MOVEMENT_LEDGER"
+  | "GRV_REGISTER"
+  | "COMMERCIAL_INVOICE_REGISTER"
+  | "MATERIAL_PLAN_VS_REQUEST_VS_ISSUED"
+  | "PENDING_DIRECTOR_APPROVALS"
+  | "GIV_DISPATCH_REGISTER"
+  | "PARTIAL_DISPATCH_BALANCE"
+  | "FIXED_ASSETS_BIG_BALANCE"
+  | "PROJECT_FIXED_ASSET_REGISTER"
+  | "FATOV_FATIV_ASSET_TRANSFER"
+  | "ASSET_LOCATION_HISTORY"
+  | "TRANSPORTATION_TRACKING"
+  | "GATE_PASS_SECURITY_LOG"
+  | "TWO_WAY_RETURN_MRV"
+  | "DAMAGED_DEFECTIVE_QUARANTINE"
+  | "LOW_STOCK_REORDER"
+  | "INVENTORY_VALUATION"
+  | "FAST_SLOW_MOVING"
+  | "DISCREPANCY_SHORTAGE"
+  | "AUDIT_TRAIL_APPROVAL_HISTORY";
+
 
 

@@ -89,6 +89,7 @@ import {
   AttendanceCorrectionRequest,
   AttendanceDeductionPolicy,
   AttendanceAuditLog,
+  ExcessRecruitmentRequestRecord,
 } from "../types";
 import { initialErpTasks } from "../data/initialTasks";
 import {
@@ -3421,6 +3422,370 @@ export const DbService = {
   },
   async deleteRecruitmentRequest(reqId: string): Promise<void> {
     await removeDocument<RecruitmentRequestRecord>("recruitmentRequests", reqId, []);
+  },
+
+  // 2B) excessRecruitmentRequests (Additional Manpower Excess Approval Requests -> Director)
+  subscribeExcessRecruitmentRequests(
+    callback: (reqs: ExcessRecruitmentRequestRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "excessRecruitmentRequests"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as ExcessRecruitmentRequestRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "excessRecruitmentRequests");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", []));
+    return () => {};
+  },
+  async saveExcessRecruitmentRequest(req: ExcessRecruitmentRequestRecord): Promise<void> {
+    await writeDocument<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", req, []);
+  },
+  async deleteExcessRecruitmentRequest(reqId: string): Promise<void> {
+    await removeDocument<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", reqId, []);
+  },
+
+  async registerApprovedEmployeeAtomic(params: {
+    recruitmentRequest: RecruitmentRequestRecord;
+    worker: Worker;
+    privateProfile: HrmPrivateProfileRecord;
+    auditLog: AuditLog;
+    actorName: string;
+    actorUid: string;
+    actorRole: string;
+    onboardingTask?: ErpTask;
+  }): Promise<RecruitmentRequestRecord> {
+    const nowIso = new Date().toISOString();
+    const safeWorkerInput = { ...params.worker } as any;
+    delete safeWorkerInput.fingerprint;
+    delete safeWorkerInput.faceRecognitionData;
+    delete safeWorkerInput.fingerprintTemplate;
+    delete safeWorkerInput.faceTemplate;
+    delete safeWorkerInput.rawBiometricTemplate;
+    delete safeWorkerInput.biometricTemplate;
+    delete safeWorkerInput.biometricTemplateEncrypted;
+
+    const cleanWorker = sanitizeForFirestore(safeWorkerInput) as Worker;
+    const cleanProfile = sanitizeForFirestore(params.privateProfile) as HrmPrivateProfileRecord;
+    const cleanAudit = sanitizeForFirestore(params.auditLog) as AuditLog;
+
+    const computeNextReq = (liveReq: RecruitmentRequestRecord): RecruitmentRequestRecord => {
+      if (liveReq.workflowStage !== "Approved" || liveReq.status !== "Approved" || !liveReq.hrRegistrationAuthorized) {
+        throw new Error(
+          `Registration blocked: Request ${liveReq.requestNo} is at "${liveReq.workflowStage}" and is not authorized for HR registration.`
+        );
+      }
+      const existingWorkerIds = new Set(liveReq.hiredWorkerIds || []);
+      if (existingWorkerIds.has(cleanWorker.id)) {
+        throw new Error(`Duplicate onboarding blocked: Employee ${cleanWorker.id} is already registered under ${liveReq.requestNo}.`);
+      }
+      const currentHired = Number(liveReq.hiredCount || 0);
+      const maxAuthorized = Number(liveReq.requestedCount || 0);
+      if (currentHired >= maxAuthorized) {
+        throw new Error(
+          `EXCESS_QUOTA_EXCEEDED: Approved manpower quantity (${maxAuthorized}) for ${liveReq.requestNo} is already filled (${currentHired}/${maxAuthorized}). Director Excess Approval is required.`
+        );
+      }
+      const nextHired = currentHired + 1;
+      const nextRemaining = Math.max(0, maxAuthorized - nextHired);
+      const isFilled = nextHired >= maxAuthorized;
+      const fillStatus: "Open" | "Partially Filled" | "Filled" = isFilled ? "Filled" : "Partially Filled";
+      const onboardLog = {
+        stage: "Employee Registered (HR Manager)",
+        actorName: params.actorName,
+        actorRole: params.actorRole,
+        actorUid: params.actorUid,
+        decision: "Approved" as const,
+        timestamp: nowIso,
+        notes: `Registered ${cleanWorker.name} (${cleanWorker.employeeId || cleanWorker.id}) — Progress ${nextHired}/${maxAuthorized} (${nextRemaining} remaining)`,
+      };
+      return sanitizeForFirestore({
+        ...liveReq,
+        hiredCount: nextHired,
+        remainingVacanciesSnapshot: nextRemaining,
+        recruitmentFillStatus: fillStatus,
+        hiredWorkerIds: [...(liveReq.hiredWorkerIds || []), cleanWorker.id],
+        hiredEmployeeIds: [...(liveReq.hiredEmployeeIds || []), cleanWorker.employeeId || cleanWorker.id],
+        status: isFilled ? "Fulfilled" : "Approved",
+        workflowStage: isFilled ? "Fulfilled" : "Approved",
+        approvalHistory: [...(liveReq.approvalHistory || []), onboardLog],
+        updatedAt: nowIso,
+      }) as RecruitmentRequestRecord;
+    };
+
+    if (canQueryFirestore() && db) {
+      let updatedReqResult: RecruitmentRequestRecord | null = null;
+      await runTransaction(db, async (transaction) => {
+        const reqRef = doc(db!, "recruitmentRequests", params.recruitmentRequest.id);
+        const workerRef = doc(db!, "workers", cleanWorker.id);
+        const empRef = doc(db!, "employees", cleanWorker.id);
+        const profRef = doc(db!, "hrmPrivateProfiles", cleanProfile.id);
+        const auditRef = doc(db!, "auditLogs", cleanAudit.id);
+
+        const [reqSnap, workerSnap] = await Promise.all([
+          transaction.get(reqRef),
+          transaction.get(workerRef),
+        ]);
+
+        if (!reqSnap.exists()) {
+          throw new Error(`Recruitment request ${params.recruitmentRequest.requestNo} does not exist in Firestore.`);
+        }
+        if (workerSnap.exists()) {
+          throw new Error(`Duplicate employee ID blocked: ${cleanWorker.id} already exists.`);
+        }
+
+        const liveReq = { ...(reqSnap.data() as RecruitmentRequestRecord), id: reqSnap.id };
+        const nextReq = computeNextReq(liveReq);
+        updatedReqResult = nextReq;
+
+        let taskRef: any = null;
+        let updatedTask: ErpTask | null = null;
+        if (liveReq.hrOnboardingTaskId) {
+          taskRef = doc(db!, "tasks", liveReq.hrOnboardingTaskId);
+          const taskSnap = await transaction.get(taskRef);
+          if (taskSnap.exists()) {
+            const existingTask = taskSnap.data() as ErpTask;
+            const isFilled = nextReq.hiredCount >= nextReq.requestedCount;
+            updatedTask = sanitizeForFirestore({
+              ...existingTask,
+              status: isFilled ? "Completed" : "In Progress",
+              completionPercentage: Math.min(
+                100,
+                Math.round((nextReq.hiredCount / Math.max(1, nextReq.requestedCount)) * 100)
+              ),
+              completionDate: isFilled ? nowIso.slice(0, 10) : existingTask.completionDate,
+              updatedAt: nowIso,
+              updatedById: params.actorUid,
+              updatedByName: params.actorName,
+            }) as ErpTask;
+          }
+        }
+
+        transaction.set(workerRef, { ...cleanWorker, serverReceivedAt: nowIso });
+        transaction.set(empRef, { ...cleanWorker, serverReceivedAt: nowIso });
+        transaction.set(profRef, { ...cleanProfile, serverReceivedAt: nowIso });
+        transaction.set(reqRef, { ...nextReq, serverReceivedAt: nowIso }, { merge: true });
+        transaction.set(auditRef, { ...cleanAudit, serverReceivedAt: nowIso });
+        if (taskRef && updatedTask) {
+          transaction.set(taskRef, { ...updatedTask, serverReceivedAt: nowIso }, { merge: true });
+        }
+      });
+
+      if (updatedReqResult) {
+        offlineEngine.updateCacheItem<Worker>("workers", cleanWorker, initialWorkers);
+        offlineEngine.updateCacheItem<Worker>("employees", cleanWorker, []);
+        offlineEngine.updateCacheItem<HrmPrivateProfileRecord>("hrmPrivateProfiles", cleanProfile, []);
+        offlineEngine.updateCacheItem<RecruitmentRequestRecord>("recruitmentRequests", updatedReqResult, []);
+        offlineEngine.updateCacheItem<AuditLog>("auditLogs", cleanAudit, initialAuditLogs);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("workers_updated"));
+        }
+        return updatedReqResult;
+      }
+    }
+
+    // Offline / local unit test atomic path
+    const cachedReqs = offlineEngine.getCache<RecruitmentRequestRecord>("recruitmentRequests", []);
+    const liveReq =
+      cachedReqs.find((r) => r.id === params.recruitmentRequest.id) || params.recruitmentRequest;
+    const nextReq = computeNextReq(liveReq);
+
+    offlineEngine.updateCacheItem<Worker>("workers", cleanWorker, initialWorkers);
+    offlineEngine.updateCacheItem<Worker>("employees", cleanWorker, []);
+    offlineEngine.updateCacheItem<HrmPrivateProfileRecord>("hrmPrivateProfiles", cleanProfile, []);
+    offlineEngine.updateCacheItem<RecruitmentRequestRecord>("recruitmentRequests", nextReq, []);
+    offlineEngine.updateCacheItem<AuditLog>("auditLogs", cleanAudit, initialAuditLogs);
+
+    if (params.onboardingTask) {
+      const isFilled = nextReq.hiredCount >= nextReq.requestedCount;
+      const updatedTask = sanitizeForFirestore({
+        ...params.onboardingTask,
+        status: isFilled ? "Completed" : "In Progress",
+        completionPercentage: Math.min(
+          100,
+          Math.round((nextReq.hiredCount / Math.max(1, nextReq.requestedCount)) * 100)
+        ),
+        completionDate: isFilled ? nowIso.slice(0, 10) : params.onboardingTask.completionDate,
+        updatedAt: nowIso,
+        updatedById: params.actorUid,
+        updatedByName: params.actorName,
+      }) as ErpTask;
+      offlineEngine.updateCacheItem<ErpTask>("tasks", updatedTask, initialErpTasks);
+    }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("workers_updated"));
+    }
+    return nextReq;
+  },
+
+  async decideExcessRecruitmentAtomic(params: {
+    excessRequest: ExcessRecruitmentRequestRecord;
+    recruitmentRequest: RecruitmentRequestRecord;
+    decision: "Approved" | "Rejected";
+    actorName: string;
+    actorUid: string;
+    actorRole: string;
+    notes: string;
+    auditLog: AuditLog;
+  }): Promise<{ updatedExcess: ExcessRecruitmentRequestRecord; updatedRecruitment: RecruitmentRequestRecord }> {
+    const nowIso = new Date().toISOString();
+    const cleanAudit = sanitizeForFirestore(params.auditLog) as AuditLog;
+
+    const computeUpdates = (
+      liveExcess: ExcessRecruitmentRequestRecord,
+      liveReq: RecruitmentRequestRecord
+    ) => {
+      if (liveExcess.status !== "Pending Director") {
+        throw new Error(`Excess request ${liveExcess.requestNo} has already been decided (${liveExcess.status}).`);
+      }
+      const stepLog = {
+        stage: "Director Excess Approval",
+        actorName: params.actorName,
+        actorRole: params.actorRole,
+        actorUid: params.actorUid,
+        decision: params.decision,
+        timestamp: nowIso,
+        notes: params.notes,
+      };
+
+      const updatedExcess: ExcessRecruitmentRequestRecord = sanitizeForFirestore({
+        ...liveExcess,
+        status: params.decision,
+        directorDecisionBy: params.actorName,
+        directorDecisionById: params.actorUid,
+        directorDecisionRole: params.actorRole,
+        directorDecisionAt: nowIso,
+        directorNotes: params.notes,
+        auditHistory: [...(liveExcess.auditHistory || []), stepLog],
+        updatedAt: nowIso,
+      }) as ExcessRecruitmentRequestRecord;
+
+      if (params.decision === "Approved") {
+        const prevQty = Number(liveReq.requestedCount || 0);
+        const nextQty = prevQty + Number(liveExcess.excessCount || 0);
+        const hiredNow = Number(liveReq.hiredCount || 0);
+        const nextRemaining = Math.max(0, nextQty - hiredNow);
+        const fillStatus: "Open" | "Partially Filled" | "Filled" =
+          hiredNow === 0 ? "Open" : hiredNow >= nextQty ? "Filled" : "Partially Filled";
+        const updatedRecruitment: RecruitmentRequestRecord = sanitizeForFirestore({
+          ...liveReq,
+          approvedRequestedCount: liveReq.approvedRequestedCount ?? prevQty,
+          excessApprovedAdded: (liveReq.excessApprovedAdded || 0) + Number(liveExcess.excessCount || 0),
+          requestedCount: nextQty,
+          exceedsManpowerLimit: true,
+          excessCount: (liveReq.excessApprovedAdded || 0) + Number(liveExcess.excessCount || 0),
+          excessApprovalStatus: "Approved",
+          workflowStage: "Approved",
+          status: "Approved",
+          hrRegistrationAuthorized: true,
+          remainingVacanciesSnapshot: nextRemaining,
+          recruitmentFillStatus: fillStatus,
+          directorExcessApproval: stepLog,
+          stageSummary: `Excess +${liveExcess.excessCount} Approved by Director (${hiredNow}/${nextQty} filled)`,
+          approvalHistory: [
+            ...(liveReq.approvalHistory || []),
+            {
+              ...stepLog,
+              notes: `Approved excess +${liveExcess.excessCount} via ${liveExcess.requestNo} (New authorized qty: ${nextQty}). ${params.notes}`,
+            },
+          ],
+          updatedAt: nowIso,
+        }) as RecruitmentRequestRecord;
+        return { updatedExcess, updatedRecruitment };
+      }
+
+      const updatedRecruitment: RecruitmentRequestRecord = sanitizeForFirestore({
+        ...liveReq,
+        excessApprovalStatus: "Rejected",
+        directorExcessApproval: stepLog,
+        approvalHistory: [
+          ...(liveReq.approvalHistory || []),
+          {
+            ...stepLog,
+            notes: `Rejected excess +${liveExcess.excessCount} via ${liveExcess.requestNo}. ${params.notes}`,
+          },
+        ],
+        updatedAt: nowIso,
+      }) as RecruitmentRequestRecord;
+      return { updatedExcess, updatedRecruitment };
+    };
+
+    if (canQueryFirestore() && db) {
+      let result: { updatedExcess: ExcessRecruitmentRequestRecord; updatedRecruitment: RecruitmentRequestRecord } | null = null;
+      await runTransaction(db, async (transaction) => {
+        const excRef = doc(db!, "excessRecruitmentRequests", params.excessRequest.id);
+        const reqRef = doc(db!, "recruitmentRequests", params.recruitmentRequest.id);
+        const auditRef = doc(db!, "auditLogs", cleanAudit.id);
+
+        const [excSnap, reqSnap] = await Promise.all([
+          transaction.get(excRef),
+          transaction.get(reqRef),
+        ]);
+        if (!excSnap.exists()) {
+          throw new Error(`Excess request ${params.excessRequest.requestNo} not found.`);
+        }
+        if (!reqSnap.exists()) {
+          throw new Error(`Parent recruitment request ${params.recruitmentRequest.requestNo} not found.`);
+        }
+        const liveExcess = { ...(excSnap.data() as ExcessRecruitmentRequestRecord), id: excSnap.id };
+        const liveReq = { ...(reqSnap.data() as RecruitmentRequestRecord), id: reqSnap.id };
+        result = computeUpdates(liveExcess, liveReq);
+
+        let dirTaskRef: any = null;
+        let updatedDirTask: ErpTask | null = null;
+        if (liveExcess.directorTaskId) {
+          dirTaskRef = doc(db!, "tasks", liveExcess.directorTaskId);
+          const dirTaskSnap = await transaction.get(dirTaskRef);
+          if (dirTaskSnap.exists()) {
+            const t = dirTaskSnap.data() as ErpTask;
+            updatedDirTask = sanitizeForFirestore({
+              ...t,
+              status: params.decision === "Approved" ? "Completed" : "Rejected",
+              completionPercentage: params.decision === "Approved" ? 100 : 0,
+              completionDate: nowIso.slice(0, 10),
+              updatedAt: nowIso,
+              updatedById: params.actorUid,
+              updatedByName: params.actorName,
+            }) as ErpTask;
+          }
+        }
+
+        transaction.set(excRef, { ...result.updatedExcess, serverReceivedAt: nowIso }, { merge: true });
+        transaction.set(reqRef, { ...result.updatedRecruitment, serverReceivedAt: nowIso }, { merge: true });
+        transaction.set(auditRef, { ...cleanAudit, serverReceivedAt: nowIso });
+        if (dirTaskRef && updatedDirTask) {
+          transaction.set(dirTaskRef, { ...updatedDirTask, serverReceivedAt: nowIso }, { merge: true });
+        }
+      });
+
+      if (result) {
+        offlineEngine.updateCacheItem<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", result.updatedExcess, []);
+        offlineEngine.updateCacheItem<RecruitmentRequestRecord>("recruitmentRequests", result.updatedRecruitment, []);
+        offlineEngine.updateCacheItem<AuditLog>("auditLogs", cleanAudit, initialAuditLogs);
+        return result;
+      }
+    }
+
+    const cachedExc = offlineEngine.getCache<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", []);
+    const cachedReq = offlineEngine.getCache<RecruitmentRequestRecord>("recruitmentRequests", []);
+    const liveExcess = cachedExc.find((e) => e.id === params.excessRequest.id) || params.excessRequest;
+    const liveReq = cachedReq.find((r) => r.id === params.recruitmentRequest.id) || params.recruitmentRequest;
+    const res = computeUpdates(liveExcess, liveReq);
+    offlineEngine.updateCacheItem<ExcessRecruitmentRequestRecord>("excessRecruitmentRequests", res.updatedExcess, []);
+    offlineEngine.updateCacheItem<RecruitmentRequestRecord>("recruitmentRequests", res.updatedRecruitment, []);
+    offlineEngine.updateCacheItem<AuditLog>("auditLogs", cleanAudit, initialAuditLogs);
+    return res;
   },
 
   // 3) workSchedules

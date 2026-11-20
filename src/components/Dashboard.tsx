@@ -27,6 +27,7 @@ import {
   AluminumFormworkPanel,
   PanelMovementLog,
   RecruitmentRequestRecord,
+  ExcessRecruitmentRequestRecord,
   ErpTask,
 } from "../types";
 import { BiometricHeatmap } from "./BiometricHeatmap";
@@ -55,6 +56,7 @@ interface DashboardProps {
   panelMovementLogs?: PanelMovementLog[];
   onAddAttendance?: (record: AttendanceRecord) => void;
   recruitmentRequests?: RecruitmentRequestRecord[];
+  excessRecruitmentRequests?: ExcessRecruitmentRequestRecord[];
   erpTasks?: ErpTask[];
 }
 
@@ -74,9 +76,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
   panelMovementLogs = [],
   onAddAttendance,
   recruitmentRequests: propRecruitmentRequests,
+  excessRecruitmentRequests: propExcessRecruitmentRequests,
   erpTasks: propErpTasks,
 }) => {
   const [liveRecRequests, setLiveRecRequests] = useState<RecruitmentRequestRecord[]>([]);
+  const [liveExcessRequests, setLiveExcessRequests] = useState<ExcessRecruitmentRequestRecord[]>([]);
   const [liveErpTasks, setLiveErpTasks] = useState<ErpTask[]>([]);
 
   useEffect(() => {
@@ -86,12 +90,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
   }, [propRecruitmentRequests]);
 
   useEffect(() => {
+    if (propExcessRecruitmentRequests !== undefined || !isFirebaseReady || !db) return;
+    const unsub = DbService.subscribeExcessRecruitmentRequests(setLiveExcessRequests);
+    return () => unsub();
+  }, [propExcessRecruitmentRequests]);
+
+  useEffect(() => {
     if (propErpTasks !== undefined || !isFirebaseReady || !db) return;
     const unsub = DbService.subscribeTasks(setLiveErpTasks);
     return () => unsub();
   }, [propErpTasks]);
 
   const recruitmentRequests = propRecruitmentRequests ?? liveRecRequests;
+  const excessRecruitmentRequests = propExcessRecruitmentRequests ?? liveExcessRequests;
   const erpTasks = propErpTasks ?? liveErpTasks;
   const actorUid = currentUserProfile?.uid || currentUserProfile?.id || String(currentUserRole);
   const hrmPerms = useMemo(() => resolveHrmPermissions(currentUserRole), [currentUserRole]);
@@ -132,7 +143,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
         const isHrmCategory =
           task.category === "HRM Recruitment Approval" ||
           task.category === "HRM Recruitment Correction" ||
-          task.category === "HRM Employee Registration";
+          task.category === "HRM Employee Registration" ||
+          task.category === "HRM Excess Recruitment Approval";
         if (!isHrmCategory) return false;
         const matchesUser =
           (Array.isArray(task.assignedToUserIds) && task.assignedToUserIds.includes(actorUid)) ||
@@ -147,6 +159,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         return matchesUser || matchesRole || currentUserRole === UserRole.SUPER_ADMIN;
       }),
     [erpTasks, actorUid, currentUserRole]
+  );
+
+  const pendingExcessRequests = useMemo(
+    () =>
+      hrmPerms.canApproveDirectorStage
+        ? excessRecruitmentRequests.filter((e) => e.status === "Pending Director")
+        : [],
+    [excessRecruitmentRequests, hrmPerms.canApproveDirectorStage]
   );
   // Compute Stats
   const totalWorkers = workers.length;
@@ -732,7 +752,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </div>
 
       {/* PENDING DEPARTMENT MANPOWER & RECRUITMENT TASKS */}
-      {(pendingDepartmentRecruitments.length > 0 || pendingDepartmentRecTasks.length > 0) && (
+      {(pendingDepartmentRecruitments.length > 0 ||
+        pendingExcessRequests.length > 0 ||
+        pendingDepartmentRecTasks.length > 0) && (
         <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-3">
             <div className="flex items-center gap-2.5">
@@ -742,13 +764,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <div>
                 <h2 className="text-sm font-extrabold text-slate-900">
                   {isAmharic
-                    ? `የክፍልዎ የሰው ኃይል እና የቅጥር ተግባራት (${pendingDepartmentRecruitments.length + pendingDepartmentRecTasks.length})`
-                    : `Pending Department Manpower & Recruitment Tasks (${pendingDepartmentRecruitments.length})`}
+                    ? `የክፍልዎ የሰው ኃይል እና የቅጥር ተግባራት (${pendingDepartmentRecruitments.length + pendingExcessRequests.length + pendingDepartmentRecTasks.length})`
+                    : `Pending Department Manpower & Recruitment Tasks (${pendingDepartmentRecruitments.length + pendingExcessRequests.length})`}
                 </h2>
                 <p className="text-[11px] text-slate-500">
                   {isAmharic
                     ? "በክፍልዎ ደረጃ ማጽደቅ፣ ማስተካከል ወይም የሠራተኛ ምዝገባ የሚጠባበቁ የቅጥር ጥያቄዎች"
-                    : `Actionable recruitment stages, returned requests, and onboarding tasks assigned to ${currentUserRole}`}
+                    : `Actionable recruitment stages, excess manpower alerts, returned requests, and onboarding tasks assigned to ${currentUserRole}`}
                 </p>
               </div>
             </div>
@@ -763,9 +785,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {pendingExcessRequests.map((exc) => (
+              <div
+                key={`dept-exc-${exc.id}`}
+                className="p-3.5 rounded-xl border border-rose-300 bg-rose-50/80 text-xs space-y-2 shadow-2xs"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono font-extrabold text-rose-900">{exc.requestNo}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-600 text-white">
+                    EXCESS RECRUITMENT ALERT
+                  </span>
+                </div>
+                <div className="font-bold text-rose-950">
+                  +{exc.excessCount}x {exc.jobPosition} · {exc.project}
+                </div>
+                <div className="text-[11px] text-rose-800">
+                  Ref: {exc.recruitmentRequestNo} ({exc.registeredCountSnapshot}/{exc.approvedQuantitySnapshot} filled) · Dept: {exc.department}
+                </div>
+                <div className="text-[11px] text-rose-700 line-clamp-2">{exc.justification}</div>
+                <button
+                  type="button"
+                  onClick={() => navigateTarget("hrmEnterprise:recruitment")}
+                  className="w-full py-1.5 rounded-lg bg-rose-700 hover:bg-rose-800 text-white text-[11px] font-bold cursor-pointer"
+                >
+                  Review Excess Request (Director)
+                </button>
+              </div>
+            ))}
             {pendingDepartmentRecruitments.map((req) => {
               const isReturned = req.workflowStage === "Returned for Correction";
               const isHrReady = req.workflowStage === "Approved" && req.hrRegistrationAuthorized;
+              const registered = Number(req.hiredCount || 0);
+              const approved = Number(req.requestedCount || 0);
               return (
                 <div
                   key={`dept-rec-${req.id}`}
@@ -798,8 +849,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   <div className="font-bold text-slate-800">
                     {req.requestedCount}x {req.jobPosition} · {req.project}
                   </div>
-                  <div className="text-[11px] text-slate-600">
-                    Dept: {req.department} · Requested by {req.requestedBy}
+                  <div className="text-[11px] text-slate-600 flex items-center justify-between gap-2">
+                    <span>
+                      Dept: {req.department} · Requested by {req.requestedBy}
+                    </span>
+                    {isHrReady && (
+                      <span className="font-bold text-emerald-800 whitespace-nowrap">
+                        {registered}/{approved} Registered
+                      </span>
+                    )}
                   </div>
                   {req.stageSummary && (
                     <div className="text-[11px] text-slate-500 truncate">{req.stageSummary}</div>
@@ -819,6 +877,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               );
             })}
             {pendingDepartmentRecruitments.length === 0 &&
+              pendingExcessRequests.length === 0 &&
               pendingDepartmentRecTasks.map((task) => (
                 <div
                   key={`dept-task-${task.id}`}

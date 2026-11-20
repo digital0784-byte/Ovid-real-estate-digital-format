@@ -3,18 +3,21 @@ import {
   ActualCostEntry,
   AttendanceDeductionPolicy,
   AttendanceRecord,
+  AuditLog,
   BankTransactionRecord,
   EmployeeTransferRecord,
   ErpTask,
   ErpTaskEvidence,
   EthiopianTaxBracket,
   EthiopianTaxPensionConfig,
+  ExcessRecruitmentRequestRecord,
   Expense,
   FinancialAccount,
   HrmPayrollLineItem,
   HrmPayrollRunRecord,
   HrmPayrollRunStage,
   HrmPayslipRecord,
+  HrmPrivateProfileRecord,
   HrmWorkflowStepLog,
   JournalEntryLine,
   JournalEntryRecord,
@@ -32,7 +35,7 @@ import {
 } from "../types";
 import { DbService } from "./db";
 import { safeString } from "../utils/formatters";
-import { buildMaskedPreview } from "../utils/cryptoPii";
+import { buildMaskedPreview, hashSensitiveIdentifier } from "../utils/cryptoPii";
 
 const round2 = (n: number): number => Math.round((Number(n || 0) + Number.EPSILON) * 100) / 100;
 
@@ -100,6 +103,14 @@ export interface HrmDashboardState {
   totalActualHired: number;
   totalRemainingVacancies: number;
   excessRecruitmentCount: number;
+  totalManpowerRequests: number;
+  approvedRecruitmentRequests: number;
+  rejectedRecruitmentRequests: number;
+  returnedRecruitmentRequests: number;
+  totalApprovedManpowerQty: number;
+  registeredEmployeesFromRequests: number;
+  remainingRecruitmentVacancies: number;
+  pendingExcessRequestsCount: number;
   attendanceSummaryRows: HrmAttendanceSummaryRow[];
   projectLaborSummaries: ProjectLaborCostSummary[];
   totalPayrollNetYtd: number;
@@ -935,22 +946,26 @@ async function dispatchRecruitmentStageNotification(params: {
     await DbService.addNotification({
       ...basePayload,
       id: params.id,
+      userId: params.targetUserIds[0],
       targetUserId: params.targetUserIds[0],
     }).catch(() => {});
     for (let i = 1; i < params.targetUserIds.length; i += 1) {
       await DbService.addNotification({
         ...basePayload,
         id: `${params.id}-U${i}`,
+        userId: params.targetUserIds[i],
         targetUserId: params.targetUserIds[i],
       }).catch(() => {});
     }
     return;
   }
 
+  const resolvedUserId = params.targetUserId ?? params.targetUserIds?.[0];
   await DbService.addNotification({
     ...basePayload,
     id: params.id,
-    targetUserId: params.targetUserId ?? params.targetUserIds?.[0],
+    userId: resolvedUserId,
+    targetUserId: resolvedUserId,
   }).catch(() => {});
 }
 
@@ -1010,6 +1025,7 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
   qualificationsRequired: string;
   justification: string;
   supportingDocuments?: RecruitmentSupportingDocument[];
+  idempotencyKey?: string;
   actorName: string;
   actorUid: string;
   actorRole: UserRole | string;
@@ -1032,6 +1048,28 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
   }
   if (!safeString(params.qualificationsRequired).trim() || !safeString(params.justification).trim()) {
     throw new Error("Required qualifications and reason for recruitment are mandatory.");
+  }
+
+  // Duplicate submission / idempotency protection
+  const norm = (s?: string) => safeString(s).trim().toLowerCase();
+  const duplicateRequest = (params.existingRequests || []).find((existing) => {
+    if (params.idempotencyKey && existing.idempotencyKey && existing.idempotencyKey === params.idempotencyKey) {
+      return true;
+    }
+    if (existing.status !== "Pending") return false;
+    return (
+      norm(existing.project) === norm(params.project) &&
+      norm(existing.department) === norm(params.department) &&
+      norm(existing.jobPosition) === norm(params.jobPosition) &&
+      norm(existing.requestedById) === norm(params.actorUid) &&
+      Number(existing.requestedCount) === Number(params.requestedCount) &&
+      norm(existing.justification) === norm(params.justification)
+    );
+  });
+  if (duplicateRequest) {
+    throw new Error(
+      `Duplicate submission blocked: An identical active request (${duplicateRequest.requestNo}) is already pending at "${duplicateRequest.workflowStage}".`
+    );
   }
 
   const summaryRows = computeManpowerSummary({
@@ -1131,7 +1169,13 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
     department: params.department,
     jobPosition: params.jobPosition,
     requestedCount: params.requestedCount,
+    approvedRequestedCount: params.requestedCount,
+    excessApprovedAdded: 0,
     hiredCount: 0,
+    recruitmentFillStatus: "Open",
+    hiredWorkerIds: [],
+    hiredEmployeeIds: [],
+    idempotencyKey: params.idempotencyKey,
     employmentType: params.employmentType,
     urgency: params.urgency,
     requiredByDate: params.requiredByDate,
@@ -1164,6 +1208,18 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
   };
 
   await DbService.saveRecruitmentRequest(record);
+  await DbService.addAuditLog({
+    id: `AUD-REC-SUB-${record.id}`,
+    timestamp: nowIso,
+    userId: params.actorUid,
+    userName: params.actorName,
+    role: params.actorRole,
+    userRole: String(params.actorRole),
+    action: "HRM_RECRUITMENT_REQUEST_SUBMITTED",
+    details: `${reqNo}: Requested ${params.requestedCount}x ${params.jobPosition} for ${params.project}/${params.department}. ${exceedsLimit ? `Exceeds manpower quota by +${excessCount}.` : "Within quota."}`,
+    severity: exceedsLimit ? "WARNING" : "INFO",
+    category: "HRM Recruitment",
+  }).catch(() => {});
 
   // Automatic Stage 2 routing notification to HR Manager
   await dispatchRecruitmentStageNotification({
@@ -1530,6 +1586,24 @@ export async function advanceRecruitmentApproval(params: {
     status: nextStatus,
     excessApprovalStatus: nextExcessStatus,
     hrRegistrationAuthorized: hrAuthorized,
+    approvedRequestedCount:
+      nextStage === "Approved"
+        ? request.approvedRequestedCount ?? request.requestedCount
+        : request.approvedRequestedCount,
+    recruitmentFillStatus:
+      nextStage === "Approved"
+        ? (request.hiredCount || 0) >= request.requestedCount
+          ? "Filled"
+          : (request.hiredCount || 0) > 0
+          ? "Partially Filled"
+          : "Open"
+        : request.recruitmentFillStatus,
+    remainingVacanciesSnapshot:
+      nextStage === "Approved"
+        ? Math.max(0, request.requestedCount - (request.hiredCount || 0))
+        : request.remainingVacanciesSnapshot,
+    hiredWorkerIds: request.hiredWorkerIds || [],
+    hiredEmployeeIds: request.hiredEmployeeIds || [],
     hrOnboardingTaskId: onboardingTaskId,
     hrOnboardingTaskCreatedAt: onboardingTaskCreatedAt,
     currentStageTaskId: nextStageTaskId,
@@ -1541,6 +1615,18 @@ export async function advanceRecruitmentApproval(params: {
   };
 
   await DbService.saveRecruitmentRequest(updated);
+  await DbService.addAuditLog({
+    id: `AUD-REC-STG-${request.id}-${Date.now()}`,
+    timestamp: nowIso,
+    userId: actorUid || actorName,
+    userName: actorName,
+    role: actorRole,
+    userRole: String(actorRole),
+    action: `HRM_RECRUITMENT_${decision.toUpperCase()}`,
+    details: `${request.requestNo}: Stage "${request.workflowStage}" -> "${nextStage}" (${decision}). ${trimmedNotes || "No remarks"}`,
+    severity: "INFO",
+    category: "HRM Recruitment",
+  }).catch(() => {});
 
   // Dispatch automatic notifications to the next approver or final stakeholders
   if (nextStage === "Pending Office Manager") {
@@ -1842,39 +1928,619 @@ export async function resubmitReturnedRecruitmentRequest(params: {
   return updated;
 }
 
+export function getRecruitmentFillStatus(req: Pick<RecruitmentRequestRecord, "requestedCount" | "hiredCount">): {
+  approvedQty: number;
+  registeredCount: number;
+  remainingVacancies: number;
+  fillStatus: "Open" | "Partially Filled" | "Filled";
+} {
+  const approvedQty = Math.max(0, Number(req.requestedCount || 0));
+  const registeredCount = Math.max(0, Number(req.hiredCount || 0));
+  const remainingVacancies = Math.max(0, approvedQty - registeredCount);
+  const fillStatus: "Open" | "Partially Filled" | "Filled" =
+    registeredCount >= approvedQty && approvedQty > 0
+      ? "Filled"
+      : registeredCount > 0
+      ? "Partially Filled"
+      : "Open";
+  return { approvedQty, registeredCount, remainingVacancies, fillStatus };
+}
+
+export function normalizePhoneForDuplicateCheck(phone?: string): string {
+  const digits = safeString(phone).replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("251") && digits.length >= 12) return digits.slice(3);
+  if (digits.startsWith("0") && digits.length >= 10) return digits.slice(1);
+  return digits;
+}
+
+export async function checkDuplicateEmployeeRegistration(params: {
+  employeeId?: string;
+  phoneNumber?: string;
+  faydaId?: string;
+  nationalId?: string;
+  name?: string;
+  dateOfBirth?: string;
+  ignoreWorkerId?: string;
+  existingWorkers: Worker[];
+  existingPrivateProfiles?: HrmPrivateProfileRecord[];
+}): Promise<{ isDuplicate: boolean; reason?: string; matchedWorkerId?: string; field?: string }> {
+  const targetEmpId = safeString(params.employeeId).trim().toUpperCase();
+  const targetPhoneNorm = normalizePhoneForDuplicateCheck(params.phoneNumber);
+  const targetNameNorm = safeString(params.name).trim().replace(/\s+/g, " ").toLowerCase();
+  const targetDob = safeString(params.dateOfBirth).trim();
+  const [faydaHash, nationalHash, phoneHash] = await Promise.all([
+    hashSensitiveIdentifier(params.faydaId),
+    hashSensitiveIdentifier(params.nationalId),
+    targetPhoneNorm ? hashSensitiveIdentifier(targetPhoneNorm) : Promise.resolve(""),
+  ]);
+
+  for (const w of params.existingWorkers || []) {
+    if (!w || (params.ignoreWorkerId && w.id === params.ignoreWorkerId)) continue;
+    const wEmp = safeString(w.employeeId || w.id).trim().toUpperCase();
+    if (targetEmpId && (wEmp === targetEmpId || safeString(w.id).trim().toUpperCase() === targetEmpId)) {
+      return {
+        isDuplicate: true,
+        field: "employeeId",
+        matchedWorkerId: w.id,
+        reason: `Duplicate Employee ID blocked: ${targetEmpId} is already assigned to ${w.name}.`,
+      };
+    }
+    const wPhoneNorm = normalizePhoneForDuplicateCheck(w.phoneNumber);
+    if (targetPhoneNorm && wPhoneNorm && targetPhoneNorm === wPhoneNorm) {
+      return {
+        isDuplicate: true,
+        field: "phoneNumber",
+        matchedWorkerId: w.id,
+        reason: `Duplicate phone number blocked: "${params.phoneNumber}" already belongs to ${w.name} (${w.employeeId || w.id}).`,
+      };
+    }
+    const wNameNorm = safeString(w.name).trim().replace(/\s+/g, " ").toLowerCase();
+    const wDob = safeString(w.dateOfBirth).trim();
+    if (targetNameNorm && targetDob && wNameNorm === targetNameNorm && wDob === targetDob) {
+      return {
+        isDuplicate: true,
+        field: "name+dateOfBirth",
+        matchedWorkerId: w.id,
+        reason: `Duplicate employee blocked: "${w.name}" (DOB ${wDob}) is already registered as ${w.employeeId || w.id}.`,
+      };
+    }
+  }
+
+  for (const prof of params.existingPrivateProfiles || []) {
+    if (!prof || (params.ignoreWorkerId && prof.workerId === params.ignoreWorkerId)) continue;
+    if (faydaHash && prof.faydaIdHash && prof.faydaIdHash === faydaHash) {
+      return {
+        isDuplicate: true,
+        field: "faydaId",
+        matchedWorkerId: prof.workerId,
+        reason: `Duplicate Fayda ID blocked: This Fayda ID is already registered to employee ${prof.employeeId || prof.workerId}.`,
+      };
+    }
+    if (nationalHash && prof.nationalIdHash && prof.nationalIdHash === nationalHash) {
+      return {
+        isDuplicate: true,
+        field: "nationalId",
+        matchedWorkerId: prof.workerId,
+        reason: `Duplicate National ID blocked: This ID is already registered to employee ${prof.employeeId || prof.workerId}.`,
+      };
+    }
+    if (phoneHash && prof.phoneNormalizedHash && prof.phoneNormalizedHash === phoneHash) {
+      return {
+        isDuplicate: true,
+        field: "phoneNumber",
+        matchedWorkerId: prof.workerId,
+        reason: `Duplicate phone number blocked: Phone matches existing private profile for ${prof.employeeId || prof.workerId}.`,
+      };
+    }
+  }
+
+  return { isDuplicate: false };
+}
+
 export function validateEmployeeRegistrationAuthorization(params: {
   role: UserRole | string;
   recruitmentRequest?: RecruitmentRequestRecord | null;
-}): { allowed: boolean; reason?: string } {
+}): {
+  allowed: boolean;
+  reason?: string;
+  excessDetected?: boolean;
+  approvedQty: number;
+  registeredCount: number;
+  remainingVacancies: number;
+} {
   const perms = resolveHrmPermissions(params.role);
+  const req = params.recruitmentRequest;
+  const stats = req
+    ? getRecruitmentFillStatus(req)
+    : { approvedQty: 0, registeredCount: 0, remainingVacancies: 0, fillStatus: "Open" as const };
+
   if (!perms.canRegisterApprovedEmployees) {
     return {
       allowed: false,
+      excessDetected: false,
+      ...stats,
       reason:
         "Employee registration is strictly restricted to HR Manager / HR after Director final approval.",
     };
   }
-  const req = params.recruitmentRequest;
   if (!req) {
     return {
       allowed: false,
+      excessDetected: false,
+      ...stats,
       reason:
         "A Director-approved Manpower Recruitment Request is required before registering a new employee.",
     };
   }
-  if (req.workflowStage !== "Approved" || req.status !== "Approved" || !req.hrRegistrationAuthorized) {
+  const isApprovedOrFulfilled =
+    (req.workflowStage === "Approved" || req.workflowStage === "Fulfilled") &&
+    (req.status === "Approved" || req.status === "Fulfilled") &&
+    Boolean(req.hrRegistrationAuthorized);
+
+  if (!isApprovedOrFulfilled) {
     return {
       allowed: false,
+      excessDetected: false,
+      ...stats,
       reason: `Cannot register employee: Request ${req.requestNo} is at stage "${req.workflowStage}" and has not received Director final approval.`,
     };
   }
-  if ((req.hiredCount || 0) >= req.requestedCount) {
+  if (stats.registeredCount >= stats.approvedQty) {
     return {
       allowed: false,
-      reason: `All ${req.requestedCount} approved positions in ${req.requestNo} have already been registered.`,
+      excessDetected: true,
+      ...stats,
+      reason: `Excess Recruitment Blocked: All ${stats.approvedQty} Director-approved positions in ${req.requestNo} (${stats.registeredCount}/${stats.approvedQty}) are already registered. Submit an Additional Excess Approval Request to Director before registering more employees.`,
     };
   }
-  return { allowed: true };
+  return { allowed: true, excessDetected: false, ...stats };
+}
+
+export function generateNextExcessRecruitmentRequestNo(
+  existingExcessRequests: ExcessRecruitmentRequestRecord[] = [],
+  year = new Date().getFullYear()
+): string {
+  const used = new Set<string>();
+  let maxSeq = 0;
+  const regex = new RegExp(`ERR-${year}-(\\d+)`, "i");
+  (existingExcessRequests || []).forEach((r) => {
+    if (!r) return;
+    const code = safeString(r.requestNo).trim().toUpperCase();
+    if (code) {
+      used.add(code);
+      const m = code.match(regex);
+      if (m && m[1]) {
+        const n = parseInt(m[1], 10);
+        if (!isNaN(n) && n > maxSeq) maxSeq = n;
+      }
+    }
+  });
+  let seq = Math.max(maxSeq + 1, (existingExcessRequests || []).length + 1, 1);
+  let candidate = `ERR-${year}-${String(seq).padStart(4, "0")}`;
+  while (used.has(candidate.toUpperCase())) {
+    seq += 1;
+    candidate = `ERR-${year}-${String(seq).padStart(4, "0")}`;
+  }
+  return candidate;
+}
+
+export async function recordExcessRegistrationAttemptAlert(params: {
+  recruitmentRequest: RecruitmentRequestRecord;
+  candidateName?: string;
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  users?: HrmRoutingUser[];
+}): Promise<void> {
+  const req = params.recruitmentRequest;
+  const nowIso = new Date().toISOString();
+  const routingUsers = await resolveRoutingUsersList(params.users);
+  const matchedDirs = resolveAuthorizedUsersForRoles(
+    [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+    routingUsers
+  );
+  const candidateLabel = safeString(params.candidateName).trim()
+    ? ` for candidate "${safeString(params.candidateName).trim()}"`
+    : "";
+
+  await DbService.addAuditLog({
+    id: `AUD-ERR-BLK-${req.id}-${Date.now()}`,
+    timestamp: nowIso,
+    userId: params.actorUid,
+    userName: params.actorName,
+    role: params.actorRole,
+    userRole: String(params.actorRole),
+    action: "HRM_EXCESS_REGISTRATION_BLOCKED",
+    details: `Blocked attempt by ${params.actorName} to register employee${candidateLabel} beyond Director-approved quantity (${req.hiredCount || 0}/${req.requestedCount}) on ${req.requestNo} (${req.jobPosition} - ${req.project}).`,
+    severity: "CRITICAL",
+    category: "HRM Recruitment",
+  }).catch(() => {});
+
+  await dispatchRecruitmentStageNotification({
+    id: `HRM-ERR-BLK-${req.id}-${Date.now()}`,
+    type: "HRM Excess Recruitment Attempt Blocked",
+    title: `EXCESS REGISTRATION BLOCKED — ${req.requestNo}`,
+    titleAm: `ከተፈቀደው ብዛት በላይ የሠራተኛ ምዝገባ ታግዷል — ${req.requestNo}`,
+    message: `${params.actorName} attempted to register${candidateLabel} beyond Director-approved manpower (${req.hiredCount || 0}/${req.requestedCount}) for ${req.requestNo} (${req.jobPosition}, ${req.project}). Registration was automatically blocked pending Director Excess Approval.`,
+    priority: "Critical",
+    projectName: req.project,
+    sender: params.actorName,
+    senderRole: String(params.actorRole),
+    receiver: "Director",
+    targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+    targetUserIds: matchedDirs.ids,
+    actionTab: "hrmEnterprise:recruitment",
+  });
+}
+
+export async function submitExcessRecruitmentRequest(params: {
+  recruitmentRequest: RecruitmentRequestRecord;
+  excessCount: number;
+  justification: string;
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  existingExcessRequests?: ExcessRecruitmentRequestRecord[];
+  users?: HrmRoutingUser[];
+}): Promise<ExcessRecruitmentRequestRecord> {
+  const perms = resolveHrmPermissions(params.actorRole);
+  if (!perms.canRegisterApprovedEmployees) {
+    throw new Error(
+      `Authorization Error: Role "${params.actorRole}" cannot submit an Excess Recruitment Approval Request. Only HR Manager (or Super Admin) may request excess hiring.`
+    );
+  }
+  const req = params.recruitmentRequest;
+  if (req.status !== "Approved" && req.status !== "Fulfilled" && req.workflowStage !== "Approved" && req.workflowStage !== "Fulfilled") {
+    throw new Error(
+      `Cannot submit excess request: ${req.requestNo} must first receive Director Final Approval.`
+    );
+  }
+  const count = Math.floor(Number(params.excessCount || 0));
+  if (count < 1) {
+    throw new Error("Excess employee count must be at least 1.");
+  }
+  const reason = safeString(params.justification).trim();
+  if (!reason) {
+    throw new Error("Justification is mandatory when requesting excess recruitment approval.");
+  }
+  if (reason.length > 1000) {
+    throw new Error("Justification cannot exceed 1000 characters.");
+  }
+
+  const dupPending = (params.existingExcessRequests || []).find(
+    (e) =>
+      e.recruitmentRequestId === req.id &&
+      e.status === "Pending Director" &&
+      Number(e.excessCount) === count &&
+      safeString(e.justification).trim().toLowerCase() === reason.toLowerCase()
+  );
+  if (dupPending) {
+    throw new Error(
+      `Duplicate excess request blocked: ${dupPending.requestNo} is already pending Director approval.`
+    );
+  }
+
+  const nowIso = new Date().toISOString();
+  const id = `ERR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+  const reqNo = generateNextExcessRecruitmentRequestNo(params.existingExcessRequests);
+  const routingUsers = await resolveRoutingUsersList(params.users);
+  const matchedDirs = resolveAuthorizedUsersForRoles(
+    [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+    routingUsers
+  );
+
+  const dirTaskId = `TSK-ERR-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+  const dirTask: ErpTask = {
+    id: dirTaskId,
+    taskId: `TSK-${reqNo}`,
+    taskName: `Excess Recruitment Approval (${reqNo}): +${count}x ${req.jobPosition} (${req.project})`,
+    description: `HR Manager (${params.actorName}) attempted/requested registration beyond Director-approved quantity for ${req.requestNo} (${req.hiredCount || 0}/${req.requestedCount} filled). Additional requested: +${count}. Justification: ${reason}`,
+    projectId: req.project,
+    projectName: req.project,
+    siteName: req.project,
+    assignedToId: matchedDirs.ids[0],
+    assignedToUserIds: matchedDirs.ids,
+    assignedToName: matchedDirs.names.join(", ") || "Director",
+    assignedToRole: UserRole.DIRECTOR,
+    createdById: params.actorUid,
+    createdByName: params.actorName,
+    createdByRole: String(params.actorRole),
+    createdAt: nowIso,
+    dueDate: nowIso.slice(0, 10),
+    status: "Pending",
+    priority: "Critical",
+    updatedAt: nowIso,
+    category: "HRM Excess Recruitment Approval",
+    relatedRecruitmentId: req.id,
+    relatedRecruitmentNo: req.requestNo,
+    completionPercentage: 0,
+    notes: `Linked Request: ${req.requestNo} | Excess Request: ${reqNo} | Requested Additional Qty: +${count}`,
+  };
+  await DbService.addTask(dirTask).catch(() => {});
+
+  const initialLog: HrmWorkflowStepLog = {
+    stage: "Excess Recruitment Request Submitted",
+    actorName: params.actorName,
+    actorRole: String(params.actorRole),
+    actorUid: params.actorUid,
+    decision: "Submitted",
+    timestamp: nowIso,
+    notes: `Requested +${count} excess position(s) beyond approved ${req.requestedCount}. Justification: ${reason}`,
+  };
+
+  const excessRecord: ExcessRecruitmentRequestRecord = {
+    id,
+    requestNo: reqNo,
+    recruitmentRequestId: req.id,
+    recruitmentRequestNo: req.requestNo,
+    project: req.project,
+    department: req.department,
+    jobPosition: req.jobPosition,
+    approvedQuantitySnapshot: req.requestedCount,
+    registeredCountSnapshot: req.hiredCount || 0,
+    excessCount: count,
+    justification: reason,
+    requestedBy: params.actorName,
+    requestedById: params.actorUid,
+    requestedByRole: String(params.actorRole),
+    status: "Pending Director",
+    directorTaskId: dirTaskId,
+    auditHistory: [initialLog],
+    createdAt: nowIso,
+    updatedAt: nowIso,
+  };
+
+  await DbService.saveExcessRecruitmentRequest(excessRecord);
+
+  // Append excess status + audit note onto parent recruitment request
+  await DbService.saveRecruitmentRequest({
+    ...req,
+    exceedsManpowerLimit: true,
+    excessApprovalStatus: "Pending Director",
+    directorNotifiedAt: nowIso,
+    approvalHistory: [...(req.approvalHistory || []), initialLog],
+    updatedAt: nowIso,
+  });
+
+  await DbService.addAuditLog({
+    id: `AUD-ERR-SUB-${id}`,
+    timestamp: nowIso,
+    userId: params.actorUid,
+    userName: params.actorName,
+    role: params.actorRole,
+    userRole: String(params.actorRole),
+    action: "HRM_EXCESS_RECRUITMENT_REQUESTED",
+    details: `${reqNo} (+${count}x ${req.jobPosition} on ${req.requestNo}, ${req.project}): ${reason}`,
+    severity: "CRITICAL",
+    category: "HRM Recruitment",
+  }).catch(() => {});
+
+  await dispatchRecruitmentStageNotification({
+    id: `HRM-ERR-DIR-${id}`,
+    type: "HRM Excess Recruitment Alert",
+    title: `EXCESS RECRUITMENT ALERT — Director Approval Required: ${reqNo}`,
+    titleAm: `ከተፈቀደው ብዛት በላይ የቅጥር ማንቂያ — የዳይሬክተር ፈቃድ ያስፈልጋል (${reqNo})`,
+    message: `HR attempted registration beyond approved quantity (${req.hiredCount || 0}/${req.requestedCount}) for ${req.requestNo} (${req.jobPosition} - ${req.project}). Normal registration is BLOCKED. Excess request ${reqNo} (+${count}) requires Director approval.`,
+    priority: "Critical",
+    projectName: req.project,
+    sender: params.actorName,
+    senderRole: String(params.actorRole),
+    receiver: "Director",
+    targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+    targetUserIds: matchedDirs.ids,
+    actionTab: "hrmEnterprise:recruitment",
+  });
+
+  return excessRecord;
+}
+
+export async function decideExcessRecruitmentRequest(params: {
+  excessRequest: ExcessRecruitmentRequestRecord;
+  recruitmentRequest: RecruitmentRequestRecord;
+  decision: "Approved" | "Rejected";
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+  notes?: string;
+  users?: HrmRoutingUser[];
+}): Promise<{ updatedExcess: ExcessRecruitmentRequestRecord; updatedRecruitment: RecruitmentRequestRecord }> {
+  const perms = resolveHrmPermissions(params.actorRole);
+  if (!perms.canApproveDirectorStage) {
+    throw new Error(
+      `Authorization Error: Role "${params.actorRole}" cannot approve/reject Excess Recruitment Requests. ONLY Director may decide excess requests.`
+    );
+  }
+  const notes = safeString(params.notes).trim();
+  if (params.decision === "Rejected" && !notes) {
+    throw new Error("Decision comments are mandatory when rejecting an Excess Recruitment Request.");
+  }
+  if (notes.length > 1000) {
+    throw new Error("Decision comments cannot exceed 1000 characters.");
+  }
+
+  const nowIso = new Date().toISOString();
+  const auditLog: AuditLog = {
+    id: `AUD-ERR-DEC-${params.excessRequest.id}-${Date.now()}`,
+    timestamp: nowIso,
+    userId: params.actorUid,
+    userName: params.actorName,
+    role: params.actorRole,
+    userRole: String(params.actorRole),
+    action: params.decision === "Approved" ? "HRM_EXCESS_RECRUITMENT_APPROVED" : "HRM_EXCESS_RECRUITMENT_REJECTED",
+    details: `${params.excessRequest.requestNo} (+${params.excessRequest.excessCount} on ${params.excessRequest.recruitmentRequestNo}): ${params.decision}. ${notes || "Approved by Director"}`,
+    severity: params.decision === "Approved" ? "WARNING" : "INFO",
+    category: "HRM Recruitment",
+  };
+
+  const result = await DbService.decideExcessRecruitmentAtomic({
+    excessRequest: params.excessRequest,
+    recruitmentRequest: params.recruitmentRequest,
+    decision: params.decision,
+    actorName: params.actorName,
+    actorUid: params.actorUid,
+    actorRole: String(params.actorRole),
+    notes: notes || (params.decision === "Approved" ? "Director approved excess recruitment capacity." : "Rejected"),
+    auditLog,
+  });
+
+  const routingUsers = await resolveRoutingUsersList(params.users);
+  const matchedHr = resolveAuthorizedUsersForRoles([UserRole.HR_MANAGER, UserRole.HR], routingUsers);
+
+  await dispatchRecruitmentStageNotification({
+    id: `HRM-ERR-RES-${params.excessRequest.id}-${Date.now()}`,
+    type:
+      params.decision === "Approved"
+        ? "HRM Excess Recruitment Approved"
+        : "HRM Excess Recruitment Rejected",
+    title: `Excess Recruitment ${params.decision}: ${params.excessRequest.requestNo}`,
+    titleAm:
+      params.decision === "Approved"
+        ? `ተጨማሪ የቅጥር ጥያቄ በዳይሬክተር ጸድቋል: ${params.excessRequest.requestNo}`
+        : `ተጨማሪ የቅጥር ጥያቄ ውድቅ ተደርጓል: ${params.excessRequest.requestNo}`,
+    message:
+      params.decision === "Approved"
+        ? `Director (${params.actorName}) approved +${params.excessRequest.excessCount} excess position(s) for ${params.excessRequest.recruitmentRequestNo}. Authorized qty is now ${result.updatedRecruitment.requestedCount}. HR Manager may finalize registration.`
+        : `Director (${params.actorName}) rejected excess request ${params.excessRequest.requestNo} (+${params.excessRequest.excessCount}) for ${params.excessRequest.recruitmentRequestNo}. Excess registration remains BLOCKED. Reason: ${notes}`,
+    priority: params.decision === "Approved" ? "High" : "Critical",
+    projectName: params.excessRequest.project,
+    sender: params.actorName,
+    senderRole: String(params.actorRole),
+    receiver: "HR Manager",
+    targetRoles: [UserRole.HR_MANAGER, UserRole.HR],
+    targetUserId: params.excessRequest.requestedById,
+    targetUserIds: matchedHr.ids,
+    actionTab: "hrmEnterprise:recruitment",
+  });
+
+  return result;
+}
+
+export async function registerApprovedEmployeeFromRecruitment(params: {
+  recruitmentRequest: RecruitmentRequestRecord;
+  worker: Worker;
+  privateProfile: HrmPrivateProfileRecord;
+  existingWorkers: Worker[];
+  existingPrivateProfiles?: HrmPrivateProfileRecord[];
+  manpowerPlans: ManpowerPlanRecord[];
+  tasks: ErpTask[];
+  actorName: string;
+  actorUid: string;
+  actorRole: UserRole | string;
+}): Promise<{ updatedRequest: RecruitmentRequestRecord; exceededManpowerAlert: boolean }> {
+  const authCheck = validateEmployeeRegistrationAuthorization({
+    role: params.actorRole,
+    recruitmentRequest: params.recruitmentRequest,
+  });
+  if (!authCheck.allowed) {
+    throw new Error(authCheck.reason || "Not authorized to register employee from recruitment request.");
+  }
+
+  const dupCheck = await checkDuplicateEmployeeRegistration({
+    employeeId: params.worker.employeeId || params.worker.id,
+    phoneNumber: params.worker.phoneNumber,
+    faydaId: params.privateProfile.faydaIdEncrypted ? undefined : params.worker.faydaId,
+    nationalId: params.privateProfile.nationalIdEncrypted ? undefined : params.worker.nationalId,
+    name: params.worker.name,
+    dateOfBirth: params.worker.dateOfBirth,
+    existingWorkers: params.existingWorkers,
+    existingPrivateProfiles: params.existingPrivateProfiles,
+  });
+  // Also match deterministic hashes directly against existingPrivateProfiles
+  if (dupCheck.isDuplicate) {
+    throw new Error(dupCheck.reason || "Duplicate employee registration blocked.");
+  }
+  for (const prof of params.existingPrivateProfiles || []) {
+    if (
+      params.privateProfile.faydaIdHash &&
+      prof.faydaIdHash &&
+      prof.faydaIdHash === params.privateProfile.faydaIdHash
+    ) {
+      throw new Error(
+        `Duplicate Fayda ID blocked: Already registered to ${prof.employeeId || prof.workerId}.`
+      );
+    }
+    if (
+      params.privateProfile.nationalIdHash &&
+      prof.nationalIdHash &&
+      prof.nationalIdHash === params.privateProfile.nationalIdHash
+    ) {
+      throw new Error(
+        `Duplicate National ID blocked: Already registered to ${prof.employeeId || prof.workerId}.`
+      );
+    }
+    if (
+      params.privateProfile.phoneNormalizedHash &&
+      prof.phoneNormalizedHash &&
+      prof.phoneNormalizedHash === params.privateProfile.phoneNormalizedHash
+    ) {
+      throw new Error(
+        `Duplicate phone number blocked: Matches existing employee ${prof.employeeId || prof.workerId}.`
+      );
+    }
+  }
+
+  const nowIso = new Date().toISOString();
+  const onboardingTask = params.recruitmentRequest.hrOnboardingTaskId
+    ? params.tasks.find((t) => t.id === params.recruitmentRequest.hrOnboardingTaskId)
+    : undefined;
+
+  const auditLog: AuditLog = {
+    id: `AUD-EMP-REG-${params.worker.id}-${Date.now()}`,
+    timestamp: nowIso,
+    userId: params.actorUid,
+    userName: params.actorName,
+    role: params.actorRole,
+    userRole: String(params.actorRole),
+    action: "HRM_EMPLOYEE_REGISTERED_FROM_REQUEST",
+    details: `Registered ${params.worker.name} (${params.worker.employeeId || params.worker.id}) under ${params.recruitmentRequest.requestNo} (${params.worker.assignedProject} / ${params.worker.department} / ${params.worker.position}).`,
+    severity: "INFO",
+    category: "HRM Recruitment",
+  };
+
+  const workerWithLink: Worker = {
+    ...params.worker,
+    recruitmentRequestId: params.recruitmentRequest.id,
+  };
+
+  const updatedRequest = await DbService.registerApprovedEmployeeAtomic({
+    recruitmentRequest: params.recruitmentRequest,
+    worker: workerWithLink,
+    privateProfile: params.privateProfile,
+    auditLog,
+    actorName: params.actorName,
+    actorUid: params.actorUid,
+    actorRole: String(params.actorRole),
+    onboardingTask,
+  });
+
+  const summaryRows = computeManpowerSummary({
+    manpowerPlans: params.manpowerPlans,
+    workers: [workerWithLink, ...params.existingWorkers],
+  });
+  const matched = summaryRows.find(
+    (r) =>
+      r.project.toLowerCase() === params.recruitmentRequest.project.toLowerCase() &&
+      r.jobPosition.toLowerCase() === params.recruitmentRequest.jobPosition.toLowerCase()
+  );
+  const exceededManpowerAlert = Boolean(matched && matched.excessCount > 0);
+  if (exceededManpowerAlert && matched) {
+    await dispatchRecruitmentStageNotification({
+      id: `HRM-HIRE-EXCESS-${params.recruitmentRequest.id}-${Date.now()}`,
+      type: "HRM Excess Manpower Alert",
+      title: `Actual Headcount Exceeds Approved Manpower (${matched.project})`,
+      titleAm: `የተቀጠሩ ሠራተኞች ብዛት ከተፈቀደው የሰው ኃይል ገደብ አልፏል (${matched.project})`,
+      message: `Registering ${workerWithLink.name} (${workerWithLink.employeeId || workerWithLink.id}) brought active ${matched.jobPosition} count to ${matched.actualHired} against approved quota ${matched.approvedManpower} (+${matched.excessCount} excess).`,
+      priority: "Critical",
+      projectName: matched.project,
+      sender: params.actorName,
+      senderRole: String(params.actorRole),
+      receiver: "Director & Executive Management",
+      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+    });
+  }
+
+  return { updatedRequest, exceededManpowerAlert };
 }
 
 export async function completeApprovedEmployeeOnboarding(params: {
@@ -1888,12 +2554,23 @@ export async function completeApprovedEmployeeOnboarding(params: {
 }): Promise<{ updatedRequest: RecruitmentRequestRecord; exceededManpowerAlert: boolean }> {
   const nowIso = new Date().toISOString();
   const req = params.recruitmentRequest;
-  const nextHired = (req.hiredCount || 0) + 1;
+  const currentHired = Number(req.hiredCount || 0);
+  if (currentHired >= Number(req.requestedCount || 0)) {
+    throw new Error(
+      `EXCESS_QUOTA_EXCEEDED: Approved manpower quantity (${req.requestedCount}) for ${req.requestNo} is already filled.`
+    );
+  }
+  const nextHired = currentHired + 1;
   const isFulfilled = nextHired >= req.requestedCount;
+  const remaining = Math.max(0, req.requestedCount - nextHired);
 
   const updatedRequest: RecruitmentRequestRecord = {
     ...req,
     hiredCount: nextHired,
+    remainingVacanciesSnapshot: remaining,
+    recruitmentFillStatus: isFulfilled ? "Filled" : "Partially Filled",
+    hiredWorkerIds: [...(req.hiredWorkerIds || []), params.newWorker.id],
+    hiredEmployeeIds: [...(req.hiredEmployeeIds || []), params.newWorker.employeeId || params.newWorker.id],
     status: isFulfilled ? "Fulfilled" : "Approved",
     workflowStage: isFulfilled ? "Fulfilled" : "Approved",
     updatedAt: nowIso,
@@ -2725,6 +3402,7 @@ export function computeHrmDashboardState(params: {
   attendance: AttendanceRecord[];
   manpowerPlans: ManpowerPlanRecord[];
   recruitmentRequests: RecruitmentRequestRecord[];
+  excessRequests?: ExcessRecruitmentRequestRecord[];
   leaveRequests: LeaveRequestRecord[];
   overtimeRequests: OvertimeRequestRecord[];
   payrollRuns: HrmPayrollRunRecord[];
@@ -2741,9 +3419,40 @@ export function computeHrmDashboardState(params: {
   const totalApprovedManpower = manpowerRows.reduce((s, r) => s + r.approvedManpower, 0);
   const totalActualHired = params.workers.filter((w) => w.status === "Active").length;
   const totalRemainingVacancies = manpowerRows.reduce((s, r) => s + r.remainingVacancies, 0);
-  const excessRecruitmentCount = params.recruitmentRequests.filter(
-    (r) => r.exceedsManpowerLimit && r.status !== "Rejected"
+  const pendingExcessRequestsCount = (params.excessRequests || []).filter(
+    (e) => e.status === "Pending Director"
   ).length;
+  const excessRecruitmentCount =
+    params.recruitmentRequests.filter((r) => r.exceedsManpowerLimit && r.status !== "Rejected").length +
+    pendingExcessRequestsCount;
+
+  const approvedOrFulfilledRequests = params.recruitmentRequests.filter(
+    (r) =>
+      r.status === "Approved" ||
+      r.status === "Fulfilled" ||
+      r.workflowStage === "Approved" ||
+      r.workflowStage === "Fulfilled"
+  );
+  const totalManpowerRequests = params.recruitmentRequests.length;
+  const approvedRecruitmentRequests = approvedOrFulfilledRequests.length;
+  const rejectedRecruitmentRequests = params.recruitmentRequests.filter(
+    (r) => r.status === "Rejected" || r.workflowStage === "Rejected"
+  ).length;
+  const returnedRecruitmentRequests = params.recruitmentRequests.filter(
+    (r) => r.workflowStage === "Returned for Correction"
+  ).length;
+  const totalApprovedManpowerQty = approvedOrFulfilledRequests.reduce(
+    (s, r) => s + Math.max(0, Number(r.requestedCount || 0)),
+    0
+  );
+  const registeredEmployeesFromRequests = approvedOrFulfilledRequests.reduce(
+    (s, r) => s + Math.max(0, Number(r.hiredCount || 0)),
+    0
+  );
+  const remainingRecruitmentVacancies = approvedOrFulfilledRequests.reduce(
+    (s, r) => s + Math.max(0, Number(r.requestedCount || 0) - Number(r.hiredCount || 0)),
+    0
+  );
 
   const attendanceSummaryRows: HrmAttendanceSummaryRow[] = params.workers.map((w) => {
     const empCode = safeString((w as any).employeeId, w.id);
@@ -2812,6 +3521,14 @@ export function computeHrmDashboardState(params: {
     totalActualHired,
     totalRemainingVacancies,
     excessRecruitmentCount,
+    totalManpowerRequests,
+    approvedRecruitmentRequests,
+    rejectedRecruitmentRequests,
+    returnedRecruitmentRequests,
+    totalApprovedManpowerQty,
+    registeredEmployeesFromRequests,
+    remainingRecruitmentVacancies,
+    pendingExcessRequestsCount,
     attendanceSummaryRows,
     projectLaborSummaries: Array.from(projLaborMap.values()).sort((a, b) => b.totalLaborExpense - a.totalLaborExpense),
     totalPayrollNetYtd: round2(
@@ -2819,7 +3536,9 @@ export function computeHrmDashboardState(params: {
         .filter((r) => r.workflowStage === "Paid")
         .reduce((s, r) => s + r.totalNetPay, 0)
     ),
-    pendingRecruitmentApprovals: params.recruitmentRequests.filter((r) => r.status === "Pending").length,
+    pendingRecruitmentApprovals: params.recruitmentRequests.filter(
+      (r) => r.status === "Pending" && r.workflowStage !== "Returned for Correction"
+    ).length,
     pendingLeaveApprovals: params.leaveRequests.filter((l) => l.status.startsWith("Pending")).length,
     pendingOvertimeApprovals: params.overtimeRequests.filter((o) => o.status.startsWith("Pending")).length,
     pendingPayrollApprovals: params.payrollRuns.filter((r) => r.workflowStage.startsWith("Pending")).length,
@@ -2829,6 +3548,151 @@ export function computeHrmDashboardState(params: {
         .reduce((s, l) => s + Number(l.remainingBalance || 0), 0)
     ),
   };
+}
+
+export function buildRecruitmentByProjectAndDepartmentReport(params: {
+  recruitmentRequests: RecruitmentRequestRecord[];
+  excessRequests?: ExcessRecruitmentRequestRecord[];
+  filters?: {
+    project?: string;
+    department?: string;
+    status?: string;
+    searchQuery?: string;
+    monthPrefix?: string;
+  };
+}): {
+  summaryRows: Record<string, any>[];
+  detailRows: Record<string, any>[];
+} {
+  const f = params.filters || {};
+  const q = safeString(f.searchQuery).trim().toLowerCase();
+  const filtered = (params.recruitmentRequests || []).filter((req) => {
+    if (f.project && f.project !== "ALL" && safeString(req.project) !== f.project) return false;
+    if (f.department && f.department !== "ALL" && safeString(req.department) !== f.department) return false;
+    if (f.monthPrefix && !safeString(req.createdAt).startsWith(f.monthPrefix)) return false;
+    if (f.status && f.status !== "ALL") {
+      const fill = getRecruitmentFillStatus(req).fillStatus;
+      if (f.status !== req.status && f.status !== req.workflowStage && f.status !== fill) return false;
+    }
+    if (q) {
+      const hay = `${req.requestNo} ${req.project} ${req.department} ${req.jobPosition} ${req.requestedBy} ${req.workflowStage}`.toLowerCase();
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+
+  const groupMap = new Map<
+    string,
+    {
+      project: string;
+      department: string;
+      totalRequests: number;
+      pendingCount: number;
+      returnedCount: number;
+      approvedCount: number;
+      rejectedCount: number;
+      approvedQty: number;
+      registeredCount: number;
+      remainingVacancies: number;
+      excessApprovedQty: number;
+      pendingExcessAlerts: number;
+    }
+  >();
+
+  filtered.forEach((req) => {
+    const key = `${req.project || "Unassigned"}::${req.department || "General"}`;
+    const cur = groupMap.get(key) || {
+      project: req.project || "Unassigned",
+      department: req.department || "General",
+      totalRequests: 0,
+      pendingCount: 0,
+      returnedCount: 0,
+      approvedCount: 0,
+      rejectedCount: 0,
+      approvedQty: 0,
+      registeredCount: 0,
+      remainingVacancies: 0,
+      excessApprovedQty: 0,
+      pendingExcessAlerts: 0,
+    };
+    cur.totalRequests += 1;
+    if (req.workflowStage === "Returned for Correction") {
+      cur.returnedCount += 1;
+    } else if (req.status === "Pending") {
+      cur.pendingCount += 1;
+    } else if (req.status === "Rejected" || req.workflowStage === "Rejected") {
+      cur.rejectedCount += 1;
+    } else if (
+      req.status === "Approved" ||
+      req.status === "Fulfilled" ||
+      req.workflowStage === "Approved" ||
+      req.workflowStage === "Fulfilled"
+    ) {
+      cur.approvedCount += 1;
+      const stats = getRecruitmentFillStatus(req);
+      cur.approvedQty += stats.approvedQty;
+      cur.registeredCount += stats.registeredCount;
+      cur.remainingVacancies += stats.remainingVacancies;
+      cur.excessApprovedQty += Number(req.excessApprovedAdded || 0);
+    }
+    groupMap.set(key, cur);
+  });
+
+  (params.excessRequests || []).forEach((exc) => {
+    if (f.project && f.project !== "ALL" && exc.project !== f.project) return;
+    if (f.department && f.department !== "ALL" && exc.department !== f.department) return;
+    if (exc.status !== "Pending Director") return;
+    const key = `${exc.project || "Unassigned"}::${exc.department || "General"}`;
+    const cur = groupMap.get(key);
+    if (cur) {
+      cur.pendingExcessAlerts += 1;
+    }
+  });
+
+  const summaryRows = Array.from(groupMap.values())
+    .sort((a, b) => a.project.localeCompare(b.project) || a.department.localeCompare(b.department))
+    .map((g) => ({
+      Project: g.project,
+      Department: g.department,
+      "Total Requests": g.totalRequests,
+      Pending: g.pendingCount,
+      "Awaiting Correction": g.returnedCount,
+      Approved: g.approvedCount,
+      Rejected: g.rejectedCount,
+      "Approved Manpower Qty": g.approvedQty,
+      "Employees Registered": g.registeredCount,
+      "Remaining Vacancies": g.remainingVacancies,
+      "Fill Rate (%)":
+        g.approvedQty > 0 ? Math.round((g.registeredCount / g.approvedQty) * 100) : 0,
+      "Excess Approved (+)": g.excessApprovedQty,
+      "Pending Excess Alerts": g.pendingExcessAlerts,
+    }));
+
+  const detailRows = filtered.map((req) => {
+    const stats = getRecruitmentFillStatus(req);
+    return {
+      "Request No": req.requestNo,
+      Project: req.project,
+      Department: req.department,
+      "Job Position": req.jobPosition,
+      "Employment Type": req.employmentType,
+      "Requested By": req.requestedBy,
+      "Approved Qty": stats.approvedQty,
+      Registered: stats.registeredCount,
+      "Remaining Vacancies": stats.remainingVacancies,
+      "Fill Status":
+        req.status === "Approved" || req.status === "Fulfilled" ? stats.fillStatus : "Awaiting Final Approval",
+      "Workflow Stage": req.workflowStage,
+      Status: req.status,
+      "Excess Approved (+)": Number(req.excessApprovedAdded || 0),
+      "Excess Approval Status": req.excessApprovalStatus,
+      "Expected Date": req.requiredByDate,
+      "Proposed Salary (ETB)": req.proposedMonthlySalary,
+      "Submitted Date": safeString(req.createdAt).slice(0, 10),
+    };
+  });
+
+  return { summaryRows, detailRows };
 }
 
 function downloadHrmCsv(filenamePrefix: string, rows: Record<string, any>[]) {
