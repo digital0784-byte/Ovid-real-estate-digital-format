@@ -143,8 +143,7 @@ export const GeneralLedgerCoaModule: React.FC<GeneralLedgerCoaModuleProps> = ({
     actorRole === UserRole.FINANCE_MANAGER ||
     actorRole === UserRole.HEAD_OFFICE ||
     actorRole === UserRole.SUPER_ADMIN ||
-    actorRole === UserRole.DIRECTOR ||
-    actorRole === UserRole.DIRECTORY;
+    actorRole === UserRole.DIRECTOR;
   const isFinanceOperator = isDirectorOrFinanceMgr || actorRole === UserRole.ACCOUNTANT;
 
   // COA Form Modal State

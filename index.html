@@ -10,6 +10,206 @@
   </head>
   <body>
     <div id="root"></div>
+    <script>
+      (function () {
+        if (typeof window === "undefined") return;
+        window.__ERP_APP_RENDERED__ = false;
+
+        function ensureErrorBanner(source, code, message) {
+          if (!document.body) {
+            document.addEventListener("DOMContentLoaded", function () {
+              ensureErrorBanner(source, code, message);
+            });
+            return;
+          }
+          var banner = document.getElementById("erp-runtime-error-banner");
+          if (!banner) {
+            banner = document.createElement("div");
+            banner.id = "erp-runtime-error-banner";
+            banner.className = "no-print";
+            banner.setAttribute("role", "alert");
+            banner.style.cssText =
+              "position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#7f1d1d;color:#ffffff;border-bottom:2px solid #f87171;padding:10px 14px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:12px;line-height:1.4;box-shadow:0 8px 24px rgba(0,0,0,0.45);max-height:42vh;overflow-y:auto;";
+
+            var header = document.createElement("div");
+            header.style.cssText =
+              "display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;";
+
+            var title = document.createElement("strong");
+            title.textContent = "Application Error Detected";
+            title.style.cssText = "font-size:12px;letter-spacing:0.02em;";
+
+            var actions = document.createElement("div");
+            actions.style.cssText = "display:flex;gap:6px;flex-shrink:0;";
+
+            var reloadBtn = document.createElement("button");
+            reloadBtn.type = "button";
+            reloadBtn.textContent = "Reload";
+            reloadBtn.style.cssText =
+              "background:#dc2626;color:#fff;border:1px solid #fca5a5;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;";
+            reloadBtn.onclick = function () {
+              window.location.reload();
+            };
+
+            var dismissBtn = document.createElement("button");
+            dismissBtn.type = "button";
+            dismissBtn.textContent = "Dismiss";
+            dismissBtn.style.cssText =
+              "background:#450a0a;color:#fecaca;border:1px solid #b91c1c;border-radius:4px;padding:2px 8px;font-size:11px;cursor:pointer;";
+            dismissBtn.onclick = function () {
+              if (banner && banner.parentNode) banner.parentNode.removeChild(banner);
+            };
+
+            actions.appendChild(reloadBtn);
+            actions.appendChild(dismissBtn);
+            header.appendChild(title);
+            header.appendChild(actions);
+
+            var list = document.createElement("div");
+            list.id = "erp-runtime-error-list";
+            list.style.cssText = "display:flex;flex-direction:column;gap:4px;";
+
+            banner.appendChild(header);
+            banner.appendChild(list);
+            document.body.prepend(banner);
+          }
+
+          var listEl = document.getElementById("erp-runtime-error-list");
+          if (!listEl) return;
+          var formatted =
+            "[" +
+            String(source || "Error") +
+            "]" +
+            (code ? " (" + String(code) + ")" : "") +
+            ": " +
+            String(message || "Unknown error");
+
+          var existing = listEl.children;
+          for (var i = 0; i < existing.length; i++) {
+            if (existing[i].getAttribute("data-raw") === formatted) return;
+          }
+
+          var row = document.createElement("div");
+          row.setAttribute("data-raw", formatted);
+          row.style.cssText =
+            "background:rgba(0,0,0,0.28);padding:4px 8px;border-radius:4px;word-break:break-word;";
+          row.textContent = formatted;
+          listEl.appendChild(row);
+        }
+
+        window.__ERP_SHOW_ERROR__ = ensureErrorBanner;
+        window.__ERP_ERROR_HANDLERS_INSTALLED__ = true;
+
+        window.onerror = function (message, source, lineno, colno, error) {
+          var errCode = error && error.code ? String(error.code) : "";
+          var errMsg =
+            error && error.message ? error.message : String(message || "Uncaught script error");
+          var loc = source
+            ? " (" + source + (lineno ? ":" + lineno : "") + (colno ? ":" + colno : "") + ")"
+            : "";
+          ensureErrorBanner("window.onerror", errCode, errMsg + loc);
+          return false;
+        };
+
+        window.onunhandledrejection = function (event) {
+          var reason = event ? event.reason : null;
+          var errCode = reason && typeof reason === "object" && reason.code ? String(reason.code) : "";
+          var errMsg =
+            reason && typeof reason === "object" && reason.message
+              ? reason.message
+              : typeof reason === "string"
+              ? reason
+              : reason
+              ? String(reason)
+              : "Unhandled promise rejection";
+          ensureErrorBanner("unhandledrejection", errCode, errMsg);
+        };
+
+        var watchdogTimer = window.setTimeout(function () {
+          var rootEl = document.getElementById("root");
+          var hasRendered = Boolean(window.__ERP_APP_RENDERED__) || Boolean(rootEl && rootEl.childElementCount > 0);
+          if (hasRendered || !document.body) return;
+
+          if (!document.getElementById("erp-loading-watchdog")) {
+            var box = document.createElement("div");
+            box.id = "erp-loading-watchdog";
+            box.style.cssText =
+              "position:fixed;inset:0;z-index:2147483640;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:#020617;color:#f1f5f9;font-family:system-ui,-apple-system,sans-serif;padding:24px;text-align:center;";
+
+            var msg = document.createElement("p");
+            msg.textContent = "Still loading... check your connection";
+            msg.style.cssText = "font-size:15px;font-weight:600;margin:0;color:#e2e8f0;";
+
+            var retryBtn = document.createElement("button");
+            retryBtn.type = "button";
+            retryBtn.textContent = "Retry";
+            retryBtn.style.cssText =
+              "background:#dc2626;color:#ffffff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;";
+            retryBtn.onclick = function () {
+              window.location.reload();
+            };
+
+            box.appendChild(msg);
+            box.appendChild(retryBtn);
+            document.body.appendChild(box);
+          }
+        }, 10000);
+
+        window.__ERP_MARK_APP_RENDERED__ = function () {
+          window.__ERP_APP_RENDERED__ = true;
+          window.clearTimeout(watchdogTimer);
+          var watchdog = document.getElementById("erp-loading-watchdog");
+          if (watchdog && watchdog.parentNode) {
+            watchdog.parentNode.removeChild(watchdog);
+          }
+        };
+
+        function checkLocalStorage() {
+          try {
+            if (!window.localStorage) return "unavailable";
+            var k = "__erp_ls_test__";
+            window.localStorage.setItem(k, "1");
+            window.localStorage.removeItem(k);
+            return "available";
+          } catch (e) {
+            return "unavailable";
+          }
+        }
+
+        function checkIndexedDB() {
+          try {
+            if (!("indexedDB" in window) || !window.indexedDB) return "unavailable";
+            return typeof window.indexedDB.open === "function" ? "available" : "unavailable";
+          } catch (e) {
+            return "unavailable";
+          }
+        }
+
+        function mountDebugLine() {
+          if (!document.body || document.getElementById("erp-runtime-debug-line")) return;
+          var lsStatus = checkLocalStorage();
+          var idbStatus = checkIndexedDB();
+          var ua = typeof navigator !== "undefined" && navigator.userAgent ? navigator.userAgent : "unknown";
+          var debugText =
+            "UA: " + ua + " | localStorage: " + lsStatus + " | IndexedDB: " + idbStatus;
+
+          var bar = document.createElement("div");
+          bar.id = "erp-runtime-debug-line";
+          bar.className = "no-print";
+          bar.title = debugText;
+          bar.style.cssText =
+            "position:fixed;bottom:0;left:0;right:0;z-index:9998;background:rgba(15,23,42,0.88);color:#94a3b8;border-top:1px solid rgba(51,65,85,0.55);padding:2px 10px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:10px;line-height:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;";
+          bar.textContent = debugText;
+          document.body.appendChild(bar);
+        }
+
+        if (document.readyState === "loading") {
+          document.addEventListener("DOMContentLoaded", mountDebugLine);
+        } else {
+          mountDebugLine();
+        }
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

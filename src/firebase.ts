@@ -105,7 +105,11 @@ if (isConfigValid) {
       db = databaseId
         ? initializeFirestore(app, firestoreSettings, databaseId)
         : initializeFirestore(app, firestoreSettings);
-    } catch {
+    } catch (firestoreInitErr: any) {
+      const msgLower = String(firestoreInitErr?.message || "").toLowerCase();
+      if (!msgLower.includes("already been started") && !msgLower.includes("already exists")) {
+        console.warn("Firestore Init notice:", firestoreInitErr);
+      }
       db = databaseId ? getFirestore(app, databaseId) : getFirestore(app);
     }
 
@@ -137,7 +141,11 @@ if (isConfigValid) {
         (async function testConnection() {
           try {
             await getDocFromServer(doc(db, "test", "connection"));
-          } catch (error) {
+          } catch (error: any) {
+            const code = error?.code || "";
+            if (code && code !== "permission-denied" && code !== "not-found" && code !== "unavailable") {
+              console.warn("Firestore connection notice:", error);
+            }
             if (error instanceof Error && error.message.includes("the client is offline")) {
               console.warn("Firestore connection notice: operating in offline cache mode until backend becomes reachable.");
             }

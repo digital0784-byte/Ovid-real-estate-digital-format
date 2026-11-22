@@ -113,7 +113,6 @@ export const TaskManagementSearchHub: React.FC<TaskManagementSearchHubProps> = (
       UserRole.SUPER_ADMIN,
       UserRole.HEAD_OFFICE,
       UserRole.DIRECTOR,
-      UserRole.DIRECTORY,
       UserRole.PROJECT_MANAGER,
       UserRole.SITE_ENGINEER,
       UserRole.SUPERVISOR,

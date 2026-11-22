@@ -161,12 +161,21 @@ export interface UserFinancePermissions {
   canApproveStandardPayments: boolean;
   canApproveHighValuePayments: boolean;
   canReverseCashTransactions: boolean;
+  // Parts 8–16 Advanced Finance Permissions
+  canManageFixedAssets: boolean;
+  canManageTaxCompliance: boolean;
+  canManageLoansAndCredit: boolean;
+  canApproveLoans: boolean;
+  canManagePettyCash: boolean;
+  canVerifyPettyCashReconciliation: boolean;
+  canManageAuditFindings: boolean;
+  isAuditor: boolean;
 }
 
 export function resolveUserFinancePermissions(role?: UserRole | string): UserFinancePermissions {
   const r = String(role || "");
   const isSuperAdmin = r === UserRole.SUPER_ADMIN;
-  const isHeadOffice = r === UserRole.HEAD_OFFICE || r === UserRole.DIRECTOR || r === UserRole.DIRECTORY;
+  const isHeadOffice = r === UserRole.HEAD_OFFICE || r === UserRole.DIRECTOR;
   const isFinanceManager = r === UserRole.FINANCE_MANAGER;
   const isAccountant = r === UserRole.ACCOUNTANT;
   const isProjectManager = r === UserRole.PROJECT_MANAGER;
@@ -199,6 +208,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
       canApproveStandardPayments: true,
       canApproveHighValuePayments: true,
       canReverseCashTransactions: true,
+      canManageFixedAssets: true,
+      canManageTaxCompliance: true,
+      canManageLoansAndCredit: true,
+      canApproveLoans: true,
+      canManagePettyCash: true,
+      canVerifyPettyCashReconciliation: true,
+      canManageAuditFindings: true,
+      isAuditor: false,
     };
   }
 
@@ -225,6 +242,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
       canApproveStandardPayments: true,
       canApproveHighValuePayments: false,
       canReverseCashTransactions: true,
+      canManageFixedAssets: true,
+      canManageTaxCompliance: true,
+      canManageLoansAndCredit: true,
+      canApproveLoans: true,
+      canManagePettyCash: true,
+      canVerifyPettyCashReconciliation: true,
+      canManageAuditFindings: true,
+      isAuditor: false,
     };
   }
 
@@ -251,6 +276,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
       canApproveStandardPayments: true,
       canApproveHighValuePayments: true,
       canReverseCashTransactions: true,
+      canManageFixedAssets: false,
+      canManageTaxCompliance: true,
+      canManageLoansAndCredit: false,
+      canApproveLoans: true,
+      canManagePettyCash: false,
+      canVerifyPettyCashReconciliation: true,
+      canManageAuditFindings: true,
+      isAuditor: false,
     };
   }
 
@@ -277,6 +310,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
       canApproveStandardPayments: false,
       canApproveHighValuePayments: false,
       canReverseCashTransactions: false,
+      canManageFixedAssets: true,
+      canManageTaxCompliance: true,
+      canManageLoansAndCredit: true,
+      canApproveLoans: false,
+      canManagePettyCash: true,
+      canVerifyPettyCashReconciliation: false,
+      canManageAuditFindings: false,
+      isAuditor: false,
     };
   }
 
@@ -303,6 +344,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
       canApproveStandardPayments: false,
       canApproveHighValuePayments: false,
       canReverseCashTransactions: false,
+      canManageFixedAssets: false,
+      canManageTaxCompliance: false,
+      canManageLoansAndCredit: false,
+      canApproveLoans: false,
+      canManagePettyCash: true,
+      canVerifyPettyCashReconciliation: false,
+      canManageAuditFindings: false,
+      isAuditor: false,
     };
   }
 
@@ -329,6 +378,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
       canApproveStandardPayments: false,
       canApproveHighValuePayments: false,
       canReverseCashTransactions: false,
+      canManageFixedAssets: false,
+      canManageTaxCompliance: false,
+      canManageLoansAndCredit: false,
+      canApproveLoans: false,
+      canManagePettyCash: false,
+      canVerifyPettyCashReconciliation: false,
+      canManageAuditFindings: true,
+      isAuditor: true,
     };
   }
 
@@ -354,6 +411,14 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
     canApproveStandardPayments: false,
     canApproveHighValuePayments: false,
     canReverseCashTransactions: false,
+    canManageFixedAssets: false,
+    canManageTaxCompliance: false,
+    canManageLoansAndCredit: false,
+    canApproveLoans: false,
+    canManagePettyCash: false,
+    canVerifyPettyCashReconciliation: false,
+    canManageAuditFindings: false,
+    isAuditor: false,
   };
 }
 

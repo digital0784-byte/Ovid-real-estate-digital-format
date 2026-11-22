@@ -111,6 +111,57 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   {
+    id: "COA-1015",
+    accountCode: "1015",
+    accountName: "Petty Cash Funds (Head Office & Sites)",
+    accountNameAm: "የጥቃቅን ወጪ ካዝና ገንዘብ",
+    accountType: "Asset",
+    subType: "Current Asset",
+    normalBalance: "Debit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Custodian imprest petty cash funds at Head Office and construction sites.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-1130",
+    accountCode: "1130",
+    accountName: "Employee Loans & Salary Advances Receivable",
+    accountNameAm: "የሰራተኞች ብድር እና ቅድመ ክፍያ ተሰብሳቢ",
+    accountType: "Asset",
+    subType: "Current Asset",
+    normalBalance: "Debit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Recoverable staff salary advances and employee loan receivables.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-1140",
+    accountCode: "1140",
+    accountName: "Input VAT Recoverable",
+    accountNameAm: "ተመላሽ የሚደረግ የተጨማሪ እሴት ታክስ (Input VAT)",
+    accountType: "Asset",
+    subType: "Current Asset",
+    normalBalance: "Debit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Creditable input Value Added Tax paid on approved supplier purchases.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
     id: "COA-1210",
     accountCode: "1210",
     accountName: "Construction Materials Inventory",
@@ -146,6 +197,57 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   {
+    id: "COA-1520",
+    accountCode: "1520",
+    accountName: "Buildings & Civil Structures",
+    accountNameAm: "ህንፃዎች እና የሲቪል መዋቅሮች",
+    accountType: "Asset",
+    subType: "Non-Current Asset",
+    normalBalance: "Debit",
+    cashFlowSection: "Investing",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Company-owned buildings, yards, warehouses, and permanent facilities.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-1530",
+    accountCode: "1530",
+    accountName: "Vehicles & Heavy Transport Fleet",
+    accountNameAm: "ተሽከርካሪዎች እና ከባድ ትራንስፖርት",
+    accountType: "Asset",
+    subType: "Non-Current Asset",
+    normalBalance: "Debit",
+    cashFlowSection: "Investing",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Dump trucks, mixer trucks, site pickups, and logistics vehicles.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-1540",
+    accountCode: "1540",
+    accountName: "Office Furniture & IT Hardware",
+    accountNameAm: "የቢሮ ዕቃዎች እና የአይቲ መሣሪያዎች",
+    accountType: "Asset",
+    subType: "Non-Current Asset",
+    normalBalance: "Debit",
+    cashFlowSection: "Investing",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Office desks, survey instruments, computers, and engineering workstations.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
     id: "COA-1590",
     accountCode: "1590",
     accountName: "Accumulated Depreciation — Equipment & Formwork",
@@ -159,6 +261,23 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     openingBalance: 0,
     currency: "ETB",
     description: "Contra-asset tracking cumulative depreciation on construction plant.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-1595",
+    accountCode: "1595",
+    accountName: "Accumulated Depreciation — Buildings, Vehicles & Furniture",
+    accountNameAm: "የተጠራቀመ የህንፃ፣ የተሽከርካሪ እና የቢሮ ዕቃ እርጅና",
+    accountType: "Asset",
+    subType: "Non-Current Asset",
+    normalBalance: "Credit",
+    cashFlowSection: "Non-Cash",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Contra-asset tracking cumulative depreciation on buildings, vehicles, and IT/furniture.",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
@@ -211,6 +330,74 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     openingBalance: 0,
     currency: "ETB",
     description: "VAT, withholding tax, customs duties, and payroll income tax obligations.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-2031",
+    accountCode: "2031",
+    accountName: "Output VAT Payable",
+    accountNameAm: "የሚከፈል የተጨማሪ እሴት ታክስ (Output VAT)",
+    accountType: "Liability",
+    subType: "Current Liability",
+    normalBalance: "Credit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Output Value Added Tax collected on client construction invoices.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-2032",
+    accountCode: "2032",
+    accountName: "Withholding Tax Payable",
+    accountNameAm: "ተቀናሽ የግብር ተከፋይ (Withholding Tax)",
+    accountType: "Liability",
+    subType: "Current Liability",
+    normalBalance: "Credit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "2%–3% withholding tax retained from vendor and subcontractor payments.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-2033",
+    accountCode: "2033",
+    accountName: "Corporate Income Tax Payable",
+    accountNameAm: "የድርጅት የገቢ ግብር ተከፋይ",
+    accountType: "Liability",
+    subType: "Current Liability",
+    normalBalance: "Credit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Corporate business profit tax accrual and periodic filing liability.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-2110",
+    accountCode: "2110",
+    accountName: "Short-Term Loans & Working Capital Credit",
+    accountNameAm: "የአጭር ጊዜ ብድር እና የስራ ማስኬጃ ፋይናንሲንግ",
+    accountType: "Liability",
+    subType: "Current Liability",
+    normalBalance: "Credit",
+    cashFlowSection: "Financing",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Revolving working capital lines and short-term bank credit facilities.",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
@@ -268,6 +455,23 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
   {
+    id: "COA-3120",
+    accountCode: "3120",
+    accountName: "Asset Revaluation Reserve",
+    accountNameAm: "የንብረት እንደገና ግምት መጠባበቂያ",
+    accountType: "Equity",
+    subType: "Retained Earnings",
+    normalBalance: "Credit",
+    cashFlowSection: "Non-Cash",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Unrealized revaluation surplus on buildings, machinery, and fixed assets.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
     id: "COA-3210",
     accountCode: "3210",
     accountName: "Owner Drawings & Dividends Declared",
@@ -316,6 +520,23 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     openingBalance: 0,
     currency: "ETB",
     description: "Bank interest income, scrap sales, and non-contract other income.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-4120",
+    accountCode: "4120",
+    accountName: "Gain on Disposal of Fixed Assets",
+    accountNameAm: "ከቋሚ ንብረት ሽያጭ የተገኘ ትርፍ",
+    accountType: "Revenue",
+    subType: "Other Income",
+    normalBalance: "Credit",
+    cashFlowSection: "Non-Cash",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Net gain realized when fixed asset disposal proceeds exceed net book value.",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
@@ -454,6 +675,57 @@ export const SYSTEM_CHART_OF_ACCOUNTS: ChartAccountRecord[] = [
     openingBalance: 0,
     currency: "ETB",
     description: "Periodic non-cash depreciation on formwork systems and equipment.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-6220",
+    accountCode: "6220",
+    accountName: "Loan Interest & Financing Expense",
+    accountNameAm: "የብድር ወለድ እና የፋይናንሲንግ ወጪ",
+    accountType: "Operating Expense",
+    subType: "Operating Expense",
+    normalBalance: "Debit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Interest expense on bank term loans, project credit lines, and equipment leases.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-6320",
+    accountCode: "6320",
+    accountName: "Loss on Asset Disposal & Impairment",
+    accountNameAm: "ከቋሚ ንብረት ሽያጭ እና ዋጋ መቀነስ ኪሳራ",
+    accountType: "Operating Expense",
+    subType: "Operating Expense",
+    normalBalance: "Debit",
+    cashFlowSection: "Non-Cash",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Net loss on fixed asset disposal or downward impairment revaluation.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+  },
+  {
+    id: "COA-6410",
+    accountCode: "6410",
+    accountName: "Corporate Income Tax Expense",
+    accountNameAm: "የድርጅት የገቢ ግብር ወጪ",
+    accountType: "Administrative Expense",
+    subType: "Administrative Expense",
+    normalBalance: "Debit",
+    cashFlowSection: "Operating",
+    isSystemAccount: true,
+    isActive: true,
+    openingBalance: 0,
+    currency: "ETB",
+    description: "Provision for corporate profit income tax expense.",
     createdAt: "2026-01-01T00:00:00.000Z",
     updatedAt: "2026-01-01T00:00:00.000Z",
   },
@@ -2515,9 +2787,9 @@ export function computePart7FinancialStatementsState(
       });
     }
 
-    // 4) Cash Flow Direct Method from Cash & Bank Accounts (1010 & 1020)
+    // 4) Cash Flow Direct Method from Cash, Petty Cash & Bank Accounts (1010, 1015, 1020)
     const cashLines = je.lines.filter(
-      (ln) => ln.accountCode === "1010" || ln.accountCode === "1020"
+      (ln) => ln.accountCode === "1010" || ln.accountCode === "1015" || ln.accountCode === "1020"
     );
     if (cashLines.length > 0 && isUpToEnd) {
       const netCashDelta = cashLines.reduce(
@@ -2529,10 +2801,10 @@ export function computePart7FinancialStatementsState(
         openingCashBalance += netCashDelta;
       } else if (isInPeriod) {
         const nonCashLines = je.lines.filter(
-          (ln) => ln.accountCode !== "1010" && ln.accountCode !== "1020"
+          (ln) => ln.accountCode !== "1010" && ln.accountCode !== "1015" && ln.accountCode !== "1020"
         );
         if (nonCashLines.length === 0) {
-          // Pure internal transfer between cash & bank accounts (net cash impact = 0)
+          // Pure internal transfer between cash, petty cash & bank accounts (net cash impact = 0)
           const transferAmt = cashLines.reduce((s, ln) => s + Number(ln.debit || 0), 0);
           internalTransfersTotal += transferAmt;
         } else if (Math.abs(netCashDelta) > 0.001) {
@@ -2570,10 +2842,10 @@ export function computePart7FinancialStatementsState(
                   : "Capital Withdrawals"
                 : offsetAcc.accountCode === "3210"
                 ? "Owner Drawings / Dividends Paid"
-                : offsetAcc.accountCode === "2510"
+                : offsetAcc.accountCode === "2510" || offsetAcc.accountCode === "2110"
                 ? isInflow
-                  ? "Proceeds from Long-Term Loans & Debt"
-                  : "Repayment of Long-Term Loans"
+                  ? `Proceeds from ${offsetAcc.accountName}`
+                  : `Principal Repayment (${offsetAcc.accountName})`
                 : isInflow
                 ? `Financing Inflow (${offsetAcc.accountName})`
                 : `Financing Outflow (${offsetAcc.accountName})`;
@@ -2760,7 +3032,7 @@ export function computePart7FinancialStatementsState(
   chartOfAccounts.forEach((acc) => {
     const amt = getPeriodAccountAmount(acc);
     if (acc.accountType === "Revenue") {
-      if (acc.subType === "Other Income" || acc.accountCode === "4110") {
+      if (acc.subType === "Other Income" || acc.accountCode === "4110" || acc.accountCode === "4120") {
         otherIncome += amt;
       } else {
         projectRevenue += amt;
@@ -3119,6 +3391,7 @@ export function computePart7FinancialStatementsState(
   // ------------------------------------------------------------------
   const cashPlusBank = round2(
     (trialBalanceRows.find((r) => r.accountCode === "1010")?.netBalance || 0) +
+    (trialBalanceRows.find((r) => r.accountCode === "1015")?.netBalance || 0) +
     (trialBalanceRows.find((r) => r.accountCode === "1020")?.netBalance || 0)
   );
   const arTotalBal = round2(

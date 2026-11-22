@@ -31,7 +31,7 @@ export function MaterialPlanningAndRequestsView({
   actor,
   onFeedback,
 }: {
-  mode: "material_plans" | "material_requests" | "warehouse_verification" | "director_approvals";
+  mode: "material_planning" | "material_requests" | "director_approvals";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
@@ -40,6 +40,9 @@ export function MaterialPlanningAndRequestsView({
   const canRequest = canPerformWarehouseModuleAction(actor.role, "CREATE_MATERIAL_REQUEST");
   const canVerify = canPerformWarehouseModuleAction(actor.role, "VERIFY_RETURN_MATERIAL_REQUEST");
   const isDirector = isStrictDirectorRole(actor.role);
+  const [reqSubTab, setReqSubTab] = useState<"requests" | "verification">(
+    canVerify && !canRequest ? "verification" : "requests"
+  );
 
   // Plan Create / Revise state
   const [planTitle, setPlanTitle] = useState("");
@@ -188,7 +191,7 @@ export function MaterialPlanningAndRequestsView({
           projectId: selectedPlan.projectId,
           projectName: selectedPlan.projectName,
           projectStoreId: store.id,
-          projectStoreName: store.name,
+          projectStoreName: store.storeName,
           warehouseId: wh.id,
           warehouseName: wh.name,
           requiredByDate: reqDate || undefined,
@@ -255,7 +258,7 @@ export function MaterialPlanningAndRequestsView({
   };
 
   // VIEW 1: MATERIAL PLANS & REVISIONS
-  if (mode === "material_plans") {
+  if (mode === "material_planning") {
     return (
       <div className="space-y-4">
         {canPlan && (
@@ -509,16 +512,44 @@ export function MaterialPlanningAndRequestsView({
     );
   }
 
-  // VIEW 2: SITE STORE MATERIAL REQUESTS & LIVE PLAN COMPARISON
+  // VIEW 2: SITE STORE MATERIAL REQUESTS, LIVE PLAN COMPARISON & WAREHOUSE VERIFICATION
   if (mode === "material_requests") {
+    const verificationQueue = snapshot.materialRequests.filter((r) =>
+      ["Submitted", "Warehouse Reviewing", "Returned by Warehouse Manager"].includes(r.status)
+    );
     return (
       <div className="space-y-4">
-        {canRequest && (
-          <form onSubmit={handleSubmitRequest} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <Send size={16} className="text-cyan-400" />
-              <span>Submit Site Store Material Request (Auto-Compared vs Engineering Plan)</span>
-            </h3>
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => setReqSubTab("requests")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              reqSubTab === "requests" ? "bg-cyan-600 text-white" : "bg-slate-950/60 hover:bg-slate-800 text-slate-300"
+            }`}
+          >
+            <Send size={13} />
+            <span>Submit & Track Material Requests ({snapshot.materialRequests.length})</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReqSubTab("verification")}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+              reqSubTab === "verification" ? "bg-amber-600 text-white" : "bg-slate-950/60 hover:bg-slate-800 text-slate-300"
+            }`}
+          >
+            <ClipboardCheck size={13} />
+            <span>Warehouse Manager Plan Verification ({verificationQueue.length} Pending)</span>
+          </button>
+        </div>
+
+        {reqSubTab === "requests" ? (
+          <div className="space-y-4">
+            {canRequest && (
+              <form onSubmit={handleSubmitRequest} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Send size={16} className="text-cyan-400" />
+                  <span>Submit Site Store Material Request (Auto-Compared vs Engineering Plan)</span>
+                </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
                 <label className="block text-[11px] text-slate-400 mb-1">Approved Material Plan</label>
@@ -542,7 +573,7 @@ export function MaterialPlanningAndRequestsView({
                   className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white"
                 >
                   {snapshot.projectStores.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name} ({s.projectName})</option>
+                    <option key={s.id} value={s.id}>{s.storeName} ({s.projectName})</option>
                   ))}
                 </select>
               </div>
@@ -637,10 +668,10 @@ export function MaterialPlanningAndRequestsView({
                           </td>
                           <td className="px-3 py-2">
                             {cmp ? (
-                              cmp.planComparisonStatus === "Matched" ? (
+                              cmp.comparisonStatus === "Matched" ? (
                                 <span className="text-emerald-400 font-semibold">Matched (Stock: {cmp.warehouseAvailableQty})</span>
                               ) : (
-                                <span className="text-rose-400 font-semibold">{cmp.planComparisonStatus}: {cmp.mismatchReason}</span>
+                                <span className="text-rose-400 font-semibold">{cmp.comparisonStatus}: {cmp.mismatchReason}</span>
                               )
                             ) : (
                               <span className="text-slate-500">Enter qty</span>
@@ -667,91 +698,85 @@ export function MaterialPlanningAndRequestsView({
           </form>
         )}
 
-        <RequestListCards requests={snapshot.materialRequests} />
-      </div>
-    );
-  }
-
-  // VIEW 3: WAREHOUSE MANAGER VERIFICATION AGAINST PLAN
-  if (mode === "warehouse_verification") {
-    const queue = snapshot.materialRequests.filter((r) =>
-      ["Submitted", "Warehouse Reviewing", "Returned by Warehouse Manager"].includes(r.status)
-    );
-    return (
-      <div className="space-y-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
-          <div>
-            <h3 className="text-sm font-bold text-white flex items-center gap-2">
-              <ClipboardCheck size={16} className="text-amber-400" />
-              <span>Warehouse Manager — Engineering Plan Comparison & Verification Queue</span>
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Warehouse Manager verifies exact alignment with Engineering Material Plan & available warehouse stock before forwarding to Director. Warehouse Manager cannot give final approval.
-            </p>
-          </div>
-          <span className="text-xs font-mono text-amber-400 font-bold">{queue.length} Pending</span>
-        </div>
-
-        {queue.length === 0 ? (
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-400">
-            No submitted material requests awaiting Warehouse Manager verification.
+            <RequestListCards requests={snapshot.materialRequests} />
           </div>
         ) : (
-          queue.map((reqDoc) => (
-            <div key={reqDoc.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-amber-400 text-xs">{reqDoc.requestNumber}</span>
-                    <span className="text-xs text-slate-400">Plan {reqDoc.planNumber}</span>
-                    <StatusBadge status={reqDoc.status} />
-                    {reqDoc.hasPlanMismatch && <StatusBadge status="Plan Mismatch" />}
-                  </div>
-                  <div className="text-xs text-slate-300 mt-1">
-                    {reqDoc.projectName} ({reqDoc.projectStoreName}) ← {reqDoc.warehouseName} · By {reqDoc.requestedByName}
-                  </div>
-                </div>
+          <div className="space-y-4">
+            <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <ClipboardCheck size={16} className="text-amber-400" />
+                  <span>Warehouse Manager — Engineering Plan Comparison & Verification Queue</span>
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Warehouse Manager verifies exact alignment with Engineering Material Plan & available warehouse stock before forwarding to Director. Warehouse Manager cannot give final approval.
+                </p>
               </div>
-
-              {reqDoc.mismatchSummary && (
-                <div className="bg-rose-950/60 border border-rose-700/60 rounded-xl px-3 py-2 text-xs text-rose-200 flex items-center gap-2">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  <span>{reqDoc.mismatchSummary}</span>
-                </div>
-              )}
-
-              <RequestItemsTable items={reqDoc.items} />
-
-              {canVerify && (
-                <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
-                  <input
-                    placeholder="Verification remarks or mandatory return reason..."
-                    value={actionNotes[reqDoc.id] || ""}
-                    onChange={(e) => setActionNotes({ ...actionNotes, [reqDoc.id]: e.target.value })}
-                    className="flex-1 min-w-[240px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white"
-                  />
-                  <button
-                    type="button"
-                    disabled={submitting || reqDoc.hasPlanMismatch}
-                    onClick={() => handleWarehouseVerify(reqDoc, "verify")}
-                    className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <CheckCircle2 size={14} />
-                    <span>Verify & Forward to Director</span>
-                  </button>
-                  <button
-                    type="button"
-                    disabled={submitting}
-                    onClick={() => handleWarehouseVerify(reqDoc, "return")}
-                    className="px-3.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <XCircle size={14} />
-                    <span>Return to Engineering / Store</span>
-                  </button>
-                </div>
-              )}
+              <span className="text-xs font-mono text-amber-400 font-bold">{verificationQueue.length} Pending</span>
             </div>
-          ))
+
+            {verificationQueue.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-400">
+                No submitted material requests awaiting Warehouse Manager verification.
+              </div>
+            ) : (
+              verificationQueue.map((reqDoc) => (
+                <div key={reqDoc.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-amber-400 text-xs">{reqDoc.requestNumber}</span>
+                        <span className="text-xs text-slate-400">Plan {reqDoc.planNumber}</span>
+                        <StatusBadge status={reqDoc.status} />
+                        {reqDoc.hasPlanMismatch && <StatusBadge status="Plan Mismatch" />}
+                      </div>
+                      <div className="text-xs text-slate-300 mt-1">
+                        {reqDoc.projectName} ({reqDoc.projectStoreName}) ← {reqDoc.warehouseName} · By {reqDoc.requestedByName}
+                      </div>
+                    </div>
+                  </div>
+
+                  {reqDoc.mismatchSummary && (
+                    <div className="bg-rose-950/60 border border-rose-700/60 rounded-xl px-3 py-2 text-xs text-rose-200 flex items-center gap-2">
+                      <AlertTriangle size={14} className="shrink-0" />
+                      <span>{reqDoc.mismatchSummary}</span>
+                    </div>
+                  )}
+
+                  <RequestItemsTable items={reqDoc.items} />
+
+                  {canVerify && (
+                    <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
+                      <input
+                        placeholder="Verification remarks or mandatory return reason..."
+                        value={actionNotes[reqDoc.id] || ""}
+                        onChange={(e) => setActionNotes({ ...actionNotes, [reqDoc.id]: e.target.value })}
+                        className="flex-1 min-w-[240px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white"
+                      />
+                      <button
+                        type="button"
+                        disabled={submitting || reqDoc.hasPlanMismatch}
+                        onClick={() => handleWarehouseVerify(reqDoc, "verify")}
+                        className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <CheckCircle2 size={14} />
+                        <span>Verify & Forward to Director</span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => handleWarehouseVerify(reqDoc, "return")}
+                        className="px-3.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <XCircle size={14} />
+                        <span>Return to Engineering / Store</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         )}
       </div>
     );
@@ -868,10 +893,10 @@ function RequestItemsTable({ items }: { items: EngineeringMaterialRequest["items
             <tr key={it.id}>
               <td className="px-3 py-2 text-white font-medium">{it.itemCode} — {it.itemName}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{it.plannedQty} {it.unit}</td>
-              <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-400">{it.previouslyRequestedQty}</td>
+              <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-400">{it.previouslyApprovedOrIssuedQty}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums text-cyan-300 font-bold">{it.requestedQty}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{it.warehouseAvailableQty}</td>
-              <td className="px-3 py-2"><StatusBadge status={it.planComparisonStatus} /></td>
+              <td className="px-3 py-2"><StatusBadge status={it.comparisonStatus} /></td>
             </tr>
           ))}
         </tbody>

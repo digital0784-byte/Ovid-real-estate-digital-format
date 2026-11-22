@@ -115,6 +115,12 @@ async function getCachedUserProfile(
     if (!res.exists || !res.data) {
       return null;
     }
+    if (res.data.role === "Directory") {
+      res.data.role = "Director";
+    }
+    if (res.data.requestedRole === "Directory") {
+      res.data.requestedRole = "Director";
+    }
     if (res.data.status === "Active" && res.data.role && res.data.role !== "Pending") {
       userProfileCache.set(uid, { data: res.data, expiresAt: now + USER_CACHE_TTL_MS });
     }
@@ -128,6 +134,14 @@ async function getCachedUserProfile(
     return null;
   }
   const data = snap.data() || null;
+  if (data) {
+    if (data.role === "Directory") {
+      data.role = "Director";
+    }
+    if (data.requestedRole === "Directory") {
+      data.requestedRole = "Director";
+    }
+  }
   if (data && data.status === "Active" && data.role && data.role !== "Pending") {
     userProfileCache.set(uid, { data, expiresAt: now + USER_CACHE_TTL_MS });
   }

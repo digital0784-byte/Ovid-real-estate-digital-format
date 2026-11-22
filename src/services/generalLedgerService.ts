@@ -683,8 +683,7 @@ export async function saveFinancialYearLifecycle(params: {
     params.actorRole === UserRole.FINANCE_MANAGER ||
     params.actorRole === UserRole.HEAD_OFFICE ||
     params.actorRole === UserRole.SUPER_ADMIN ||
-    params.actorRole === UserRole.DIRECTOR ||
-    params.actorRole === UserRole.DIRECTORY;
+    params.actorRole === UserRole.DIRECTOR;
 
   if ((params.nextStatus === "Closed" || params.nextStatus === "Reopened") && !isManagerOrDirector) {
     throw new Error("Only Finance Manager or Director / Head Office can close or reopen a Financial Year.");

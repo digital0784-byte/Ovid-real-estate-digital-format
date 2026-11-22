@@ -39,7 +39,6 @@ const VIEWER_ROLES = new Set([
   "HR Manager",
   "HR",
   "Director",
-  "Directory",
   "Head Office",
   "Project Manager",
   "Section Head",

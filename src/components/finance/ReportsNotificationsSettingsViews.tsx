@@ -30,6 +30,11 @@ import {
   exportPart7StatementToExcel,
   Part7FinancialStatementsState,
 } from "../../services/financialStatementsService";
+import { FixedAssetsDashboardState } from "../../services/fixedAssetsService";
+import { TaxComplianceDashboardState } from "../../services/taxComplianceService";
+import { LoanCreditDashboardState } from "../../services/loanCreditService";
+import { PettyCashControlState } from "../../services/pettyCashService";
+import { DetectedAnomalyItem, ExecutiveFinancialOverview } from "../../services/financialAuditService";
 
 interface ReportsNotificationsSettingsViewsProps {
   mode: "financial-reports" | "financial-notifications" | "financial-settings";
@@ -39,6 +44,13 @@ interface ReportsNotificationsSettingsViewsProps {
   cashFlowState?: Part5CashFlowState;
   bankState?: Part6BankDashboardState;
   statementsState?: Part7FinancialStatementsState;
+  fixedAssetsState?: FixedAssetsDashboardState;
+  taxState?: TaxComplianceDashboardState;
+  loanState?: LoanCreditDashboardState;
+  pettyCashState?: PettyCashControlState;
+  anomalies?: DetectedAnomalyItem[];
+  executiveOverview?: ExecutiveFinancialOverview;
+  onExportExecutiveExcel?: () => void;
   actorName: string;
   actorRole: string;
   actorUid: string;
@@ -56,6 +68,13 @@ export const ReportsNotificationsSettingsViews: React.FC<
   cashFlowState,
   bankState,
   statementsState,
+  fixedAssetsState,
+  taxState,
+  loanState,
+  pettyCashState,
+  anomalies,
+  executiveOverview,
+  onExportExecutiveExcel,
   actorName,
   actorRole,
   actorUid,
@@ -96,8 +115,77 @@ export const ReportsNotificationsSettingsViews: React.FC<
       project: ba.project,
       moduleTarget: "cash-and-bank" as FinancialMenuModuleId,
     }));
-    return [...alerts, ...budgetAlertsMapped, ...cashFlowAlertsMapped, ...bankAlertsMapped];
-  }, [alerts, budgetState?.alerts, cashFlowState?.alerts, bankState?.alerts]);
+    const taxAlertsMapped = (taxState?.upcomingDeadlines || [])
+      .filter((d) => d.isOverdue)
+      .map((d) => ({
+        id: `TAX-OVERDUE-${d.taxType}-${d.periodMonth}`,
+        severity: "CRITICAL" as const,
+        title: `[Tax Compliance] Overdue ${d.taxType} Filing (${d.periodMonth})`,
+        titleAm: `[የግብር ተገዢነት] ጊዜው ያለፈበት ${d.taxType} (${d.periodMonth})`,
+        description: `Deadline ${d.deadline} passed with est. payable ${cur} ${d.estimatedLiability.toLocaleString()}.`,
+        descriptionAm: `የማስረከቢያ ቀን ${d.deadline} አልፏል (${cur} ${d.estimatedLiability.toLocaleString()})።`,
+        project: "Corporate Finance",
+        moduleTarget: "tax-compliance" as FinancialMenuModuleId,
+      }));
+    const creditBreachAlerts = (loanState?.clientCreditSummaries || [])
+      .concat(loanState?.supplierCreditSummaries || [])
+      .filter((c) => c.utilizationPct >= 100)
+      .map((c) => ({
+        id: `CRD-BREACH-${c.profile.id}`,
+        severity: "WARNING" as const,
+        title: `[Credit Control] Credit Limit Exceeded: ${c.profile.counterpartyName}`,
+        titleAm: `[ክሬዲት ቁጥጥር] የክሬዲት ገደብ አልፏል፡ ${c.profile.counterpartyName}`,
+        description: `Exposure ${cur} ${c.openExposure.toLocaleString()} vs limit ${cur} ${c.profile.creditLimit.toLocaleString()} (${c.utilizationPct.toFixed(1)}%).`,
+        descriptionAm: `ክሬዲት ገደብ (${c.utilizationPct.toFixed(1)}%) አልፏል።`,
+        project: "Corporate Treasury",
+        moduleTarget: "loan-credit" as FinancialMenuModuleId,
+      }));
+    const pcAlerts = (pettyCashState?.shortageOrExcessRecons || []).map((r) => ({
+      id: `PC-VAR-${r.id}`,
+      severity: r.varianceClassification === "Cash Shortage" ? ("CRITICAL" as const) : ("WARNING" as const),
+      title: `[Petty Cash] ${r.varianceClassification} on ${r.fundName}`,
+      titleAm: `[ፔቲ ካሽ] ${r.varianceClassification} (${r.fundName})`,
+      description: `Count ${r.reconciliationNo} variance of ${cur} ${r.varianceAmount.toLocaleString()}.`,
+      descriptionAm: `ልዩነት ${cur} ${r.varianceAmount.toLocaleString()} ተገኝቷል።`,
+      project: r.project,
+      moduleTarget: "petty-cash" as FinancialMenuModuleId,
+    }));
+    const auditAlerts = (anomalies || [])
+      .filter((a) => a.severity === "CRITICAL" || a.severity === "HIGH")
+      .slice(0, 8)
+      .map((a) => ({
+        id: `AUD-${a.id}`,
+        severity: a.severity === "CRITICAL" ? ("CRITICAL" as const) : ("WARNING" as const),
+        title: `[Audit Control] ${a.title}`,
+        titleAm: `[የኦዲት ቁጥጥር] ${a.title}`,
+        description: a.description,
+        descriptionAm: a.description,
+        project: a.project,
+        moduleTarget: "financial-audit" as FinancialMenuModuleId,
+      }));
+
+    return [
+      ...alerts,
+      ...budgetAlertsMapped,
+      ...cashFlowAlertsMapped,
+      ...bankAlertsMapped,
+      ...taxAlertsMapped,
+      ...creditBreachAlerts,
+      ...pcAlerts,
+      ...auditAlerts,
+    ];
+  }, [
+    alerts,
+    budgetState?.alerts,
+    cashFlowState?.alerts,
+    bankState?.alerts,
+    taxState?.upcomingDeadlines,
+    loanState?.clientCreditSummaries,
+    loanState?.supplierCreditSummaries,
+    pettyCashState?.shortageOrExcessRecons,
+    anomalies,
+    cur,
+  ]);
 
   const [reportTab, setReportTab] = useState<
     | "summary"
@@ -112,6 +200,7 @@ export const ReportsNotificationsSettingsViews: React.FC<
     | "cashflow-7"
     | "bank-7"
     | "statements-8"
+    | "advanced-suite"
   >("summary");
   const [activePart7Statement, setActivePart7Statement] =
     useState<Part7StatementTypeId>("income-statement");
@@ -291,6 +380,7 @@ export const ReportsNotificationsSettingsViews: React.FC<
               { id: "cashflow-7", label: isAmharic ? "7 የገንዘብ ፍሰት እና ትንበያ ሪፖርቶች" : "Cash Flow & Forecasting (7)" },
               { id: "bank-7", label: isAmharic ? "7 የባንክና ማስታረቂያ ሪፖርቶች" : "Bank & Reconciliation (7)" },
               { id: "statements-8", label: isAmharic ? "8 የፋይናንስ መግለጫዎች (Part 7)" : "Financial Statements (8)" },
+              { id: "advanced-suite", label: isAmharic ? "ቋሚ ንብረት፣ ግብር፣ ብድር እና ኦዲት ሪፖርቶች" : "Assets, Tax, Loans, Petty Cash & Audit" },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -368,6 +458,78 @@ export const ReportsNotificationsSettingsViews: React.FC<
                 isAmharic={isAmharic}
                 actorName={actorName}
               />
+            </div>
+          ) : reportTab === "advanced-suite" ? (
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
+                <div>
+                  <h3 className="text-sm font-extrabold text-white">
+                    Parts 8–16 Executive & Statutory Export Center
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    One-click CSV and multi-sheet Excel downloads across Fixed Assets, Tax, Loans, Petty Cash, Ratios & Audit Findings.
+                  </p>
+                </div>
+                {onExportExecutiveExcel && (
+                  <button
+                    type="button"
+                    onClick={onExportExecutiveExcel}
+                    className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Export Full Executive Packet (.xlsx)</span>
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 text-xs">
+                {[
+                  {
+                    title: "Fixed Assets & Depreciation Register",
+                    count: fixedAssetsState?.assets.length || 0,
+                    onExport: () => fixedAssetsState && exportRowsToCsv("fixed_assets_report", fixedAssetsState.assets),
+                  },
+                  {
+                    title: "Tax Returns & VAT/WHT/CIT Schedule",
+                    count: taxState?.allTaxTransactions.length || 0,
+                    onExport: () => taxState && exportRowsToCsv("tax_compliance_report", taxState.allTaxTransactions),
+                  },
+                  {
+                    title: "Loan Facilities & Repayments",
+                    count: loanState?.loans.length || 0,
+                    onExport: () => loanState && exportRowsToCsv("loan_facilities_report", loanState.loans),
+                  },
+                  {
+                    title: "Petty Cash Reconciliations & Vouchers",
+                    count: pettyCashState?.reconciliations.length || 0,
+                    onExport: () => pettyCashState && exportRowsToCsv("petty_cash_reconciliations", pettyCashState.reconciliations),
+                  },
+                  {
+                    title: "Automated Audit Anomalies",
+                    count: anomalies?.length || 0,
+                    onExport: () => anomalies && exportRowsToCsv("audit_anomalies_report", anomalies),
+                  },
+                  {
+                    title: "Project Profitability Matrix",
+                    count: executiveOverview?.projectProfitability.length || 0,
+                    onExport: () => executiveOverview && exportRowsToCsv("project_profitability_report", executiveOverview.projectProfitability),
+                  },
+                ].map((card) => (
+                  <div key={card.title} className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-between gap-3">
+                    <div>
+                      <span className="font-bold text-white block">{card.title}</span>
+                      <span className="text-[11px] font-mono text-slate-400">{card.count} records ready</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={card.onExport}
+                      className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-emerald-400 font-bold text-[11px] cursor-pointer whitespace-nowrap"
+                    >
+                      CSV
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           ) : (
           <div className="bg-white text-slate-900 rounded-2xl p-6 sm:p-8 border border-slate-200 space-y-5">

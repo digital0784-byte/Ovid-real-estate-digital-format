@@ -593,10 +593,9 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     expect(gpTamper.status).toBe(403);
 
     // Reset status or use valid code test on Exit & Entry on fresh clean pass verification helper
-    await store.commitWrites(
-      [{ collection: "gatePasses", docId: gatePass.id, data: { ...gatePass, status: "Issued" } }],
-      { projectId: "digital-construction-erp", databaseId: "(default)" }
-    );
+    await store.commitWrites([
+      { collection: "gatePasses", docId: gatePass.id, data: { ...gatePass, status: "Issued" } },
+    ]);
     const gpExit = await request(app)
       .post(`/api/warehouse/gate-passes/${gatePass.id}/verify`)
       .set(asRole(UserRole.GATE_SECURITY_OFFICER))

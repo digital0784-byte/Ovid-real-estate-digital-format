@@ -44,6 +44,13 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      const errorMessageText =
+        this.state.error?.message ||
+        this.state.error?.toString?.() ||
+        "An unknown rendering error occurred.";
+      const errorName = this.state.error?.name || "Error";
+      const errorCode = (this.state.error as any)?.code;
+
       return (
         <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center p-6 font-sans">
           <div className="max-w-md w-full bg-slate-900 border border-red-500/30 rounded-2xl p-6 shadow-2xl text-center space-y-4">
@@ -59,8 +66,16 @@ export class ErrorBoundary extends Component<Props, State> {
             </p>
 
             {this.state.error && (
-              <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-left text-[11px] font-mono text-red-400 overflow-x-auto max-h-32">
-                {this.state.error.toString()}
+              <div className="p-3 bg-slate-950 border border-slate-800 rounded-lg text-left text-[11px] font-mono text-red-400 overflow-x-auto max-h-40 space-y-1">
+                <div className="font-bold text-red-300">
+                  {errorName}
+                  {errorCode ? ` (${String(errorCode)})` : ""}: {errorMessageText}
+                </div>
+                {this.state.errorInfo?.componentStack && (
+                  <pre className="text-[10px] text-slate-400 whitespace-pre-wrap break-words">
+                    {this.state.errorInfo.componentStack}
+                  </pre>
+                )}
               </div>
             )}
 

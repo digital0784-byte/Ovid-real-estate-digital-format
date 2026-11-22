@@ -125,7 +125,6 @@ export function resolveHrmPermissions(role: UserRole | string) {
   const isSuperAdmin = role === UserRole.SUPER_ADMIN;
   const isDirector =
     role === UserRole.DIRECTOR ||
-    role === UserRole.DIRECTORY ||
     role === UserRole.HEAD_OFFICE ||
     isSuperAdmin;
   const isStrictHrManager = role === UserRole.HR_MANAGER;
@@ -750,7 +749,7 @@ export function getRecruitmentStageRoutingMeta(
         departmentLabel: "Director / Executive Management",
         receiverLabel: "Director",
         primaryRole: UserRole.DIRECTOR,
-        targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+        targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE],
         taskSummaryLabel: "Review all department approvals & grant Final Approval",
       };
     default:
@@ -1241,7 +1240,7 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
   // Automatic Director alert when recruitment exceeds approved manpower limit
   if (exceedsLimit) {
     const matchedDirs = resolveAuthorizedUsersForRoles(
-      [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+      [UserRole.DIRECTOR, UserRole.HEAD_OFFICE],
       routingUsers
     );
     await dispatchRecruitmentStageNotification({
@@ -1255,7 +1254,7 @@ export async function submitRecruitmentRequestWithManpowerCheck(params: {
       sender: params.actorName,
       senderRole: String(params.actorRole),
       receiver: "Director & Executive Management",
-      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+      targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
       targetUserIds: matchedDirs.ids,
       actionTab: "hrmEnterprise:recruitment",
     });
@@ -1686,7 +1685,7 @@ export async function advanceRecruitmentApproval(params: {
       sender: actorName,
       senderRole: String(actorRole),
       receiver: "Director",
-      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+      targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE],
       targetUserIds: nextStageAssigneeIds,
       actionTab: "hrmEnterprise:recruitment",
     });
@@ -2137,7 +2136,7 @@ export async function recordExcessRegistrationAttemptAlert(params: {
   const nowIso = new Date().toISOString();
   const routingUsers = await resolveRoutingUsersList(params.users);
   const matchedDirs = resolveAuthorizedUsersForRoles(
-    [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+    [UserRole.DIRECTOR, UserRole.HEAD_OFFICE],
     routingUsers
   );
   const candidateLabel = safeString(params.candidateName).trim()
@@ -2168,7 +2167,7 @@ export async function recordExcessRegistrationAttemptAlert(params: {
     sender: params.actorName,
     senderRole: String(params.actorRole),
     receiver: "Director",
-    targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+    targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
     targetUserIds: matchedDirs.ids,
     actionTab: "hrmEnterprise:recruitment",
   });
@@ -2226,7 +2225,7 @@ export async function submitExcessRecruitmentRequest(params: {
   const reqNo = generateNextExcessRecruitmentRequestNo(params.existingExcessRequests);
   const routingUsers = await resolveRoutingUsersList(params.users);
   const matchedDirs = resolveAuthorizedUsersForRoles(
-    [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE],
+    [UserRole.DIRECTOR, UserRole.HEAD_OFFICE],
     routingUsers
   );
 
@@ -2327,7 +2326,7 @@ export async function submitExcessRecruitmentRequest(params: {
     sender: params.actorName,
     senderRole: String(params.actorRole),
     receiver: "Director",
-    targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+    targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
     targetUserIds: matchedDirs.ids,
     actionTab: "hrmEnterprise:recruitment",
   });
@@ -2536,7 +2535,7 @@ export async function registerApprovedEmployeeFromRecruitment(params: {
       sender: params.actorName,
       senderRole: String(params.actorRole),
       receiver: "Director & Executive Management",
-      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+      targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
     });
   }
 
@@ -2614,7 +2613,7 @@ export async function completeApprovedEmployeeOnboarding(params: {
       sender: params.actorName,
       senderRole: String(params.actorRole),
       receiver: "Director & Executive Management",
-      targetRoles: [UserRole.DIRECTOR, UserRole.DIRECTORY, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
+      targetRoles: [UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.SUPER_ADMIN],
     });
   }
 

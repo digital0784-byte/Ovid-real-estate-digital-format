@@ -50,7 +50,6 @@ interface UserRoleApprovalHubProps {
 const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.SYSTEM_OPERATOR, nameEn: "System Operator", nameAm: "የሲስተም ኦፕሬተር" },
   { role: UserRole.HEAD_OFFICE, nameEn: "Head Office", nameAm: "የዋና መስሪያ ቤት አመራር" },
-  { role: UserRole.DIRECTORY, nameEn: "Directory", nameAm: "ዳይሬክቶሬት" },
   { role: UserRole.DIRECTOR, nameEn: "Director", nameAm: "ዳይሬክተር" },
   { role: UserRole.OFFICE_AND_TECHNICAL_ENGINEERING, nameEn: "Office & Technical Engineering", nameAm: "ኦፊስ እና ቴክኒካል ኢንጂነሪንግ" },
   { role: UserRole.OFFICE_MANAGER, nameEn: "Office Manager", nameAm: "የቢሮ ሥራ አስኪያጅ" },

@@ -156,6 +156,7 @@ export interface UserProfile {
 }
 
 export default function App() {
+
   // Master State Arrays loaded dynamically from DbService
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -718,7 +719,6 @@ export default function App() {
     [UserRole.SYSTEM_OPERATOR]: ["dashboard", "taskManagement", "firestoreExplorer", "auditLog", "securitySettings", "notificationCenter", "customInputHub", "headOfficeSync", "mobileApps", "launchReadiness", "predictions", "biometricBoard", "fingerprintBoard", "biometricKiosk", "siteLayout", "cadDrawing", "projectDocs", "panelTraceability", "siteStoreMovement"],
     [UserRole.HEAD_OFFICE]: allTabs,
     [UserRole.DIRECTOR]: allTabs.filter(t => t !== "formworkManagement"),
-    [UserRole.DIRECTORY]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.OFFICE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "warehouseSiteStore", "workerProfiles", "attendance", "projectDocs", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "enterpriseErp", "warehouseSiteStore", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
@@ -3126,6 +3126,8 @@ export default function App() {
             formworkPanels={formworkPanels}
             panelMovementLogs={panelMovementLogs}
             onAddAttendance={handleAddAttendance}
+            hasAccess={hasAccess}
+            tabTitle={getTabTitle}
           />
         )}
 

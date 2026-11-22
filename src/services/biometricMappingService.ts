@@ -37,7 +37,7 @@ export function resolveBiometricMappingPermissions(role: UserRole | string): Bio
   const isHrManager = role === UserRole.HR_MANAGER;
   const isHrOfficer = role === UserRole.HR;
   const isExecutiveViewer =
-    role === UserRole.DIRECTOR || role === UserRole.DIRECTORY || role === UserRole.HEAD_OFFICE;
+    role === UserRole.DIRECTOR || role === UserRole.HEAD_OFFICE;
   const isScopedManager =
     role === UserRole.PROJECT_MANAGER ||
     role === UserRole.SECTION_HEAD ||

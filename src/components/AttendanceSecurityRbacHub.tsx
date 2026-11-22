@@ -82,19 +82,6 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
       "Cannot delete historical transaction ledgers"
     ]
   },
-  [UserRole.DIRECTORY]: {
-    title: "2b. Directory",
-    category: "Executive & Admin",
-    description: "Executive directorate oversight across engineering, HRM, finance & site operations.",
-    canDo: [
-      "View & Approve Multi-Project Operations, HRM & Financial Governance",
-      "Final Executive Sign-off on Manpower Excess, Payroll & Period Closures",
-      "Access Executive Dashboards, Audit Logs & Strategic KPIs"
-    ],
-    cannotDo: [
-      "Cannot alter raw immutable audit trails"
-    ]
-  },
   [UserRole.DIRECTOR]: {
     title: "2c. Director",
     category: "Executive & Admin",

@@ -2036,5 +2036,179 @@ service cloud.firestore {
         ('valuationMethod' in incoming()) && incoming().valuationMethod in ['FIFO', 'Weighted Moving Average'];
       allow delete: if false;
     }
+
+    // ==========================================
+    // 24. FINANCIAL MANAGEMENT ADVANCED MODULES (PARTS 9–16)
+    // ==========================================
+
+    // 24.1 financeFixedAssets (Depreciation, Transfers, Revaluation, Disposal)
+    match /financeFixedAssets/{assetId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor() || isWarehouseRole();
+      allow create: if isValidId(assetId) && isFinanceStaff() && mfaSafe() &&
+        incoming().acquisitionCost is number && incoming().acquisitionCost >= 0 &&
+        incoming().salvageValue is number && incoming().salvageValue >= 0 &&
+        incoming().usefulLifeYears is number && incoming().usefulLifeYears > 0;
+      allow update: if isValidId(assetId) && isFinanceStaff() && mfaSafe() &&
+        incoming().acquisitionCost is number && incoming().acquisitionCost >= 0;
+      allow delete: if (isDirectorStrict() || isSuperAdmin()) && mfaSafe();
+    }
+
+    // 24.2 fixedAssetEvents (Create-only asset lifecycle & depreciation audit history)
+    match /fixedAssetEvents/{eventId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(eventId) && isFinanceStaff() && mfaSafe();
+      allow update: if false;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.3 taxRateConfigs (Effective-dated statutory tax rates)
+    match /taxRateConfigs/{configId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor() || isHrmOfficer();
+      allow create, update: if isValidId(configId) &&
+        (isFinanceManager() || isDirectorStrict() || isSuperAdmin()) && mfaSafe() &&
+        incoming().ratePct is number && incoming().ratePct >= 0 && incoming().ratePct <= 100;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.4 taxTransactions (Automated & manual tax liabilities / credits)
+    match /taxTransactions/{txId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(txId) && isFinanceStaff() && mfaSafe() &&
+        incoming().taxAmount is number && incoming().taxAmount >= 0;
+      allow update: if isValidId(txId) &&
+        (isFinanceManager() || isDirectorStrict() || isSuperAdmin()) && mfaSafe();
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.5 taxReturns (Maker-Checker enforced before Filing/Payment settlement)
+    match /taxReturns/{returnId} {
+      allow read: if isFinanceStaff() || isAuditor();
+      allow create: if isValidId(returnId) && isFinanceStaff() && mfaSafe() &&
+        incoming().preparedById == request.auth.uid &&
+        incoming().status in ['Draft', 'Prepared'];
+      allow update: if isValidId(returnId) && mfaSafe() && (
+        isSuperAdmin() ||
+        (
+          (isFinanceManager() || isDirectorStrict()) &&
+          incoming().status in ['Filed', 'Paid'] &&
+          ('approvedById' in incoming()) &&
+          incoming().approvedById != existing().preparedById
+        ) ||
+        (
+          isFinanceStaff() &&
+          !(incoming().status in ['Filed', 'Paid'])
+        )
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.6 loanFacilities (Maker-Checker enforced when approving Active loan)
+    match /loanFacilities/{loanId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(loanId) && isFinanceStaff() && mfaSafe() &&
+        incoming().principalAmount is number && incoming().principalAmount > 0 &&
+        incoming().annualInterestRatePct is number && incoming().annualInterestRatePct >= 0 &&
+        incoming().termMonths is number && incoming().termMonths > 0 &&
+        incoming().createdById == request.auth.uid &&
+        incoming().status == 'Pending Approval';
+      allow update: if isValidId(loanId) && mfaSafe() && (
+        isSuperAdmin() ||
+        (
+          existing().status == 'Pending Approval' &&
+          incoming().status == 'Active' &&
+          (isFinanceManager() || isDirectorStrict()) &&
+          ('approvedById' in incoming()) &&
+          incoming().approvedById != existing().createdById
+        ) ||
+        (
+          existing().status != 'Pending Approval' &&
+          isFinanceStaff()
+        )
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.7 loanRepayments (Create-only loan installment settlement ledger)
+    match /loanRepayments/{repaymentId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(repaymentId) && isFinanceStaff() && mfaSafe() &&
+        incoming().principalPaid is number && incoming().principalPaid >= 0 &&
+        incoming().interestPaid is number && incoming().interestPaid >= 0 &&
+        incoming().totalPaid is number && incoming().totalPaid > 0;
+      allow update, delete: if isSuperAdmin();
+    }
+
+    // 24.8 creditProfiles (Client credit limit & supplier credit term governance)
+    match /creditProfiles/{profileId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create, update: if isValidId(profileId) &&
+        (isFinanceManager() || isDirectorStrict() || isAccountant() || isSuperAdmin()) && mfaSafe() &&
+        incoming().creditLimitEtb is number && incoming().creditLimitEtb >= 0;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.9 pettyCashFunds (Site & Head Office petty cash funds)
+    match /pettyCashFunds/{fundId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(fundId) &&
+        (isFinanceManager() || isDirectorStrict() || isSuperAdmin()) && mfaSafe() &&
+        incoming().authorizedLimit is number && incoming().authorizedLimit > 0 &&
+        incoming().maxSingleExpense is number && incoming().maxSingleExpense > 0 &&
+        incoming().currentBalance is number && incoming().currentBalance >= 0;
+      allow update: if isValidId(fundId) &&
+        (isFinanceStaff() || isProjectHead()) && mfaSafe() &&
+        incoming().currentBalance is number && incoming().currentBalance >= 0;
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.10 pettyCashTransactions (Maker-Checker enforced on posting/approval)
+    match /pettyCashTransactions/{txId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(txId) &&
+        (isFinanceStaff() || isProjectHead()) && mfaSafe() &&
+        incoming().amount is number && incoming().amount > 0 &&
+        incoming().createdById == request.auth.uid &&
+        incoming().status == 'Pending';
+      allow update: if isValidId(txId) && mfaSafe() && (
+        isSuperAdmin() ||
+        (
+          incoming().status in ['Posted', 'Approved'] &&
+          (isFinanceManager() || isDirectorStrict()) &&
+          ('approvedById' in incoming()) &&
+          incoming().approvedById != existing().createdById
+        ) ||
+        (
+          incoming().status == 'Rejected' &&
+          (isFinanceManager() || isDirectorStrict())
+        )
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.11 pettyCashReconciliations (Maker-Checker enforced on verification)
+    match /pettyCashReconciliations/{recId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create: if isValidId(recId) &&
+        (isFinanceStaff() || isProjectHead()) && mfaSafe() &&
+        incoming().reconciledById == request.auth.uid;
+      allow update: if isValidId(recId) && mfaSafe() && (
+        isSuperAdmin() ||
+        (
+          incoming().status == 'Verified' &&
+          (isFinanceManager() || isDirectorStrict() || isAuditor()) &&
+          ('verifiedById' in incoming()) &&
+          incoming().verifiedById != existing().reconciledById
+        )
+      );
+      allow delete: if isSuperAdmin();
+    }
+
+    // 24.12 financialAuditFindings (Internal Audit Anomalies & CAPA)
+    match /financialAuditFindings/{findingId} {
+      allow read: if isFinanceStaff() || isProjectHead() || isAuditor();
+      allow create, update: if isValidId(findingId) &&
+        (isAuditor() || isFinanceManager() || isDirectorStrict() || isSuperAdmin()) && mfaSafe();
+      allow delete: if isSuperAdmin();
+    }
   }
 }

@@ -90,6 +90,18 @@ import {
   AttendanceDeductionPolicy,
   AttendanceAuditLog,
   ExcessRecruitmentRequestRecord,
+  FinanceFixedAssetRecord,
+  FixedAssetEventRecord,
+  TaxRateConfigRecord,
+  TaxTransactionRecord,
+  TaxReturnRecord,
+  LoanFacilityRecord,
+  LoanRepaymentRecord,
+  CounterpartyCreditProfile,
+  PettyCashFundRecord,
+  PettyCashTransactionRecord,
+  PettyCashReconciliationRecord,
+  FinancialAuditFindingRecord,
 } from "../types";
 import { initialErpTasks } from "../data/initialTasks";
 import {
@@ -4441,6 +4453,629 @@ export const DbService = {
     } else {
       offlineEngine.queueOutbox("set", "attendanceAuditLogs", sanitized.id, sanitized);
     }
-  }
+  },
+
+  // ============================================================
+  // FINANCIAL MANAGEMENT — ADVANCED MODULES (PARTS 8–16)
+  // ============================================================
+
+  async getWarehouseFixedAssetsRaw(): Promise<any[]> {
+    return fetchCollection<any>("fixedAssets", []);
+  },
+
+  // 1) financeFixedAssets & fixedAssetEvents
+  subscribeFinanceFixedAssets(
+    callback: (assets: FinanceFixedAssetRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "financeFixedAssets"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as FinanceFixedAssetRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<FinanceFixedAssetRecord>("financeFixedAssets", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "financeFixedAssets");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<FinanceFixedAssetRecord>("financeFixedAssets", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<FinanceFixedAssetRecord>("financeFixedAssets", []));
+    return () => {};
+  },
+  async saveFinanceFixedAsset(asset: FinanceFixedAssetRecord): Promise<void> {
+    await writeDocument<FinanceFixedAssetRecord>("financeFixedAssets", asset, []);
+  },
+
+  subscribeFixedAssetEvents(
+    callback: (events: FixedAssetEventRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "fixedAssetEvents"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as FixedAssetEventRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<FixedAssetEventRecord>("fixedAssetEvents", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "fixedAssetEvents");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<FixedAssetEventRecord>("fixedAssetEvents", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<FixedAssetEventRecord>("fixedAssetEvents", []));
+    return () => {};
+  },
+  async saveFixedAssetEvent(evt: FixedAssetEventRecord): Promise<void> {
+    await writeDocument<FixedAssetEventRecord>("fixedAssetEvents", evt, []);
+  },
+
+  async applyFinanceAssetLifecycleAtomic(params: {
+    asset: FinanceFixedAssetRecord;
+    event: FixedAssetEventRecord;
+    journalEntry?: JournalEntryRecord;
+    bankAccount?: FinancialAccount;
+    bankDelta?: number;
+  }): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const sanitizedAsset = sanitizeForFirestore(params.asset);
+    const sanitizedEvent = sanitizeForFirestore(params.event);
+    const sanitizedJe = params.journalEntry ? sanitizeForFirestore(params.journalEntry) : undefined;
+    if (sanitizedJe) {
+      const diff = Math.abs(Number(sanitizedJe.totalDebit || 0) - Number(sanitizedJe.totalCredit || 0));
+      if (!sanitizedJe.isBalanced || diff > 0.01) {
+        throw new Error("Fixed asset journal entry must have Total Debits = Total Credits.");
+      }
+    }
+
+    offlineEngine.updateCacheItem<FinanceFixedAssetRecord>("financeFixedAssets", sanitizedAsset, []);
+    offlineEngine.updateCacheItem<FixedAssetEventRecord>("fixedAssetEvents", sanitizedEvent, []);
+    if (sanitizedJe) offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", sanitizedJe, []);
+
+    let updatedAcc: FinancialAccount | undefined;
+    if (params.bankAccount && params.bankDelta && params.bankDelta !== 0) {
+      updatedAcc = sanitizeForFirestore({
+        ...params.bankAccount,
+        currentBalance: Number(params.bankAccount.currentBalance || 0) + params.bankDelta,
+        updatedAt: nowIso,
+      });
+      offlineEngine.updateCacheItem<FinancialAccount>("financialAccounts", updatedAcc, []);
+    }
+
+    if (canQueryFirestore() && db) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const assetRef = doc(db!, "financeFixedAssets", sanitizedAsset.id);
+          const evtRef = doc(db!, "fixedAssetEvents", sanitizedEvent.id);
+          const accRef = params.bankAccount && params.bankDelta ? doc(db!, "financialAccounts", params.bankAccount.id) : null;
+          const accSnap = accRef ? await transaction.get(accRef) : null;
+
+          transaction.set(assetRef, { ...sanitizedAsset, serverReceivedAt: nowIso }, { merge: true });
+          transaction.set(evtRef, { ...sanitizedEvent, serverReceivedAt: nowIso }, { merge: true });
+          if (sanitizedJe) {
+            const jeRef = doc(db!, "journalEntries", sanitizedJe.id);
+            transaction.set(jeRef, { ...sanitizedJe, serverReceivedAt: nowIso }, { merge: true });
+          }
+          if (accRef && params.bankDelta) {
+            const live = accSnap && accSnap.exists() ? (accSnap.data() as FinancialAccount) : params.bankAccount!;
+            transaction.set(
+              accRef,
+              sanitizeForFirestore({ ...live, currentBalance: Number(live.currentBalance || 0) + params.bankDelta, updatedAt: nowIso }),
+              { merge: true }
+            );
+          }
+        });
+        return;
+      } catch (err: any) {
+        const isPermissionDenied = err?.code === "permission-denied" || String(err?.message || "").includes("PERMISSION_DENIED");
+        handleFirestoreError(err, OperationType.WRITE, `financeFixedAssets/${sanitizedAsset.id}`);
+        if (isPermissionDenied) throw err;
+      }
+    }
+    offlineEngine.queueOutbox("set", "financeFixedAssets", sanitizedAsset.id, sanitizedAsset);
+    offlineEngine.queueOutbox("set", "fixedAssetEvents", sanitizedEvent.id, sanitizedEvent);
+    if (sanitizedJe) offlineEngine.queueOutbox("set", "journalEntries", sanitizedJe.id, sanitizedJe);
+    if (updatedAcc) offlineEngine.queueOutbox("set", "financialAccounts", updatedAcc.id, updatedAcc);
+  },
+
+  // 2) taxRateConfigs, taxTransactions, taxReturns
+  subscribeTaxRateConfigs(
+    callback: (configs: TaxRateConfigRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "taxRateConfigs"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as TaxRateConfigRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<TaxRateConfigRecord>("taxRateConfigs", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "taxRateConfigs");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<TaxRateConfigRecord>("taxRateConfigs", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<TaxRateConfigRecord>("taxRateConfigs", []));
+    return () => {};
+  },
+  async saveTaxRateConfig(cfg: TaxRateConfigRecord): Promise<void> {
+    await writeDocument<TaxRateConfigRecord>("taxRateConfigs", cfg, []);
+  },
+
+  subscribeTaxTransactions(
+    callback: (txs: TaxTransactionRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "taxTransactions"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as TaxTransactionRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<TaxTransactionRecord>("taxTransactions", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "taxTransactions");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<TaxTransactionRecord>("taxTransactions", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<TaxTransactionRecord>("taxTransactions", []));
+    return () => {};
+  },
+  async saveTaxTransaction(tx: TaxTransactionRecord): Promise<void> {
+    await writeDocument<TaxTransactionRecord>("taxTransactions", tx, []);
+  },
+
+  subscribeTaxReturns(
+    callback: (returns: TaxReturnRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "taxReturns"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as TaxReturnRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<TaxReturnRecord>("taxReturns", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "taxReturns");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<TaxReturnRecord>("taxReturns", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<TaxReturnRecord>("taxReturns", []));
+    return () => {};
+  },
+  async saveTaxReturn(ret: TaxReturnRecord): Promise<void> {
+    await writeDocument<TaxReturnRecord>("taxReturns", ret, []);
+  },
+
+  async applyTaxReturnPaymentAtomic(params: {
+    taxReturn: TaxReturnRecord;
+    journalEntry: JournalEntryRecord;
+    paymentAccount: FinancialAccount;
+    bankTransaction?: BankTransactionRecord;
+  }): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const sanitizedReturn = sanitizeForFirestore(params.taxReturn);
+    const sanitizedJe = sanitizeForFirestore(params.journalEntry);
+    const diff = Math.abs(Number(sanitizedJe.totalDebit || 0) - Number(sanitizedJe.totalCredit || 0));
+    if (!sanitizedJe.isBalanced || diff > 0.01) {
+      throw new Error("Tax settlement journal entry must balance (Debit = Credit).");
+    }
+    const payAmt = Math.max(0, Number(params.taxReturn.netTaxPayable || 0));
+    const updatedAcc = sanitizeForFirestore({
+      ...params.paymentAccount,
+      currentBalance: Number(params.paymentAccount.currentBalance || 0) - payAmt,
+      updatedAt: nowIso,
+    });
+    const sanitizedBankTx = params.bankTransaction ? sanitizeForFirestore(params.bankTransaction) : undefined;
+
+    offlineEngine.updateCacheItem<TaxReturnRecord>("taxReturns", sanitizedReturn, []);
+    offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", sanitizedJe, []);
+    offlineEngine.updateCacheItem<FinancialAccount>("financialAccounts", updatedAcc, []);
+    if (sanitizedBankTx) offlineEngine.updateCacheItem<BankTransactionRecord>("bankTransactions", sanitizedBankTx, []);
+
+    if (canQueryFirestore() && db) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const retRef = doc(db!, "taxReturns", sanitizedReturn.id);
+          const jeRef = doc(db!, "journalEntries", sanitizedJe.id);
+          const accRef = doc(db!, "financialAccounts", params.paymentAccount.id);
+          const accSnap = await transaction.get(accRef);
+
+          transaction.set(retRef, { ...sanitizedReturn, serverReceivedAt: nowIso }, { merge: true });
+          transaction.set(jeRef, { ...sanitizedJe, serverReceivedAt: nowIso }, { merge: true });
+          const live = accSnap.exists() ? (accSnap.data() as FinancialAccount) : params.paymentAccount;
+          transaction.set(
+            accRef,
+            sanitizeForFirestore({ ...live, currentBalance: Number(live.currentBalance || 0) - payAmt, updatedAt: nowIso }),
+            { merge: true }
+          );
+          if (sanitizedBankTx) {
+            const btRef = doc(db!, "bankTransactions", sanitizedBankTx.id);
+            transaction.set(btRef, { ...sanitizedBankTx, serverReceivedAt: nowIso }, { merge: true });
+          }
+        });
+        return;
+      } catch (err: any) {
+        const isPermissionDenied = err?.code === "permission-denied" || String(err?.message || "").includes("PERMISSION_DENIED");
+        handleFirestoreError(err, OperationType.WRITE, `taxReturns/${sanitizedReturn.id}`);
+        if (isPermissionDenied) throw err;
+      }
+    }
+    offlineEngine.queueOutbox("set", "taxReturns", sanitizedReturn.id, sanitizedReturn);
+    offlineEngine.queueOutbox("set", "journalEntries", sanitizedJe.id, sanitizedJe);
+    offlineEngine.queueOutbox("set", "financialAccounts", updatedAcc.id, updatedAcc);
+    if (sanitizedBankTx) offlineEngine.queueOutbox("set", "bankTransactions", sanitizedBankTx.id, sanitizedBankTx);
+  },
+
+  // 3) loanFacilities, loanRepayments, creditProfiles
+  subscribeLoanFacilities(
+    callback: (loans: LoanFacilityRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "loanFacilities"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as LoanFacilityRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<LoanFacilityRecord>("loanFacilities", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "loanFacilities");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<LoanFacilityRecord>("loanFacilities", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<LoanFacilityRecord>("loanFacilities", []));
+    return () => {};
+  },
+  async saveLoanFacility(loan: LoanFacilityRecord): Promise<void> {
+    await writeDocument<LoanFacilityRecord>("loanFacilities", loan, []);
+  },
+
+  subscribeLoanRepayments(
+    callback: (repayments: LoanRepaymentRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "loanRepayments"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as LoanRepaymentRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<LoanRepaymentRecord>("loanRepayments", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "loanRepayments");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<LoanRepaymentRecord>("loanRepayments", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<LoanRepaymentRecord>("loanRepayments", []));
+    return () => {};
+  },
+  async saveLoanRepayment(rep: LoanRepaymentRecord): Promise<void> {
+    await writeDocument<LoanRepaymentRecord>("loanRepayments", rep, []);
+  },
+
+  async applyLoanTransactionAtomic(params: {
+    loan: LoanFacilityRecord;
+    repayment?: LoanRepaymentRecord;
+    journalEntry: JournalEntryRecord;
+    account: FinancialAccount;
+    accountDelta: number; // + on loan drawdown, - on loan repayment
+    bankTransaction?: BankTransactionRecord;
+  }): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const sanitizedLoan = sanitizeForFirestore(params.loan);
+    const sanitizedRep = params.repayment ? sanitizeForFirestore(params.repayment) : undefined;
+    const sanitizedJe = sanitizeForFirestore(params.journalEntry);
+    const diff = Math.abs(Number(sanitizedJe.totalDebit || 0) - Number(sanitizedJe.totalCredit || 0));
+    if (!sanitizedJe.isBalanced || diff > 0.01) {
+      throw new Error("Loan GL journal entry must have Total Debits = Total Credits.");
+    }
+    const updatedAcc = sanitizeForFirestore({
+      ...params.account,
+      currentBalance: Number(params.account.currentBalance || 0) + params.accountDelta,
+      updatedAt: nowIso,
+    });
+    const sanitizedBankTx = params.bankTransaction ? sanitizeForFirestore(params.bankTransaction) : undefined;
+
+    offlineEngine.updateCacheItem<LoanFacilityRecord>("loanFacilities", sanitizedLoan, []);
+    if (sanitizedRep) offlineEngine.updateCacheItem<LoanRepaymentRecord>("loanRepayments", sanitizedRep, []);
+    offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", sanitizedJe, []);
+    offlineEngine.updateCacheItem<FinancialAccount>("financialAccounts", updatedAcc, []);
+    if (sanitizedBankTx) offlineEngine.updateCacheItem<BankTransactionRecord>("bankTransactions", sanitizedBankTx, []);
+
+    if (canQueryFirestore() && db) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const loanRef = doc(db!, "loanFacilities", sanitizedLoan.id);
+          const jeRef = doc(db!, "journalEntries", sanitizedJe.id);
+          const accRef = doc(db!, "financialAccounts", params.account.id);
+          const accSnap = await transaction.get(accRef);
+
+          transaction.set(loanRef, { ...sanitizedLoan, serverReceivedAt: nowIso }, { merge: true });
+          if (sanitizedRep) {
+            const repRef = doc(db!, "loanRepayments", sanitizedRep.id);
+            transaction.set(repRef, { ...sanitizedRep, serverReceivedAt: nowIso }, { merge: true });
+          }
+          transaction.set(jeRef, { ...sanitizedJe, serverReceivedAt: nowIso }, { merge: true });
+          const live = accSnap.exists() ? (accSnap.data() as FinancialAccount) : params.account;
+          transaction.set(
+            accRef,
+            sanitizeForFirestore({ ...live, currentBalance: Number(live.currentBalance || 0) + params.accountDelta, updatedAt: nowIso }),
+            { merge: true }
+          );
+          if (sanitizedBankTx) {
+            const btRef = doc(db!, "bankTransactions", sanitizedBankTx.id);
+            transaction.set(btRef, { ...sanitizedBankTx, serverReceivedAt: nowIso }, { merge: true });
+          }
+        });
+        return;
+      } catch (err: any) {
+        const isPermissionDenied = err?.code === "permission-denied" || String(err?.message || "").includes("PERMISSION_DENIED");
+        handleFirestoreError(err, OperationType.WRITE, `loanFacilities/${sanitizedLoan.id}`);
+        if (isPermissionDenied) throw err;
+      }
+    }
+    offlineEngine.queueOutbox("set", "loanFacilities", sanitizedLoan.id, sanitizedLoan);
+    if (sanitizedRep) offlineEngine.queueOutbox("set", "loanRepayments", sanitizedRep.id, sanitizedRep);
+    offlineEngine.queueOutbox("set", "journalEntries", sanitizedJe.id, sanitizedJe);
+    offlineEngine.queueOutbox("set", "financialAccounts", updatedAcc.id, updatedAcc);
+    if (sanitizedBankTx) offlineEngine.queueOutbox("set", "bankTransactions", sanitizedBankTx.id, sanitizedBankTx);
+  },
+
+  subscribeCreditProfiles(
+    callback: (profiles: CounterpartyCreditProfile[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "creditProfiles"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as CounterpartyCreditProfile), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<CounterpartyCreditProfile>("creditProfiles", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "creditProfiles");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<CounterpartyCreditProfile>("creditProfiles", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<CounterpartyCreditProfile>("creditProfiles", []));
+    return () => {};
+  },
+  async saveCreditProfile(profile: CounterpartyCreditProfile): Promise<void> {
+    await writeDocument<CounterpartyCreditProfile>("creditProfiles", profile, []);
+  },
+
+  // 4) pettyCashFunds, pettyCashTransactions, pettyCashReconciliations
+  subscribePettyCashFunds(
+    callback: (funds: PettyCashFundRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "pettyCashFunds"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as PettyCashFundRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<PettyCashFundRecord>("pettyCashFunds", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "pettyCashFunds");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PettyCashFundRecord>("pettyCashFunds", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<PettyCashFundRecord>("pettyCashFunds", []));
+    return () => {};
+  },
+  async savePettyCashFund(fund: PettyCashFundRecord): Promise<void> {
+    await writeDocument<PettyCashFundRecord>("pettyCashFunds", fund, []);
+  },
+
+  subscribePettyCashTransactions(
+    callback: (txs: PettyCashTransactionRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "pettyCashTransactions"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as PettyCashTransactionRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<PettyCashTransactionRecord>("pettyCashTransactions", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "pettyCashTransactions");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PettyCashTransactionRecord>("pettyCashTransactions", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<PettyCashTransactionRecord>("pettyCashTransactions", []));
+    return () => {};
+  },
+  async savePettyCashTransaction(tx: PettyCashTransactionRecord): Promise<void> {
+    await writeDocument<PettyCashTransactionRecord>("pettyCashTransactions", tx, []);
+  },
+
+  async applyPettyCashPostingAtomic(params: {
+    fund: PettyCashFundRecord;
+    fundDelta: number; // + on Allocation/Replenishment, - on Expense
+    tx: PettyCashTransactionRecord;
+    journalEntry: JournalEntryRecord;
+    sourceTreasuryAccount?: FinancialAccount;
+    sourceTreasuryDelta?: number; // - when replenishing from bank/vault
+    actualCostEntry?: ActualCostEntry;
+  }): Promise<void> {
+    const nowIso = new Date().toISOString();
+    const sanitizedFund = sanitizeForFirestore({
+      ...params.fund,
+      currentBalance: Number(params.fund.currentBalance || 0) + params.fundDelta,
+      updatedAt: nowIso,
+    });
+    const sanitizedTx = sanitizeForFirestore(params.tx);
+    const sanitizedJe = sanitizeForFirestore(params.journalEntry);
+    const diff = Math.abs(Number(sanitizedJe.totalDebit || 0) - Number(sanitizedJe.totalCredit || 0));
+    if (!sanitizedJe.isBalanced || diff > 0.01) {
+      throw new Error("Petty cash GL voucher must have Total Debits = Total Credits.");
+    }
+    const sanitizedActual = params.actualCostEntry ? sanitizeForFirestore(params.actualCostEntry) : undefined;
+    let updatedTreasuryAcc: FinancialAccount | undefined;
+    if (params.sourceTreasuryAccount && params.sourceTreasuryDelta && params.sourceTreasuryDelta !== 0) {
+      updatedTreasuryAcc = sanitizeForFirestore({
+        ...params.sourceTreasuryAccount,
+        currentBalance: Number(params.sourceTreasuryAccount.currentBalance || 0) + params.sourceTreasuryDelta,
+        updatedAt: nowIso,
+      });
+    }
+
+    offlineEngine.updateCacheItem<PettyCashFundRecord>("pettyCashFunds", sanitizedFund, []);
+    offlineEngine.updateCacheItem<PettyCashTransactionRecord>("pettyCashTransactions", sanitizedTx, []);
+    offlineEngine.updateCacheItem<JournalEntryRecord>("journalEntries", sanitizedJe, []);
+    if (updatedTreasuryAcc) offlineEngine.updateCacheItem<FinancialAccount>("financialAccounts", updatedTreasuryAcc, []);
+    if (sanitizedActual) offlineEngine.updateCacheItem<ActualCostEntry>("actualCostEntries", sanitizedActual, []);
+
+    if (canQueryFirestore() && db) {
+      try {
+        await runTransaction(db, async (transaction) => {
+          const fundRef = doc(db!, "pettyCashFunds", params.fund.id);
+          const txRef = doc(db!, "pettyCashTransactions", sanitizedTx.id);
+          const jeRef = doc(db!, "journalEntries", sanitizedJe.id);
+          const fundSnap = await transaction.get(fundRef);
+          const accRef =
+            params.sourceTreasuryAccount && params.sourceTreasuryDelta
+              ? doc(db!, "financialAccounts", params.sourceTreasuryAccount.id)
+              : null;
+          const accSnap = accRef ? await transaction.get(accRef) : null;
+
+          const liveFund = fundSnap.exists() ? (fundSnap.data() as PettyCashFundRecord) : params.fund;
+          const nextBal = Number(liveFund.currentBalance || 0) + params.fundDelta;
+          transaction.set(
+            fundRef,
+            sanitizeForFirestore({ ...liveFund, currentBalance: nextBal, updatedAt: nowIso }),
+            { merge: true }
+          );
+          transaction.set(txRef, { ...sanitizedTx, serverReceivedAt: nowIso }, { merge: true });
+          transaction.set(jeRef, { ...sanitizedJe, serverReceivedAt: nowIso }, { merge: true });
+          if (accRef && params.sourceTreasuryDelta) {
+            const liveAcc = accSnap && accSnap.exists() ? (accSnap.data() as FinancialAccount) : params.sourceTreasuryAccount!;
+            transaction.set(
+              accRef,
+              sanitizeForFirestore({
+                ...liveAcc,
+                currentBalance: Number(liveAcc.currentBalance || 0) + params.sourceTreasuryDelta,
+                updatedAt: nowIso,
+              }),
+              { merge: true }
+            );
+          }
+          if (sanitizedActual) {
+            const acRef = doc(db!, "actualCostEntries", sanitizedActual.id);
+            transaction.set(acRef, { ...sanitizedActual, serverReceivedAt: nowIso }, { merge: true });
+          }
+        });
+        return;
+      } catch (err: any) {
+        const isPermissionDenied = err?.code === "permission-denied" || String(err?.message || "").includes("PERMISSION_DENIED");
+        handleFirestoreError(err, OperationType.WRITE, `pettyCashTransactions/${sanitizedTx.id}`);
+        if (isPermissionDenied) throw err;
+      }
+    }
+    offlineEngine.queueOutbox("set", "pettyCashFunds", sanitizedFund.id, sanitizedFund);
+    offlineEngine.queueOutbox("set", "pettyCashTransactions", sanitizedTx.id, sanitizedTx);
+    offlineEngine.queueOutbox("set", "journalEntries", sanitizedJe.id, sanitizedJe);
+    if (updatedTreasuryAcc) offlineEngine.queueOutbox("set", "financialAccounts", updatedTreasuryAcc.id, updatedTreasuryAcc);
+    if (sanitizedActual) offlineEngine.queueOutbox("set", "actualCostEntries", sanitizedActual.id, sanitizedActual);
+  },
+
+  subscribePettyCashReconciliations(
+    callback: (recs: PettyCashReconciliationRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "pettyCashReconciliations"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as PettyCashReconciliationRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<PettyCashReconciliationRecord>("pettyCashReconciliations", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "pettyCashReconciliations");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<PettyCashReconciliationRecord>("pettyCashReconciliations", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<PettyCashReconciliationRecord>("pettyCashReconciliations", []));
+    return () => {};
+  },
+  async savePettyCashReconciliation(rec: PettyCashReconciliationRecord): Promise<void> {
+    await writeDocument<PettyCashReconciliationRecord>("pettyCashReconciliations", rec, []);
+  },
+
+  // 5) financialAuditFindings
+  subscribeFinancialAuditFindings(
+    callback: (findings: FinancialAuditFindingRecord[]) => void,
+    onError?: (error: any) => void
+  ): () => void {
+    if (canQueryFirestore() && db) {
+      return onSnapshot(
+        collection(db, "financialAuditFindings"),
+        (snapshot) => {
+          const items = snapshot.empty
+            ? []
+            : snapshot.docs.map(d => ({ ...(d.data() as FinancialAuditFindingRecord), id: (d.data() as any).id || d.id }));
+          callback(offlineEngine.reconcileWithOutbox<FinancialAuditFindingRecord>("financialAuditFindings", items));
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, "financialAuditFindings");
+          if (onError) onError(error);
+          callback(offlineEngine.getCache<FinancialAuditFindingRecord>("financialAuditFindings", []));
+        }
+      );
+    }
+    callback(offlineEngine.getCache<FinancialAuditFindingRecord>("financialAuditFindings", []));
+    return () => {};
+  },
+  async saveFinancialAuditFinding(finding: FinancialAuditFindingRecord): Promise<void> {
+    await writeDocument<FinancialAuditFindingRecord>("financialAuditFindings", finding, []);
+  },
 };
 

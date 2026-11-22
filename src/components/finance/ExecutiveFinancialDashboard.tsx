@@ -36,11 +36,15 @@ import {
 } from "recharts";
 import { FinancialMenuModuleId } from "../../types";
 import { ComputedFinancialState } from "../../services/financeService";
+import { ExecutiveFinancialOverview } from "../../services/financialAuditService";
 import { formatCurrency } from "../../utils/formatters";
+import { FileSpreadsheet, Printer } from "lucide-react";
 
 interface ExecutiveFinancialDashboardProps {
   isAmharic: boolean;
   state: ComputedFinancialState;
+  advancedOverview?: ExecutiveFinancialOverview;
+  onExportExecutiveExcel?: () => void;
   onNavigateModule: (moduleId: FinancialMenuModuleId) => void;
 }
 
@@ -74,6 +78,8 @@ const SignedVariance: React.FC<{ value: number; positiveIsGood?: boolean; curren
 export const ExecutiveFinancialDashboard: React.FC<ExecutiveFinancialDashboardProps> = ({
   isAmharic,
   state,
+  advancedOverview,
+  onExportExecutiveExcel,
   onNavigateModule,
 }) => {
   const { metrics, charts, alerts, settings, permissions } = state;
@@ -156,11 +162,31 @@ export const ExecutiveFinancialDashboard: React.FC<ExecutiveFinancialDashboardPr
                 : "Strict accounting separation: accrual Revenue/Expenses are tracked separately from posted Cash Collections/Payments."}
             </p>
           </div>
-          {!hasAnyTransactionData && (
-            <span className="text-[11px] font-mono text-amber-400 bg-amber-950/50 border border-amber-800/70 px-2.5 py-1 rounded-lg whitespace-nowrap">
-              {isAmharic ? "ምንም የFirestore መዝገብ አልተገኘም" : "Live Ledger Empty — Record Transactions"}
-            </span>
-          )}
+          <div className="flex flex-wrap items-center gap-2">
+            {onExportExecutiveExcel && (
+              <button
+                type="button"
+                onClick={onExportExecutiveExcel}
+                className="px-3 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+              >
+                <FileSpreadsheet size={13} />
+                <span>{isAmharic ? "Excel ሪፖርት" : "Excel Packet (.xlsx)"}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-200 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+            >
+              <Printer size={13} />
+              <span>{isAmharic ? "PDF / አትም" : "Print / PDF"}</span>
+            </button>
+            {!hasAnyTransactionData && (
+              <span className="text-[11px] font-mono text-amber-400 bg-amber-950/50 border border-amber-800/70 px-2.5 py-1 rounded-lg whitespace-nowrap">
+                {isAmharic ? "ምንም የFirestore መዝገብ አልተገኘም" : "Live Ledger Empty — Record Transactions"}
+              </span>
+            )}
+          </div>
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-9 gap-3 text-xs">
@@ -1007,6 +1033,132 @@ export const ExecutiveFinancialDashboard: React.FC<ExecutiveFinancialDashboardPr
           </div>
         </div>
       </div>
+
+      {/* ADVANCED ENTERPRISE RATIOS, BALANCE SHEET POSITION & PROJECT PROFITABILITY */}
+      {advancedOverview && (
+        <div className="space-y-5">
+          {/* Enterprise Balance & Obligation Position */}
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <h3 className="text-sm font-extrabold uppercase tracking-wider text-white">
+                  {isAmharic ? "የድርጅቱ አጠቃላይ ሀብት፣ እዳ፣ ብድር እና ግብር ማጠቃለያ" : "Enterprise Financial Position & Capital Structure"}
+                </h3>
+                <p className="text-[11px] text-slate-400">
+                  {isAmharic ? "ከGL መግለጫዎች፣ ቋሚ ንብረቶች፣ ብድር፣ ግብር እና ፔቲ ካሽ የተሰላ" : "Consolidated GL Assets, Liabilities, Equity, Fixed Assets NBV, Loans, Tax Liabilities & Working Capital"}
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 text-xs">
+              {[
+                { label: "Total Assets", val: advancedOverview.totalAssets, color: "text-emerald-400" },
+                { label: "Total Liabilities", val: advancedOverview.totalLiabilities, color: "text-orange-400" },
+                { label: "Total Equity", val: advancedOverview.totalEquity, color: "text-cyan-400" },
+                { label: "Fixed Assets NBV", val: advancedOverview.fixedAssetsNbv, color: "text-white", nav: "fixed-assets-depreciation" as FinancialMenuModuleId },
+                { label: "Loans Outstanding", val: advancedOverview.totalLoansOutstanding, color: "text-amber-400", nav: "loan-credit" as FinancialMenuModuleId },
+                { label: "Net Tax Payable", val: advancedOverview.totalTaxLiabilities, color: "text-red-400", nav: "tax-compliance" as FinancialMenuModuleId },
+                { label: "Petty Cash Float", val: advancedOverview.pettyCashBalance, color: "text-blue-400", nav: "petty-cash" as FinancialMenuModuleId },
+                { label: "Working Capital", val: advancedOverview.workingCapital, color: advancedOverview.workingCapital >= 0 ? "text-emerald-400" : "text-red-400" },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => item.nav && onNavigateModule(item.nav)}
+                  className={`text-left p-3 rounded-xl bg-slate-900/70 border border-slate-800/80 ${item.nav ? "hover:border-slate-700 cursor-pointer" : "cursor-default"}`}
+                >
+                  <span className="text-[10px] text-slate-400 uppercase block">{item.label}</span>
+                  <span className={`font-mono font-bold tabular-nums mt-1 block ${item.color}`}>
+                    {formatCurrency(item.val, cur)}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Key Financial Ratios Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3 pt-2 border-t border-slate-900 text-xs">
+              {[
+                { label: "Current Ratio", val: advancedOverview.ratios.currentRatio !== null ? `${advancedOverview.ratios.currentRatio.toFixed(2)}x` : "N/A" },
+                { label: "Quick Ratio", val: advancedOverview.ratios.quickRatio !== null ? `${advancedOverview.ratios.quickRatio.toFixed(2)}x` : "N/A" },
+                { label: "Debt-to-Equity", val: advancedOverview.ratios.debtToEquity !== null ? `${advancedOverview.ratios.debtToEquity.toFixed(2)}x` : "N/A" },
+                { label: "Net Profit Margin", val: advancedOverview.ratios.netProfitMarginPct !== null ? `${advancedOverview.ratios.netProfitMarginPct.toFixed(1)}%` : "N/A" },
+                { label: "Return on Assets", val: advancedOverview.ratios.returnOnAssetsPct !== null ? `${advancedOverview.ratios.returnOnAssetsPct.toFixed(1)}%` : "N/A" },
+                { label: "Budget Utilization", val: advancedOverview.ratios.budgetUtilizationPct !== null ? `${advancedOverview.ratios.budgetUtilizationPct.toFixed(1)}%` : "N/A" },
+                { label: "AR Collection Rate", val: advancedOverview.ratios.arCollectionRatePct !== null ? `${advancedOverview.ratios.arCollectionRatePct.toFixed(1)}%` : "N/A" },
+                { label: "AP Payment Rate", val: advancedOverview.ratios.apPaymentRatePct !== null ? `${advancedOverview.ratios.apPaymentRatePct.toFixed(1)}%` : "N/A" },
+              ].map((r) => (
+                <div key={r.label} className="p-2.5 rounded-xl bg-slate-900/40 border border-slate-800/60">
+                  <span className="text-[10px] text-slate-500 uppercase block">{r.label}</span>
+                  <span className="font-mono font-extrabold text-white tabular-nums mt-0.5 block">{r.val}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Project Profitability Comparison Chart & Table */}
+          {advancedOverview.projectProfitability.length > 0 && (
+            <div className="bg-slate-950 border border-slate-800 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <BarChart3 size={16} className="text-emerald-400" />
+                  <span>{isAmharic ? "የፕሮጀክቶች ትርፋማነት ንፅፅር" : "Project-by-Project Profitability Comparison"}</span>
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => onNavigateModule("project-mgmt")}
+                  className="text-[11px] font-bold text-slate-400 hover:text-white cursor-pointer"
+                >
+                  EVM Control →
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
+                <div className="h-64">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={advancedOverview.projectProfitability.slice(0, 8)}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                      <XAxis dataKey="project" stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: 10 }} />
+                      <YAxis stroke="#64748b" tick={{ fill: "#94a3b8", fontSize: 10 }} tickFormatter={formatCompactEtb} />
+                      <Tooltip contentStyle={tooltipStyle} formatter={(v: any) => formatCurrency(v, cur)} />
+                      <Legend wrapperStyle={{ fontSize: "11px" }} />
+                      <Bar dataKey="revenue" name="Revenue" fill="#10b981" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="expenses" name="Expenses" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="netProfit" name="Net Profit" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="overflow-x-auto border border-slate-800 rounded-xl">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead className="bg-slate-900 text-slate-400 text-[10px] uppercase">
+                      <tr>
+                        <th className="py-2.5 px-3">Project</th>
+                        <th className="py-2.5 px-3 text-right">Revenue</th>
+                        <th className="py-2.5 px-3 text-right">Expenses</th>
+                        <th className="py-2.5 px-3 text-right">Net Profit</th>
+                        <th className="py-2.5 px-3 text-right">Margin</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800 text-slate-200">
+                      {advancedOverview.projectProfitability.map((pr) => (
+                        <tr key={pr.project} className="hover:bg-slate-900/40">
+                          <td className="py-2 px-3 font-bold text-white">{pr.project}</td>
+                          <td className="py-2 px-3 text-right font-mono tabular-nums text-emerald-400">{formatCurrency(pr.revenue, cur)}</td>
+                          <td className="py-2 px-3 text-right font-mono tabular-nums text-red-400">{formatCurrency(pr.expenses, cur)}</td>
+                          <td className={`py-2 px-3 text-right font-mono tabular-nums font-bold ${pr.netProfit >= 0 ? "text-white" : "text-red-400"}`}>
+                            {formatCurrency(pr.netProfit, cur)}
+                          </td>
+                          <td className="py-2 px-3 text-right font-mono tabular-nums">{pr.marginPct.toFixed(1)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

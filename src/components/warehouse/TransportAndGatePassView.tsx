@@ -18,7 +18,7 @@ export function TransportAndGatePassView({
   onFeedback,
   onOpenPrint,
 }: {
-  mode: "transportation" | "gate_passes";
+  mode: "transportation" | "gate_pass";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;

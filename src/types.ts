@@ -23,7 +23,6 @@ export enum UserRole {
   OFFICE_MANAGER = "Office Manager",
   OPERATION_MANAGER = "Operation Manager",
   DIRECTOR = "Director",
-  DIRECTORY = "Directory",
   OFFICE_AND_TECHNICAL_ENGINEERING = "Office & Technical Engineering",
   EMPLOYEE = "Employee",
   DRIVER = "Driver",
@@ -2276,6 +2275,11 @@ export type FinancialMenuModuleId =
   | "cash-flow"
   | "cash-and-bank"
   | "liquidity-management"
+  | "fixed-assets-depreciation"
+  | "tax-compliance"
+  | "loan-credit"
+  | "petty-cash"
+  | "financial-audit"
   | "financial-reports"
   | "financial-notifications"
   | "financial-settings"
@@ -3256,6 +3260,9 @@ export type BankTransactionType =
   | "Bank Transfers"
   | "Bank Charges"
   | "Interest Income"
+  | "Loan Disbursements"
+  | "Loan Repayments"
+  | "Tax Remittances"
   | "Other Transactions";
 
 export type BankTransactionApprovalStatus =
@@ -3287,11 +3294,11 @@ export interface BankTransactionRecord {
   counterparty: string;
   description: string;
   paymentMethod?: string;
-  linkedDocumentType?: "Invoice" | "Expense" | "Payroll" | "CashTransaction" | "Direct";
+  linkedDocumentType?: "Invoice" | "Expense" | "Payroll" | "CashTransaction" | "Direct" | "Other";
   linkedDocumentId?: string;
   linkedReferenceNo?: string;
   linkedCashTxId?: string;
-  sourceChannel: "Manual" | "Statement Import" | "Cash Module" | "AR" | "AP" | "Payroll";
+  sourceChannel: "Manual" | "Statement Import" | "Cash Module" | "AR" | "AP" | "Payroll" | "Loan";
   importedStatementId?: string;
   importedStatementLineId?: string;
   approvalStatus: BankTransactionApprovalStatus;
@@ -3474,7 +3481,11 @@ export interface JournalEntryRecord {
     | "Procurement"
     | "Project Cost Control"
     | "Equipment & Assets"
+    | "Fixed Assets"
     | "Inventory"
+    | "Tax Compliance"
+    | "Loan & Financing"
+    | "Petty Cash"
     | "Manual Journal"
     | "Period Closing";
   sourceRecordId?: string;
@@ -5147,6 +5158,396 @@ export type WarehouseReportType =
   | "FAST_SLOW_MOVING"
   | "DISCREPANCY_SHORTAGE"
   | "AUDIT_TRAIL_APPROVAL_HISTORY";
+
+// ============================================================================
+// FINANCIAL MANAGEMENT — ADVANCED MODULES (PARTS 8–16)
+// ============================================================================
+
+export type FinanceAssetCategory =
+  | "Buildings & Structures"
+  | "Vehicles & Transport"
+  | "Heavy Machinery"
+  | "Construction Equipment"
+  | "Office Furniture & Fixtures"
+  | "IT & Engineering Hardware"
+  | "Aluminum Formwork System"
+  | "Other Capital Asset";
+
+export type FixedAssetDepreciationMethod =
+  | "Straight-Line"
+  | "Declining Balance"
+  | "Units of Production";
+
+export type FinanceFixedAssetStatus =
+  | "Active"
+  | "Under Maintenance"
+  | "Transferred"
+  | "Fully Depreciated"
+  | "Disposed";
+
+export interface FinanceFixedAssetRecord {
+  id: string;
+  assetCode: string;
+  assetName: string;
+  category: FinanceAssetCategory;
+  acquisitionDate: string;
+  acquisitionCost: number;
+  salvageValue: number;
+  usefulLifeYears: number;
+  depreciationMethod: FixedAssetDepreciationMethod;
+  decliningRatePct?: number;
+  totalEstimatedUnits?: number;
+  unitsProducedToDate?: number;
+  accumulatedDepreciation: number;
+  revaluationReserve?: number;
+  netBookValue: number;
+  lastDepreciationPeriod?: string;
+  assignedToUid?: string;
+  assignedToName?: string;
+  department: string;
+  project: string;
+  location: string;
+  status: FinanceFixedAssetStatus;
+  linkedWarehouseAssetId?: string;
+  linkedGrvNumber?: string;
+  coaAssetCode: string;
+  coaAccumDepCode: string;
+  disposalDate?: string;
+  disposalProceeds?: number;
+  disposalGainLoss?: number;
+  notes?: string;
+  createdBy: string;
+  createdById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type FixedAssetEventType =
+  | "Acquisition"
+  | "Assignment"
+  | "Transfer"
+  | "Maintenance"
+  | "Revaluation"
+  | "Depreciation"
+  | "Disposal";
+
+export interface FixedAssetEventRecord {
+  id: string;
+  assetId: string;
+  assetCode: string;
+  assetName: string;
+  eventType: FixedAssetEventType;
+  eventDate: string;
+  periodMonth?: string;
+  amount: number;
+  fromLocation?: string;
+  toLocation?: string;
+  fromAssignee?: string;
+  toAssignee?: string;
+  previousNbv?: number;
+  newNbv?: number;
+  gainOrLoss?: number;
+  unitsInPeriod?: number;
+  glJournalId?: string;
+  glJournalNo?: string;
+  description: string;
+  performedBy: string;
+  performedById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  createdAt: string;
+}
+
+export interface AssetDepreciationScheduleRow {
+  periodNumber: number;
+  periodLabel: string;
+  openingNbv: number;
+  depreciationExpense: number;
+  accumulatedDepreciation: number;
+  closingNbv: number;
+}
+
+export type FinanceTaxType = "VAT" | "WHT" | "CIT" | "PayrollTax" | "Pension";
+
+export interface TaxRateConfigRecord {
+  id: string;
+  taxCode: string;
+  taxName: string;
+  taxType: FinanceTaxType;
+  ratePct: number;
+  vatCategory?: "Standard Rated" | "Zero-Rated" | "Exempt";
+  effectiveFrom: string;
+  effectiveTo?: string;
+  coaLiabilityCode: string;
+  coaInputAssetCode?: string;
+  isActive: boolean;
+  notes?: string;
+  createdBy: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface TaxTransactionRecord {
+  id: string;
+  taxRef: string;
+  taxType: FinanceTaxType;
+  direction: "Output Liability" | "Input Recoverable" | "Withheld Payable" | "Statutory Expense";
+  transactionDate: string;
+  periodMonth: string;
+  project: string;
+  department: string;
+  counterparty: string;
+  sourceModule: "Accounts Receivable" | "Accounts Payable" | "HRM Payroll" | "Manual Tax Adjustment" | "Corporate Tax";
+  sourceRecordId: string;
+  baseAmount: number;
+  ratePct: number;
+  taxAmount: number;
+  status: "Accrued" | "Filed" | "Paid";
+  returnId?: string;
+  glJournalId?: string;
+  createdAt: string;
+}
+
+export interface TaxReturnRecord {
+  id: string;
+  returnNumber: string;
+  taxType: FinanceTaxType;
+  periodMonth: string;
+  filingDeadline: string;
+  grossTaxableBase: number;
+  outputTaxTotal: number;
+  inputTaxCreditTotal: number;
+  netTaxPayable: number;
+  status: "Draft" | "Prepared" | "Filed" | "Paid" | "Overdue";
+  preparedBy: string;
+  preparedById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  filedAt?: string;
+  paidAt?: string;
+  paymentAccountId?: string;
+  paymentRef?: string;
+  glJournalId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type LoanFacilityType =
+  | "Bank Term Loan"
+  | "Project Financing"
+  | "Working Capital Line"
+  | "Equipment Financing";
+
+export type LoanInterestMethod = "Reducing Balance" | "Flat Rate";
+
+export interface LoanFacilityRecord {
+  id: string;
+  facilityNo: string;
+  lenderName: string;
+  facilityType: LoanFacilityType;
+  project: string;
+  department: string;
+  principalAmount: number;
+  annualInterestRatePct: number;
+  termMonths: number;
+  interestMethod: LoanInterestMethod;
+  disbursementDate: string;
+  maturityDate: string;
+  outstandingPrincipal: number;
+  totalInterestAccrued: number;
+  totalPrincipalRepaid: number;
+  totalInterestRepaid: number;
+  nextDueDate: string;
+  coaLiabilityCode: string; // "2110" Short-Term or "2510" Long-Term
+  depositAccountId?: string;
+  glDisbursementJournalId?: string;
+  status: "Pending Approval" | "Active" | "Partially Repaid" | "Settled" | "Overdue";
+  createdBy: string;
+  createdById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface LoanRepaymentScheduleRow {
+  installmentNo: number;
+  dueDate: string;
+  openingBalance: number;
+  principalDue: number;
+  interestDue: number;
+  totalPayment: number;
+  closingBalance: number;
+  status: "Scheduled" | "Paid" | "Overdue";
+}
+
+export interface LoanRepaymentRecord {
+  id: string;
+  repaymentNo: string;
+  loanId: string;
+  facilityNo: string;
+  lenderName: string;
+  project: string;
+  paymentDate: string;
+  installmentNo?: number;
+  principalPaid: number;
+  interestPaid: number;
+  penaltyPaid: number;
+  totalPaid: number;
+  paymentAccountId: string;
+  paymentAccountName: string;
+  referenceNo: string;
+  glJournalId?: string;
+  glJournalNo?: string;
+  recordedBy: string;
+  recordedById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  status: "Pending Approval" | "Posted";
+  createdAt: string;
+}
+
+export interface CounterpartyCreditProfile {
+  id: string;
+  counterpartyName: string;
+  counterpartyType: "Client" | "Supplier";
+  projectScope: string;
+  creditLimitEtb: number;
+  paymentTermDays: number;
+  creditRating: "Low Risk" | "Moderate Risk" | "Elevated Risk" | "High Risk";
+  isCreditHold: boolean;
+  notes?: string;
+  updatedBy: string;
+  updatedById: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PettyCashFundRecord {
+  id: string;
+  fundCode: string;
+  fundName: string;
+  locationType: "Head Office" | "Construction Site";
+  project: string;
+  department: string;
+  custodianUid: string;
+  custodianName: string;
+  authorizedLimit: number;
+  maxSingleExpense: number;
+  openingBalance: number;
+  currentBalance: number;
+  replenishThresholdPct: number;
+  lastReconciledAt?: string;
+  lastPhysicalCount?: number;
+  status: "Active" | "Suspended" | "Closed";
+  createdBy: string;
+  createdById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type PettyCashTxType = "Allocation" | "Replenishment" | "Expense" | "Adjustment";
+
+export interface PettyCashTransactionRecord {
+  id: string;
+  voucherNo: string;
+  fundId: string;
+  fundCode: string;
+  fundName: string;
+  project: string;
+  department: string;
+  txType: PettyCashTxType;
+  txDate: string;
+  category: string;
+  payeeOrSource: string;
+  description: string;
+  amount: number;
+  receiptRef?: string;
+  receiptUrl?: string;
+  hasValidReceipt: boolean;
+  sourceTreasuryAccountId?: string;
+  coaExpenseCode?: string;
+  status: "Pending" | "Approved" | "Posted" | "Rejected";
+  glJournalId?: string;
+  createdBy: string;
+  createdById: string;
+  approvedBy?: string;
+  approvedById?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PettyCashReconciliationRecord {
+  id: string;
+  reconciliationNo: string;
+  fundId: string;
+  fundName: string;
+  project: string;
+  reconciliationDate: string;
+  custodianName: string;
+  bookBalance: number;
+  physicalCashCount: number;
+  unpostedReceiptsTotal: number;
+  varianceAmount: number; // physical + unpostedReceipts - bookBalance
+  varianceClassification: "Balanced" | "Cash Shortage" | "Excess Cash";
+  unsupportedExpensesCount: number;
+  unsupportedExpensesAmount: number;
+  notes?: string;
+  reconciledBy: string;
+  reconciledById: string;
+  verifiedBy?: string;
+  verifiedById?: string;
+  status: "Pending Verification" | "Verified";
+  createdAt: string;
+}
+
+export type AuditFindingSeverity = "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+export type AuditAnomalyCategory =
+  | "Duplicate Payment / Invoice"
+  | "Split Transaction Near Threshold"
+  | "Maker-Checker Violation"
+  | "After-Hours / Weekend Posting"
+  | "Unsupported Petty Cash Expense"
+  | "Petty Cash Shortage / Excess"
+  | "Budget Overrun Anomaly"
+  | "Unbalanced or Unverified Posting"
+  | "Credit Limit Breach"
+  | "Manual Finding";
+
+export interface FinancialAuditFindingRecord {
+  id: string;
+  findingNo: string;
+  anomalyCategory: AuditAnomalyCategory;
+  severity: AuditFindingSeverity;
+  title: string;
+  description: string;
+  sourceCollection: string;
+  sourceRecordId: string;
+  project: string;
+  amountInvolved: number;
+  status: "Open" | "Under Investigation" | "CAPA Assigned" | "Resolved" | "Dismissed";
+  capaAction?: string;
+  assignedOwner?: string;
+  dueDate?: string;
+  resolutionNotes?: string;
+  detectedBy: string;
+  detectedById: string;
+  resolvedBy?: string;
+  resolvedById?: string;
+  resolvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 
 
 

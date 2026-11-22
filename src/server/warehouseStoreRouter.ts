@@ -866,7 +866,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
                     title: `Request ${updatedReq.requestNumber} Verified — Awaiting Director Approval`,
                     message: `${actor.name} verified ${updatedReq.requestNumber} against Plan ${plan.planNumber} and submitted it for Director final decision.`,
                     severity: "info",
-                    targetRoles: ["Director", "Directory", "Super Admin"],
+                    targetRoles: ["Director", "Super Admin"],
                     projectId: updatedReq.projectId,
                     projectName: updatedReq.projectName,
                     referenceId: updatedReq.id,

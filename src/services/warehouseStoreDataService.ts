@@ -20,7 +20,6 @@ import {
   CommercialInvoiceRecord,
   CostValuationMethod,
   EngineeringMaterialRequest,
-  EngineeringMaterialRequestItem,
   FixedAssetRecord,
   FixedAssetTransferIn,
   FixedAssetTransferOut,
@@ -35,6 +34,7 @@ import {
   MaterialApprovalRecord,
   MaterialPlanRecord,
   MaterialPlanRevisionRecord,
+  MaterialRequestItem,
   MaterialReturnVoucher,
   ProjectStoreRecord,
   RegisteredSite,
@@ -1117,7 +1117,7 @@ export const WarehouseStoreDataService = {
       severity: payload.action === "verify" ? "info" : "warning",
       targetRoles:
         payload.action === "verify"
-          ? ["Director", "Directory", "Super Admin"]
+          ? ["Director", "Super Admin"]
           : ["Store Owner", "Office & Technical Engineering"],
       projectId: updatedReq.projectId,
       projectName: updatedReq.projectName,
@@ -1652,7 +1652,7 @@ export const WarehouseStoreDataService = {
     const gatePassId = `GP-${Date.now()}`;
     const now = new Date().toISOString();
 
-    const updatedItems: EngineeringMaterialRequestItem[] = matReq.items.map((i) => ({ ...i }));
+    const updatedItems: MaterialRequestItem[] = matReq.items.map((i) => ({ ...i }));
     const givLines: any[] = [];
     let totalCost = 0;
     let totalQty = 0;

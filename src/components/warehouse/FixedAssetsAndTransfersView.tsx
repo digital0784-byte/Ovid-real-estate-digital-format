@@ -17,7 +17,7 @@ export function FixedAssetsAndTransfersView({
   onFeedback,
   onOpenPrint,
 }: {
-  mode: "fixed_assets_big_balance" | "project_fixed_assets" | "fatov" | "fativ";
+  mode: "fixed_assets_big_balance" | "project_fixed_assets" | "fatov_fativ";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
@@ -25,6 +25,9 @@ export function FixedAssetsAndTransfersView({
 }) {
   const canFatov = canPerformWarehouseModuleAction(actor.role, "CREATE_FATOV");
   const canFativ = canPerformWarehouseModuleAction(actor.role, "CONFIRM_FATIV");
+  const [transferSubTab, setTransferSubTab] = useState<"fatov" | "fativ">(
+    !canFatov && canFativ ? "fativ" : "fatov"
+  );
 
   const [historyAsset, setHistoryAsset] = useState<FixedAssetRecord | null>(null);
   const [selectedProjFilter, setSelectedProjFilter] = useState("ALL");
@@ -59,7 +62,7 @@ export function FixedAssetsAndTransfersView({
           assetDocId: asset.id,
           toLocationType: toType,
           toLocationId: dest.id,
-          toLocationName: dest.name,
+          toLocationName: toType === "Warehouse" ? dest.name : dest.storeName,
           projectId: dest.projectId,
           projectName: dest.projectName,
           vehicleNumber,
@@ -261,10 +264,36 @@ export function FixedAssetsAndTransfersView({
     );
   }
 
-  if (mode === "fatov") {
-    return (
-      <div className="space-y-5">
-        {canFatov && (
+  // FATOV & FATIV UNIFIED TRANSFER WORKSPACE
+  const pendingFatovs = snapshot.fatovs.filter((f) => f.status === "Dispatched");
+  return (
+    <div className="space-y-4">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap gap-1.5">
+        <button
+          type="button"
+          onClick={() => setTransferSubTab("fatov")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+            transferSubTab === "fatov" ? "bg-amber-600 text-white" : "bg-slate-950/60 hover:bg-slate-800 text-slate-300"
+          }`}
+        >
+          <Send size={13} />
+          <span>FATOV — Dispatch Out ({snapshot.fatovs.length})</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setTransferSubTab("fativ")}
+          className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+            transferSubTab === "fativ" ? "bg-emerald-600 text-white" : "bg-slate-950/60 hover:bg-slate-800 text-slate-300"
+          }`}
+        >
+          <CheckCircle2 size={13} />
+          <span>FATIV — Confirm Receipt ({pendingFatovs.length} In Transit)</span>
+        </button>
+      </div>
+
+      {transferSubTab === "fatov" ? (
+        <div className="space-y-5">
+          {canFatov && (
           <form onSubmit={handleDispatchFatov} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Send size={16} className="text-amber-400" />
@@ -300,7 +329,9 @@ export function FixedAssetsAndTransfersView({
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
               >
                 {(toType === "Warehouse" ? snapshot.warehouses : snapshot.projectStores).map((loc) => (
-                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  <option key={loc.id} value={loc.id}>
+                    {"storeName" in loc ? loc.storeName : loc.name}
+                  </option>
                 ))}
               </select>
               <input
@@ -370,15 +401,10 @@ export function FixedAssetsAndTransfersView({
               </tbody>
             </table>
           </div>
+          </div>
         </div>
-      </div>
-    );
-  }
-
-  // FATIV RECEIPT CONFIRMATION MODE
-  const pendingFatovs = snapshot.fatovs.filter((f) => f.status === "Dispatched");
-  return (
-    <div className="space-y-5">
+      ) : (
+        <div className="space-y-5">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <CheckCircle2 size={16} className="text-emerald-400" />
@@ -520,6 +546,8 @@ export function FixedAssetsAndTransfersView({
               </button>
             </div>
           </form>
+        </div>
+      )}
         </div>
       )}
     </div>

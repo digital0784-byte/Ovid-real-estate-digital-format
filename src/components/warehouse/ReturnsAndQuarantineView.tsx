@@ -17,7 +17,7 @@ export function ReturnsAndQuarantineView({
   onFeedback,
   onOpenPrint,
 }: {
-  mode: "returns_mrv" | "quarantine";
+  mode: "returns_mrv" | "quarantine_stock";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
@@ -64,10 +64,10 @@ export function ReturnsAndQuarantineView({
           direction,
           sourceLocationType: direction === "ProjectToWarehouse" ? "ProjectStore" : "Warehouse",
           sourceLocationId: srcObj.id,
-          sourceLocationName: srcObj.name,
+          sourceLocationName: "storeName" in srcObj ? srcObj.storeName : srcObj.name,
           destinationLocationType: direction === "ProjectToWarehouse" ? "Warehouse" : "ProjectStore",
           destinationLocationId: dstObj.id,
-          destinationLocationName: dstObj.name,
+          destinationLocationName: "storeName" in dstObj ? dstObj.storeName : dstObj.name,
           projectId: srcObj.projectId || dstObj.projectId,
           projectName: srcObj.projectName || dstObj.projectName,
           originalGivNumber: origGiv || undefined,
@@ -87,7 +87,7 @@ export function ReturnsAndQuarantineView({
               originalGivNumber: origGiv || undefined,
               originalGrvNumber: linkedAsset?.originalGrvNumber || origGrv || undefined,
               assetId: linkedAsset?.assetId || assetId || undefined,
-              unitCost: meta.standardUnitCost,
+              unitCost: meta.standardUnitCost || 0,
               reason: remarks || undefined,
             },
           ],
@@ -172,7 +172,7 @@ export function ReturnsAndQuarantineView({
     onOpenPrint(`MRV ${mrv.mrvNumber}`, html);
   };
 
-  if (mode === "quarantine") {
+  if (mode === "quarantine_stock") {
     const quarantinedBalances = snapshot.stockBalances.filter((b) => (b.quarantineQty || 0) > 0);
     const quarantinedAssets = snapshot.fixedAssets.filter((a) => a.status === "Quarantined" || a.condition !== "Good");
     return (
@@ -296,7 +296,7 @@ export function ReturnsAndQuarantineView({
               className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
             >
               {(direction === "ProjectToWarehouse" ? snapshot.projectStores : snapshot.warehouses).map((l) => (
-                <option key={l.id} value={l.id}>From: {l.name}</option>
+                <option key={l.id} value={l.id}>From: {"storeName" in l ? l.storeName : l.name}</option>
               ))}
             </select>
             <select
@@ -305,7 +305,7 @@ export function ReturnsAndQuarantineView({
               className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
             >
               {(direction === "ProjectToWarehouse" ? snapshot.warehouses : snapshot.projectStores).map((l) => (
-                <option key={l.id} value={l.id}>To: {l.name}</option>
+                <option key={l.id} value={l.id}>To: {"storeName" in l ? l.storeName : l.name}</option>
               ))}
             </select>
             <select

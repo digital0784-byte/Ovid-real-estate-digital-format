@@ -38,6 +38,8 @@ import {
   canRequesterResubmitRecruitmentRequest,
   resolveHrmPermissions,
 } from "../services/hrmService";
+import { RoleDashboard } from "./RoleDashboard";
+import { DashboardKind, resolveDashboardKind } from "../config/roleDashboards";
 
 interface DashboardProps {
   workers: Worker[];
@@ -58,6 +60,8 @@ interface DashboardProps {
   recruitmentRequests?: RecruitmentRequestRecord[];
   excessRecruitmentRequests?: ExcessRecruitmentRequestRecord[];
   erpTasks?: ErpTask[];
+  hasAccess?: (tab: string) => boolean;
+  tabTitle?: (tab: string, isAmharic: boolean) => string;
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({
@@ -78,6 +82,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   recruitmentRequests: propRecruitmentRequests,
   excessRecruitmentRequests: propExcessRecruitmentRequests,
   erpTasks: propErpTasks,
+  hasAccess,
+  tabTitle,
 }) => {
   const [liveRecRequests, setLiveRecRequests] = useState<RecruitmentRequestRecord[]>([]);
   const [liveExcessRequests, setLiveExcessRequests] = useState<ExcessRecruitmentRequestRecord[]>([]);
@@ -154,7 +160,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
           (task.assignedToRole === UserRole.OFFICE_MANAGER &&
             currentUserRole === UserRole.OFFICE_AND_TECHNICAL_ENGINEERING) ||
           (task.assignedToRole === UserRole.DIRECTOR &&
-            (currentUserRole === UserRole.DIRECTORY || currentUserRole === UserRole.HEAD_OFFICE)) ||
+            (currentUserRole === UserRole.DIRECTOR || currentUserRole === UserRole.HEAD_OFFICE)) ||
           (task.assignedToRole === UserRole.HR_MANAGER && currentUserRole === UserRole.HR);
         return matchesUser || matchesRole || currentUserRole === UserRole.SUPER_ADMIN;
       }),
@@ -333,10 +339,48 @@ export const Dashboard: React.FC<DashboardProps> = ({
     return Math.max(10, highest);
   }, [panelOutputTrend]);
 
+  const dashboardKind = resolveDashboardKind(currentUserRole);
+  const fullDashboardKinds: ReadonlySet<DashboardKind> = new Set([
+    "executive",
+    "hr",
+    "siteEngineering",
+    "timekeeping",
+    "fieldLead",
+  ]);
+  const hasPendingRecruitmentWork =
+    pendingDepartmentRecruitments.length > 0 ||
+    pendingExcessRequests.length > 0 ||
+    pendingDepartmentRecTasks.length > 0;
+  const showFullLegacyDashboard =
+    fullDashboardKinds.has(dashboardKind) || hasPendingRecruitmentWork;
+
   return (
     <div className="space-y-6">
-      {/* Header Banner */}
-      <div className="relative bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 text-white overflow-hidden shadow-xl border border-slate-700">
+      <RoleDashboard
+        currentUserRole={currentUserRole}
+        currentUserProfile={currentUserProfile}
+        isAmharic={isAmharic}
+        data={{
+          workers,
+          attendance,
+          teams,
+          zones,
+          evaluations,
+          formworkPanels,
+          panelMovementLogs,
+          recruitmentRequests,
+          excessRecruitmentRequests,
+          erpTasks,
+        }}
+        hasAccess={hasAccess}
+        tabTitle={tabTitle}
+        onNavigate={navigateTarget}
+      />
+
+      {showFullLegacyDashboard && (
+        <>
+          {/* Header Banner */}
+          <div className="relative bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 text-white overflow-hidden shadow-xl border border-slate-700">
         <div className="absolute right-0 top-0 opacity-10">
           <Layers size={250} />
         </div>
@@ -1211,6 +1255,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           UTC: 2026-07-02
         </span>
       </div>
+        </>
+      )}
     </div>
   );
 };

@@ -1872,6 +1872,207 @@
         "updatedAt": { "type": "string", "maxLength": 64 }
       },
       "required": ["id", "valuationMethod", "updatedByUid", "updatedAt"]
+    },
+    "FinanceFixedAsset": {
+      "title": "FinanceFixedAsset",
+      "description": "Capitalized fixed assets with Straight-Line, Declining Balance, and Units of Production depreciation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "assetCode": { "type": "string", "maxLength": 64 },
+        "assetName": { "type": "string", "maxLength": 200 },
+        "category": { "type": "string", "maxLength": 80 },
+        "acquisitionDate": { "type": "string", "maxLength": 32 },
+        "acquisitionCost": { "type": "number" },
+        "salvageValue": { "type": "number" },
+        "usefulLifeYears": { "type": "number" },
+        "depreciationMethod": { "type": "string", "enum": ["Straight-Line", "Declining Balance", "Units of Production"] },
+        "accumulatedDepreciation": { "type": "number" },
+        "netBookValue": { "type": "number" },
+        "project": { "type": "string", "maxLength": 140 },
+        "status": { "type": "string", "enum": ["Active", "Under Maintenance", "Transferred", "Fully Depreciated", "Disposed"] },
+        "createdById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "assetCode", "assetName", "acquisitionCost", "depreciationMethod", "status", "createdById"]
+    },
+    "FixedAssetEvent": {
+      "title": "FixedAssetEvent",
+      "description": "Immutable lifecycle and depreciation audit log for fixed assets.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "assetId": { "type": "string", "maxLength": 128 },
+        "eventType": { "type": "string", "enum": ["Acquisition", "Assignment", "Transfer", "Maintenance", "Revaluation", "Depreciation", "Disposal"] },
+        "eventDate": { "type": "string", "maxLength": 32 },
+        "amount": { "type": "number" },
+        "performedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "assetId", "eventType", "eventDate", "amount", "performedById"]
+    },
+    "TaxRateConfig": {
+      "title": "TaxRateConfig",
+      "description": "Effective-dated statutory tax configurations (VAT, WHT, CIT, PayrollTax, Pension).",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "taxCode": { "type": "string", "maxLength": 64 },
+        "taxName": { "type": "string", "maxLength": 140 },
+        "taxType": { "type": "string", "enum": ["VAT", "WHT", "CIT", "PayrollTax", "Pension"] },
+        "ratePct": { "type": "number" },
+        "effectiveFrom": { "type": "string", "maxLength": 32 },
+        "isActive": { "type": "boolean" }
+      },
+      "required": ["id", "taxCode", "taxName", "taxType", "ratePct", "effectiveFrom"]
+    },
+    "TaxTransaction": {
+      "title": "TaxTransaction",
+      "description": "Automated and manual tax accrual/credit entries across VAT, WHT, CIT, and Payroll.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "taxRef": { "type": "string", "maxLength": 80 },
+        "taxType": { "type": "string", "enum": ["VAT", "WHT", "CIT", "PayrollTax", "Pension"] },
+        "periodMonth": { "type": "string", "maxLength": 16 },
+        "baseAmount": { "type": "number" },
+        "ratePct": { "type": "number" },
+        "taxAmount": { "type": "number" },
+        "status": { "type": "string", "enum": ["Accrued", "Filed", "Paid"] }
+      },
+      "required": ["id", "taxRef", "taxType", "periodMonth", "taxAmount", "status"]
+    },
+    "TaxReturn": {
+      "title": "TaxReturn",
+      "description": "Tax return filings and GL settlement vouchers with Maker-Checker sign-off.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "returnNumber": { "type": "string", "maxLength": 64 },
+        "taxType": { "type": "string", "enum": ["VAT", "WHT", "CIT", "PayrollTax", "Pension"] },
+        "periodMonth": { "type": "string", "maxLength": 16 },
+        "filingDeadline": { "type": "string", "maxLength": 32 },
+        "netTaxPayable": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Prepared", "Filed", "Paid", "Overdue"] },
+        "preparedById": { "type": "string", "maxLength": 128 },
+        "approvedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "returnNumber", "taxType", "periodMonth", "filingDeadline", "status", "preparedById"]
+    },
+    "LoanFacility": {
+      "title": "LoanFacility",
+      "description": "Bank loans, project financing, working capital, and equipment financing facilities.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "facilityNo": { "type": "string", "maxLength": 64 },
+        "lenderName": { "type": "string", "maxLength": 160 },
+        "facilityType": { "type": "string", "enum": ["Bank Term Loan", "Project Financing", "Working Capital Line", "Equipment Financing"] },
+        "principalAmount": { "type": "number" },
+        "annualInterestRatePct": { "type": "number" },
+        "termMonths": { "type": "number" },
+        "interestMethod": { "type": "string", "enum": ["Reducing Balance", "Flat Rate"] },
+        "outstandingPrincipal": { "type": "number" },
+        "status": { "type": "string", "enum": ["Pending Approval", "Active", "Partially Repaid", "Settled", "Overdue"] },
+        "createdById": { "type": "string", "maxLength": 128 },
+        "approvedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "facilityNo", "lenderName", "principalAmount", "termMonths", "status", "createdById"]
+    },
+    "LoanRepayment": {
+      "title": "LoanRepayment",
+      "description": "Loan installment repayments strictly separating Principal vs Interest in GL.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "repaymentNo": { "type": "string", "maxLength": 64 },
+        "loanId": { "type": "string", "maxLength": 128 },
+        "principalPaid": { "type": "number" },
+        "interestPaid": { "type": "number" },
+        "totalPaid": { "type": "number" },
+        "recordedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "repaymentNo", "loanId", "principalPaid", "interestPaid", "totalPaid", "recordedById"]
+    },
+    "CounterpartyCreditProfile": {
+      "title": "CounterpartyCreditProfile",
+      "description": "Client credit limits, supplier credit terms, credit holds, and risk rating.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "counterpartyName": { "type": "string", "maxLength": 180 },
+        "counterpartyType": { "type": "string", "enum": ["Client", "Supplier"] },
+        "creditLimitEtb": { "type": "number" },
+        "paymentTermDays": { "type": "number" },
+        "creditRating": { "type": "string", "enum": ["Low Risk", "Moderate Risk", "Elevated Risk", "High Risk"] },
+        "isCreditHold": { "type": "boolean" }
+      },
+      "required": ["id", "counterpartyName", "counterpartyType", "creditLimitEtb", "creditRating"]
+    },
+    "PettyCashFund": {
+      "title": "PettyCashFund",
+      "description": "Head office and construction site petty cash funds with custodian and spending caps.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "fundCode": { "type": "string", "maxLength": 64 },
+        "fundName": { "type": "string", "maxLength": 160 },
+        "locationType": { "type": "string", "enum": ["Head Office", "Construction Site"] },
+        "custodianUid": { "type": "string", "maxLength": 128 },
+        "authorizedLimit": { "type": "number" },
+        "maxSingleExpense": { "type": "number" },
+        "currentBalance": { "type": "number" },
+        "status": { "type": "string", "enum": ["Active", "Suspended", "Closed"] }
+      },
+      "required": ["id", "fundCode", "fundName", "authorizedLimit", "maxSingleExpense", "currentBalance", "status"]
+    },
+    "PettyCashTransaction": {
+      "title": "PettyCashTransaction",
+      "description": "Petty cash allocations, replenishments, and expense vouchers with Maker-Checker posting.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "voucherNo": { "type": "string", "maxLength": 64 },
+        "fundId": { "type": "string", "maxLength": 128 },
+        "txType": { "type": "string", "enum": ["Allocation", "Replenishment", "Expense", "Adjustment"] },
+        "amount": { "type": "number" },
+        "hasValidReceipt": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Posted", "Rejected"] },
+        "createdById": { "type": "string", "maxLength": 128 },
+        "approvedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "voucherNo", "fundId", "txType", "amount", "status", "createdById"]
+    },
+    "PettyCashReconciliation": {
+      "title": "PettyCashReconciliation",
+      "description": "Physical count vs book balance reconciliations identifying shortages and unsupported vouchers.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "reconciliationNo": { "type": "string", "maxLength": 64 },
+        "fundId": { "type": "string", "maxLength": 128 },
+        "bookBalance": { "type": "number" },
+        "physicalCashCount": { "type": "number" },
+        "varianceAmount": { "type": "number" },
+        "varianceClassification": { "type": "string", "enum": ["Balanced", "Cash Shortage", "Excess Cash"] },
+        "status": { "type": "string", "enum": ["Pending Verification", "Verified"] },
+        "reconciledById": { "type": "string", "maxLength": 128 },
+        "verifiedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "reconciliationNo", "fundId", "varianceAmount", "status", "reconciledById"]
+    },
+    "FinancialAuditFinding": {
+      "title": "FinancialAuditFinding",
+      "description": "Financial audit findings, automated anomalies, and CAPA corrective action workflows.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "findingNo": { "type": "string", "maxLength": 64 },
+        "anomalyCategory": { "type": "string", "maxLength": 120 },
+        "severity": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH", "CRITICAL"] },
+        "title": { "type": "string", "maxLength": 240 },
+        "status": { "type": "string", "enum": ["Open", "Under Investigation", "CAPA Assigned", "Resolved", "Dismissed"] },
+        "detectedById": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "findingNo", "anomalyCategory", "severity", "title", "status", "detectedById"]
     }
   },
   "firestore": {
@@ -2290,6 +2491,54 @@
     "/inventorySettings/{settingId}": {
       "schema": "InventoryValuationSettings",
       "description": "Finance Manager configurable valuation method (FIFO vs Weighted Moving Average)."
+    },
+    "/financeFixedAssets/{assetId}": {
+      "schema": "FinanceFixedAsset",
+      "description": "Finance fixed asset register with Straight-Line, Declining Balance, and Units of Production depreciation."
+    },
+    "/fixedAssetEvents/{eventId}": {
+      "schema": "FixedAssetEvent",
+      "description": "Immutable create-only fixed asset lifecycle and depreciation event ledger."
+    },
+    "/taxRateConfigs/{configId}": {
+      "schema": "TaxRateConfig",
+      "description": "Effective-dated statutory tax rate configurations (VAT, WHT, CIT, PayrollTax, Pension)."
+    },
+    "/taxTransactions/{txId}": {
+      "schema": "TaxTransaction",
+      "description": "Automated and manual tax accruals, credits, and withholding records."
+    },
+    "/taxReturns/{returnId}": {
+      "schema": "TaxReturn",
+      "description": "Tax return filings and atomic GL settlement vouchers with Maker-Checker controls."
+    },
+    "/loanFacilities/{loanId}": {
+      "schema": "LoanFacility",
+      "description": "Corporate loan, project financing, working capital, and equipment financing facilities."
+    },
+    "/loanRepayments/{repaymentId}": {
+      "schema": "LoanRepayment",
+      "description": "Loan installment payments splitting Principal Reduction vs Interest Expense in GL."
+    },
+    "/creditProfiles/{profileId}": {
+      "schema": "CounterpartyCreditProfile",
+      "description": "Client credit limit and supplier credit terms monitoring registry."
+    },
+    "/pettyCashFunds/{fundId}": {
+      "schema": "PettyCashFund",
+      "description": "Head office and construction site petty cash funds and spending caps."
+    },
+    "/pettyCashTransactions/{txId}": {
+      "schema": "PettyCashTransaction",
+      "description": "Petty cash allocations, replenishments, and expense vouchers with Maker-Checker approval."
+    },
+    "/pettyCashReconciliations/{recId}": {
+      "schema": "PettyCashReconciliation",
+      "description": "Physical cash count reconciliations tracking shortages, excess cash, and unsupported vouchers."
+    },
+    "/financialAuditFindings/{findingId}": {
+      "schema": "FinancialAuditFinding",
+      "description": "Internal audit anomalies, CAPA corrective actions, and resolution registry."
     }
   }
 }

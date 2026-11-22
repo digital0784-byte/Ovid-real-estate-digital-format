@@ -19,6 +19,12 @@ import { CashFlowForecastingModule, CashFlowSubTab } from "./finance/CashFlowFor
 import { BankManagementModule, Part6BankSubTab } from "./finance/BankManagementModule";
 import { FinancialStatementsModule } from "./finance/FinancialStatementsModule";
 import { GeneralLedgerCoaModule } from "./finance/GeneralLedgerCoaModule";
+import { FixedAssetsDepreciationModule } from "./finance/FixedAssetsDepreciationModule";
+import { TaxComplianceModule } from "./finance/TaxComplianceModule";
+import { EnhancedPayrollFinanceModule } from "./finance/EnhancedPayrollFinanceModule";
+import { LoanCreditManagementModule } from "./finance/LoanCreditManagementModule";
+import { PettyCashControlModule } from "./finance/PettyCashControlModule";
+import { FinancialAuditControlsModule } from "./finance/FinancialAuditControlsModule";
 import {
   computePart4BudgetControlState,
   Part4FilterState,
@@ -40,6 +46,15 @@ import {
   computePart8GeneralLedgerState,
   Part8GlFilterState,
 } from "../services/generalLedgerService";
+import { computeFixedAssetsState } from "../services/fixedAssetsService";
+import { computeTaxComplianceState } from "../services/taxComplianceService";
+import { computeLoanAndCreditState } from "../services/loanCreditService";
+import { computePettyCashState } from "../services/pettyCashService";
+import {
+  computeExecutiveFinancialOverview,
+  detectFinancialAnomalies,
+  exportExecutiveFinancialPacketToExcel,
+} from "../services/financialAuditService";
 import {
   ProjectZone,
   AttendanceRecord,
@@ -74,6 +89,22 @@ import {
   JournalEntryRecord,
   FinancialPeriodCloseRecord,
   FinancialYearRecord,
+  FinanceFixedAssetRecord,
+  FixedAssetEventRecord,
+  TaxRateConfigRecord,
+  TaxTransactionRecord,
+  TaxReturnRecord,
+  LoanFacilityRecord,
+  LoanRepaymentRecord,
+  CounterpartyCreditProfile,
+  PettyCashFundRecord,
+  PettyCashTransactionRecord,
+  PettyCashReconciliationRecord,
+  FinancialAuditFindingRecord,
+  HrmPayrollRunRecord,
+  HrmPayslipRecord,
+  SalaryAdvanceLoanRecord,
+  EthiopianTaxPensionConfig,
 } from "../types";
 import {
   DollarSign,
@@ -85,7 +116,6 @@ import {
   AlertTriangle,
   CheckCircle,
   Calendar,
-  Printer,
   Clock,
   Briefcase,
   Users,
@@ -96,7 +126,6 @@ import {
   Package,
   Truck,
   Building2,
-  Wrench,
   Cpu,
   ShieldAlert,
   RefreshCw,
@@ -117,6 +146,7 @@ import {
   Menu,
   X,
   BookOpen,
+  Percent,
 } from "lucide-react";
 
 interface ProjectEvmData {
@@ -356,6 +386,24 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const [financialPeriods, setFinancialPeriods] = useState<FinancialPeriodCloseRecord[]>([]);
   const [financialYears, setFinancialYears] = useState<FinancialYearRecord[]>([]);
 
+  // Parts 9–16 Advanced Finance & Shared HRM Collections
+  const [financeFixedAssets, setFinanceFixedAssets] = useState<FinanceFixedAssetRecord[]>([]);
+  const [fixedAssetEvents, setFixedAssetEvents] = useState<FixedAssetEventRecord[]>([]);
+  const [taxRateConfigs, setTaxRateConfigs] = useState<TaxRateConfigRecord[]>([]);
+  const [taxTransactions, setTaxTransactions] = useState<TaxTransactionRecord[]>([]);
+  const [taxReturns, setTaxReturns] = useState<TaxReturnRecord[]>([]);
+  const [loanFacilities, setLoanFacilities] = useState<LoanFacilityRecord[]>([]);
+  const [loanRepayments, setLoanRepayments] = useState<LoanRepaymentRecord[]>([]);
+  const [creditProfiles, setCreditProfiles] = useState<CounterpartyCreditProfile[]>([]);
+  const [pettyCashFunds, setPettyCashFunds] = useState<PettyCashFundRecord[]>([]);
+  const [pettyCashTransactions, setPettyCashTransactions] = useState<PettyCashTransactionRecord[]>([]);
+  const [pettyCashReconciliations, setPettyCashReconciliations] = useState<PettyCashReconciliationRecord[]>([]);
+  const [financialAuditFindings, setFinancialAuditFindings] = useState<FinancialAuditFindingRecord[]>([]);
+  const [hrmPayrollRuns, setHrmPayrollRuns] = useState<HrmPayrollRunRecord[]>([]);
+  const [hrmPayslips, setHrmPayslips] = useState<HrmPayslipRecord[]>([]);
+  const [salaryAdvancesLoans, setSalaryAdvancesLoans] = useState<SalaryAdvanceLoanRecord[]>([]);
+  const [taxPensionConfigs, setTaxPensionConfigs] = useState<EthiopianTaxPensionConfig[]>([]);
+
   // Master Construction ERP Linked Collections
   const [rawProjectsList, setRawProjectsList] = useState<any[]>([]);
   const [suppliersList, setSuppliersList] = useState<any[]>([]);
@@ -374,7 +422,6 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
   const [isSavingPayroll, setIsSavingPayroll] = useState(false);
   const [payrollSyncStatus, setPayrollSyncStatus] = useState<string | null>(null);
   const [selectedPayPeriod, setSelectedPayPeriod] = useState<string>("all");
-  const [selectedPayslip, setSelectedPayslip] = useState<GeneratedPayrollSlip | null>(null);
 
   // Sync worker/attendance props
   useEffect(() => {
@@ -459,6 +506,54 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     });
     const unsubPart8Years = DbService.subscribeFinancialYears((items) => {
       if (active) setFinancialYears(items || []);
+    });
+    const unsubFinanceAssets = DbService.subscribeFinanceFixedAssets((items) => {
+      if (active) setFinanceFixedAssets(items || []);
+    });
+    const unsubAssetEvents = DbService.subscribeFixedAssetEvents((items) => {
+      if (active) setFixedAssetEvents(items || []);
+    });
+    const unsubTaxRates = DbService.subscribeTaxRateConfigs((items) => {
+      if (active) setTaxRateConfigs(items || []);
+    });
+    const unsubTaxTxs = DbService.subscribeTaxTransactions((items) => {
+      if (active) setTaxTransactions(items || []);
+    });
+    const unsubTaxRets = DbService.subscribeTaxReturns((items) => {
+      if (active) setTaxReturns(items || []);
+    });
+    const unsubLoans = DbService.subscribeLoanFacilities((items) => {
+      if (active) setLoanFacilities(items || []);
+    });
+    const unsubLoanReps = DbService.subscribeLoanRepayments((items) => {
+      if (active) setLoanRepayments(items || []);
+    });
+    const unsubCreditProfs = DbService.subscribeCreditProfiles((items) => {
+      if (active) setCreditProfiles(items || []);
+    });
+    const unsubPcFunds = DbService.subscribePettyCashFunds((items) => {
+      if (active) setPettyCashFunds(items || []);
+    });
+    const unsubPcTxs = DbService.subscribePettyCashTransactions((items) => {
+      if (active) setPettyCashTransactions(items || []);
+    });
+    const unsubPcRecons = DbService.subscribePettyCashReconciliations((items) => {
+      if (active) setPettyCashReconciliations(items || []);
+    });
+    const unsubAuditFindings = DbService.subscribeFinancialAuditFindings((items) => {
+      if (active) setFinancialAuditFindings(items || []);
+    });
+    const unsubHrmRuns = DbService.subscribeHrmPayrollRuns((items) => {
+      if (active) setHrmPayrollRuns(items || []);
+    });
+    const unsubHrmSlips = DbService.subscribeHrmPayslips((items) => {
+      if (active) setHrmPayslips(items || []);
+    });
+    const unsubSalaryLoans = DbService.subscribeSalaryAdvancesLoans((items) => {
+      if (active) setSalaryAdvancesLoans(items || []);
+    });
+    const unsubTaxPension = DbService.subscribeTaxPensionConfigs((items) => {
+      if (active) setTaxPensionConfigs(items || []);
     });
 
     const loadMasterErpCollections = async () => {
@@ -587,6 +682,22 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       unsubPart7Journals();
       unsubPart7Periods();
       unsubPart8Years();
+      unsubFinanceAssets();
+      unsubAssetEvents();
+      unsubTaxRates();
+      unsubTaxTxs();
+      unsubTaxRets();
+      unsubLoans();
+      unsubLoanReps();
+      unsubCreditProfs();
+      unsubPcFunds();
+      unsubPcTxs();
+      unsubPcRecons();
+      unsubAuditFindings();
+      unsubHrmRuns();
+      unsubHrmSlips();
+      unsubSalaryLoans();
+      unsubTaxPension();
     };
   }, []);
 
@@ -802,6 +913,86 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     [part7StatementsState, journalEntries, financialPeriods, financialYears, part8Filters]
   );
 
+  // --- COMPUTE PARTS 9–16 ADVANCED FINANCE STATES ---
+  const fixedAssetsState = useMemo(
+    () =>
+      computeFixedAssetsState({
+        assets: financeFixedAssets,
+        events: fixedAssetEvents,
+        projectFilter: filters.project,
+      }),
+    [financeFixedAssets, fixedAssetEvents, filters.project]
+  );
+
+  const taxComplianceState = useMemo(
+    () =>
+      computeTaxComplianceState({
+        taxRates: taxRateConfigs,
+        taxTransactions,
+        taxReturns,
+        invoices,
+        expenses,
+        hrmPayrollRuns,
+        statementsState: part7StatementsState,
+      }),
+    [taxRateConfigs, taxTransactions, taxReturns, invoices, expenses, hrmPayrollRuns, part7StatementsState]
+  );
+
+  const loanCreditState = useMemo(
+    () =>
+      computeLoanAndCreditState({
+        loans: loanFacilities,
+        repayments: loanRepayments,
+        creditProfiles,
+        invoices,
+        expenses,
+      }),
+    [loanFacilities, loanRepayments, creditProfiles, invoices, expenses]
+  );
+
+  const pettyCashState = useMemo(
+    () =>
+      computePettyCashState({
+        funds: pettyCashFunds,
+        transactions: pettyCashTransactions,
+        reconciliations: pettyCashReconciliations,
+        projectFilter: filters.project,
+      }),
+    [pettyCashFunds, pettyCashTransactions, pettyCashReconciliations, filters.project]
+  );
+
+  const detectedAnomalies = useMemo(
+    () =>
+      detectFinancialAnomalies({
+        invoices,
+        expenses,
+        cashTransactions,
+        bankTransactions,
+        journalEntries,
+        pettyCashTransactions,
+        pettyCashReconciliations,
+        projectBudgetPlans,
+        hrmPayrollRuns,
+        attendance: attendanceList,
+        creditBreachesCount: loanCreditState.kpis.creditLimitBreachesCount,
+        settings: financialSettings,
+      }),
+    [
+      invoices,
+      expenses,
+      cashTransactions,
+      bankTransactions,
+      journalEntries,
+      pettyCashTransactions,
+      pettyCashReconciliations,
+      projectBudgetPlans,
+      hrmPayrollRuns,
+      attendanceList,
+      loanCreditState.kpis.creditLimitBreachesCount,
+      financialSettings,
+    ]
+  );
+
   // Dispatch critical financial & budget alerts to Directors & Finance Manager (deduplicated per session)
   const dispatchedAlertIdsRef = useRef<Set<string>>(new Set());
   useEffect(() => {
@@ -909,7 +1100,113 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           actionTab: "financeErp",
         }).catch(() => {});
       });
-  }, [financeState.alerts, part4BudgetState.alerts, part5CashFlowState.alerts, financialSettings.enableCriticalAlerts]);
+
+    taxComplianceState.returns
+      .filter((r) => r.status !== "Paid" && r.filingDeadline < nowIso.slice(0, 10))
+      .forEach((ret) => {
+        const key = `TAX-OVERDUE-${ret.id}`;
+        if (dispatchedAlertIdsRef.current.has(key)) return;
+        dispatchedAlertIdsRef.current.add(key);
+        DbService.addNotification({
+          id: `FIN-${key}-${nowIso.slice(0, 10)}`,
+          type: "Tax Compliance Alert",
+          title: `Overdue ${ret.taxType} Return (${ret.periodMonth})`,
+          message: `Return ${ret.returnNumber} exceeded deadline ${ret.filingDeadline} with net payable ETB ${ret.netTaxPayable.toLocaleString()}.`,
+          description: `Return ${ret.returnNumber} exceeded deadline ${ret.filingDeadline}.`,
+          category: "Finance Notifications",
+          priority: "Critical",
+          status: "Unread",
+          projectName: "Corporate Tax Compliance",
+          sender: "Tax Compliance Engine",
+          senderRole: "System",
+          receiver: "Director & Finance Manager",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.FINANCE_MANAGER,
+          ],
+          date: nowIso.slice(0, 10),
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: Date.now(),
+          read: false,
+          actionTab: "financeErp",
+        }).catch(() => {});
+      });
+
+    pettyCashState.shortageOrExcessRecons
+      .filter((rec) => rec.varianceClassification === "Cash Shortage")
+      .forEach((rec) => {
+      const key = `PC-SHORTAGE-${rec.id}`;
+      if (dispatchedAlertIdsRef.current.has(key)) return;
+      dispatchedAlertIdsRef.current.add(key);
+      DbService.addNotification({
+        id: `FIN-${key}-${nowIso.slice(0, 10)}`,
+        type: "Petty Cash Shortage Alert",
+        title: `Petty Cash Shortage Detected (${rec.fundName})`,
+        message: `Reconciliation ${rec.reconciliationNo} flagged a shortage of ETB ${Math.abs(rec.varianceAmount).toLocaleString()}.`,
+        description: `Reconciliation ${rec.reconciliationNo} shortage.`,
+        category: "Finance Notifications",
+        priority: "Critical",
+        status: "Unread",
+        projectName: rec.project || "Petty Cash Control",
+        sender: "Petty Cash Control Engine",
+        senderRole: "System",
+        receiver: "Director, Finance Manager & Auditor",
+        targetRoles: [
+          UserRole.SUPER_ADMIN,
+          UserRole.HEAD_OFFICE,
+          UserRole.FINANCE_MANAGER,
+          UserRole.AUDITOR,
+        ],
+        date: nowIso.slice(0, 10),
+        time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        timestamp: Date.now(),
+        read: false,
+        actionTab: "financeErp",
+      }).catch(() => {});
+    });
+
+    detectedAnomalies
+      .filter((a) => a.severity === "CRITICAL")
+      .forEach((anomaly) => {
+        const key = `AUDIT-${anomaly.id}`;
+        if (dispatchedAlertIdsRef.current.has(key)) return;
+        dispatchedAlertIdsRef.current.add(key);
+        DbService.addNotification({
+          id: `FIN-${key}-${nowIso.slice(0, 10)}`,
+          type: "Audit & Internal Control Anomaly",
+          title: anomaly.title,
+          message: anomaly.description,
+          description: anomaly.description,
+          category: "Finance Notifications",
+          priority: "Critical",
+          status: "Unread",
+          projectName: anomaly.project || "Internal Audit",
+          sender: "Financial Audit Control Engine",
+          senderRole: "System",
+          receiver: "Auditor, Director & Finance Manager",
+          targetRoles: [
+            UserRole.SUPER_ADMIN,
+            UserRole.HEAD_OFFICE,
+            UserRole.FINANCE_MANAGER,
+            UserRole.AUDITOR,
+          ],
+          date: nowIso.slice(0, 10),
+          time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          timestamp: Date.now(),
+          read: false,
+          actionTab: "financeErp",
+        }).catch(() => {});
+      });
+  }, [
+    financeState.alerts,
+    part4BudgetState.alerts,
+    part5CashFlowState.alerts,
+    taxComplianceState.returns,
+    pettyCashState.shortageOrExcessRecons,
+    detectedAnomalies,
+    financialSettings.enableCriticalAlerts,
+  ]);
 
   // --- CONSTRUCTION ERP SUB-MODULE CALCULATIONS (ALL FROM REAL DATA) ---
   const projectsEvm: ProjectEvmData[] = useMemo(() => {
@@ -974,6 +1271,33 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
       };
     });
   }, [rawProjectsList, budgets, expenses, rawProgressLogs, financeState.permissions.isProjectScopedOnly, financeState.assignedProjects]);
+
+  const executiveOverview = useMemo(
+    () =>
+      computeExecutiveFinancialOverview({
+        financeState,
+        statementsState: part7StatementsState,
+        fixedAssetsState,
+        taxState: taxComplianceState,
+        loanState: loanCreditState,
+        pettyCashState,
+        projectsEvm: projectsEvm.map((p) => ({ name: p.name, budget: p.budget, actualCost: p.actualCost })),
+      }),
+    [financeState, part7StatementsState, fixedAssetsState, taxComplianceState, loanCreditState, pettyCashState, projectsEvm]
+  );
+
+  const handleExportExecutiveExcel = () => {
+    exportExecutiveFinancialPacketToExcel({
+      companyName: part7StatementsState.reportingCompanyName,
+      overview: executiveOverview,
+      fixedAssets: fixedAssetsState,
+      tax: taxComplianceState,
+      loans: loanCreditState,
+      pettyCash: pettyCashState,
+      anomalies: detectedAnomalies,
+    });
+    onLogAction?.("Export Executive Excel Packet", "Downloaded consolidated multi-sheet executive financial report");
+  };
 
   // Pay periods from real attendance logs
   const availablePeriods = useMemo(() => {
@@ -1338,7 +1662,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     },
     {
       id: "cash-flow",
-      num: 12,
+      num: 13,
       labelEn: "Cash Flow Management",
       labelAm: "የገንዘብ ፍሰት አስተዳደር",
       icon: RefreshCw,
@@ -1347,7 +1671,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     },
     {
       id: "cash-and-bank",
-      num: 13,
+      num: 14,
       labelEn: "Bank & Reconciliation",
       labelAm: "ባንክ እና የባንክ ማስታረቂያ",
       icon: Landmark,
@@ -1356,15 +1680,59 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     },
     {
       id: "liquidity-management",
-      num: 14,
+      num: 15,
       labelEn: "Liquidity Management",
       labelAm: "የፈሳሽ ገንዘብ (Liquidity)",
       icon: Scale,
       allowed: !isWarehouseManager && !isHrManager,
     },
     {
+      id: "fixed-assets-depreciation",
+      num: 16,
+      labelEn: "Fixed Assets & Depreciation",
+      labelAm: "ቋሚ ንብረቶች እና እርጅና",
+      icon: Truck,
+      allowed: !isHrManager,
+    },
+    {
+      id: "tax-compliance",
+      num: 17,
+      labelEn: "Tax Management & Compliance",
+      labelAm: "የግብር እና ህግ ተገዢነት",
+      icon: Percent,
+      badgeCount: taxComplianceState.kpis.overdueReturnsCount,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "loan-credit",
+      num: 18,
+      labelEn: "Loan, Credit & Financing",
+      labelAm: "ብድር፣ ክሬዲት እና ፋይናንሲንግ",
+      icon: Landmark,
+      badgeCount: loanCreditState.kpis.creditLimitBreachesCount,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
+      id: "petty-cash",
+      num: 19,
+      labelEn: "Petty Cash & Expense Control",
+      labelAm: "ፔቲ ካሽ እና ወጪ ቁጥጥር",
+      icon: Wallet,
+      badgeCount: pettyCashState.kpis.pendingApprovalCount + pettyCashState.kpis.openShortageCount,
+      allowed: !isHrManager,
+    },
+    {
+      id: "financial-audit",
+      num: 20,
+      labelEn: "Audit & Internal Controls",
+      labelAm: "ኦዲት እና የውስጥ ቁጥጥር",
+      icon: ShieldAlert,
+      badgeCount: detectedAnomalies.filter((a) => a.severity === "CRITICAL" || a.severity === "HIGH").length,
+      allowed: !isWarehouseManager && !isHrManager,
+    },
+    {
       id: "financial-reports",
-      num: 15,
+      num: 21,
       labelEn: "Financial Reports",
       labelAm: "የፋይናንስ ሪፖርቶች",
       icon: FileText,
@@ -1372,7 +1740,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     },
     {
       id: "financial-notifications",
-      num: 16,
+      num: 22,
       labelEn: "Financial Notifications",
       labelAm: "የፋይናንስ ማስጠንቀቂያዎች",
       icon: Bell,
@@ -1380,12 +1748,15 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         financeState.alerts.length +
         part4BudgetState.alerts.length +
         part5CashFlowState.alerts.length +
-        part6BankState.alerts.length,
+        part6BankState.alerts.length +
+        taxComplianceState.kpis.overdueReturnsCount +
+        pettyCashState.kpis.openShortageCount +
+        detectedAnomalies.filter((a) => a.severity === "CRITICAL").length,
       allowed: !isWarehouseManager,
     },
     {
       id: "financial-settings",
-      num: 17,
+      num: 23,
       labelEn: "Financial Settings",
       labelAm: "የፋይናንስ ቅንብሮች",
       icon: Settings,
@@ -1820,6 +2191,8 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             <ExecutiveFinancialDashboard
               isAmharic={isAmharic}
               state={financeState}
+              advancedOverview={executiveOverview}
+              onExportExecutiveExcel={handleExportExecutiveExcel}
               onNavigateModule={handleSelectModule}
             />
           )}
@@ -2031,7 +2404,99 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             />
           )}
 
-          {/* 15–17. REPORTS, NOTIFICATIONS & SETTINGS */}
+          {/* 16–20. FIXED ASSETS, TAX, LOANS, PETTY CASH & AUDIT CONTROLS */}
+          {activeTab === "fixed-assets-depreciation" && (
+            <FixedAssetsDepreciationModule
+              isAmharic={isAmharic}
+              assets={financeFixedAssets}
+              events={fixedAssetEvents}
+              accounts={financialAccounts}
+              journals={journalEntries}
+              periods={financialPeriods}
+              financialYears={financialYears}
+              projectsList={rawProjectsList}
+              currency={financialSettings.defaultCurrency || "ETB"}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {activeTab === "tax-compliance" && (
+            <TaxComplianceModule
+              isAmharic={isAmharic}
+              taxRates={taxRateConfigs}
+              taxTransactions={taxTransactions}
+              taxReturns={taxReturns}
+              invoices={invoices}
+              expenses={expenses}
+              hrmPayrollRuns={hrmPayrollRuns}
+              accounts={financialAccounts}
+              statementsState={part7StatementsState}
+              periods={financialPeriods}
+              financialYears={financialYears}
+              currency={financialSettings.defaultCurrency || "ETB"}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {activeTab === "loan-credit" && (
+            <LoanCreditManagementModule
+              isAmharic={isAmharic}
+              loans={loanFacilities}
+              repayments={loanRepayments}
+              creditProfiles={creditProfiles}
+              invoices={invoices}
+              expenses={expenses}
+              accounts={financialAccounts}
+              periods={financialPeriods}
+              financialYears={financialYears}
+              projectsList={rawProjectsList}
+              currency={financialSettings.defaultCurrency || "ETB"}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {activeTab === "petty-cash" && (
+            <PettyCashControlModule
+              isAmharic={isAmharic}
+              funds={pettyCashFunds}
+              transactions={pettyCashTransactions}
+              reconciliations={pettyCashReconciliations}
+              accounts={financialAccounts}
+              periods={financialPeriods}
+              financialYears={financialYears}
+              projectsList={rawProjectsList}
+              currency={financialSettings.defaultCurrency || "ETB"}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {activeTab === "financial-audit" && (
+            <FinancialAuditControlsModule
+              isAmharic={isAmharic}
+              anomalies={detectedAnomalies}
+              findings={financialAuditFindings}
+              auditLogs={auditLogsList}
+              currency={financialSettings.defaultCurrency || "ETB"}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
+          )}
+
+          {/* 21–23. REPORTS, NOTIFICATIONS & SETTINGS */}
           {(activeTab === "financial-reports" ||
             activeTab === "financial-notifications" ||
             activeTab === "financial-settings") && (
@@ -2043,6 +2508,13 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
               cashFlowState={part5CashFlowState}
               bankState={part6BankState}
               statementsState={part7StatementsState}
+              fixedAssetsState={fixedAssetsState}
+              taxState={taxComplianceState}
+              loanState={loanCreditState}
+              pettyCashState={pettyCashState}
+              anomalies={detectedAnomalies}
+              executiveOverview={executiveOverview}
+              onExportExecutiveExcel={handleExportExecutiveExcel}
               actorName={currentUserName}
               actorRole={currentUserRole}
               actorUid={actorUid}
@@ -2163,263 +2635,34 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
             </div>
           )}
 
-          {/* EXTENDED 2: AUTOMATED ATTENDANCE-DRIVEN PAYROLL */}
+          {/* EXTENDED 2: UNIFIED HRM + ATTENDANCE PAYROLL & LOAN RECOVERY */}
           {activeTab === "payroll-mgmt" && (
-            <div className="space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                <div>
-                  <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                    <Users size={20} className="text-emerald-400" />
-                    <span>
-                      {isAmharic
-                        ? "በባዮሜትሪክ መገኘት የሚሰላ የደሞዝ ስርዓት"
-                        : "Automated Attendance-Driven Payroll Processing"}
-                    </span>
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    {isAmharic
-                      ? "መሰረታዊ ደሞዝ፣ ትርፍ ሰዓት፣ ግብር እና ጡረታ ከተመዘገበ የመገኘት መረጃ ይሰላል"
-                      : "Calculates Basic, Overtime, Under-time, Income Tax (15%) & Pension (7%) from live attendance"}
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
-                    <Calendar size={14} className="text-emerald-400" />
-                    <select
-                      value={selectedPayPeriod}
-                      onChange={(e) => setSelectedPayPeriod(e.target.value)}
-                      className="bg-transparent text-white font-bold text-xs focus:outline-none cursor-pointer"
-                    >
-                      <option value="all" className="bg-slate-900 text-white">
-                        {isAmharic ? "ሁሉም ወቅቶች" : "All Pay Periods"}
-                      </option>
-                      {availablePeriods.map((p) => (
-                        <option key={p} value={p} className="bg-slate-900 text-white">
-                          {p}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (generatedPayroll.length > 0) {
-                        exportRowsToCsv("company_payroll_disbursement", generatedPayroll as any);
-                      }
-                    }}
-                    disabled={generatedPayroll.length === 0}
-                    className="px-3.5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
-                  >
-                    <FileSpreadsheet size={14} className="text-emerald-400" />
-                    <span>{isAmharic ? "CSV አውርድ" : "Export CSV"}</span>
-                  </button>
-
-                  {permissions.canManageTransactions && (
-                    <button
-                      type="button"
-                      onClick={handleSavePayrollToFirestore}
-                      disabled={isSavingPayroll || generatedPayroll.length === 0}
-                      className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      <CheckCircle2 size={14} />
-                      <span>
-                        {isSavingPayroll
-                          ? isAmharic
-                            ? "በመመዝገብ ላይ..."
-                            : "Saving..."
-                          : isAmharic
-                          ? "ደሞዝ ወደ Firestore አጽድቅ"
-                          : "Approve & Save Payroll"}
-                      </span>
-                    </button>
-                  )}
-                </div>
-              </div>
-
-              {payrollSyncStatus && (
-                <div className="bg-emerald-950/80 border border-emerald-700 text-emerald-200 px-4 py-3 rounded-xl text-xs font-bold flex items-center gap-2">
-                  <CheckCircle size={15} className="text-emerald-400" />
-                  <span>{payrollSyncStatus}</span>
-                </div>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
-                    {isAmharic ? "ተሳታፊ ሰራተኞች" : "Active Payroll Workers"}
-                  </span>
-                  <span className="text-xl font-black text-white tabular-nums">
-                    {generatedPayroll.length}
-                  </span>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
-                    {isAmharic ? "ጠቅላላ መሰረታዊ ደሞዝ" : "Gross Basic Salary"}
-                  </span>
-                  <span className="text-xl font-black text-blue-400 font-mono tabular-nums">
-                    {formatCurrency(generatedPayroll.reduce((s, p) => s + p.basicSalary, 0))}
-                  </span>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
-                    {isAmharic ? "የትርፍ ሰዓት ክፍያ" : "Overtime Cost"}
-                  </span>
-                  <span className="text-xl font-black text-amber-400 font-mono tabular-nums">
-                    {formatCurrency(generatedPayroll.reduce((s, p) => s + p.overtimePay, 0))}
-                  </span>
-                </div>
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">
-                    {isAmharic ? "ጠቅላላ የተጣራ ክፍያ" : "Net Payroll Disbursement"}
-                  </span>
-                  <span className="text-xl font-black text-emerald-400 font-mono tabular-nums">
-                    {formatCurrency(generatedPayroll.reduce((s, p) => s + p.netSalary, 0))}
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
-                      <th className="py-3 px-3">Worker</th>
-                      <th className="py-3 px-3">Trade</th>
-                      <th className="py-3 px-3">Basic</th>
-                      <th className="py-3 px-3">OT Hrs</th>
-                      <th className="py-3 px-3">OT Pay</th>
-                      <th className="py-3 px-3">Tax (15%)</th>
-                      <th className="py-3 px-3">Pension (7%)</th>
-                      <th className="py-3 px-3">Net Salary</th>
-                      <th className="py-3 px-3">Slip</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-900 text-slate-300">
-                    {generatedPayroll.length > 0 ? (
-                      generatedPayroll.map((p) => (
-                        <tr key={p.id} className="hover:bg-slate-900/50">
-                          <td className="py-3 px-3">
-                            <span className="font-mono text-[10px] text-slate-500 block">
-                              {p.workerId}
-                            </span>
-                            <span className="font-bold text-white">{p.workerName}</span>
-                          </td>
-                          <td className="py-3 px-3 text-slate-400">{p.trade}</td>
-                          <td className="py-3 px-3 font-mono tabular-nums">
-                            {formatCurrency(p.basicSalary)}
-                          </td>
-                          <td className="py-3 px-3 font-mono tabular-nums text-amber-400">
-                            +{p.overtimeHours}h
-                          </td>
-                          <td className="py-3 px-3 font-mono tabular-nums text-amber-400">
-                            {formatCurrency(p.overtimePay)}
-                          </td>
-                          <td className="py-3 px-3 font-mono tabular-nums text-slate-400">
-                            {formatCurrency(p.tax)}
-                          </td>
-                          <td className="py-3 px-3 font-mono tabular-nums text-slate-400">
-                            {formatCurrency(p.pension)}
-                          </td>
-                          <td className="py-3 px-3 font-mono tabular-nums font-bold text-emerald-400">
-                            {formatCurrency(p.netSalary)}
-                          </td>
-                          <td className="py-3 px-3">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedPayslip(p)}
-                              className="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 rounded-lg text-[10px] font-bold text-white cursor-pointer"
-                            >
-                              Payslip
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={9} className="py-10 text-center text-slate-500">
-                          {isAmharic
-                            ? "ለተመረጠው ወቅት የመገኘት መዝገብ ያለው ሰራተኛ አልተገኘም።"
-                            : "No attendance-verified workers found for this pay period."}
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-
-              {selectedPayslip && (
-                <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full space-y-4">
-                    <div className="flex justify-between items-start border-b border-slate-800 pb-3">
-                      <div>
-                        <h3 className="text-lg font-black text-white">
-                          {selectedPayslip.workerName}
-                        </h3>
-                        <p className="text-xs text-slate-400">
-                          {selectedPayslip.trade} | {selectedPayslip.workerId}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setSelectedPayslip(null)}
-                        className="p-1.5 bg-slate-800 rounded-lg text-slate-300 cursor-pointer"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                    <div className="space-y-2 text-xs">
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Days Worked</span>
-                        <span className="font-bold text-white tabular-nums">
-                          {selectedPayslip.daysWorked}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Basic Monthly Salary</span>
-                        <span className="font-mono tabular-nums">
-                          {formatCurrency(selectedPayslip.basicSalary)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Overtime Pay</span>
-                        <span className="font-mono tabular-nums text-amber-400">
-                          +{formatCurrency(selectedPayslip.overtimePay)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Income Tax (15%)</span>
-                        <span className="font-mono tabular-nums text-red-400">
-                          -{formatCurrency(selectedPayslip.tax)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-slate-400">Pension (7%)</span>
-                        <span className="font-mono tabular-nums text-red-400">
-                          -{formatCurrency(selectedPayslip.pension)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between pt-2 border-t border-slate-800 font-black text-sm">
-                        <span className="text-white">Net Salary</span>
-                        <span className="font-mono tabular-nums text-emerald-400">
-                          {formatCurrency(selectedPayslip.netSalary)}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex justify-end pt-2">
-                      <button
-                        type="button"
-                        onClick={() => window.print()}
-                        className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 cursor-pointer"
-                      >
-                        <Printer size={14} />
-                        <span>{isAmharic ? "አትም" : "Print Payslip"}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+            <EnhancedPayrollFinanceModule
+              isAmharic={isAmharic}
+              hrmPayrollRuns={hrmPayrollRuns}
+              hrmPayslips={hrmPayslips}
+              salaryLoans={salaryAdvancesLoans}
+              taxPensionConfigs={taxPensionConfigs}
+              accounts={financialAccounts}
+              workers={workersList}
+              attendance={attendanceList}
+              generatedPayroll={generatedPayroll.map((p) => ({
+                ...p,
+                employerPension: Math.round(p.basicSalary * 0.11),
+                loanDeduction: 0,
+              }))}
+              availablePeriods={availablePeriods}
+              selectedPayPeriod={selectedPayPeriod}
+              onSelectPayPeriod={setSelectedPayPeriod}
+              onSavePayrollBatch={handleSavePayrollToFirestore}
+              isSavingPayroll={isSavingPayroll}
+              payrollSyncStatus={payrollSyncStatus}
+              currency={financialSettings.defaultCurrency || "ETB"}
+              actorName={currentUserName}
+              actorRole={currentUserRole}
+              actorUid={actorUid}
+              onLogAction={onLogAction}
+            />
           )}
 
           {/* EXTENDED 3: FORMWORK ASSET ACCOUNTING */}

@@ -95,6 +95,11 @@ export interface FirestoreUserRecord {
   updatedAt?: string;
 }
 
+export function normalizeLegacyRole(role: string): string {
+  if (typeof role !== "string") return "";
+  return role === "Directory" ? UserRole.DIRECTOR : role;
+}
+
 export function resolveUserRole(
   userData: { role?: unknown; status?: unknown } | null | undefined
 ): UserRole | "Pending" {
@@ -105,7 +110,7 @@ export function resolveUserRole(
     userData.role.trim() !== "" &&
     userData.role !== "Pending"
   ) {
-    return userData.role as UserRole;
+    return normalizeLegacyRole(userData.role) as UserRole;
   }
   return "Pending";
 }
@@ -146,8 +151,6 @@ function getPrefixFromRole(role: string): string {
       return "SR";
     case UserRole.OFFICE_AND_TECHNICAL_ENGINEERING:
       return "OTE";
-    case UserRole.DIRECTORY:
-      return "DR";
     case UserRole.DIRECTOR:
       return "DIR";
     case UserRole.OFFICE_MANAGER:
