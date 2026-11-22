@@ -29,7 +29,7 @@ import {
   canAccessSiteScope,
   calculateTransactionStock,
   WAREHOUSE_MANAGER_NAV_MODULES,
-  SITE_STORE_OWNER_NAV_MODULES,
+  SITE_MANAGER_NAV_MODULES,
   StockTransactionRecord,
   StockDiscrepancyRecord,
   StockAdjustmentRecord,
@@ -142,8 +142,8 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
           sourceWarehouse: "Central Warehouse - Kality Hub",
           destinationSiteStore: "Bole Heights Phase I",
           reportedByUid: "site-store-01",
-          reportedByName: "Bole Site Store Owner",
-          reportedByRole: "Store Owner",
+          reportedByName: "Bole Site Manager",
+          reportedByRole: "Site Manager",
           dateTime: new Date().toISOString().substring(0, 16).replace("T", " "),
           status: "Pending Review"
         }
@@ -256,7 +256,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       setSecurityBannerMsg({
         type: "error",
         title: "Permission Denied (RBAC Violation)",
-        detail: "Only an authorized Site Store Owner can create site-to-warehouse material requests."
+        detail: "Only an authorized Site Manager or Store Manager can create site-to-warehouse material requests."
       });
       return;
     }
@@ -264,8 +264,8 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
     const reqId = `MREQ-${Date.now().toString().slice(-5)}`;
     const newReq = {
       id: reqId,
-      requesterName: currentUserProfile?.displayName || "Site Store Owner",
-      requesterRole: "Site Store Owner",
+      requesterName: currentUserProfile?.displayName || String(currentUserRole) || "Site Manager",
+      requesterRole: String(currentUserRole) || "Site Manager",
       projectSite: assignedSite,
       siteName: assignedSite,
       building: siteReqForm.building,
@@ -293,16 +293,16 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       id: `NOTIF-WM-REQ-${Date.now()}`,
       title: `New Material Request (${reqId}): ${newReq.materialName}`,
       titleAm: `አዲስ የዕቃ ጥያቄ (${reqId})፡ ${newReq.materialName}`,
-      description: `Site Store Owner at ${assignedSite} requested ${newReq.requestedQty} ${newReq.unit} of ${newReq.materialName} for ${newReq.building} ${newReq.floor} ${newReq.zone}. Approval required by Warehouse Manager.`,
+      description: `Site / Store Manager at ${assignedSite} requested ${newReq.requestedQty} ${newReq.unit} of ${newReq.materialName} for ${newReq.building} ${newReq.floor} ${newReq.zone}. Approval required by Warehouse Manager.`,
       category: "Warehouse Notifications",
       priority: newReq.priority === "Critical" ? "Critical" : "High",
       status: "Unread",
       projectName: assignedSite,
       sender: newReq.requesterName,
-      senderRole: "Site Store Owner",
+      senderRole: String(currentUserRole) || "Site Manager",
       receiver: "Warehouse Manager",
       targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
-      actionTab: "warehouseManagerApp"
+      actionTab: "warehouseSiteStore"
     });
 
     setSecurityBannerMsg({
@@ -312,7 +312,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
     });
   };
 
-  // 2. WAREHOUSE MANAGER: Approve / Partially Approve / Reject & Dispatch Request -> Site Store Owner notified
+  // 2. WAREHOUSE MANAGER: Approve / Partially Approve / Reject & Dispatch Request -> Site Manager / Store Manager notified
   const handleWarehouseReviewRequest = async (
     req: any,
     decision: "Approved" | "Partially Approved" | "Rejected"
@@ -321,7 +321,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       setSecurityBannerMsg({
         type: "error",
         title: "Permission Denied (RBAC Violation)",
-        detail: "Site Store Owners cannot approve or dispatch central warehouse material requests."
+        detail: "Site Managers and Store Managers cannot approve or dispatch central warehouse material requests."
       });
       return;
     }
@@ -426,33 +426,33 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         projectName: req.projectSite || assignedSite,
         sender: "Warehouse Manager",
         senderRole: "Warehouse Manager",
-        receiver: "Site Store Owner",
-        targetRoles: [UserRole.STORE_OWNER, UserRole.STORE_MANAGER, UserRole.SUPER_ADMIN],
-        actionTab: "storeOwnerApp"
+        receiver: "Site Manager & Store Manager",
+        targetRoles: [UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.SUPER_ADMIN],
+        actionTab: "warehouseSiteStore"
       });
 
       setSecurityBannerMsg({
         type: "success",
         title: `Request ${req.id} ${decision} & Dispatched (${transferId})`,
-        detail: `Warehouse stock decreased by ${approvedAmount} ${req.unit}. Site Store Owner notified to receive transfer.`
+        detail: `Warehouse stock decreased by ${approvedAmount} ${req.unit}. Site Manager & Store Manager notified to receive transfer.`
       });
     } else {
       setSecurityBannerMsg({
         type: "success",
         title: `Request ${req.id} Rejected`,
-        detail: `Site Store Owner has been notified and audit log recorded.`
+        detail: `Site Manager & Store Manager have been notified and audit log recorded.`
       });
     }
   };
 
-  // 3. SITE STORE OWNER: Confirm Transfer Receipt & Record Discrepancy (if Sent != Received)
+  // 3. SITE MANAGER / STORE MANAGER: Confirm Transfer Receipt & Record Discrepancy (if Sent != Received)
   const handleSiteStoreReceiveTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canPerformAction(currentUserRole, "RECEIVE_MATERIAL_FROM_WAREHOUSE")) {
       setSecurityBannerMsg({
         type: "error",
         title: "Permission Denied (RBAC Violation)",
-        detail: "Only an authorized Site Store Owner can confirm site transfer receipt."
+        detail: "Only an authorized Site Manager or Store Manager can confirm site transfer receipt."
       });
       return;
     }
@@ -510,7 +510,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         sourceWarehouse: assignedWarehouse,
         destinationSiteStore: assignedSite,
         reportedByUid: currentUserProfile?.uid || "site-store-uid",
-        reportedByName: currentUserProfile?.displayName || "Site Store Owner",
+        reportedByName: currentUserProfile?.displayName || "Site Manager",
         reportedByRole: String(currentUserRole),
         dateTime: new Date().toISOString().substring(0, 16).replace("T", " "),
         status: "Pending Review"
@@ -533,10 +533,10 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         status: "Unread",
         projectName: assignedSite,
         sender: newDisc.reportedByName,
-        senderRole: "Site Store Owner",
+        senderRole: "Site Manager",
         receiver: "Warehouse Manager",
         targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
-        actionTab: "warehouseManagerApp"
+        actionTab: "warehouseSiteStore"
       });
     }
 
@@ -689,7 +689,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       systemExpectedQty: Number(siteStockCountForm.expectedQty),
       physicalCountedQty: Number(siteStockCountForm.countedQty),
       variance,
-      countedBy: currentUserProfile?.displayName || "Site Store Owner",
+      countedBy: currentUserProfile?.displayName || "Site Manager",
       verifiedBy: "Site Engineer Verification",
       date: new Date().toISOString().substring(0, 10),
       status: variance === 0 ? "Matched" : "Discrepancy Flagged",
@@ -708,7 +708,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
     });
   };
 
-  // 7. SITE STORE OWNER ONLY: Damaged & Missing Material Report
+  // 7. SITE MANAGER ONLY: Damaged & Missing Material Report
   const handleSubmitDamagedMissing = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!canPerformAction(currentUserRole, "REPORT_SITE_DAMAGED_MISSING")) {
@@ -731,7 +731,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       estimatedCostEtb: Number(dmgMissingForm.quantity) * 4200,
       causeDescription: dmgMissingForm.causeDescription,
       responsibleTeamOrParty: dmgMissingForm.responsibleTeam,
-      reportedBy: currentUserProfile?.displayName || "Site Store Owner",
+      reportedBy: currentUserProfile?.displayName || "Site Manager",
       reportedByRole: String(currentUserRole),
       date: new Date().toISOString().substring(0, 10),
       status: "Open"
@@ -811,14 +811,14 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
               {isSuperAdminOrHQ
                 ? isAmharic
                   ? "ሱፐር አድሚን (Super Admin) — ሁሉንም 17 የመጋዘን እና 13 የሳይት ስቶር ሞጁሎች ማየትና መቆጣጠር ይችላሉ"
-                  : "SUPER ADMIN MASTER ACCESS — All 17 Warehouse Manager + 13 Site Store Owner Modules Unlocked"
+                  : "SUPER ADMIN MASTER ACCESS — All 17 Warehouse Manager + 13 Site Manager Modules Unlocked"
                 : appMode === "warehouse_manager"
                 ? isAmharic
                   ? "የዋና መጋዘን ሥራ አስኪያጅ ብቻ የሚሰሩ 17 ሞጁሎች (Warehouse Manager Exclusive & Shared Core)"
                   : "Warehouse Manager App — 17 Role-Specific & Shared Core Modules"
                 : isAmharic
-                ? "የሳይት ስቶር ባለቤት ብቻ የሚሰሩ 13 ሞጁሎች (Site Store Owner Exclusive & Shared Core)"
-                : "Site Store Owner App — 13 Role-Specific & Shared Core Modules"}
+                ? "የሳይት ማኔጀር / ስቶር አስተዳዳሪ 13 ሞጁሎች (Site Manager Exclusive & Shared Core)"
+                : "Site Manager / Site Store — 13 Role-Specific & Shared Core Modules"}
             </span>
           </div>
           <h2 className="text-lg font-bold text-white tracking-tight">
@@ -834,9 +834,9 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
             {isSuperAdminOrHQ
               ? isAmharic
                 ? "እንደ ሱፐር አድሚን (Super Admin) ሁሉንም የዋና መጋዘን እና የሳይት ስቶር ክፍሎች፣ ጥያቄዎች፣ ማፅደቂያዎች እና ሪፖርቶች ያለ ምንም ገደብ ማየት ይችላሉ።"
-                : "As Super Admin, you have full visibility and authority across both Warehouse Manager and Site Store Owner modules."
+                : "As Super Admin, you have full visibility and authority across both Warehouse Manager and Site Manager modules."
               : appMode === "warehouse_manager"
-              ? "Site Store Owner-only modules (Floor/Zone Allocation, Team/Gang Issue, Site Stock Count, Daily Site Consumption) are strictly excluded from this interface."
+              ? "Site Manager-only modules (Floor/Zone Allocation, Team/Gang Issue, Site Stock Count, Daily Site Consumption) are strictly excluded from this interface."
               : "Warehouse Manager-only modules (Warehouse Management, Supplier Master, Goods Receiving GRN, PO Receiving, Stock Valuation, Central Stock Adjustment) are strictly excluded from this interface."}
           </p>
         </div>
@@ -848,8 +848,8 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
               <button
                 type="button"
                 onClick={() => {
-                  const res = canAccessRoutePath(UserRole.STORE_OWNER, "/warehouse/inventory");
-                  onLogAction?.("UNAUTHORIZED_ROUTE_ATTEMPT", `Site Store Owner attempted to open /warehouse/inventory -> ${res.reason}`);
+                  const res = canAccessRoutePath(UserRole.SITE_MANAGER, "/warehouse/inventory");
+                  onLogAction?.("UNAUTHORIZED_ROUTE_ATTEMPT", `Site Manager attempted to open /warehouse/inventory -> ${res.reason}`);
                   setSecurityBannerMsg({
                     type: "error",
                     title: "Test 3 Passed — Route Protection: 403 Access Denied",
@@ -863,12 +863,12 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
               <button
                 type="button"
                 onClick={() => {
-                  const allowed = canAccessSiteScope(UserRole.STORE_OWNER, assignedSite, "Megenagna Commercial Tower Site");
+                  const allowed = canAccessSiteScope(UserRole.SITE_MANAGER, assignedSite, "Megenagna Commercial Tower Site");
                   onLogAction?.("UNAUTHORIZED_DATA_SCOPE_ATTEMPT", `Blocked cross-site query from ${assignedSite} to Megenagna Commercial Tower Site`);
                   setSecurityBannerMsg({
                     type: "error",
                     title: `Cross-Site Data Isolation Enforced (Allowed: ${String(allowed)})`,
-                    detail: `Permission Denied: Site Store Owner assigned to "${assignedSite}" cannot query private inventory of "Megenagna Commercial Tower Site".`
+                    detail: `Permission Denied: Site Manager assigned to "${assignedSite}" cannot query private inventory of "Megenagna Commercial Tower Site".`
                   });
                 }}
                 className="px-3 py-1.5 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-700 rounded-lg text-xs font-semibold transition cursor-pointer whitespace-nowrap"
@@ -1853,7 +1853,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       {isSiteStoreView && activeSubModule === "ss-13-modules-matrix" && (
         <div className="space-y-4">
           <h3 className="text-sm font-bold text-white">
-            Site Store Owner 13 Dedicated Modules ({assignedSite})
+            Site Manager & Store Operations — 13 Dedicated Modules ({assignedSite})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 text-xs">
             {[

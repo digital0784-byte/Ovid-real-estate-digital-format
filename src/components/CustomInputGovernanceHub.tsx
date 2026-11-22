@@ -387,7 +387,8 @@ export const CustomInputGovernanceHub: React.FC<CustomInputGovernanceHubProps> =
                 <button onClick={() => onSwitchRole(UserRole.PROJECT_MANAGER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-bold text-emerald-300">Project Manager (Project Fields)</button>
                 
                 <div className="px-2 py-1 text-[10px] font-black uppercase text-blue-400 tracking-wider border-t border-slate-900 mt-1 pt-1">Request Submitter Roles</div>
-                <button onClick={() => onSwitchRole(UserRole.STORE_OWNER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Store Owner</button>
+                <button onClick={() => onSwitchRole(UserRole.SITE_MANAGER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Site Manager</button>
+                <button onClick={() => onSwitchRole(UserRole.STORE_MANAGER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Store Manager</button>
                 <button onClick={() => onSwitchRole(UserRole.SITE_ENGINEER)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Site Engineer</button>
                 <button onClick={() => onSwitchRole(UserRole.SECTION_HEAD)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Section Head</button>
                 <button onClick={() => onSwitchRole(UserRole.SUPERVISOR)} className="w-full text-left px-2.5 py-1.5 hover:bg-slate-800 rounded-xl font-medium text-slate-300">Supervisor</button>

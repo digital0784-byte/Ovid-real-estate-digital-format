@@ -515,6 +515,8 @@ interface StoreOwnerAppProps {
   onLogAction?: (action: string, details: string) => void;
   onCreateNotification?: (notification: any) => void;
   initialMode?: "warehouse_manager" | "store_owner";
+  embeddedMode?: boolean;
+  embeddedCategory?: "warehouse_fleet_formwork" | "store_field_operations";
 }
 
 export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
@@ -524,7 +526,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   workers = [],
   onLogAction,
   onCreateNotification,
-  initialMode = "warehouse_manager"
+  initialMode = "warehouse_manager",
+  embeddedMode = false,
+  embeddedCategory
 }) => {
   const assignedWarehouseManager = useMemo(() => {
     const found = workers.find(w =>
@@ -534,14 +538,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     );
     return found?.name || "";
   }, [workers]);
-  // Enforce strict role-based App Mode locking (Warehouse Manager vs Site Store Owner)
+  // Enforce strict role-based App Mode locking (Warehouse Manager vs Site Manager / Store Manager)
   const canonicalRole = resolveCanonicalWarehouseRole(currentUserRole);
   const isSuperAdminOrHQ = canonicalRole === "admin" || canonicalRole === "head_office";
+  const isStoreManagerOnly = canonicalRole === "store_manager";
   const authorizedDefaultMode: "warehouse_manager" | "store_owner" =
-    canonicalRole === "warehouse_manager"
-      ? "warehouse_manager"
-      : canonicalRole === "site_store_owner"
+    isStoreManagerOnly || canonicalRole === "site_manager"
       ? "store_owner"
+      : embeddedCategory === "warehouse_fleet_formwork"
+      ? "warehouse_manager"
+      : embeddedCategory === "store_field_operations"
+      ? "store_owner"
+      : canonicalRole === "warehouse_manager"
+      ? "warehouse_manager"
       : (initialMode === "store_owner" ? "store_owner" : "warehouse_manager");
 
   const [appMode, setAppMode] = useState<"warehouse_manager" | "store_owner">(authorizedDefaultMode);
@@ -549,19 +558,23 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   useEffect(() => {
     if (canonicalRole === "warehouse_manager") {
-      if (initialMode === "store_owner") {
+      if (initialMode === "store_owner" && !embeddedMode) {
         setUnauthorizedRouteAttempt("/site-store/dashboard");
       }
       setAppMode("warehouse_manager");
-    } else if (canonicalRole === "site_store_owner") {
-      if (initialMode === "warehouse_manager") {
+    } else if (canonicalRole === "site_manager" || canonicalRole === "store_manager") {
+      if ((initialMode === "warehouse_manager" || embeddedCategory === "warehouse_fleet_formwork") && !embeddedMode) {
         setUnauthorizedRouteAttempt("/warehouse/dashboard");
       }
+      setAppMode("store_owner");
+    } else if (embeddedCategory === "warehouse_fleet_formwork") {
+      setAppMode("warehouse_manager");
+    } else if (embeddedCategory === "store_field_operations") {
       setAppMode("store_owner");
     } else if (initialMode) {
       setAppMode(initialMode);
     }
-  }, [initialMode, canonicalRole]);
+  }, [initialMode, canonicalRole, embeddedMode, embeddedCategory]);
 
   // Navigation State across Master Modules
   const [activeTab, setActiveTab] = useState<
@@ -585,10 +598,43 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     | "ai-analytics"
     | "role-access"
     | "integrations"
-  >("architecture-command");
+  >(
+    embeddedMode
+      ? embeddedCategory === "warehouse_fleet_formwork"
+        ? "warehouse-dashboard"
+        : "requests"
+      : "architecture-command"
+  );
 
-  // Keep activeTab strictly valid when appMode changes (Super Admin can access ALL tabs without restriction)
   useEffect(() => {
+    if (!embeddedMode) return;
+    if (embeddedCategory === "warehouse_fleet_formwork") {
+      setActiveTab("warehouse-dashboard");
+    } else if (embeddedCategory === "store_field_operations") {
+      setActiveTab("requests");
+    }
+  }, [embeddedMode, embeddedCategory]);
+
+  // Keep activeTab strictly valid when appMode/role changes (Super Admin can access ALL tabs without restriction)
+  useEffect(() => {
+    if (isStoreManagerOnly) {
+      const storeManagerAllowedTabs = [
+        "requests",
+        "morning-requisitions",
+        "evening-returns",
+        "daily-auto-reports",
+        "dashboard",
+        "receiving",
+        "issue",
+        "returns",
+        "qr-barcode",
+        "notifications"
+      ];
+      if (!storeManagerAllowedTabs.includes(activeTab)) {
+        setActiveTab("requests");
+      }
+      return;
+    }
     if (isSuperAdminOrHQ) return;
     // Aluminum Formwork Management ("formwork-tracking" & "site-panel-breakdown") is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
     const warehouseOnlyTabs = ["warehouse-dashboard", "site-panel-breakdown", "formwork-tracking"];
@@ -606,11 +652,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const dict: Record<string, Record<string, string>> = {
     en: {
       title: appMode === "warehouse_manager" 
-        ? "DIGITAL CONSTRUCTION ERP SYSTEM — Warehouse Manager App" 
-        : "DIGITAL CONSTRUCTION ERP SYSTEM — Site Store Owner App",
+        ? "DIGITAL CONSTRUCTION ERP — Warehouse Operations" 
+        : "DIGITAL CONSTRUCTION ERP — Site Manager & Store Operations",
       subtitle: appMode === "warehouse_manager" 
-        ? "Central Warehouse Hub, Supplier GRN, Stock Valuation, Inter-Warehouse & Site Transfers (17 Dedicated Modules)" 
-        : "Assigned Construction Site Store, Material Requests, Gang Issues, Returns & Floor/Zone Allocation (13 Dedicated Modules)",
+        ? "Central Warehouse Hub, Fleet Dispatch, Supplier GRN, & Formwork Tracking" 
+        : "Site Store Operations, Material Requests to Warehouse Manager, Gang Issues, & Daily Site Returns",
       totalMaterials: "Total Material Stock",
       formworkPanels: "Aluminum Formwork Panels",
       availableStock: "Available Stock",
@@ -629,8 +675,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     },
     am: {
       title: appMode === "warehouse_manager"
-        ? "DIGITAL CONSTRUCTION ERP SYSTEM — የመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager App)"
-        : "DIGITAL CONSTRUCTION ERP SYSTEM — የሳይት ስቶር አቃቤ መተግበሪያ (Site Store Owner App)",
+        ? "DIGITAL CONSTRUCTION ERP — የመጋዘን አስተዳደር"
+        : "DIGITAL CONSTRUCTION ERP — የሳይት ማኔጀር እና ስቶር ስራዎች",
       subtitle: appMode === "warehouse_manager"
         ? "የማዕከላዊ መጋዘን፣ የጭነት መኪኖች መላኪያ፣ የአቅራቢዎች ደረሰኝ እና የእቃዎች ስርጭት መቆጣጠሪያ ማዕከል"
         : "የግንባታ እቃዎች እና የአሉሚኒየም ፎርምወርክ ስቶር አስተዳደር እና ቁጥጥር ስርዓት",
@@ -1328,7 +1374,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       sender: newReq.requestedBy,
       senderRole: newReq.jobPosition,
       receiver: "Store Manager & Warehouse Manager",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER],
       actionTab: "morning-requisitions"
     });
 
@@ -1393,10 +1439,10 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       isRead: false,
       type: "Material Returned",
       projectName: newRet.siteName,
-      sender: newRet.gangChiefName || "Store Owner",
+      sender: newRet.gangChiefName || "Site Manager",
       senderRole: jobPos,
       receiver: "Store Manager & Warehouse Manager",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
       actionTab: "evening-returns",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
@@ -1411,8 +1457,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         category: "Material Return Notifications",
         priority: returnNotif.priority === "High" ? "High" : "Medium",
         status: "Unread",
-        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Store Owner", "Super Admin"],
-        moduleSource: "Store Owner App"
+        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Site Manager", "Super Admin"],
+        moduleSource: "Warehouse & Site Store ERP"
       });
     }
     onCreateNotification?.(returnNotif);
@@ -1655,7 +1701,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     driverName: "Mulugeta Tadesse",
     truckPlate: "ET-3-11029",
     gpsLocation: "9.0102° N, 38.7612° E (Site Store)",
-    receivedBy: "Store Owner Abebe"
+    receivedBy: "Site Manager"
   });
 
   const [showIssueModal, setShowIssueModal] = useState(false);
@@ -1802,7 +1848,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       description: `Material Intake: Received ${receiveForm.quantity} ${receiveForm.unit} of ${receiveForm.materialName} (Driver: ${receiveForm.driverName}, Plate: ${receiveForm.truckPlate})`,
       project: "Bole Heights Phase I",
       costCenter: "CC-101 Material Intake",
-      approvedBy: receiveForm.receivedBy || "Store Owner",
+      approvedBy: receiveForm.receivedBy || "Site Manager",
       unitCost: unitPrice,
       quantity: Number(receiveForm.quantity),
       unit: receiveForm.unit
@@ -1870,7 +1916,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       sender: receiveForm.receivedBy || "Store Manager",
       senderRole: "Store Manager",
       receiver: "Store Manager & Warehouse Manager",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
       actionTab: "material-receiving",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
@@ -1886,7 +1932,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         priority: "Medium",
         status: "Unread",
         targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin"],
-        moduleSource: "Store Owner App"
+        moduleSource: "Warehouse & Site Store ERP"
       });
     }
     onCreateNotification?.(notifObj);
@@ -1977,7 +2023,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       sender: "Store Manager",
       senderRole: "Store Manager",
       receiver: issueForm.receiverName,
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
       actionTab: "material-issuance",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
@@ -1993,7 +2039,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         priority: "Medium",
         status: "Unread",
         targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin", issueForm.receiverRole],
-        moduleSource: "Store Owner App"
+        moduleSource: "Warehouse & Site Store ERP"
       });
     }
     onCreateNotification?.(notifObj);
@@ -2156,9 +2202,12 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 text-slate-100 shadow-2xl max-w-7xl mx-auto space-y-8" id="store-owner-app-root">
-      
-      {/* ROLE-BASED WORKSPACE HEADER & STRICT ROUTE PROTECTION BAR */}
+    <div
+      className={embeddedMode ? "bg-slate-900 border border-slate-800 rounded-2xl p-5 text-slate-100 space-y-6" : "bg-slate-900 border border-slate-800 rounded-3xl p-6 text-slate-100 shadow-2xl max-w-7xl mx-auto space-y-8"}
+      id="store-owner-app-root"
+    >
+      {/* ROLE-BASED WORKSPACE HEADER & STRICT ROUTE PROTECTION BAR (hidden when embedded inside unified ERP) */}
+      {!embeddedMode && (
       <div className="bg-slate-950 p-2.5 rounded-2xl border border-slate-800 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center space-x-2">
           {canAccessAppMode(currentUserRole, "warehouse_manager") && (
@@ -2175,7 +2224,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               }`}
             >
               <Building2 size={16} />
-              <span>{isAmharic ? "የመጋዘን አስተዳዳሪ መተግበሪያ (Warehouse Manager App)" : "Warehouse Manager App (/warehouse/*)"}</span>
+              <span>{isAmharic ? "የመጋዘን አስተዳዳሪ (Warehouse Manager)" : "Warehouse Manager (/warehouse/*)"}</span>
             </button>
           )}
 
@@ -2184,7 +2233,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               onClick={() => {
                 setUnauthorizedRouteAttempt(null);
                 setAppMode("store_owner");
-                onLogAction?.("App Mode Switched", "Switched workspace mode to Site Store Owner App");
+                onLogAction?.("App Mode Switched", "Switched workspace mode to Site Manager / Site Store");
               }}
               className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider flex items-center space-x-2 transition cursor-pointer ${
                 appMode === "store_owner"
@@ -2193,7 +2242,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               }`}
             >
               <Store size={16} />
-              <span>{isAmharic ? "የሳይት ስቶር አቃቤ መተግበሪያ (Site Store Owner App)" : "Site Store Owner App (/site-store/*)"}</span>
+              <span>{isAmharic ? "የሳይት ማኔጀር እና ስቶር (Site Manager / Store)" : "Site Manager & Store (/site-store/*)"}</span>
             </button>
           )}
         </div>
@@ -2201,10 +2250,12 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         <div className="text-right px-2">
           <span className="text-[10px] font-mono text-amber-400 font-bold uppercase block">
             {isSuperAdminOrHQ
-              ? "SUPER ADMIN MASTER ACCESS: ALL SYSTEM MODULES UNLOCKED (17 WAREHOUSE + 13 SITE STORE)"
+              ? "SUPER ADMIN MASTER ACCESS: UNIFIED WAREHOUSE & SITE STORE MODULES UNLOCKED"
               : appMode === "warehouse_manager"
-              ? "ROLE SCOPE: CENTRAL WAREHOUSE MANAGER (17 MODULES)"
-              : "ROLE SCOPE: ASSIGNED SITE STORE OWNER (13 MODULES)"}
+              ? "ROLE SCOPE: CENTRAL WAREHOUSE MANAGER"
+              : isStoreManagerOnly
+              ? "ROLE SCOPE: STORE MANAGER (AUTHORIZED SITE OPERATIONS ONLY)"
+              : "ROLE SCOPE: ASSIGNED SITE MANAGER (SITE STORE OPERATIONS)"}
           </span>
           <span className="text-[9px] text-slate-400">
             {isSuperAdminOrHQ
@@ -2215,6 +2266,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           </span>
         </div>
       </div>
+      )}
 
       {/* ROUTE PROTECTION ALERT IF UNAUTHORIZED ROUTE ATTEMPTED */}
       {unauthorizedRouteAttempt && (
@@ -2336,9 +2388,55 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         </div>
       )}
 
-      {/* STRICTLY ROLE-FILTERED TOP NAVIGATION (SUPER ADMIN SEES ALL TABS) */}
+      {/* STRICTLY ROLE-FILTERED TOP NAVIGATION (EMBEDDED CATEGORY OR STANDALONE) */}
       <div className="flex flex-wrap border-b border-slate-800 gap-1 overflow-x-auto pb-1">
-        {(isSuperAdminOrHQ
+        {(embeddedMode && embeddedCategory === "warehouse_fleet_formwork"
+          ? [
+              { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ እና ትራንስፖርት" : "Warehouse Fleet & Depots", icon: Building2 },
+              { id: "site-panel-breakdown", label: isAmharic ? "የሳይቶች ድልድል (Site Allocation)" : "Site Allocation & Formwork", icon: Box },
+              { id: "formwork-tracking", label: isAmharic ? "ፎርምወርክ መከታተያ" : "Formwork GPS & Zones", icon: Package },
+              { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+              { id: "architecture-command", label: isAmharic ? "የመጋዘን አርክቴክቸር" : "Warehouse RBAC Command", icon: ShieldCheck }
+            ]
+          : embeddedMode && embeddedCategory === "store_field_operations"
+          ? (isStoreManagerOnly
+              ? [
+                  { id: "requests", label: isAmharic ? "ከመጋዘን እቃ መጠየቂያ" : "Request Items from Warehouse", icon: FileText },
+                  { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃ ወጪ (Team Issue)" : "Morning Requisitions", icon: FileText },
+                  { id: "evening-returns", label: isAmharic ? "የማታ መመለሻ (Evening Returns)" : "Evening Dismantling Returns", icon: RotateCcw },
+                  { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Consumption & Reports", icon: BarChart3 },
+                  { id: "dashboard", label: isAmharic ? "የሳይት ስቶር ዳሽቦርድ" : "Site Store Dashboard", icon: Layers },
+                  { id: "receiving", label: isAmharic ? "ከመጋዘን እቃ መቀበያ" : "Receive Materials", icon: Truck },
+                  { id: "issue", label: isAmharic ? "ወጪ መዝገብ (Issue Log)" : "Site Issue Vouchers", icon: ArrowRightLeft },
+                  { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Site Returns", icon: RotateCcw },
+                  { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode }
+                ]
+              : [
+                  { id: "requests", label: isAmharic ? "ከመጋዘን እቃ መጠየቂያ" : "Request Items from Warehouse", icon: FileText },
+                  { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃ ወጪ (Team Issue)" : "Morning Requisitions", icon: FileText },
+                  { id: "evening-returns", label: isAmharic ? "የማታ መመለሻ (Evening Returns)" : "Evening Dismantling Returns", icon: RotateCcw },
+                  { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Consumption & Reports", icon: BarChart3 },
+                  { id: "dashboard", label: isAmharic ? "የሳይት ስቶር ዳሽቦርድ" : "Site Store Dashboard", icon: Layers },
+                  { id: "receiving", label: isAmharic ? "ከመጋዘን እቃ መቀበያ" : "Receive Materials", icon: Truck },
+                  { id: "issue", label: isAmharic ? "ወጪ መዝገብ (Issue Log)" : "Site Issue Vouchers", icon: ArrowRightLeft },
+                  { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Site Returns", icon: RotateCcw },
+                  { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+                  { id: "architecture-command", label: isAmharic ? "የሳይት ስቶር ሞጁሎች" : "Site Store RBAC Hub", icon: ShieldCheck }
+                ])
+          : isStoreManagerOnly
+          ? [
+              { id: "requests", label: isAmharic ? "ከመጋዘን እቃ መጠየቂያ" : "Request Items from Warehouse", icon: FileText },
+              { id: "morning-requisitions", label: isAmharic ? "የጠዋት እቃ ወጪ (Team Issue)" : "Issue to Team/Gang", icon: FileText },
+              { id: "evening-returns", label: isAmharic ? "የማታ መመለሻ" : "Evening Dismantling Returns", icon: RotateCcw },
+              { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Consumption & Site Reports", icon: BarChart3 },
+              { id: "dashboard", label: isAmharic ? "የሳይት ስቶር ዳሽቦርድ" : "Site Store Dashboard", icon: Layers },
+              { id: "receiving", label: isAmharic ? "ከመጋዘን እቃ መቀበያ" : "Receive Materials", icon: Truck },
+              { id: "issue", label: isAmharic ? "ወጪ መዝገብ (Issue Log)" : "Site Issue Vouchers", icon: ArrowRightLeft },
+              { id: "returns", label: isAmharic ? "የተመለሱ እቃዎች" : "Site Returns", icon: RotateCcw },
+              { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+              { id: "notifications", label: isAmharic ? "ማስጠንቀቂያዎች" : "Notifications", icon: Bell }
+            ]
+          : isSuperAdminOrHQ
           ? [
               { id: "architecture-command", label: isAmharic ? "ሁሉም ሞጁሎች (17 መጋዘን + 13 ሳይት ስቶር)" : "All Modules (17 Warehouse + 13 Site Store)", icon: ShieldCheck },
               { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ እና ትራንስፖርት" : "Warehouse Fleet & Depots", icon: Building2 },
@@ -2442,7 +2540,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               currentUserProfile?.displayName ||
               (appMode === "warehouse_manager"
                 ? assignedWarehouseManager || "Central Warehouse Manager"
-                : "Site Store Owner (Bole Tower A)")
+                : "Site Manager (Bole Tower A)")
             }
             assignedSiteName="Bole Tower A — Site Store 01"
             onLogAction={onLogAction}
@@ -4376,15 +4474,15 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <h2 className="text-lg font-black uppercase text-white">
                   {appMode === "warehouse_manager"
                     ? "Warehouse Manager — Material Request Review & Approval"
-                    : "Site Store Owner — Material Requests to Main Warehouse"}
+                    : "Site Manager & Store Manager — Material Requests to Warehouse Manager"}
                 </h2>
                 <p className="text-xs text-slate-400">
                   {appMode === "warehouse_manager"
                     ? (isAmharic ? "ከሳይት ስቶር የመጡ የእቃ ጥያቄዎችን መገምገሚያ፣ ማፅደቂያ እና መላኪያ" : "Warehouse Manager authority: Review, Approve, Partially Approve, or Reject site material requests")
-                    : (isAmharic ? "ከዋናው መጋዘን እቃ መጠየቂያ እና የተላኩትን መረከቢያ" : "Site Store Owner authority: Submit material requests to Warehouse Manager and confirm receipt")}
+                    : (isAmharic ? "ከዋናው መጋዘን እቃ መጠየቂያ እና የተላኩትን መረከቢያ" : "Request materials from Warehouse Manager and track approval/dispatch status")}
                 </p>
               </div>
-              {(appMode === "store_owner" || isSuperAdminOrHQ) && (
+              {(appMode === "store_owner" || isSuperAdminOrHQ) && !isStoreManagerOnly && (
                 <button
                   onClick={() => setActiveTab("architecture-command")}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer"
@@ -4426,7 +4524,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                         </span>
                       </td>
                       <td className="p-4">
-                        {appMode === "warehouse_manager" || isSuperAdminOrHQ ? (
+                        {(canonicalRole === "warehouse_manager" || isSuperAdminOrHQ) && appMode === "warehouse_manager" ? (
                           req.status === "Pending" ? (
                             <div className="flex space-x-2">
                               <button
@@ -5067,7 +5165,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <tbody className="divide-y divide-slate-800/60 text-xs">
                   {[
                     { role: "Admin / Head Office", tier: "Full Access", receive: "Yes", issue: "Yes", audit: "Yes" },
-                    { role: "Store Manager / Store Owner", tier: "Full Access", receive: "Yes", issue: "Yes", audit: "Yes" },
+                    { role: "Site Manager / Store Manager", tier: "Site Operations Access", receive: "Yes", issue: "Yes", audit: "Site Count" },
                     { role: "Finance Manager", tier: "Financial Read-Only", receive: "No", issue: "No", audit: "Read" },
                     { role: "Site Engineer / Section Head", tier: "Site Zone Access", receive: "Confirm", issue: "Request", audit: "No" },
                     { role: "Gang Chief / Assembler", tier: "Zone Confirmation Only", receive: "No", issue: "Confirm", audit: "No" }

@@ -86,7 +86,7 @@ export const PanelScannerModal: React.FC<Props> = ({
             <span>
               {isAmharic 
                 ? "ማሳሰቢያ፡ የQR ስካኒንግ እና ዝውውር ፈቃድ የሚሰጠው ለተፈቀደላቸው የሥራ ድርሻዎች ብቻ ነው።" 
-                : "Notice: Full panel scanning is authorized for Site Engineers, Supervisors, Store Owners, Team Leaders, and Managers."}
+                : "Notice: Full panel scanning is authorized for Site Engineers, Supervisors, Site & Store Managers, and Team Leaders."}
             </span>
           </div>
         )}

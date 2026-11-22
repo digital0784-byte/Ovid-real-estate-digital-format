@@ -16,7 +16,7 @@
         "trade": { "type": "string" },
         "position": { "type": "string" },
         "requestedRole": { "type": "string" },
-        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Store Manager", "HR Manager", "Finance Manager", "Accountant"] },
+        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Director", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Warehouse Manager", "Site Manager", "Store Manager", "HR Manager", "Finance Manager", "Accountant"] },
         "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
@@ -1598,7 +1598,7 @@
     },
     "ProjectStore": {
       "title": "ProjectStore",
-      "description": "Project-linked construction site stores managed by Site Store Owners.",
+      "description": "Project-linked construction site stores managed by Site Managers.",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 128 },
@@ -1675,7 +1675,7 @@
     },
     "MaterialRequest": {
       "title": "MaterialRequest",
-      "description": "Site Store Owner material requisitions compared against approved plans, verified by Warehouse Manager, and approved by Director.",
+      "description": "Site Manager and Store Manager material requisitions compared against approved plans, verified by Warehouse Manager, and approved by Director.",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 128 },

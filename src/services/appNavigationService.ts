@@ -81,25 +81,11 @@ export const ERP_TAB_METADATA: Record<string, TabMetadata> = {
     nameAm: "ፋይናንስና ክፍያዎች ERP",
     category: "core"
   },
-  warehouseManagerApp: {
-    id: "warehouseManagerApp",
-    num: 7,
-    nameEn: "Central Warehouse Management",
-    nameAm: "ማዕከላዊ መጋዘን አስተዳደር",
-    category: "formwork"
-  },
-  storeOwnerApp: {
-    id: "storeOwnerApp",
-    num: 8,
-    nameEn: "Site Store Management",
-    nameAm: "የሳይት ስቶር አስተዳደር",
-    category: "formwork"
-  },
   warehouseSiteStore: {
     id: "warehouseSiteStore",
-    num: 33,
+    num: 7,
     nameEn: "Warehouse & Site Store ERP",
-    nameAm: "መጋዘንና የሳይት ስቶር አስተዳደር",
+    nameAm: "መጋዘንና የሳይት ስቶር ERP",
     category: "formwork"
   },
   panelTraceability: {
@@ -335,13 +321,17 @@ class AppNavigationService {
       replace?: boolean;
     }
   ): NavLocation {
-    const meta = ERP_TAB_METADATA[tab];
-    const titleEn = options?.titleEn || meta?.nameEn || tab;
-    const titleAm = options?.titleAm || meta?.nameAm || tab;
+    const normalizedTab =
+      tab === "warehouseManagerApp" || tab === "storeOwnerApp"
+        ? "warehouseSiteStore"
+        : tab;
+    const meta = ERP_TAB_METADATA[normalizedTab];
+    const titleEn = options?.titleEn || meta?.nameEn || normalizedTab;
+    const titleAm = options?.titleAm || meta?.nameAm || normalizedTab;
 
     const newLoc: NavLocation = {
       id: `nav-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      tab,
+      tab: normalizedTab,
       subView: options?.subView,
       params: options?.params,
       titleEn,
@@ -354,7 +344,7 @@ class AppNavigationService {
     } else {
       const current = this.getCurrentLocation();
       // Avoid duplicate consecutive entries with identical tab and subview
-      if (current && current.tab === tab && current.subView === options?.subView && JSON.stringify(current.params) === JSON.stringify(options?.params)) {
+      if (current && current.tab === normalizedTab && current.subView === options?.subView && JSON.stringify(current.params) === JSON.stringify(options?.params)) {
         return current;
       }
       this.historyStack.push(newLoc);

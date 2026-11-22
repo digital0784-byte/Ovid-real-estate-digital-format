@@ -272,7 +272,7 @@ export class CustomInputService {
     const isHeadOffice = r === UserRole.HEAD_OFFICE;
     const isProjectManager = r === UserRole.PROJECT_MANAGER;
     const isFinanceManager = r === UserRole.FINANCE_MANAGER;
-    const isWarehouseManager = r === UserRole.WAREHOUSE_MANAGER || r === UserRole.STORE_OWNER;
+    const isWarehouseManager = r === UserRole.WAREHOUSE_MANAGER || r === UserRole.SITE_MANAGER || r === UserRole.STORE_MANAGER;
 
     let canApprove = false;
     let authorizedScope = "Submit Only";
@@ -302,7 +302,7 @@ export class CustomInputService {
     }
 
     return {
-      canAdd: true, // Store Owner, Warehouse Manager, Site Eng, PM, Supervisor, etc. can submit
+      canAdd: true, // Site Manager, Store Manager, Warehouse Manager, Site Eng, PM, Supervisor, etc. can submit
       canEdit: isSuperAdmin || isHeadOffice || isProjectManager || isFinanceManager || isWarehouseManager,
       canDelete: isSuperAdmin || isHeadOffice,
       canApprove,

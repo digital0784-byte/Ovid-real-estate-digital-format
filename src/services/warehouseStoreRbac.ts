@@ -2,7 +2,8 @@ import { UserRole } from "../types";
 
 export type CanonicalWarehouseRole =
   | "warehouse_manager"
-  | "site_store_owner"
+  | "site_manager"
+  | "store_manager"
   | "head_office"
   | "admin"
   | "other";
@@ -184,15 +185,16 @@ export function resolveCanonicalRole(role?: UserRole | string | null): Canonical
   if (r === "super admin" || r === "admin" || r === "super_admin") return "admin";
   if (r === "head office" || r === "head_office") return "head_office";
   if (r === "warehouse manager" || r === "warehouse_manager") return "warehouse_manager";
+  if (r === "store manager" || r === "store_manager") return "store_manager";
   if (
+    r === "site manager" ||
+    r === "site_manager" ||
     r === "store owner" ||
-    r === "store manager" ||
     r === "site store owner" ||
     r === "site_store_owner" ||
-    r === "store_owner" ||
-    r === "store_manager"
+    r === "store_owner"
   ) {
-    return "site_store_owner";
+    return "site_manager";
   }
   return "other";
 }
@@ -206,7 +208,7 @@ export function canAccessAppMode(
   const canonical = resolveCanonicalRole(role);
   if (canonical === "admin" || canonical === "head_office") return true;
   if (canonical === "warehouse_manager") return targetMode === "warehouse_manager";
-  if (canonical === "site_store_owner") return targetMode === "store_owner";
+  if (canonical === "site_manager" || canonical === "store_manager") return targetMode === "store_owner";
   return false;
 }
 
@@ -490,21 +492,20 @@ export const WAREHOUSE_MANAGER_NAV_MODULES: RoleNavModule[] = [
 ];
 
 /**
- * SITE STORE OWNER NAVIGATION (Section 3 & Section 15)
- * Site Store Owner sees ONLY:
- * Dashboard, Site Stock, Material Requests, Receive Materials, Issue Materials,
- * Returns, Floor/Zone, Consumption, Stock Count, Damaged/Missing, Reports,
- * Notifications, Settings, Security
+ * SITE MANAGER & STORE MANAGER NAVIGATION (Unified Warehouse & Site Store ERP)
+ * Site Manager takes over all Site Store Owner site operations.
+ * Store Manager is strictly scoped to site stock, requesting items from Warehouse Manager,
+ * receiving GIV deliveries, issuing to teams, and site returns.
  */
-export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
+export const SITE_MANAGER_NAV_MODULES: RoleNavModule[] = [
   {
     id: "ss-dashboard",
     shortLabelEn: "Dashboard",
     shortLabelAm: "የሳይት ስቶር ዳሽቦርድ",
     fullTitleEn: "Site Store Dashboard",
-    fullTitleAm: "የሳይት ስቶር ባለቤት ዳሽቦርድ",
+    fullTitleAm: "የሳይት ስቶር ዳሽቦርድ",
     routePath: "/site-store/dashboard",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     subModulesEn: [
       "1. Site Store Dashboard",
       "Site Stock, Today's Issues & Today's Receipts",
@@ -519,7 +520,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Assigned Site Stock & General Materials",
     fullTitleAm: "የተመደበው የሳይት ስቶር ክምችት እና የግንባታ ዕቃዎች",
     routePath: "/site-store/site-stock",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     subModulesEn: [
       "2. Site Stock (Transaction-calculated)",
       "Assigned Site Consumables, Tools & General Construction Materials"
@@ -532,7 +533,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Material Request to Main Warehouse",
     fullTitleAm: "ከዋና መጋዘን የዕቃ መጠየቂያ (Material Request)",
     routePath: "/site-store/material-requests",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: [
       "3. Create & Submit Material Request to Warehouse Manager",
@@ -546,7 +547,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Receive Material from Warehouse & Site Transfer Receiving",
     fullTitleAm: "ከዋና መጋዘን የተላከ ዕቃ መቀበያ እና ልዩነት መመዝገቢያ",
     routePath: "/site-store/receive-materials",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: [
       "4. Receive Material from Warehouse",
@@ -560,7 +561,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Material Issue to Team / Gang / Floor / Zone",
     fullTitleAm: "ለቡድን መሪ፣ ጋንግ ቺፍ፣ ፎቅ እና ዞን ዕቃ ወጪ ማድረጊያ",
     routePath: "/site-store/issue-materials",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: [
       "5. Material Issue to Team Leader / Gang Chief / Floor / Zone",
@@ -574,7 +575,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Material Return from Team / Gang",
     fullTitleAm: "ከቡድን/ጋንግ ወደ ሳይት ስቶር የሚመለሱ ዕቃዎች መቀበያ",
     routePath: "/site-store/returns",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: [
       "6. Material Return (Good, Damaged, Missing Condition Breakdown)",
@@ -588,7 +589,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Floor / Zone Construction Material Allocation",
     fullTitleAm: "ፕሮጀክት → ሳይት → ህንፃ → ፎቅ → ዞን የዕቃ ምደባ",
     routePath: "/site-store/floor-zone",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     subModulesEn: [
       "7. Floor/Zone Allocation (Planned, Issued, Used, Remaining, Damaged, Returned)"
     ]
@@ -600,7 +601,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Daily Material Consumption",
     fullTitleAm: "ዕለታዊ የሳይት ዕቃዎች ፍጆታ እና ልዩነት ክትትል",
     routePath: "/site-store/consumption",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     subModulesEn: [
       "8. Daily Material Consumption by Building, Floor & Zone"
     ]
@@ -612,7 +613,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Site Physical Stock Count",
     fullTitleAm: "የሳይት ስቶር የአካል ቆጠራ እና ማመሳከሪያ",
     routePath: "/site-store/stock-count",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     subModulesEn: [
       "9. Site Stock Count & Variance Reconciliation"
     ]
@@ -624,7 +625,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Damaged & Missing Material Reports",
     fullTitleAm: "በሳይት ላይ የተጎዱ እና የጠፉ ዕቃዎች ሪፖርት",
     routePath: "/site-store/damaged-missing",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     subModulesEn: [
       "10. Damaged Material Report",
       "11. Missing Material Report"
@@ -637,7 +638,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Site-Level Material Reports",
     fullTitleAm: "የሳይት ስቶር ክምችት፣ ወጪ፣ ተመላሽ እና ፍጆታ ሪፖርቶች",
     routePath: "/site-store/reports",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: [
       "13. Site-level Reports (Site Stock, Site Consumption, Issue, Return, Discrepancy, Floor/Zone)"
@@ -650,7 +651,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Site Store Notifications",
     fullTitleAm: "የሳይት ስቶር ማስታወቂያዎች",
     routePath: "/site-store/notifications",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: [
       "Request Approved & Material Dispatched",
@@ -665,7 +666,7 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Site Store Profile & Assigned Site Settings",
     fullTitleAm: "የሳይት ስቶር መገለጫ እና የተመደበ ሳይት ቅንብሮች",
     routePath: "/site-store/settings",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "store_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: ["Assigned Site & Project Scope", "Alert Thresholds"]
   },
@@ -676,11 +677,13 @@ export const SITE_STORE_OWNER_NAV_MODULES: RoleNavModule[] = [
     fullTitleEn: "Site Store Security & Audit History",
     fullTitleAm: "የሳይት ስቶር ደህንነት፣ የፈቃድ ማትሪክስ እና የኦዲት ታሪክ",
     routePath: "/site-store/security",
-    allowedRoles: ["site_store_owner", "head_office", "admin"],
+    allowedRoles: ["site_manager", "head_office", "admin"],
     isSharedCore: true,
     subModulesEn: ["Site Data Isolation Rules", "Immutable Site Store Audit Log"]
   }
 ];
+
+export const SITE_STORE_OWNER_NAV_MODULES = SITE_MANAGER_NAV_MODULES;
 
 export type WarehouseStoreAction =
   | "MANAGE_WAREHOUSES"
@@ -724,7 +727,7 @@ const WAREHOUSE_MANAGER_ONLY_ACTIONS: Set<WarehouseStoreAction> = new Set([
   "PERFORM_WAREHOUSE_AUDIT"
 ]);
 
-const SITE_STORE_OWNER_ONLY_ACTIONS: Set<WarehouseStoreAction> = new Set([
+const SITE_MANAGER_ONLY_ACTIONS: Set<WarehouseStoreAction> = new Set([
   "CREATE_SITE_MATERIAL_REQUEST",
   "RECEIVE_MATERIAL_FROM_WAREHOUSE",
   "REPORT_TRANSFER_DISCREPANCY",
@@ -745,8 +748,8 @@ export function canPerformAction(
   if (canonical === "warehouse_manager") {
     return WAREHOUSE_MANAGER_ONLY_ACTIONS.has(action);
   }
-  if (canonical === "site_store_owner") {
-    return SITE_STORE_OWNER_ONLY_ACTIONS.has(action);
+  if (canonical === "site_manager" || canonical === "store_manager") {
+    return SITE_MANAGER_ONLY_ACTIONS.has(action);
   }
   return false;
 }
@@ -768,19 +771,28 @@ export function canAccessRoutePath(
     }
     return {
       allowed: false,
-      redirectRoute: canonical === "site_store_owner" ? "/site-store/dashboard" : "/dashboard",
-      reason: "Access Denied: /warehouse/* routes require Warehouse Manager authorization. Site Store Owners cannot access central warehouse modules."
+      redirectRoute:
+        canonical === "site_manager" || canonical === "store_manager"
+          ? "/site-store/dashboard"
+          : "/dashboard",
+      reason:
+        "Access Denied: /warehouse/* routes require Warehouse Manager authorization. Site Managers and Store Managers cannot access central warehouse modules."
     };
   }
 
   if (normalizedRoute.startsWith("/site-store")) {
-    if (canonical === "site_store_owner") {
-      return { allowed: true, redirectRoute: normalizedRoute, reason: "Authorized Site Store Owner" };
+    if (canonical === "site_manager" || canonical === "store_manager") {
+      return {
+        allowed: true,
+        redirectRoute: normalizedRoute,
+        reason: canonical === "site_manager" ? "Authorized Site Manager" : "Authorized Store Manager"
+      };
     }
     return {
       allowed: false,
       redirectRoute: canonical === "warehouse_manager" ? "/warehouse/dashboard" : "/dashboard",
-      reason: "Access Denied: /site-store/* routes require Site Store Owner authorization. Warehouse Managers cannot access private site store operational modules."
+      reason:
+        "Access Denied: /site-store/* routes require Site Manager or Store Manager authorization. Warehouse Managers cannot access private site store operational modules."
     };
   }
 
@@ -794,7 +806,7 @@ export function canAccessSiteScope(
 ): boolean {
   const canonical = resolveCanonicalRole(role);
   if (canonical === "admin" || canonical === "head_office") return true;
-  if (canonical === "site_store_owner") {
+  if (canonical === "site_manager" || canonical === "store_manager") {
     if (!assignedSite || !targetSite) return true;
     const a = assignedSite.toLowerCase();
     const t = targetSite.toLowerCase();
@@ -816,7 +828,8 @@ export type ExtendedWarehouseRole =
   | "director"
   | "project_head"
   | "material_handling"
-  | "site_store_owner"
+  | "site_manager"
+  | "store_manager"
   | "gate_security_officer"
   | "unauthorized";
 
@@ -864,6 +877,8 @@ export type WarehouseSectionKey =
   | "returns_mrv"
   | "quarantine_stock"
   | "stock_ledger"
+  | "store_field_operations"
+  | "warehouse_fleet_formwork"
   | "reports"
   | "notifications"
   | "audit_logs"
@@ -889,7 +904,7 @@ export function resolveExtendedWarehouseRole(
   }
   if (r === "operation manager" || r === "operation_manager") return "operation_manager";
   if (r === "director" || r === "directory" || r === "head office" || r === "head_office") {
-    return r === "head office" || r === "head_office" ? "director" : "director";
+    return "director";
   }
   if (
     r === "project head" ||
@@ -909,15 +924,18 @@ export function resolveExtendedWarehouseRole(
   ) {
     return "material_handling";
   }
+  if (r === "store manager" || r === "store_manager") {
+    return "store_manager";
+  }
   if (
+    r === "site manager" ||
+    r === "site_manager" ||
     r === "store owner" ||
     r === "store_owner" ||
     r === "site store owner" ||
-    r === "site_store_owner" ||
-    r === "store manager" ||
-    r === "store_manager"
+    r === "site_store_owner"
   ) {
-    return "site_store_owner";
+    return "site_manager";
   }
   if (
     r === "gate security officer" ||
@@ -1027,8 +1045,8 @@ const EXTENDED_ACTION_MATRIX: Record<ExtendedWarehouseRole, ReadonlySet<Warehous
     "VIEW_DASHBOARD",
     "MANAGE_TRANSPORT"
   ]),
-  // Site Store Owner: assigned project site store inventory, create requests against plan, confirm actual received qtys (GIV & FATIV), issue two-way returns, project reports.
-  site_store_owner: new Set<WarehouseModuleAction>([
+  // Site Manager: replaces legacy Site Store Owner; full site store operations, requests against plan, GIV & FATIV confirmations, FATOV transfers, gate pass generation, two-way returns, project reports.
+  site_manager: new Set<WarehouseModuleAction>([
     "VIEW_DASHBOARD",
     "VIEW_INVENTORY",
     "CREATE_MATERIAL_REQUEST",
@@ -1037,6 +1055,16 @@ const EXTENDED_ACTION_MATRIX: Record<ExtendedWarehouseRole, ReadonlySet<Warehous
     "CONFIRM_FATIV",
     "SUBMIT_TWO_WAY_RETURN",
     "GENERATE_GATE_PASS",
+    "EXPORT_REPORTS"
+  ]),
+  // Store Manager: strictly scoped to assigned site store, requesting items from Warehouse Manager, confirming site GIV/FATIV deliveries, and submitting MRV returns.
+  store_manager: new Set<WarehouseModuleAction>([
+    "VIEW_DASHBOARD",
+    "VIEW_INVENTORY",
+    "CREATE_MATERIAL_REQUEST",
+    "CONFIRM_CONSUMABLE_RECEIPT",
+    "CONFIRM_FATIV",
+    "SUBMIT_TWO_WAY_RETURN",
     "EXPORT_REPORTS"
   ]),
   // Gate Security Officer: Gate Pass QR verification & confirm physical exit/entry ONLY.
@@ -1082,6 +1110,8 @@ export function getAuthorizedSectionsForRole(
         "returns_mrv",
         "quarantine_stock",
         "stock_ledger",
+        "warehouse_fleet_formwork",
+        ...(r === "super_admin" ? (["store_field_operations"] as WarehouseSectionKey[]) : []),
         "reports",
         "notifications",
         "audit_logs",
@@ -1106,6 +1136,8 @@ export function getAuthorizedSectionsForRole(
         "returns_mrv",
         "quarantine_stock",
         "stock_ledger",
+        "warehouse_fleet_formwork",
+        "store_field_operations",
         "reports",
         "notifications",
         "audit_logs"
@@ -1153,6 +1185,7 @@ export function getAuthorizedSectionsForRole(
         "returns_mrv",
         "quarantine_stock",
         "stock_ledger",
+        "warehouse_fleet_formwork",
         "reports",
         "notifications",
         "audit_logs"
@@ -1171,7 +1204,7 @@ export function getAuthorizedSectionsForRole(
         "reports",
         "notifications"
       ];
-    case "site_store_owner":
+    case "site_manager":
       return [
         "dashboard",
         "site_stores",
@@ -1185,6 +1218,19 @@ export function getAuthorizedSectionsForRole(
         "returns_mrv",
         "quarantine_stock",
         "stock_ledger",
+        "store_field_operations",
+        "reports",
+        "notifications"
+      ];
+    case "store_manager":
+      return [
+        "dashboard",
+        "site_stores",
+        "material_requests",
+        "giv_dispatch",
+        "project_fixed_assets",
+        "returns_mrv",
+        "store_field_operations",
         "reports",
         "notifications"
       ];
@@ -1225,7 +1271,7 @@ export function canUserAccessProjectRecord(
   ) {
     return true;
   }
-  if (r === "project_head" || r === "site_store_owner") {
+  if (r === "project_head" || r === "site_manager" || r === "store_manager") {
     const scope = (assignedProject || assignedSite || "").trim().toLowerCase();
     if (!scope || !targetProjectIdOrName) return true;
     const target = targetProjectIdOrName.trim().toLowerCase();
@@ -1239,4 +1285,15 @@ export function canUserAccessProjectRecord(
   }
   return false;
 }
+
+export const STORE_MANAGER_ALLOWED_REPORTS: ReadonlySet<string> = new Set([
+  "PROJECT_SITE_STORE_BALANCE",
+  "GIV_DISPATCH_REGISTER",
+  "PARTIAL_DISPATCH_BALANCE",
+  "PROJECT_FIXED_ASSET_REGISTER",
+  "TWO_WAY_RETURN_MRV",
+  "LOW_STOCK_REORDER",
+  "FAST_SLOW_MOVING",
+  "DISCREPANCY_SHORTAGE",
+]);
 

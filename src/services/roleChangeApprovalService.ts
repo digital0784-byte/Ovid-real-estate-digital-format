@@ -52,7 +52,7 @@ const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
     userName: "Mulugeta Alemu",
     userEmail: "mulugeta.a@buildsync.et",
     phoneNumber: "+251 922 889 012",
-    currentRole: UserRole.STORE_OWNER,
+    currentRole: UserRole.SITE_MANAGER,
     requestedRole: UserRole.WAREHOUSE_MANAGER,
     reason: "Assigned central warehouse logistics oversight across East & West Wing stores.",
     supportingDocuments: [
@@ -66,7 +66,7 @@ const INITIAL_SEED_REQUESTS: RoleChangeRequest[] = [
     ],
     status: "Pending Approval",
     requestedBy: "Mulugeta Alemu",
-    requestedByRole: "Store Owner",
+    requestedByRole: "Site Manager",
     requestedDate: "2026-07-21",
     requestedTime: "09:15 AM",
     deviceInfo: {

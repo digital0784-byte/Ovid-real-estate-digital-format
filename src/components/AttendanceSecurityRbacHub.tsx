@@ -163,19 +163,34 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
       "Cannot override site CAD drawings or survey coordinates"
     ]
   },
-  [UserRole.STORE_OWNER]: {
-    title: "5. Store Owner",
-    category: "Supply & Warehouse",
-    description: "Assigned site store inventory receiving & issuance.",
+  [UserRole.SITE_MANAGER]: {
+    title: "5. Site Manager",
+    category: "Site & Field Operations",
+    description: "Assigned site store oversight, material requisitions, receiving & crew issue.",
     canDo: [
-      "Manage Assigned Site Store Inventory",
-      "Receive Materials & Issue Stock to Teams",
+      "Manage Assigned Site Store Inventory & Daily Site Ops",
+      "Receive Materials (GIV/FATIV) & Issue Stock to Teams",
       "Process Material Returns & Daily Stock Counts",
-      "Submit Site Material Requisitions"
+      "Submit Site Material Requisitions to Warehouse Manager"
     ],
     cannotDo: [
       "Cannot access company financial data or payroll",
-      "Cannot access unassigned site stores"
+      "Cannot access unassigned site stores or central warehouse admin"
+    ]
+  },
+  [UserRole.STORE_MANAGER]: {
+    title: "6. Store Manager",
+    category: "Supply & Warehouse",
+    description: "Assigned site store inventory receiving, requests to Warehouse Manager & daily store ops.",
+    canDo: [
+      "Submit Item Requisitions to Warehouse Manager",
+      "Confirm GIV & FATIV Receipts at Assigned Site Store",
+      "Issue Materials to Site Teams & Record Evening Returns",
+      "Submit Two-Way MRV Returns & Daily Store Reports"
+    ],
+    cannotDo: [
+      "Cannot view central warehouse catalogs, GRVs, valuation, or Director approvals",
+      "Cannot approve own requisitions or edit engineering plans"
     ]
   },
   [UserRole.PROJECT_MANAGER]: {
@@ -631,8 +646,8 @@ service cloud.firestore {
 
     // Material & Warehouse Collection
     match /warehouse_materials/{matId} {
-      allow read: if hasRole(['Super Admin', 'Head Office', 'Warehouse Manager', 'Store Owner', 'Auditor']);
-      allow write: if hasRole(['Super Admin', 'Warehouse Manager', 'Store Owner']);
+      allow read: if hasRole(['Super Admin', 'Head Office', 'Warehouse Manager', 'Site Manager', 'Store Manager', 'Auditor']);
+      allow write: if hasRole(['Super Admin', 'Warehouse Manager', 'Site Manager', 'Store Manager']);
     }
 
     // Payroll & Salary Collection

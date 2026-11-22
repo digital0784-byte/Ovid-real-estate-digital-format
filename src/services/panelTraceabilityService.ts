@@ -184,7 +184,7 @@ const INITIAL_SEED_PANELS: TraceablePanel[] = [
     ],
     lastMovementAction: "RETURN",
     lastMovementDate: "2026-10-05 04:00 PM",
-    lastUserName: "Mesfin Girma (Store Owner)",
+    lastUserName: "Mesfin Girma (Site Manager)",
     lastScannedDate: "2026-10-05 04:05 PM",
     lastScannedBy: "Mesfin Girma",
     notes: "Cleaned and oiled after 11th floor strike"
@@ -259,7 +259,7 @@ const INITIAL_SEED_PANELS: TraceablePanel[] = [
     updatedAt: "2026-10-07T08:15:00Z",
     lastMovementAction: "ASSIGN",
     lastMovementDate: "2026-10-07 08:00 AM",
-    lastUserName: "Bereket Alemu (Site Store Owner)",
+    lastUserName: "Bereket Alemu (Site Manager)",
     notes: "Staircase pre-assembly verified with total station survey"
   },
   {
@@ -318,7 +318,7 @@ const INITIAL_SEED_PANELS: TraceablePanel[] = [
     updatedAt: "2026-10-06T16:00:00Z",
     lastMovementAction: "ISSUE",
     lastMovementDate: "2026-10-06 01:15 PM",
-    lastUserName: "Zeleke Bekele (Site Store Owner)",
+    lastUserName: "Zeleke Bekele (Site Manager)",
     notes: "Issued for main transfer girder formwork"
   },
   {
@@ -438,7 +438,7 @@ const INITIAL_SEED_MOVEMENTS: PanelTraceabilityMovement[] = [
     assignedTeamLeaderId: "USER-TL-01",
     userId: "USER-SO-01",
     userName: "Mesfin Girma",
-    userRole: "Store Owner",
+    userRole: "Site Manager",
     timestamp: "2026-10-03T07:45:00Z",
     reason: "Formwork erection for 12th floor shear walls",
     conditionBefore: "GOOD",
@@ -768,7 +768,7 @@ export class PanelTraceabilityService {
     if (!role) return false;
     const allowedRoles: string[] = [
       UserRole.WAREHOUSE_MANAGER,
-      UserRole.STORE_OWNER,
+      UserRole.SITE_MANAGER,
       UserRole.STORE_MANAGER,
       UserRole.TEAM_LEADER,
       UserRole.GANG_CHIEF,
@@ -778,7 +778,7 @@ export class PanelTraceabilityService {
       UserRole.HEAD_OFFICE,
       UserRole.SUPER_ADMIN,
       "Warehouse Manager",
-      "Store Owner",
+      "Site Manager",
       "Store Manager",
       "Team Leader",
       "Gang Chief",
@@ -1115,7 +1115,7 @@ export class PanelTraceabilityService {
       assignedGangChiefId: issue.gangChiefId,
       assignedSectionHeadId: issue.sectionHeadId,
       installationStatus: "IN_PROGRESS",
-      reason: `Issued by Store Owner to ${issue.requesterName} (${issue.requesterRole}) for ${issue.zone}`,
+      reason: `Issued by Site/Store Manager to ${issue.requesterName} (${issue.requesterRole}) for ${issue.zone}`,
       notes: `Expected return: ${issue.expectedReturnDate}. ${issue.notes || ""}`,
       user
     });

@@ -6,7 +6,11 @@ import {
   WarehouseActorContext,
   WarehouseStoreDataService,
 } from "../../services/warehouseStoreDataService";
-import { canPerformWarehouseModuleAction } from "../../services/warehouseStoreRbac";
+import {
+  canPerformWarehouseModuleAction,
+  resolveExtendedWarehouseRole,
+  STORE_MANAGER_ALLOWED_REPORTS,
+} from "../../services/warehouseStoreRbac";
 import {
   buildPrintableReportHtml,
   computeStockClosingBalance,
@@ -32,7 +36,22 @@ export function WarehouseReportsLedgerAuditView({
   onOpenPrint: (title: string, html: string) => void;
 }) {
   const canConfigValuation = canPerformWarehouseModuleAction(actor.role, "CONFIGURE_VALUATION_METHOD");
-  const [selectedReportType, setSelectedReportType] = useState<WarehouseReportType>(REPORT_CATALOG[0].id);
+  const isScopedStoreManager = resolveExtendedWarehouseRole(actor.role) === "store_manager";
+  const availableReports = React.useMemo(
+    () =>
+      isScopedStoreManager
+        ? REPORT_CATALOG.filter((r) => STORE_MANAGER_ALLOWED_REPORTS.has(r.id))
+        : REPORT_CATALOG,
+    [isScopedStoreManager]
+  );
+  const [selectedReportType, setSelectedReportType] = useState<WarehouseReportType>(
+    (availableReports[0] || REPORT_CATALOG[0]).id
+  );
+  React.useEffect(() => {
+    if (!availableReports.some((r) => r.id === selectedReportType) && availableReports[0]) {
+      setSelectedReportType(availableReports[0].id);
+    }
+  }, [availableReports, selectedReportType]);
   const [valuationChoice, setValuationChoice] = useState<CostValuationMethod>(snapshot.valuationSettings.valuationMethod);
   const [valuationReason, setValuationReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -93,14 +112,16 @@ export function WarehouseReportsLedgerAuditView({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex-1 min-w-[260px]">
             <label className="block text-[11px] font-bold uppercase text-amber-400 mb-1">
-              Select Enterprise Inventory & Logistics Report (22 Built-In Reports)
+              {isScopedStoreManager
+                ? `Select Site Store Report (${availableReports.length} Authorized Site Reports)`
+                : `Select Enterprise Inventory & Logistics Report (${availableReports.length} Built-In Reports)`}
             </label>
             <select
               value={selectedReportType}
               onChange={(e) => setSelectedReportType(e.target.value as WarehouseReportType)}
               className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white font-semibold"
             >
-              {REPORT_CATALOG.map((r) => (
+              {availableReports.map((r) => (
                 <option key={r.id} value={r.id}>
                   {r.title} ({r.category})
                 </option>

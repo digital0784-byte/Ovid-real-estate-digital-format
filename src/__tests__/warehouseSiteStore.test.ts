@@ -18,7 +18,9 @@ import {
   canPerformWarehouseModuleAction,
   getAuthorizedSectionsForRole,
   isStrictDirectorRole,
+  resolveCanonicalWarehouseRole,
   resolveExtendedWarehouseRole,
+  STORE_MANAGER_ALLOWED_REPORTS,
 } from "../services/warehouseStoreRbac";
 
 function makeTestApp() {
@@ -310,7 +312,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
 
     const reqRes = await request(app)
       .post("/api/warehouse/requests")
-      .set(asRole(UserRole.STORE_OWNER, { "x-test-project": "PROJ-BOLE" }))
+      .set(asRole(UserRole.SITE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
       .send({
         planId: planRes.body.data.id,
         projectId: "PROJ-BOLE",
@@ -406,7 +408,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     // Mismatch request (60 > planned 50)
     const badReq = await request(app)
       .post("/api/warehouse/requests")
-      .set(asRole(UserRole.STORE_OWNER, { "x-test-project": "PROJ-BOLE" }))
+      .set(asRole(UserRole.SITE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
       .send({
         planId: p.body.data.id,
         projectId: "PROJ-BOLE",
@@ -434,7 +436,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     // Valid matched request for 30 bags -> verified -> Director Disapproved permanently
     const disReq = await request(app)
       .post("/api/warehouse/requests")
-      .set(asRole(UserRole.STORE_OWNER, { "x-test-project": "PROJ-BOLE" }))
+      .set(asRole(UserRole.SITE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
       .send({
         planId: p.body.data.id,
         projectId: "PROJ-BOLE",
@@ -483,7 +485,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     // Create matched request for 30 bags -> Verify -> Director Approve -> Partial Dispatch 18 + Over-issue blocked + Final Partial Dispatch 12
     const okReq = await request(app)
       .post("/api/warehouse/requests")
-      .set(asRole(UserRole.STORE_OWNER, { "x-test-project": "PROJ-BOLE" }))
+      .set(asRole(UserRole.SITE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
       .send({
         planId: p.body.data.id,
         projectId: "PROJ-BOLE",
@@ -622,7 +624,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     // Site Store Owner confirms FATIV receipt -> moves location to PS-BOLE preserving Asset ID & Original GRV No
     const fativRes = await request(app)
       .post("/api/warehouse/transfers/receive")
-      .set(asRole(UserRole.STORE_OWNER, { "x-test-project": "PROJ-BOLE" }))
+      .set(asRole(UserRole.SITE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
       .send({ receiptType: "FATIV", fatovId: fatov.id, quantityReceived: 1, conditionReceived: "Good" });
     expect(fativRes.status).toBe(200);
     expect(fativRes.body.data.asset.currentLocationId).toBe("PS-BOLE");
@@ -632,7 +634,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     // Duplicate FATIV strictly blocked!
     const dupFativ = await request(app)
       .post("/api/warehouse/transfers/receive")
-      .set(asRole(UserRole.STORE_OWNER, { "x-test-project": "PROJ-BOLE" }))
+      .set(asRole(UserRole.SITE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
       .send({ receiptType: "FATIV", fatovId: fatov.id, quantityReceived: 1, conditionReceived: "Good" });
     expect(dupFativ.status).toBe(409);
   });
@@ -642,7 +644,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     // Submit return of 10 Good + 5 Damaged consumables from Bole Store -> Warehouse
     const mrvSub = await request(app)
       .post("/api/warehouse/returns")
-      .set(asRole(UserRole.STORE_OWNER))
+      .set(asRole(UserRole.SITE_MANAGER))
       .send({
         direction: "ProjectToWarehouse",
         sourceLocationType: "ProjectStore",
@@ -775,5 +777,129 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
 
     expect(canPerformWarehouseModuleAction(UserRole.MATERIAL_HANDLING, "MANAGE_TRANSPORT")).toBe(true);
     expect(canPerformWarehouseModuleAction(UserRole.MATERIAL_HANDLING, "VERIFY_RETURN_MATERIAL_REQUEST")).toBe(false);
+
+    expect(resolveExtendedWarehouseRole(UserRole.SITE_MANAGER)).toBe("site_manager");
+    expect(resolveExtendedWarehouseRole("Store Owner")).toBe("site_manager");
+    expect(resolveCanonicalWarehouseRole("Site Store Owner")).toBe("site_manager");
+    expect(resolveExtendedWarehouseRole(UserRole.STORE_MANAGER)).toBe("store_manager");
+    expect(resolveCanonicalWarehouseRole(UserRole.STORE_MANAGER)).toBe("store_manager");
+  });
+
+  // 23. STORE MANAGER ITEM REQUEST TO WAREHOUSE MANAGER & STRICT ISOLATION
+  it("allows Store Manager to request items from Warehouse Manager while blocking all unauthorized Warehouse Manager sections, actions, and HQ reports", async () => {
+    const storeMgrSections = getAuthorizedSectionsForRole(UserRole.STORE_MANAGER);
+    expect(storeMgrSections).toContain("material_requests");
+    expect(storeMgrSections).toContain("store_field_operations");
+    expect(storeMgrSections).toContain("site_stores");
+    expect(storeMgrSections).toContain("giv_dispatch");
+    expect(storeMgrSections).toContain("returns_mrv");
+    expect(storeMgrSections).toContain("reports");
+
+    // HQ / Warehouse Manager sections strictly excluded from Store Manager
+    for (const forbiddenSection of [
+      "warehouse_inventory",
+      "material_planning",
+      "director_approvals",
+      "grv",
+      "commercial_invoices",
+      "fixed_assets_big_balance",
+      "fatov_fativ",
+      "quarantine_stock",
+      "stock_ledger",
+      "settings",
+      "audit_logs",
+      "warehouse_fleet_formwork",
+    ] as const) {
+      expect(storeMgrSections).not.toContain(forbiddenSection);
+    }
+
+    // Store Manager allowed actions
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CREATE_MATERIAL_REQUEST")).toBe(true);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CONFIRM_CONSUMABLE_RECEIPT")).toBe(true);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "SUBMIT_TWO_WAY_RETURN")).toBe(true);
+
+    // Store Manager forbidden Warehouse Manager / Director / Finance actions
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "VERIFY_RETURN_MATERIAL_REQUEST")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "PREPARE_CONFIRM_DISPATCH_GIV")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CREATE_FINALIZE_GRV")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CREATE_FATOV")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "GENERATE_GATE_PASS")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "DIRECTOR_APPROVE_DISAPPROVE_REQUEST")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CONFIGURE_VALUATION_METHOD")).toBe(false);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "RELEASE_QUARANTINE")).toBe(false);
+
+    // Office Manager creates a Material Plan so Store Manager can submit a request to Warehouse Manager
+    const planRes = await request(app)
+      .post("/api/warehouse/plans")
+      .set(asRole(UserRole.OFFICE_MANAGER))
+      .send({
+        title: "Store Manager Requisition Plan",
+        projectId: "PROJ-BOLE",
+        projectName: "Bole Heights Tower",
+        items: [{ itemId: "ITEM-CEM", itemCode: "CEM-42.5", itemName: "OPC Cement 50kg", specification: "Grade 42.5R", inventoryType: "Consumable", unit: "bags", plannedQty: 100 }],
+      });
+    expect(planRes.status).toBe(201);
+
+    // Store Manager CAN submit Material Request to Warehouse Manager
+    const smReq = await request(app)
+      .post("/api/warehouse/requests")
+      .set(asRole(UserRole.STORE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
+      .send({
+        planId: planRes.body.data.id,
+        projectId: "PROJ-BOLE",
+        projectName: "Bole Heights Tower",
+        projectStoreId: "PS-BOLE",
+        projectStoreName: "Bole Tower Site Store",
+        warehouseId: "WH-CENTRAL",
+        warehouseName: "Kality Central Warehouse",
+        items: [{ itemId: "ITEM-CEM", itemCode: "CEM-42.5", itemName: "OPC Cement 50kg", specification: "Grade 42.5R", inventoryType: "Consumable", unit: "bags", requestedQty: 40 }],
+      });
+    expect(smReq.status).toBe(201);
+
+    // Store Manager CANNOT verify/approve own or any request
+    const smVerify = await request(app)
+      .post(`/api/warehouse/requests/${smReq.body.data.id}/verify`)
+      .set(asRole(UserRole.STORE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
+      .send({ action: "verify" });
+    expect(smVerify.status).toBe(403);
+
+    // Store Manager CANNOT create GRV, dispatch GIV, release quarantine, or alter valuation
+    const smGrv = await request(app)
+      .post("/api/warehouse/grv")
+      .set(asRole(UserRole.STORE_MANAGER))
+      .send({ warehouseId: "WH-CENTRAL", supplierName: "Test", items: [] });
+    expect(smGrv.status).toBe(403);
+
+    const smDispatch = await request(app)
+      .post("/api/warehouse/dispatch")
+      .set(asRole(UserRole.STORE_MANAGER))
+      .send({ dispatchType: "GIV", requestId: smReq.body.data.id, dispatchItems: [] });
+    expect(smDispatch.status).toBe(403);
+
+    const smQuarantine = await request(app)
+      .post("/api/warehouse/quarantine/release")
+      .set(asRole(UserRole.STORE_MANAGER))
+      .send({ balanceId: "WH-CENTRAL__ITEM-CEM", quantity: 1, disposition: "RELEASE_TO_USABLE" });
+    expect(smQuarantine.status).toBe(403);
+
+    const smValuation = await request(app)
+      .post("/api/warehouse/settings/valuation")
+      .set(asRole(UserRole.STORE_MANAGER))
+      .send({ valuationMethod: "FIFO" });
+    expect(smValuation.status).toBe(403);
+
+    // Store Manager CAN view allowed site-store reports and is blocked (403) from HQ-only reports
+    expect(STORE_MANAGER_ALLOWED_REPORTS.has("PROJECT_SITE_STORE_BALANCE")).toBe(true);
+    const allowedReport = await request(app)
+      .get("/api/warehouse/reports/PROJECT_SITE_STORE_BALANCE")
+      .set(asRole(UserRole.STORE_MANAGER, { "x-test-project": "PROJ-BOLE" }));
+    expect(allowedReport.status).toBe(200);
+
+    for (const hqReport of ["GRV_REGISTER", "BIG_BALANCE_FIXED_ASSETS", "STOCK_VALUATION_FIFO_WMA"]) {
+      const deniedReport = await request(app)
+        .get(`/api/warehouse/reports/${hqReport}`)
+        .set(asRole(UserRole.STORE_MANAGER, { "x-test-project": "PROJ-BOLE" }));
+      expect(deniedReport.status).toBe(403);
+    }
   });
 });

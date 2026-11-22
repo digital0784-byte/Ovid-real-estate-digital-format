@@ -450,6 +450,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                    currentUserRole === UserRole.GANG_CHIEF ? "Gang Chief" :
                    currentUserRole === UserRole.SUPERVISOR ? "Site Supervisor" :
                    currentUserRole === UserRole.STORE_MANAGER ? "Store Manager" :
+                   currentUserRole === UserRole.SITE_MANAGER ? "Site Manager" :
                    currentUserRole === UserRole.WAREHOUSE_MANAGER ? "Warehouse Manager" : "Field Specialist"}
                 </span>
                 <span className="text-[11px] text-slate-500 font-mono block">
@@ -457,6 +458,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                        currentUserRole === UserRole.PROJECT_MANAGER ? "Digital Construction ERP-PM-01" :
                        currentUserRole === UserRole.WAREHOUSE_MANAGER ? "Digital Construction ERP-WM-01" :
                        currentUserRole === UserRole.STORE_MANAGER ? "Digital Construction ERP-SM-01" :
+                       currentUserRole === UserRole.SITE_MANAGER ? "Digital Construction ERP-SM-02" :
                        currentUserRole === UserRole.TIME_KEEPER ? "Digital Construction ERP-TK-01" :
                        currentUserRole === UserRole.TEAM_LEADER ? "Digital Construction ERP-TL-01" :
                        currentUserRole === UserRole.GANG_CHIEF ? "Digital Construction ERP-GC-01" :
@@ -483,8 +485,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
               )}
               {currentUserRole === UserRole.STORE_MANAGER && (
                 isAmharic 
-                  ? "የሳይት ስቶር አቃቤው የሳይት ስቶር እቃዎችን መቀበል፣ ለቡድኖች ማደል፣ ብልሽቶችን መመዝገብ እና የዕቃዎች ቁጥጥር ያደርጋል።"
-                  : "Store Manager handles daily site store requisitions, pin/wedge tool issues, return verifications, and localized stock auditing."
+                  ? "የስቶር ሥራ አስኪያጁ ከዋናው መጋዘን ዕቃ መጠየቅ፣ የሳይት ስቶር እቃዎችን መቀበል፣ ለቡድኖች ማደል እና የዕቃዎች ቁጥጥር ያደርጋል።"
+                  : "Store Manager requests items from Warehouse Manager, confirms site receipts, issues tools/materials to teams, and manages assigned store operations."
+              )}
+              {currentUserRole === UserRole.SITE_MANAGER && (
+                isAmharic 
+                  ? "የሳይት ሥራ አስኪያጁ የሳይት ስቶር ስራዎችን፣ የእቃ መጠየቂያዎችን፣ ርክክብን እና የሳይት አፈጻጸምን ይመራል።"
+                  : "Site Manager oversees site store operations, warehouse requisitions, GIV/FATIV receipts, crew allocations, and localized site reporting."
               )}
               {currentUserRole === UserRole.TIME_KEEPER && (
                 isAmharic 
@@ -992,7 +999,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </span>
             </div>
             <button 
-              onClick={() => setActiveTab("storeOwnerApp")}
+              onClick={() => setActiveTab("warehouseSiteStore")}
               className="text-xs text-red-600 hover:text-red-700 font-bold underline ml-2 whitespace-nowrap"
             >
               {isAmharic ? "የመጋዘን ስቶክ" : "Warehouse Stock"}

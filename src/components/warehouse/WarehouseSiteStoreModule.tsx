@@ -25,7 +25,7 @@ import {
   Truck,
   Wrench,
 } from "lucide-react";
-import { UserRole, WarehouseDashboardFilters } from "../../types";
+import { UserRole, WarehouseDashboardFilters, Worker } from "../../types";
 import {
   ErpWarehouseSnapshot,
   subscribeWarehouseErpModule,
@@ -45,6 +45,7 @@ import { FixedAssetsAndTransfersView } from "./FixedAssetsAndTransfersView";
 import { ReturnsAndQuarantineView } from "./ReturnsAndQuarantineView";
 import { TransportAndGatePassView } from "./TransportAndGatePassView";
 import { WarehouseReportsLedgerAuditView } from "./WarehouseReportsLedgerAuditView";
+import { StoreOwnerApp } from "../StoreOwnerApp";
 
 const SECTION_META: Array<{ key: WarehouseSectionKey; label: string; icon: React.ComponentType<any> }> = [
   { key: "dashboard", label: "Dashboard (15 KPIs)", icon: BarChart3 },
@@ -65,6 +66,8 @@ const SECTION_META: Array<{ key: WarehouseSectionKey; label: string; icon: React
   { key: "quarantine_stock", label: "Quarantine Stock", icon: AlertTriangle },
   { key: "stock_ledger", label: "Stock Ledger", icon: BookOpen },
   { key: "reports", label: "Reports (22 Excel/PDF)", icon: FileSpreadsheet },
+  { key: "warehouse_fleet_formwork", label: "Fleet, Depots & Formwork Ops", icon: Truck },
+  { key: "store_field_operations", label: "Site Requisitions & Crew Ops", icon: ClipboardCheck },
   { key: "notifications", label: "Notifications", icon: Bell },
   { key: "audit_logs", label: "Audit Trail", icon: Shield },
   { key: "settings", label: "Valuation Settings", icon: Settings },
@@ -73,9 +76,17 @@ const SECTION_META: Array<{ key: WarehouseSectionKey; label: string; icon: React
 export function WarehouseSiteStoreModule({
   currentUserRole,
   currentUserProfile,
+  isAmharic = false,
+  workers = [],
+  onLogAction,
+  onCreateNotification,
 }: {
   currentUserRole: UserRole;
   currentUserProfile: any;
+  isAmharic?: boolean;
+  workers?: Worker[];
+  onLogAction?: (action: string, details: string) => void;
+  onCreateNotification?: (notification: any) => void;
 }) {
   const actor: WarehouseActorContext = {
     uid: currentUserProfile?.uid || `UID-${String(currentUserRole).replace(/\s+/g, "_")}`,
@@ -210,6 +221,7 @@ export function WarehouseSiteStoreModule({
             snapshot={snapshot}
             filters={filters}
             onChangeFilters={setFilters}
+            authorizedSections={authorizedSections}
             onNavigateSection={(sec) => {
               if (authorizedSections.includes(sec)) setActiveSection(sec);
             }}
@@ -299,6 +311,20 @@ export function WarehouseSiteStoreModule({
             actor={actor}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+          />
+        )}
+
+        {(activeSection === "warehouse_fleet_formwork" || activeSection === "store_field_operations") && (
+          <StoreOwnerApp
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            workers={workers}
+            embeddedMode={true}
+            embeddedCategory={activeSection}
+            initialMode={activeSection === "warehouse_fleet_formwork" ? "warehouse_manager" : "store_owner"}
+            onLogAction={onLogAction}
+            onCreateNotification={onCreateNotification}
           />
         )}
       </div>

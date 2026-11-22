@@ -375,7 +375,7 @@ export function mergeExistingProjectStores(
       siteId: rs.id,
       siteName: rs.projectName,
       location: [rs.cityWoreda, rs.region].filter(Boolean).join(", ") || rs.projectName,
-      storeOwnerName: rs.siteManager || "Site Store Owner",
+      storeOwnerName: rs.siteManager || "Site Manager",
       status: rs.status === "Active" ? "Active" : "Inactive",
       createdAt: rs.startDate || now,
       updatedAt: rs.startDate || now,
@@ -759,7 +759,7 @@ export const WarehouseStoreDataService = {
       projectName: saved.projectName || saved.storeName,
       region: saved.location,
       cityWoreda: saved.location,
-      siteManager: saved.storeOwnerName || "Site Store Owner",
+      siteManager: saved.storeOwnerName || "Site Manager",
       status: saved.status === "Active" ? "Active" : "Completed",
       startDate: saved.createdAt,
     });
@@ -845,7 +845,7 @@ export const WarehouseStoreDataService = {
       title: `New Material Plan ${plan.planNumber}`,
       message: `${actor.name} submitted ${plan.planNumber} (${plan.items.length} items).`,
       severity: "info",
-      targetRoles: ["Warehouse Manager", "Store Owner", "Director", "Project Manager"],
+      targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Director", "Project Manager"],
       projectId: plan.projectId,
       projectName: plan.projectName,
       referenceId: plan.id,
@@ -913,7 +913,7 @@ export const WarehouseStoreDataService = {
       title: `Material Plan ${updated.planNumber} Revised (Rev ${nextRev})`,
       message: `${actor.name} revised ${updated.planNumber}: ${payload.reason}`,
       severity: "warning",
-      targetRoles: ["Warehouse Manager", "Store Owner", "Director", "Project Manager"],
+      targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Director", "Project Manager"],
       projectId: updated.projectId,
       projectName: updated.projectName,
       referenceId: updated.id,
@@ -952,7 +952,7 @@ export const WarehouseStoreDataService = {
       return callWarehouseApi<EngineeringMaterialRequest>("/api/warehouse/requests", "POST", payload);
     }
     if (!canPerformWarehouseModuleAction(actor.role, "CREATE_MATERIAL_REQUEST")) {
-      throw new Error("Only Site Store Owner or Super Admin can submit material requests.");
+      throw new Error("Only Site Manager, Store Manager, or Super Admin can submit material requests.");
     }
     const plans = getCache<MaterialPlanRecord>("materialPlans", []);
     const plan = plans.find((p) => p.id === payload.planId);
@@ -1118,7 +1118,7 @@ export const WarehouseStoreDataService = {
       targetRoles:
         payload.action === "verify"
           ? ["Director", "Super Admin"]
-          : ["Store Owner", "Office & Technical Engineering"],
+          : ["Site Manager", "Store Manager", "Office & Technical Engineering"],
       projectId: updatedReq.projectId,
       projectName: updatedReq.projectName,
       referenceId: updatedReq.id,
@@ -1205,7 +1205,7 @@ export const WarehouseStoreDataService = {
       title: `Request ${updated.requestNumber}: ${payload.decision}`,
       message: payload.decision === "Director Approved" ? "Approved for dispatch." : `Disapproved: ${updated.disapprovalReason}`,
       severity: payload.decision === "Director Approved" ? "success" : "critical",
-      targetRoles: ["Warehouse Manager", "Store Owner", "Office & Technical Engineering", "Project Manager"],
+      targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Office & Technical Engineering", "Project Manager"],
       projectId: updated.projectId,
       projectName: updated.projectName,
       referenceId: updated.id,
@@ -1843,7 +1843,7 @@ export const WarehouseStoreDataService = {
       title: `${givNumber} Dispatched (${updatedReq.status})`,
       message: `Gate Pass ${gatePassNumber} generated for ${matReq.projectStoreName}.`,
       severity: "info",
-      targetRoles: ["Store Owner", "Gate Security Officer", "Material Handling", "Operation Manager"],
+      targetRoles: ["Site Manager", "Store Manager", "Gate Security Officer", "Material Handling", "Operation Manager"],
       projectId: matReq.projectId,
       projectName: matReq.projectName,
       referenceId: giv.id,
@@ -2024,7 +2024,7 @@ export const WarehouseStoreDataService = {
       });
     }
     if (!canPerformWarehouseModuleAction(actor.role, "CONFIRM_CONSUMABLE_RECEIPT")) {
-      throw new Error("Only Site Store Owner or Super Admin can confirm GIV receipt.");
+      throw new Error("Only Site Manager, Store Manager, or Super Admin can confirm GIV receipt.");
     }
     const givs = getCache<GoodsIssueVoucher>("goodsIssueVouchers", []);
     const giv = givs.find((g) => g.id === payload.givId);
@@ -2134,7 +2134,7 @@ export const WarehouseStoreDataService = {
       });
     }
     if (!canPerformWarehouseModuleAction(actor.role, "CONFIRM_FATIV")) {
-      throw new Error("Only Site Store Owner, Warehouse Manager, or Super Admin can confirm FATIV.");
+      throw new Error("Only Site Manager, Store Manager, Warehouse Manager, or Super Admin can confirm FATIV.");
     }
     const fatovs = getCache<FixedAssetTransferOut>("fixedAssetTransfersOut", []);
     const fatov = fatovs.find((f) => f.id === payload.fatovId);
@@ -2275,7 +2275,7 @@ export const WarehouseStoreDataService = {
       return callWarehouseApi("/api/warehouse/returns", "POST", payload);
     }
     if (!canPerformWarehouseModuleAction(actor.role, "SUBMIT_TWO_WAY_RETURN")) {
-      throw new Error("Only authorized Store Owners, Warehouse Managers, or Super Admin can submit returns.");
+      throw new Error("Only authorized Site Managers, Store Managers, Warehouse Managers, or Super Admin can submit returns.");
     }
     const existingMrvs = getCache<MaterialReturnVoucher>("materialReturnVouchers", []);
     const mrvNumber = generateSequentialCode("MRV", existingMrvs.map((m) => m.mrvNumber));
@@ -2414,7 +2414,7 @@ export const WarehouseStoreDataService = {
       return callWarehouseApi(`/api/warehouse/returns/${mrvId}/confirm`, "POST", payload);
     }
     if (!canPerformWarehouseModuleAction(actor.role, "CONFIRM_RETURN_RECEIPT")) {
-      throw new Error("Only Warehouse Manager, Store Owner, or Super Admin can confirm return receipt.");
+      throw new Error("Only Warehouse Manager, Site Manager, or Super Admin can confirm return receipt.");
     }
     const mrvs = getCache<MaterialReturnVoucher>("materialReturnVouchers", []);
     const mrv = mrvs.find((m) => m.id === mrvId);

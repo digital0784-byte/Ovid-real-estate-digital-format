@@ -32,6 +32,7 @@ import {
   canUserAccessProjectRecord,
   isStrictDirectorRole,
   resolveExtendedWarehouseRole,
+  STORE_MANAGER_ALLOWED_REPORTS,
 } from "../services/warehouseStoreRbac";
 import {
   ALL_TRANSPORT_STATUSES,
@@ -491,7 +492,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
             title: `New Material Plan ${plan.planNumber} Submitted`,
             message: `${actor.name} submitted Material Plan ${plan.planNumber} (${plan.items.length} items) for ${plan.projectName}.`,
             severity: "info",
-            targetRoles: ["Warehouse Manager", "Store Owner", "Director", "Project Manager", "Super Admin"],
+            targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Director", "Project Manager", "Super Admin"],
             projectId: plan.projectId,
             projectName: plan.projectName,
             referenceId: plan.id,
@@ -592,7 +593,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
               title: `Material Plan ${plan.planNumber} Revised (Rev ${nextRev})`,
               message: `${actor.name} revised ${plan.planNumber} for ${plan.projectName}: ${reason}.`,
               severity: "warning",
-              targetRoles: ["Warehouse Manager", "Store Owner", "Director", "Project Manager", "Super Admin"],
+              targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Director", "Project Manager", "Super Admin"],
               projectId: plan.projectId,
               projectName: plan.projectName,
               referenceId: plan.id,
@@ -615,7 +616,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
   });
 
   // =========================================================================
-  // 2. MATERIAL REQUESTS & AUTO PLAN COMPARISON (Site Store Owner)
+  // 2. MATERIAL REQUESTS & AUTO PLAN COMPARISON (Site Manager / Store Manager)
   // =========================================================================
   router.post("/api/warehouse/requests", ...guard, async (req: Request, res: Response) => {
     const actor = actorFromReq(req);
@@ -623,7 +624,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
       return res.status(403).json({
         success: false,
         error: "forbidden",
-        message: "Only Site Store Owner or Super Admin can submit material requests.",
+        message: "Only Site Manager, Store Manager, or Super Admin can submit material requests.",
       });
     }
 
@@ -648,7 +649,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
         }
 
         if (!canUserAccessProjectRecord(actor.role, actor.assignedProject, actor.assignedSite, projectId, projectStoreId)) {
-          throw new Error("403:Site Store Owner can only submit requests for their assigned project/store.");
+          throw new Error("403:Site Manager or Store Manager can only submit requests for their assigned project/store.");
         }
 
         const plan = await store.getDoc<MaterialPlanRecord>("materialPlans", String(planId), ctx);
@@ -879,7 +880,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
                     title: `Request ${updatedReq.requestNumber} Returned by Warehouse Manager`,
                     message: `Returned due to plan/stock discrepancy: ${updatedReq.returnedReason}`,
                     severity: "warning",
-                    targetRoles: ["Store Owner", "Office & Technical Engineering", "Office Manager", "Project Manager", "Super Admin"],
+                    targetRoles: ["Site Manager", "Store Manager", "Office & Technical Engineering", "Office Manager", "Project Manager", "Super Admin"],
                     projectId: updatedReq.projectId,
                     projectName: updatedReq.projectName,
                     referenceId: updatedReq.id,
@@ -1004,7 +1005,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
                   ? `Director approved ${updatedReq.requestNumber}. Ready for Warehouse Manager dispatch preparation.`
                   : `Director disapproved ${updatedReq.requestNumber}. Reason: ${updatedReq.disapprovalReason}`,
               severity: decision === "Director Approved" ? "success" : "critical",
-              targetRoles: ["Warehouse Manager", "Store Owner", "Office & Technical Engineering", "Project Manager", "Super Admin"],
+              targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Office & Technical Engineering", "Project Manager", "Super Admin"],
               projectId: updatedReq.projectId,
               projectName: updatedReq.projectName,
               referenceId: updatedReq.id,
@@ -1642,7 +1643,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
                 title: `Asset FATOV ${fatovNumber} Dispatched (Gate Pass ${gatePassNumber})`,
                 message: `${asset.assetId} (${asset.assetName}) dispatched from ${fatovDoc.fromLocationName} to ${fatovDoc.toLocationName}. Vehicle: ${vehicleNumber}.`,
                 severity: "info",
-                targetRoles: ["Gate Security Officer", "Store Owner", "Material Handling", "Operation Manager", "Project Manager", "Super Admin"],
+                targetRoles: ["Gate Security Officer", "Site Manager", "Store Manager", "Material Handling", "Operation Manager", "Project Manager", "Super Admin"],
                 projectId: fatovDoc.projectId,
                 projectName: fatovDoc.projectName,
                 referenceId: gatePassDoc.id,
@@ -1932,7 +1933,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
             title: `${givNumber} Dispatched (${updatedReq.status})`,
             message: `${givLines.length} line(s) dispatched to ${matReq.projectStoreName}. Gate Pass: ${gatePassNumber}.`,
             severity: "info",
-            targetRoles: ["Store Owner", "Gate Security Officer", "Material Handling", "Operation Manager", "Project Manager", "Super Admin"],
+            targetRoles: ["Site Manager", "Store Manager", "Gate Security Officer", "Material Handling", "Operation Manager", "Project Manager", "Super Admin"],
             projectId: matReq.projectId,
             projectName: matReq.projectName,
             referenceId: givDoc.id,
@@ -1971,7 +1972,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
       return res.status(403).json({
         success: false,
         error: "forbidden",
-        message: "Only Site Store Owner, Warehouse Manager, or Super Admin can confirm transfer receipts.",
+        message: "Only Site Manager, Store Manager, Warehouse Manager, or Super Admin can confirm transfer receipts.",
       });
     }
 
@@ -2145,7 +2146,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
           return { fativ: fativDoc, fatov: updatedFatov, asset: updatedAsset };
         }
 
-        // CONSUMABLE GIV RECEIPT BY PROJECT SITE STORE OWNER
+        // CONSUMABLE GIV RECEIPT BY PROJECT SITE MANAGER / STORE MANAGER
         const { givId, receivedItems, discrepancyNote } = req.body || {};
         if (!givId) throw new Error("400:givId is required.");
         const giv = await store.getDoc<GoodsIssueVoucher>("goodsIssueVouchers", String(givId), ctx);
@@ -2153,7 +2154,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
         if (giv.status === "Delivered") throw new Error("409:GIV has already been marked Delivered.");
 
         if (!canUserAccessProjectRecord(actor.role, actor.assignedProject, actor.assignedSite, giv.projectId, giv.projectStoreId)) {
-          throw new Error("403:Site Store Owner can only receive deliveries addressed to their assigned project store.");
+          throw new Error("403:Site Manager or Store Manager can only receive deliveries addressed to their assigned project store.");
         }
 
         const balances = await store.listCollection<StockBalanceRecord>("stockBalances", ctx);
@@ -2344,7 +2345,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
       return res.status(403).json({
         success: false,
         error: "forbidden",
-        message: "Only authorized Store Owners, Warehouse Managers, or Super Admin can submit returns.",
+        message: "Only authorized Site Managers, Store Managers, Warehouse Managers, or Super Admin can submit returns.",
       });
     }
 
@@ -2545,7 +2546,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
             title: `Return ${mrvNumber} Submitted (${mrvDoc.direction})`,
             message: `${actor.name} initiated return ${mrvNumber} from ${mrvDoc.sourceLocationName} to ${mrvDoc.destinationLocationName}.`,
             severity: "info",
-            targetRoles: ["Warehouse Manager", "Store Owner", "Gate Security Officer", "Operation Manager", "Super Admin"],
+            targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Gate Security Officer", "Operation Manager", "Super Admin"],
             projectId: mrvDoc.projectId,
             projectName: mrvDoc.projectName,
             referenceId: mrvDoc.id,
@@ -3019,7 +3020,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
             title: `Gate Pass ${updatedGp.gatePassNumber} ${verificationType} Verified`,
             message: `${actor.name} verified vehicle ${updatedGp.vehicleNumber} ${verificationType} for ${updatedGp.voucherType} ${updatedGp.voucherNumber}.`,
             severity: "info",
-            targetRoles: ["Warehouse Manager", "Store Owner", "Operation Manager", "Super Admin"],
+            targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Operation Manager", "Super Admin"],
             projectId: updatedGp.projectId,
             projectName: updatedGp.projectName,
             referenceId: updatedGp.id,
@@ -3100,7 +3101,7 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
               title: `Transport ${updatedTr.transportNumber}: ${status}`,
               message: `${updatedTr.referenceType} ${updatedTr.referenceNumber} (${updatedTr.originLocationName} -> ${updatedTr.destinationLocationName}) is now ${status}.`,
               severity: status === "Discrepancy Reported" || status === "Cancelled" ? "warning" : "info",
-              targetRoles: ["Warehouse Manager", "Store Owner", "Operation Manager", "Project Manager", "Super Admin"],
+              targetRoles: ["Warehouse Manager", "Site Manager", "Store Manager", "Operation Manager", "Project Manager", "Super Admin"],
               projectId: updatedTr.projectId,
               projectName: updatedTr.projectName,
               referenceId: updatedTr.id,
@@ -3203,11 +3204,19 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
   // =========================================================================
   router.get("/api/warehouse/reports/:reportType", ...guard, async (req: Request, res: Response) => {
     const actor = actorFromReq(req);
+    const extendedRole = resolveExtendedWarehouseRole(actor.role);
     if (!canPerformWarehouseModuleAction(actor.role, "EXPORT_REPORTS")) {
       return res.status(403).json({
         success: false,
         error: "forbidden",
         message: "You are not authorized to generate warehouse/store reports.",
+      });
+    }
+    if (extendedRole === "store_manager" && !STORE_MANAGER_ALLOWED_REPORTS.has(req.params.reportType)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_store_manager_report",
+        message: `Access Denied: Store Manager is not authorized to access central warehouse or executive report '${req.params.reportType}'.`,
       });
     }
 
@@ -3257,8 +3266,9 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
         dateFrom: String(req.query.dateFrom || ""),
         dateTo: String(req.query.dateTo || ""),
         projectId:
-          resolveExtendedWarehouseRole(actor.role) === "project_head" ||
-          resolveExtendedWarehouseRole(actor.role) === "site_store_owner"
+          extendedRole === "project_head" ||
+          extendedRole === "site_manager" ||
+          extendedRole === "store_manager"
             ? actor.assignedProject || String(req.query.projectId || "ALL")
             : String(req.query.projectId || "ALL"),
         locationId: String(req.query.locationId || "ALL"),

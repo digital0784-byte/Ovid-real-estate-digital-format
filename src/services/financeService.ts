@@ -180,7 +180,7 @@ export function resolveUserFinancePermissions(role?: UserRole | string): UserFin
   const isAccountant = r === UserRole.ACCOUNTANT;
   const isProjectManager = r === UserRole.PROJECT_MANAGER;
   const isAuditor = r === UserRole.AUDITOR;
-  const isWarehouse = r === UserRole.WAREHOUSE_MANAGER || r === UserRole.STORE_OWNER;
+  const isWarehouse = r === UserRole.WAREHOUSE_MANAGER || r === UserRole.SITE_MANAGER || r === UserRole.STORE_MANAGER;
   const isHr = r === UserRole.HR || r === UserRole.HR_MANAGER;
 
   const isDirector = isSuperAdmin || isHeadOffice;

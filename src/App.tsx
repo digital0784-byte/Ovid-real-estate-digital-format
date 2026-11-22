@@ -242,7 +242,9 @@ export default function App() {
   // Navigate to tab with history tracking & auto-close drawer on mobile
   const navigateToTab = (newTab: string) => {
     let targetTab = newTab;
-    if (newTab === "hrmBiometricMapping") {
+    if (newTab === "warehouseManagerApp" || newTab === "storeOwnerApp") {
+      targetTab = "warehouseSiteStore";
+    } else if (newTab === "hrmBiometricMapping") {
       setHrmInitialSubTab("biometric-mapping");
     } else if (newTab.startsWith("hrmEnterprise:")) {
       const sub = newTab.split(":")[1] as HrmSubTab;
@@ -299,8 +301,6 @@ export default function App() {
       notificationCenter: { am: "የማስታወቂያዎች ማዕከል", en: "Notifications Center" },
       admin: { am: "የአድሚን ማፅደቂያ ቦርድ", en: "Admin Role Approval" },
       securitySettings: { am: "ደህንነት እና ምርጫዎች", en: "Security & Settings" },
-      warehouseManagerApp: { am: "የመጋዘን አስተዳዳሪ", en: "Warehouse Manager App" },
-      storeOwnerApp: { am: "የሳይት ስቶር አቃቤ", en: "Store Owner App" },
       warehouseSiteStore: { am: "መጋዘንና ሳይት ስቶር ERP", en: "Warehouse & Site Store ERP" },
       enterpriseErp: { am: "ኢንተርፕራይዝ ERP Suite", en: "Enterprise ERP Suite" },
       financeErp: { am: "የፋይናንስ ERP Hub", en: "Finance ERP Hub" },
@@ -702,7 +702,7 @@ export default function App() {
     }
   };
 
-  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "warehouseManagerApp", "storeOwnerApp", "siteStoreMovement", "warehouseSiteStore"];
+  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "siteStoreMovement", "warehouseSiteStore"];
   const allTabs = SIMULATIONS_ENABLED
     ? rawAllTabs
     : rawAllTabs.filter(tab => !SIMULATION_ONLY_TABS.has(tab));
@@ -729,9 +729,9 @@ export default function App() {
     [UserRole.TEAM_LEADER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.GANG_CHIEF]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.ASSEMBLER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseManagerApp", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.STORE_OWNER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.SITE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.MATERIAL_HANDLING]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.GATE_SECURITY_OFFICER]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.EMPLOYEE]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
@@ -770,48 +770,24 @@ export default function App() {
     reason: string;
   } | null>(null);
 
-  // Auto-redirect user if activeTab or URL path (/warehouse/* vs /site-store/*) is not permitted for currentUserRole
+  // Auto-redirect legacy warehouseManagerApp / storeOwnerApp routes and enforce role access
   React.useEffect(() => {
     if (!currentUserRole) return;
 
-    const currentPathAndHash =
-      typeof window !== "undefined"
-        ? `${window.location.pathname}${window.location.hash}`.toLowerCase()
-        : "";
-
-    if (
-      currentUserRole === UserRole.WAREHOUSE_MANAGER &&
-      (activeTab === "storeOwnerApp" || currentPathAndHash.includes("/site-store"))
-    ) {
-      setDeniedRouteBanner({
-        attemptedRoute: "/site-store/*",
-        redirectedTo: "/warehouse/dashboard",
-        reason: "Access Denied — Warehouse Manager cannot access Site Store Owner routes or private site store modules."
-      });
-      setActiveTab("warehouseManagerApp");
-      return;
-    }
-
-    if (
-      (currentUserRole === UserRole.STORE_OWNER || currentUserRole === UserRole.STORE_MANAGER) &&
-      (activeTab === "warehouseManagerApp" || currentPathAndHash.includes("/warehouse"))
-    ) {
-      setDeniedRouteBanner({
-        attemptedRoute: "/warehouse/*",
-        redirectedTo: "/site-store/dashboard",
-        reason: "Access Denied — Site Store Owner cannot access Central Warehouse Manager routes or central inventory controls."
-      });
-      setActiveTab("storeOwnerApp");
+    if (activeTab === "warehouseManagerApp" || activeTab === "storeOwnerApp") {
+      setActiveTab("warehouseSiteStore");
       return;
     }
 
     if (!hasAccess(activeTab)) {
       const allowed = tabPermissions[currentUserRole] || ["dashboard"];
       const fallback =
-        currentUserRole === UserRole.WAREHOUSE_MANAGER
-          ? "warehouseManagerApp"
-          : currentUserRole === UserRole.STORE_OWNER || currentUserRole === UserRole.STORE_MANAGER
-          ? "storeOwnerApp"
+        currentUserRole === UserRole.WAREHOUSE_MANAGER ||
+        currentUserRole === UserRole.SITE_MANAGER ||
+        currentUserRole === UserRole.STORE_MANAGER ||
+        currentUserRole === UserRole.MATERIAL_HANDLING ||
+        currentUserRole === UserRole.GATE_SECURITY_OFFICER
+          ? "warehouseSiteStore"
           : allowed.includes("dashboard")
           ? "dashboard"
           : allowed[0] || "dashboard";
@@ -1668,7 +1644,7 @@ export default function App() {
             UserRole.PROJECT_MANAGER,
             UserRole.SITE_ENGINEER,
             UserRole.STORE_MANAGER,
-            UserRole.STORE_OWNER,
+            UserRole.SITE_MANAGER,
             UserRole.WAREHOUSE_MANAGER,
             UserRole.SUPERVISOR,
             UserRole.WORKER
@@ -1698,7 +1674,7 @@ export default function App() {
           UserRole.PROJECT_MANAGER,
           UserRole.SITE_ENGINEER,
           UserRole.STORE_MANAGER,
-          UserRole.STORE_OWNER,
+          UserRole.SITE_MANAGER,
           UserRole.WAREHOUSE_MANAGER,
           UserRole.SUPERVISOR,
           UserRole.WORKER
@@ -1852,12 +1828,14 @@ export default function App() {
           setLocationGranted(null);
           setIsCheckingLocation(false);
 
-          // Route Warehouse Manager, Site Store Owner, Material Handling & Gate Security directly to their dedicated apps
-          if (activeRole === UserRole.WAREHOUSE_MANAGER) {
-            setActiveTab("warehouseManagerApp");
-          } else if (activeRole === UserRole.STORE_OWNER || activeRole === UserRole.STORE_MANAGER) {
-            setActiveTab("storeOwnerApp");
-          } else if (activeRole === UserRole.MATERIAL_HANDLING || activeRole === UserRole.GATE_SECURITY_OFFICER) {
+          // Route Warehouse Manager, Site Manager, Store Manager, Material Handling & Gate Security directly to unified Warehouse & Site Store ERP
+          if (
+            activeRole === UserRole.WAREHOUSE_MANAGER ||
+            activeRole === UserRole.SITE_MANAGER ||
+            activeRole === UserRole.STORE_MANAGER ||
+            activeRole === UserRole.MATERIAL_HANDLING ||
+            activeRole === UserRole.GATE_SECURITY_OFFICER
+          ) {
             setActiveTab("warehouseSiteStore");
           }
 
@@ -2738,33 +2716,7 @@ export default function App() {
               </button>
             )}
 
-            {/* Warehouse Manager App Tab */}
-            {tabPermissions[currentUserRole]?.includes("warehouseManagerApp") && (
-              <button
-                onClick={() => navigateToTab("warehouseManagerApp")}
-                className={`px-4 py-3 flex items-center space-x-1.5 text-amber-400 transition-colors cursor-pointer border-b-2 ${
-                  activeTab === "warehouseManagerApp" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <Building2 size={15} className="text-amber-400 animate-pulse" />
-                <span>{isAmharic ? "የመጋዘን አስተዳዳሪ መተግበሪያ" : "Warehouse Manager App"}</span>
-              </button>
-            )}
-
-            {/* Store Owner App Tab */}
-            {tabPermissions[currentUserRole]?.includes("storeOwnerApp") && (
-              <button
-                onClick={() => navigateToTab("storeOwnerApp")}
-                className={`px-4 py-3 flex items-center space-x-1.5 text-amber-500 transition-colors cursor-pointer border-b-2 ${
-                  activeTab === "storeOwnerApp" ? "text-white border-amber-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
-                }`}
-              >
-                <Store size={15} className="text-amber-500" />
-                <span>{isAmharic ? "የሳይት ስቶር አቃቤ መተግበሪያ" : "Site Store Owner App"}</span>
-              </button>
-            )}
-
-            {/* Warehouse & Site Store ERP Tab */}
+            {/* Unified Warehouse & Site Store ERP Tab */}
             {tabPermissions[currentUserRole]?.includes("warehouseSiteStore") && (
               <button
                 onClick={() => navigateToTab("warehouseSiteStore")}
@@ -2902,9 +2854,7 @@ export default function App() {
                   </h4>
                   <div className="space-y-0.5">
                     {[
-                      { id: "warehouseManagerApp", num: 7, nameEn: "Warehouse Manager App", nameAm: "7. የመጋዘን አስተዳዳሪ (Warehouse Manager)", icon: Building2 },
-                      { id: "storeOwnerApp", num: 8, nameEn: "Store Owner App", nameAm: "8. የሳይት ስቶር አቃቤ (Store Owner App)", icon: Store },
-                      { id: "warehouseSiteStore", num: 33, nameEn: "Warehouse & Site Store ERP", nameAm: "33. መጋዘንና ሳይት ስቶር ERP", icon: Building2 },
+                      { id: "warehouseSiteStore", num: 7, nameEn: "Warehouse & Site Store ERP", nameAm: "7. መጋዘንና ሳይት ስቶር ERP", icon: Building2 },
                       { id: "enterpriseErp", num: 9, nameEn: "Enterprise ERP Suite", nameAm: "9. ኢንተርፕራይዝ ERP (Enterprise ERP)", icon: Cpu },
                       { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP (Finance ERP Hub)", icon: DollarSign },
                       { id: "headOfficeSync", num: 11, nameEn: "Real-Time Cloud Sync", nameAm: "11. የደመና መረጃ ሲንክ (Cloud Sync)", icon: Database },
@@ -3538,34 +3488,14 @@ export default function App() {
           />
         )}
 
-        {activeTab === "warehouseManagerApp" && (
-          <StoreOwnerApp
-            isAmharic={isAmharic}
-            currentUserRole={currentUserRole}
-            currentUserProfile={currentUserProfile}
-            workers={workers}
-            initialMode="warehouse_manager"
-            onLogAction={(action, details) => logAction(action, details)}
-            onCreateNotification={handleCreateNotification}
-          />
-        )}
-
-        {activeTab === "storeOwnerApp" && (
-          <StoreOwnerApp
-            isAmharic={isAmharic}
-            currentUserRole={currentUserRole}
-            currentUserProfile={currentUserProfile}
-            workers={workers}
-            initialMode="store_owner"
-            onLogAction={(action, details) => logAction(action, details)}
-            onCreateNotification={handleCreateNotification}
-          />
-        )}
-
         {activeTab === "warehouseSiteStore" && (
           <WarehouseSiteStoreModule
             currentUserRole={currentUserRole}
             currentUserProfile={currentUserProfile}
+            isAmharic={isAmharic}
+            workers={workers}
+            onLogAction={(action, details) => logAction(action, details)}
+            onCreateNotification={handleCreateNotification}
           />
         )}
 
@@ -3904,44 +3834,6 @@ export default function App() {
                   </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     
-                    {hasAccess("warehouseManagerApp") && (
-                      <button
-                        onClick={() => { navigateToTab("warehouseManagerApp"); setShowModulesMenu(false); }}
-                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                          activeTab === "warehouseManagerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 mb-2">
-                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                            <Building2 size={18} />
-                          </div>
-                          <span className="font-extrabold text-sm text-white">{isAmharic ? "7. የመጋዘን አስተዳዳሪ" : "7. Warehouse Manager App"}</span>
-                        </div>
-                        <p className="text-xs text-slate-400 leading-normal">
-                          {isAmharic ? "የአሉሚኒየም ፎርምወርክ ፓነሎች፣ መለዋወጫዎችና መጋዘን" : "Warehouse stock, panel transfers and inventory"}
-                        </p>
-                      </button>
-                    )}
-
-                    {hasAccess("storeOwnerApp") && (
-                      <button
-                        onClick={() => { navigateToTab("storeOwnerApp"); setShowModulesMenu(false); }}
-                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
-                          activeTab === "storeOwnerApp" ? "bg-amber-950/40 border-amber-500 shadow-md shadow-amber-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3 mb-2">
-                          <div className="p-2 bg-amber-500/10 text-amber-400 rounded-lg group-hover:scale-110 transition-transform">
-                            <Store size={18} />
-                          </div>
-                          <span className="font-extrabold text-sm text-white">{isAmharic ? "8. የሳይት ስቶር አቃቤ" : "8. Store Owner App"}</span>
-                        </div>
-                        <p className="text-xs text-slate-400 leading-normal">
-                          {isAmharic ? "የሳይት ስቶር መሳሪያዎች፣ የዕቃዎች ጥያቄና ወጪ" : "Site store issuance, tool checkouts & stock"}
-                        </p>
-                      </button>
-                    )}
-
                     {hasAccess("warehouseSiteStore") && (
                       <button
                         onClick={() => { navigateToTab("warehouseSiteStore"); setShowModulesMenu(false); }}
@@ -3953,10 +3845,10 @@ export default function App() {
                           <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
                             <Building2 size={18} />
                           </div>
-                          <span className="font-extrabold text-sm text-white">{isAmharic ? "33. መጋዘንና ሳይት ስቶር ERP" : "33. Warehouse & Site Store ERP"}</span>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "7. መጋዘንና ሳይት ስቶር ERP" : "7. Warehouse & Site Store ERP"}</span>
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
-                          {isAmharic ? "GRV፣ GIV፣ FATOV/FATIV፣ QR በር ፍቃድና ሪፖርቶች" : "GRV + Commercial Invoice, Plans, GIV, FATOV/FATIV, Quarantine, QR Gate Pass & 22 Reports"}
+                          {isAmharic ? "የመጋዘን፣ የሳይት ስቶር፣ GRV፣ GIV፣ ፎርምወርክ እና ሪፖርቶች አንድ ወጥ ERP" : "Unified Warehouse Manager, Site Manager & Store Ops, GRV, Plans, GIV, FATOV/FATIV, Quarantine, QR Gate Pass & Reports"}
                         </p>
                       </button>
                     )}

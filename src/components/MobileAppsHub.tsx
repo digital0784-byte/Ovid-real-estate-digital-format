@@ -81,7 +81,7 @@ export function MobileAppsHub({
   const initialMobileApp: MobileAppType =
     currentUserRole === "Warehouse Manager"
       ? "warehouse_manager"
-      : currentUserRole === "Store Owner" || currentUserRole === "Store Manager"
+      : currentUserRole === "Site Manager" || currentUserRole === "Store Owner" || currentUserRole === "Store Manager"
       ? "store_owner"
       : "worker";
   const [activeApp, setActiveApp] = useState<MobileAppType>(initialMobileApp);
@@ -89,7 +89,7 @@ export function MobileAppsHub({
   useEffect(() => {
     if (currentUserRole === "Warehouse Manager") {
       setActiveApp("warehouse_manager");
-    } else if (currentUserRole === "Store Owner" || currentUserRole === "Store Manager") {
+    } else if (currentUserRole === "Site Manager" || currentUserRole === "Store Owner" || currentUserRole === "Store Manager") {
       setActiveApp("store_owner");
     }
   }, [currentUserRole]);
@@ -573,13 +573,13 @@ self.addEventListener('fetch', (event) => {
                 { id: "head_office", titleEn: "8. Enterprise Owner App", titleAm: "8. የድርጅቱ ባለቤት መተግበሪያ", descEn: "Subcontractors monitor & control dashboard, master budgets", descAm: "የሰብ-ኮንትራክተሮች ቁጥጥር ቦርድ፣ የበጀት ማጠቃለያና የቀጥታ ክትትል" },
                 { id: "admin", titleEn: "9. Admin App", titleAm: "9. የአድሚን መተግበሪያ", descEn: "SOC telemetry logs, App Check certs, remote wiping", descAm: "የሳይበር ደህንነት መከታተያ፣ የደህንነት ቶከኖችና የሞባይል መቆጣጠሪያ" },
                 { id: "warehouse_manager", titleEn: "10. Warehouse Manager App", titleAm: "10. የመጋዘን አስተዳዳሪ መተግበሪያ", descEn: "Central store dispatch, truck fleet plate logs & QR gate pass", descAm: "የማዕከላዊ መጋዘን ስርጭት፣ የጭነት መኪና ሰሌዳ ቁጥር እና የQR በር ፍቃድ" },
-                { id: "store_owner", titleEn: "11. Site Store Owner App", titleAm: "11. የሳይት ስቶር አቃቤ መተግበሪያ", descEn: "Site material receipts, issue vouchers, bin card balance & requisitions", descAm: "የሳይት እቃዎች መረከቢያ፣ ወጪ ማድረጊያ ቫውቸር እና የክምችት መጠን" }
+                { id: "store_owner", titleEn: "11. Site Manager / Store App", titleAm: "11. የሳይት ማኔጀር እና ስቶር መተግበሪያ", descEn: "Site material receipts, issue vouchers, bin card balance & requisitions", descAm: "የሳይት እቃዎች መረከቢያ፣ ወጪ ማድረጊያ ቫውቸር እና የክምችት መጠን" }
               ]
                 .filter((app) => {
                   if (currentUserRole === "Warehouse Manager") {
                     return app.id === "warehouse_manager";
                   }
-                  if (currentUserRole === "Store Owner" || currentUserRole === "Store Manager") {
+                  if (currentUserRole === "Site Manager" || currentUserRole === "Store Owner" || currentUserRole === "Store Manager") {
                     return app.id === "store_owner";
                   }
                   return true;
@@ -2095,8 +2095,8 @@ self.addEventListener('fetch', (event) => {
                     {onNavigateToTab && (
                       <button
                         onClick={() => {
-                          onNavigateToTab("warehouseManagerApp");
-                          onLogAction("Launched Full Warehouse App", "Navigated from Mobile Simulator to Fullscreen Warehouse Manager App");
+                          onNavigateToTab("warehouseSiteStore");
+                          onLogAction("Launched Full Warehouse & Site Store ERP", "Navigated from Mobile Simulator to unified Warehouse & Site Store ERP");
                         }}
                         className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
                       >
@@ -2181,13 +2181,13 @@ self.addEventListener('fetch', (event) => {
                     {onNavigateToTab && (
                       <button
                         onClick={() => {
-                          onNavigateToTab("storeOwnerApp");
-                          onLogAction("Launched Full Site Store App", "Navigated from Mobile Simulator to Fullscreen Site Store Owner App");
+                          onNavigateToTab("warehouseSiteStore");
+                          onLogAction("Launched Unified Site Store ERP", "Navigated from Mobile Simulator to unified Warehouse & Site Store ERP");
                         }}
                         className="w-full py-2 bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-md cursor-pointer transition-all"
                       >
                         <Store size={13} />
-                        <span>{isAmharic ? "ወደ ሙሉ የሳይት ስቶር አቃቤ መተግበሪያ ሂድ" : "Open Full Site Store App"}</span>
+                        <span>{isAmharic ? "ወደ መጋዘን እና ሳይት ስቶር ERP ሂድ" : "Open Unified Warehouse & Site Store ERP"}</span>
                       </button>
                     )}
                   </div>

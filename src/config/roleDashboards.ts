@@ -60,7 +60,7 @@ export const DASHBOARD_KIND_BY_ROLE: Record<UserRole, DashboardKind> = {
 
   [UserRole.WAREHOUSE_MANAGER]: "warehouse",
   [UserRole.STORE_MANAGER]: "warehouse",
-  [UserRole.STORE_OWNER]: "warehouse",
+  [UserRole.SITE_MANAGER]: "warehouse",
   [UserRole.MATERIAL_HANDLING]: "warehouse",
 
   [UserRole.GATE_SECURITY_OFFICER]: "gate",
@@ -194,8 +194,6 @@ export const KIND_META: Record<DashboardKind, DashboardKindMeta> = {
     subtitleAm: "የፎርምወርክ ዕቃዎች ሁኔታ፣ የጥገና/ጽዳት ክትትል፣ የተበላሹ/የጠፉ እና የዕለት ዝውውሮች።",
     quickLinkTabs: [
       "warehouseSiteStore",
-      "warehouseManagerApp",
-      "storeOwnerApp",
       "panelTraceability",
       "siteStoreMovement",
       "formworkManagement",

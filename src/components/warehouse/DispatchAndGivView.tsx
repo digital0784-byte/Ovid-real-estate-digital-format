@@ -109,7 +109,7 @@ export function DispatchAndGivView({
         i.remainingPendingQty,
         i.totalCost,
       ]),
-      signatures: ["Issued By (Warehouse Manager)", "Driver / Material Handling", "Received By (Site Store Owner)"],
+      signatures: ["Issued By (Warehouse Manager)", "Driver / Material Handling", "Received By (Site Manager / Store Manager)"],
     });
     onOpenPrint(`GIV ${giv.givNumber}`, html);
   };

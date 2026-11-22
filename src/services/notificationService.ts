@@ -50,14 +50,14 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Warehouse ERP System",
     senderRole: "Warehouse Manager",
     receiver: "Procurement & Store Managers",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
     date: "2026-07-23",
     time: "06:45 AM",
     timestamp: Date.now() - 3600000 * 3,
     isAiGenerated: true,
     aiConfidence: 0.98,
     deliveryChannels: { inApp: true, push: true, email: true, sms: true },
-    actionTab: "warehouseManagerApp"
+    actionTab: "warehouseSiteStore"
   },
 
   // 3. Site Store
@@ -65,8 +65,8 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     id: "NOTIF-STO-01",
     title: "Site Store Panel Issue Request Approved",
     titleAm: "የሳይት ስቶር የፎርምወርክ ፓነል ወጪ ጥያቄ ጸደቀ",
-    description: "Store Owner approved material issue ticket #STORE-882 for 45 aluminum wall panels to Zone 2.",
-    descriptionAm: "የሳይት ስቶር ሃላፊ ቁጥር #STORE-882 የ45 አሉሚኒየም ግድግዳ ፓነሎች ወጪ እንዲደረግ አጽድቀዋል።",
+    description: "Site Manager approved material issue ticket #STORE-882 for 45 aluminum wall panels to Zone 2.",
+    descriptionAm: "የሳይት ሥራ አስኪያጅ ቁጥር #STORE-882 የ45 አሉሚኒየም ግድግዳ ፓነሎች ወጪ እንዲደረግ አጽድቀዋል።",
     category: "Site Store Notifications",
     priority: "Medium",
     status: "Read",
@@ -75,15 +75,15 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     building: "Tower A",
     floor: "2nd Floor (+7.2m)",
     zone: "Zone 2 North",
-    sender: "Alemayehu T. (Store Owner)",
-    senderRole: "Store Owner",
+    sender: "Alemayehu T. (Site Manager)",
+    senderRole: "Site Manager",
     receiver: "Site Engineers & Gang Chiefs",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.STORE_OWNER, UserRole.GANG_CHIEF],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.GANG_CHIEF],
     date: "2026-07-22",
     time: "04:30 PM",
     timestamp: Date.now() - 3600000 * 15,
     deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-    actionTab: "storeOwnerApp"
+    actionTab: "warehouseSiteStore"
   },
 
   // 4. Material Request
@@ -148,13 +148,13 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     siteName: "Kazanchis Site",
     sender: "Logistics Dispatch Center",
     senderRole: "Warehouse Manager",
-    receiver: "Store Owner & Driver",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER, UserRole.DRIVER],
+    receiver: "Site Manager, Store Manager & Driver",
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.DRIVER],
     date: "2026-07-22",
     time: "02:15 PM",
     timestamp: Date.now() - 3600000 * 18,
     deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-    actionTab: "warehouseManagerApp"
+    actionTab: "warehouseSiteStore"
   },
 
   // 7. Material Return
@@ -173,8 +173,8 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     floor: "1st Floor (+3.6m)",
     sender: "Site Inspection Team",
     senderRole: "Site Engineer",
-    receiver: "Store Owner & Formwork Team",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.STORE_OWNER, UserRole.ASSEMBLER],
+    receiver: "Site Manager, Store Manager & Formwork Team",
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.ASSEMBLER],
     date: "2026-07-23",
     time: "07:50 AM",
     timestamp: Date.now() - 3600000 * 1,
@@ -200,7 +200,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "BuildSync AI Panel Vision",
     senderRole: "System AI",
     receiver: "Site Engineer & Formwork Assemblers",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.STORE_OWNER, UserRole.ASSEMBLER, UserRole.TEAM_LEADER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.ASSEMBLER, UserRole.TEAM_LEADER],
     date: "2026-07-23",
     time: "08:00 AM",
     timestamp: Date.now() - 3600000 * 0.8,
@@ -245,8 +245,8 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     projectName: "Commercial Podium Plaza B",
     sender: "Procurement Dept",
     senderRole: "Head Office",
-    receiver: "Warehouse & Store Owners",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER],
+    receiver: "Warehouse & Site Managers",
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
     date: "2026-07-22",
     time: "10:15 AM",
     timestamp: Date.now() - 3600000 * 22,
@@ -668,12 +668,12 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Equipment Fleet Service Center",
     senderRole: "Warehouse Manager",
     receiver: "Equipment Technicians & Warehouse",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER, UserRole.DRIVER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.DRIVER],
     date: "2026-07-22",
     time: "08:00 PM",
     timestamp: Date.now() - 3600000 * 12,
     deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-    actionTab: "warehouseManagerApp"
+    actionTab: "warehouseSiteStore"
   },
 
   // 29. Document Approval
@@ -736,7 +736,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     receiver: "All ERP System Users",
     targetRoles: [
       UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.WAREHOUSE_MANAGER,
-      UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD,
+      UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD,
       UserRole.SUPERVISOR, UserRole.SITE_ENGINEER, UserRole.SURVEYOR,
       UserRole.HSE_OFFICER, UserRole.TEAM_LEADER, UserRole.GANG_CHIEF, UserRole.TIME_KEEPER,
       UserRole.ASSEMBLER, UserRole.DRIVER, UserRole.AUDITOR
@@ -801,7 +801,7 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
         UserRole.PROJECT_MANAGER,
         UserRole.SITE_ENGINEER,
         UserRole.STORE_MANAGER,
-        UserRole.STORE_OWNER,
+        UserRole.SITE_MANAGER,
         UserRole.WAREHOUSE_MANAGER,
         UserRole.SUPERVISOR,
         UserRole.WORKER
@@ -829,7 +829,7 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
       UserRole.PROJECT_MANAGER,
       UserRole.SITE_ENGINEER,
       UserRole.STORE_MANAGER,
-      UserRole.STORE_OWNER,
+      UserRole.SITE_MANAGER,
       UserRole.WAREHOUSE_MANAGER,
       UserRole.SUPERVISOR,
       UserRole.WORKER
@@ -1275,10 +1275,11 @@ export class NotificationService {
         roleStr === UserRole.SUPER_ADMIN || 
         roleStr === UserRole.HEAD_OFFICE || 
         roleStr === UserRole.HR_MANAGER ||
-        roleStr === UserRole.STORE_OWNER ||
+        roleStr === UserRole.SITE_MANAGER ||
         roleStr === "Super Admin" ||
         roleStr === "Admin" ||
         roleStr === "Head Office" ||
+        roleStr === "Site Manager" ||
         roleStr === "Store Owner" ||
         roleStr === "Store Manager" ||
         roleStr === "HR Manager" ||
@@ -1286,6 +1287,7 @@ export class NotificationService {
         roleStr.toLowerCase().includes("admin") ||
         roleStr.toLowerCase().includes("head office") ||
         roleStr.toLowerCase().includes("store") ||
+        roleStr.toLowerCase().includes("site manager") ||
         roleStr.toLowerCase().includes("hr") ||
         (!n.targetRoles || n.targetRoles.length === 0) ||
         (n.targetRoles || []).some(r => {
@@ -1521,12 +1523,12 @@ export class NotificationService {
         siteName: "Central Logistics Yard",
         sender: "BuildSync AI Inventory Engine",
         senderRole: "System AI",
-        receiver: "Warehouse Manager & Store Owner",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER],
+        receiver: "Warehouse, Site & Store Managers",
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
         isAiGenerated: true,
         aiConfidence: 0.98,
         deliveryChannels: { inApp: true, push: true, email: true, sms: true },
-        actionTab: "warehouseManagerApp"
+        actionTab: "warehouseSiteStore"
       }),
 
       missingPanels: () => ({
@@ -1544,8 +1546,8 @@ export class NotificationService {
         zone: "Zone 3 South",
         sender: "BuildSync Formwork AI Vision",
         senderRole: "System AI",
-        receiver: "Site Engineer & Store Owner",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.STORE_OWNER, UserRole.ASSEMBLER],
+        receiver: "Site Engineer, Site Manager & Store Manager",
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.ASSEMBLER],
         isAiGenerated: true,
         aiConfidence: 0.95,
         deliveryChannels: { inApp: true, push: true, email: false, sms: true },
@@ -1643,12 +1645,12 @@ export class NotificationService {
         projectName: "Addis Ababa Tower Block A",
         sender: "BuildSync MRP AI Engine",
         senderRole: "System AI",
-        receiver: "Store Owner & Project Manager",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.STORE_OWNER],
+        receiver: "Site Manager, Store Manager & Project Manager",
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.PROJECT_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
         isAiGenerated: true,
         aiConfidence: 0.93,
         deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-        actionTab: "enterpriseErp"
+        actionTab: "warehouseSiteStore"
       }),
 
       equipmentMaintenance: () => ({

@@ -160,7 +160,7 @@ export function MasterDataAndFacilitiesView({
         projectId: proj?.id || psProjId || `PROJ-${Date.now()}`,
         projectName: proj?.name || proj?.title || psProjId || "Construction Project",
         location: psLoc.trim() || proj?.location || "",
-        storeOwnerName: psOwner.trim() || "Assigned Store Owner",
+        storeOwnerName: psOwner.trim() || "Assigned Site Manager",
         status: "Active",
         createdAt: now,
         updatedAt: now,
@@ -220,7 +220,7 @@ export function MasterDataAndFacilitiesView({
               />
               <input
                 required
-                placeholder="Site Store Owner Name"
+                placeholder="Site Manager Name"
                 value={psOwner}
                 onChange={(e) => setPsOwner(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -248,7 +248,7 @@ export function MasterDataAndFacilitiesView({
               </div>
               <div className="text-xs text-amber-300 font-semibold">Project: {ps.projectName}</div>
               <div className="text-xs text-slate-400">Location: {ps.location}</div>
-              <div className="text-xs text-slate-300">Store Owner: {ps.storeOwnerName || "Unassigned"}</div>
+              <div className="text-xs text-slate-300">Site Manager: {ps.storeOwnerName || "Unassigned"}</div>
             </div>
           ))}
         </div>

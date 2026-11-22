@@ -632,6 +632,24 @@ describe("Part A: Directory role merged into Director", () => {
     expect(resolveUserRole({ role: "Directory", status: "Pending" })).toBe("Pending");
     expect(resolveUserRole({ role: "Pending", status: "Pending" })).toBe("Pending");
   });
+
+  it("removes UserRole.STORE_OWNER, exposes UserRole.SITE_MANAGER, normalizes legacy Store Owner roles, and unifies warehouse navigation tabs", () => {
+    const roleValues = Object.values(UserRole) as string[];
+    expect(roleValues).not.toContain("Store Owner");
+    expect((UserRole as Record<string, unknown>).STORE_OWNER).toBeUndefined();
+    expect(roleValues).toContain(UserRole.SITE_MANAGER);
+
+    expect(normalizeLegacyRole("Store Owner")).toBe(UserRole.SITE_MANAGER);
+    expect(normalizeLegacyRole("Site Store Owner")).toBe(UserRole.SITE_MANAGER);
+    expect(normalizeLegacyRole("site_store_owner")).toBe(UserRole.SITE_MANAGER);
+    expect(resolveUserRole({ role: "Store Owner", status: "Active" })).toBe(UserRole.SITE_MANAGER);
+    expect(resolveDashboardKind("Store Owner")).toBe("warehouse");
+    expect(resolveDashboardKind(UserRole.SITE_MANAGER)).toBe("warehouse");
+
+    expect(KIND_META.warehouse.quickLinkTabs).toContain("warehouseSiteStore");
+    expect(KIND_META.warehouse.quickLinkTabs).not.toContain("warehouseManagerApp");
+    expect(KIND_META.warehouse.quickLinkTabs).not.toContain("storeOwnerApp");
+  });
 });
 
 describe("Part B: Role dashboards mapping, KPI computations, and rendering", () => {

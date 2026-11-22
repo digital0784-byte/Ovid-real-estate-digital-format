@@ -347,7 +347,8 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
     currentUserRole === UserRole.AUDITOR;
   const isWarehouseManager =
     currentUserRole === UserRole.WAREHOUSE_MANAGER ||
-    currentUserRole === UserRole.STORE_OWNER;
+    currentUserRole === UserRole.SITE_MANAGER ||
+    currentUserRole === UserRole.STORE_MANAGER;
   const isHrManager =
     currentUserRole === UserRole.HR || currentUserRole === UserRole.HR_MANAGER;
   const isAuthorizedUser = permissions.canViewDashboard;

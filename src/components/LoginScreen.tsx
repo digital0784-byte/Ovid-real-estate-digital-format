@@ -314,6 +314,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
       case UserRole.GANG_CHIEF: return "GC";
       case UserRole.WAREHOUSE_MANAGER: return "WM";
       case UserRole.STORE_MANAGER: return "SM";
+      case UserRole.SITE_MANAGER: return "SM";
       case UserRole.HR_MANAGER: return "HR";
       case UserRole.FINANCE_MANAGER: return "FM";
       case UserRole.ACCOUNTANT: return "AC";
@@ -1618,7 +1619,7 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
                         { role: UserRole.ASSEMBLER, label: isAmharic ? "ተገጣጣሚ ሠራተኛ (Assembler)" : "Assembler" },
                         { role: UserRole.WAREHOUSE_MANAGER, label: isAmharic ? "የመጋዘን ሥራ አስኪያጅ (Warehouse Manager)" : "Warehouse Manager" },
                         { role: UserRole.STORE_MANAGER, label: isAmharic ? "የስቶር ሥራ አስኪያጅ (Store Manager)" : "Store Manager" },
-                        { role: UserRole.STORE_OWNER, label: isAmharic ? "የሳይት ስቶር አቃቤ (Store Owner)" : "Store Owner" },
+                        { role: UserRole.SITE_MANAGER, label: isAmharic ? "የሳይት ሥራ አስኪያጅ (Site Manager)" : "Site Manager" },
                         { role: UserRole.HR_MANAGER, label: isAmharic ? "የሰው ኃይል / HR (HR Manager)" : "HR / HR Manager" },
                         { role: UserRole.FINANCE_MANAGER, label: isAmharic ? "የፋይናንስ ሥራ አስኪያጅ (Finance Manager)" : "Finance Manager" },
                         { role: UserRole.ACCOUNTANT, label: isAmharic ? "የሒሳብ ባለሙያ (Accountant)" : "Accountant" },

@@ -97,15 +97,20 @@ service cloud.firestore {
     }
 
     function isStoreManager() {
-      return hasRole('Store Manager');
+      return hasAnyRole(['Store Manager', 'store_manager']);
     }
 
     function isWarehouseManager() {
       return hasAnyRole(['Warehouse Manager', 'warehouse_manager']);
     }
 
+    function isSiteManager() {
+      return hasAnyRole(['Site Manager', 'site_manager', 'Store Owner', 'Site Store Owner', 'site_store_owner']);
+    }
+
+    // Legacy backward-compatibility alias for Site Manager
     function isStoreOwner() {
-      return hasAnyRole(['Store Owner', 'Site Store Owner', 'site_store_owner']);
+      return isSiteManager();
     }
 
     function isAdminOrHeadOffice() {
@@ -117,7 +122,7 @@ service cloud.firestore {
     }
 
     function isSiteStoreRole() {
-      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Store Owner', 'Site Store Owner', 'site_store_owner', 'Store Manager']);
+      return isSuperAdmin() || hasAnyRole(['Head Office', 'admin', 'head_office', 'Site Manager', 'site_manager', 'Store Owner', 'Site Store Owner', 'site_store_owner', 'Store Manager', 'store_manager']);
     }
 
     function isAuthorizedForSite(siteName) {
@@ -1962,15 +1967,15 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // 23.15 fixedAssetTransfersOut (FATOV)
+    // 23.15 fixedAssetTransfersOut (FATOV — restricted to Warehouse Manager, Site Manager, or Admin/HQ)
     match /fixedAssetTransfersOut/{fatovId} {
       allow read: if canReadWarehouseModule();
       allow create: if isValidId(fatovId) &&
-        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        (isWarehouseRole() || isSiteManager() || isAdminOrHeadOffice()) &&
         ('assetId' in incoming()) && incoming().assetId is string && incoming().assetId.size() > 0 &&
         ('originalGrvNumber' in incoming()) && incoming().originalGrvNumber is string && incoming().originalGrvNumber.size() > 0;
       allow update: if isValidId(fatovId) &&
-        (isWarehouseRole() || isSiteStoreRole() || isMaterialHandler() || isAdminOrHeadOffice()) &&
+        (isWarehouseRole() || isSiteManager() || isMaterialHandler() || isAdminOrHeadOffice()) &&
         incoming().assetId == existing().assetId &&
         incoming().originalGrvNumber == existing().originalGrvNumber;
       allow delete: if isSuperAdmin();
@@ -2000,7 +2005,7 @@ service cloud.firestore {
     match /gatePasses/{gatePassId} {
       allow read: if canReadWarehouseModule();
       allow create: if isValidId(gatePassId) &&
-        (isWarehouseRole() || isSiteStoreRole() || isAdminOrHeadOffice()) &&
+        (isWarehouseRole() || isSiteManager() || isAdminOrHeadOffice()) &&
         ('qrVerificationCode' in incoming()) && incoming().qrVerificationCode is string && incoming().qrVerificationCode.size() > 0;
       allow update: if isValidId(gatePassId) && (
         (

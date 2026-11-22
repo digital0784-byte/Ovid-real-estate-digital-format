@@ -530,16 +530,18 @@ export function MaterialPlanningAndRequestsView({
             <Send size={13} />
             <span>Submit & Track Material Requests ({snapshot.materialRequests.length})</span>
           </button>
-          <button
-            type="button"
-            onClick={() => setReqSubTab("verification")}
-            className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
-              reqSubTab === "verification" ? "bg-amber-600 text-white" : "bg-slate-950/60 hover:bg-slate-800 text-slate-300"
-            }`}
-          >
-            <ClipboardCheck size={13} />
-            <span>Warehouse Manager Plan Verification ({verificationQueue.length} Pending)</span>
-          </button>
+          {canVerify && (
+            <button
+              type="button"
+              onClick={() => setReqSubTab("verification")}
+              className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 cursor-pointer ${
+                reqSubTab === "verification" ? "bg-amber-600 text-white" : "bg-slate-950/60 hover:bg-slate-800 text-slate-300"
+              }`}
+            >
+              <ClipboardCheck size={13} />
+              <span>Warehouse Manager Plan Verification ({verificationQueue.length} Pending)</span>
+            </button>
+          )}
         </div>
 
         {reqSubTab === "requests" ? (
@@ -548,7 +550,7 @@ export function MaterialPlanningAndRequestsView({
               <form onSubmit={handleSubmitRequest} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Send size={16} className="text-cyan-400" />
-                  <span>Submit Site Store Material Request (Auto-Compared vs Engineering Plan)</span>
+                  <span>Request Items from Warehouse Manager & Track Status (Auto-Compared vs Engineering Plan)</span>
                 </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>

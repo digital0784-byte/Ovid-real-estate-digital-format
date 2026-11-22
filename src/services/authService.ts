@@ -97,7 +97,20 @@ export interface FirestoreUserRecord {
 
 export function normalizeLegacyRole(role: string): string {
   if (typeof role !== "string") return "";
-  return role === "Directory" ? UserRole.DIRECTOR : role;
+  const trimmed = role.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === "directory") return UserRole.DIRECTOR;
+  if (
+    lower === "store owner" ||
+    lower === "site store owner" ||
+    lower === "store_owner" ||
+    lower === "site_store_owner" ||
+    lower === "site manager" ||
+    lower === "site_manager"
+  ) {
+    return UserRole.SITE_MANAGER;
+  }
+  return trimmed;
 }
 
 export function resolveUserRole(
@@ -136,7 +149,7 @@ function getPrefixFromRole(role: string): string {
     case UserRole.WAREHOUSE_MANAGER:
       return "WM";
     case UserRole.STORE_MANAGER:
-    case UserRole.STORE_OWNER:
+    case UserRole.SITE_MANAGER:
       return "SM";
     case UserRole.HR_MANAGER:
     case UserRole.HR:

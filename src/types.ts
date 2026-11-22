@@ -8,7 +8,7 @@ export enum UserRole {
   GANG_CHIEF = "Gang Chief",
   ASSEMBLER = "Assembler",
   STORE_MANAGER = "Store Manager",
-  STORE_OWNER = "Store Owner",
+  SITE_MANAGER = "Site Manager",
   FINANCE_MANAGER = "Finance Manager",
   ACCOUNTANT = "Accountant",
   AUDITOR = "Auditor",

@@ -204,10 +204,10 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
           siteName: "Bole Main Site",
           sender: "Site Engineer",
           senderRole: "Site Engineer",
-          receiver: "Store Owner & Warehouse Manager",
-          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER, UserRole.PROJECT_MANAGER],
+          receiver: "Site Manager, Store Manager & Warehouse Manager",
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.PROJECT_MANAGER],
           deliveryChannels: { inApp: true, push: true, email: true, sms: true },
-          actionTab: "storeOwnerApp"
+          actionTab: "warehouseSiteStore"
         };
         break;
       case "safety":
@@ -245,9 +245,9 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
           sender: "Warehouse Inventory Engine",
           senderRole: "Warehouse Manager",
           receiver: "Procurement & Store",
-          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_OWNER, UserRole.HEAD_OFFICE],
+          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.HEAD_OFFICE],
           deliveryChannels: { inApp: true, push: true, email: true, sms: false },
-          actionTab: "warehouseManagerApp"
+          actionTab: "warehouseSiteStore"
         };
         break;
       case "bank":

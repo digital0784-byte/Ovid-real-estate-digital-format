@@ -60,7 +60,7 @@ const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.GANG_CHIEF, nameEn: "Gang Chief", nameAm: "የጋንግ መሪ (የሠራተኞች መሪ)" },
   { role: UserRole.ASSEMBLER, nameEn: "Assembler", nameAm: "ተገጣጣሚ ሠራተኛ (አሰምብለር)" },
   { role: UserRole.STORE_MANAGER, nameEn: "Store Manager", nameAm: "የስቶር ሥራ አስኪያጅ" },
-  { role: UserRole.STORE_OWNER, nameEn: "Store Owner", nameAm: "የሳይት ስቶር አቃቤ" },
+  { role: UserRole.SITE_MANAGER, nameEn: "Site Manager", nameAm: "የሳይት ሥራ አስኪያጅ" },
   { role: UserRole.FINANCE_MANAGER, nameEn: "Finance Manager", nameAm: "የሒሳብና ፋይናንስ ሥራ አስኪያጅ" },
   { role: UserRole.ACCOUNTANT, nameEn: "Accountant", nameAm: "የሒሳብ ባለሙያ (Accountant)" },
   { role: UserRole.AUDITOR, nameEn: "Auditor", nameAm: "ኦዲተር" },

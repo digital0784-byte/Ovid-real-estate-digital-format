@@ -33,6 +33,7 @@ import {
 import { WarehouseDashboardFilters } from "../../types";
 import { ErpWarehouseSnapshot } from "../../services/warehouseStoreDataService";
 import { computeDashboardKpisAndCharts } from "../../services/warehouseManagementService";
+import { WarehouseSectionKey } from "../../services/warehouseStoreRbac";
 import { StatusBadge } from "./WarehouseSharedUi";
 
 const PIE_COLORS = ["#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#64748b"];
@@ -42,11 +43,13 @@ export function InventoryDashboardView({
   filters,
   onChangeFilters,
   onNavigateSection,
+  authorizedSections,
 }: {
   snapshot: ErpWarehouseSnapshot;
   filters: WarehouseDashboardFilters;
   onChangeFilters: (next: WarehouseDashboardFilters) => void;
   onNavigateSection: (section: any) => void;
+  authorizedSections?: WarehouseSectionKey[];
 }) {
   const { kpis, charts } = React.useMemo(
     () =>
@@ -321,9 +324,11 @@ export function InventoryDashboardView({
         </div>
       </div>
 
-      {/* 15 Live Operational KPI Cards */}
+      {/* Live Operational KPI Cards (Filtered by Role Authorization) */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-        {kpiCards.map((card) => {
+        {kpiCards
+          .filter((card) => !authorizedSections || authorizedSections.includes(card.target as WarehouseSectionKey))
+          .map((card) => {
           const Icon = card.icon;
           return (
             <button
@@ -523,13 +528,15 @@ export function InventoryDashboardView({
               <ShieldAlert size={14} />
               <span>Segregated Quarantine & Damaged Stock</span>
             </h4>
-            <button
-              type="button"
-              onClick={() => onNavigateSection("quarantine_stock")}
-              className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
-            >
-              Inspect Queue
-            </button>
+            {(!authorizedSections || authorizedSections.includes("quarantine_stock")) && (
+              <button
+                type="button"
+                onClick={() => onNavigateSection("quarantine_stock")}
+                className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
+              >
+                Inspect Queue
+              </button>
+            )}
           </div>
           {quarantineRows.length === 0 ? (
             <p className="text-xs text-slate-400">No items currently held in quarantine storage.</p>

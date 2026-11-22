@@ -65,7 +65,7 @@ interface SiteStoreMaterialMovementHubProps {
 }
 
 export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHubProps> = ({
-  currentUserRole = "Site Store Owner",
+  currentUserRole = "Site Manager",
   currentUserName = "Eng. Sisay Alemu",
   currentUserUid = "USER-STO-01",
   currentUserProfile,
@@ -116,7 +116,7 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
 
   // Strict role classification
   const isSuperAdmin = ["Super Admin", "Head Office", "Head Office Manager", "admin", "head_office"].includes(activeRole);
-  const isStoreOwner = ["Store Owner", "Site Store Owner", "Store Manager", "site_store_owner"].includes(activeRole);
+  const isStoreOwner = ["Site Manager", "site_manager", "Store Manager", "store_manager", "Store Owner", "Site Store Owner", "site_store_owner"].includes(activeRole);
   const isWarehouseManager = ["Warehouse Manager", "warehouse_manager"].includes(activeRole);
   const isSectionHead = ["Section Head", "section_head"].includes(activeRole);
   const isTeamLeader = ["Team Leader", "team_leader"].includes(activeRole);
@@ -124,7 +124,7 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
   const isFieldStaff = isTeamLeader || isGangChief || isSectionHead;
   const isManagerOrAdmin = isSuperAdmin || isWarehouseManager;
 
-  // Approval authority rule: Store Owner & Super Admin always; Section Head if configured; Warehouse Manager isolated
+  // Approval authority rule: Site Manager/Store Manager & Super Admin always; Section Head if configured; Warehouse Manager isolated
   const hasApprovalAuthority = isStoreOwner || isSuperAdmin || (isSectionHead && sectionHeadCanApprove);
 
   // Role profiles for fast simulation
@@ -132,7 +132,8 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
     { role: "Team Leader", name: "Kassahun Tadesse", uid: "USER-TL-01", section: "Structural Shutter Gang 1" },
     { role: "Gang Chief", name: "Bekele Haile", uid: "USER-GC-01", section: "Staircase Formwork Gang" },
     { role: "Section Head", name: "Eng. Dawit Kebede", uid: "USER-SH-01", section: "Slab Decking Section" },
-    { role: "Site Store Owner", name: "Eng. Sisay Alemu", uid: "USER-STO-01", section: "Site Store Command" },
+    { role: "Site Manager", name: "Eng. Sisay Alemu", uid: "USER-STO-01", section: "Site Store Command" },
+    { role: "Store Manager", name: "Abebe StoreMgr", uid: "USER-STM-01", section: "Site Store Operations" },
     { role: "Warehouse Manager", name: "Yared Moges", uid: "USER-WM-01", section: "Central Warehouse Hub" },
     { role: "Super Admin", name: "Super Administrator", uid: "USER-ADMIN-01", section: "Enterprise ERP Control" }
   ];
@@ -498,7 +499,7 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
                     : activeRole === "Section Head"
                     ? "Section Head Material Oversight & Approval Hub"
                     : isStoreOwner
-                    ? "Site Store Owner Operational Command Dashboard"
+                    ? "Site Manager & Store Operational Command Dashboard"
                     : isWarehouseManager
                     ? "Warehouse Manager Logistics & Transfer Command"
                     : "Super Admin Enterprise Governance & Multi-Site Audit"}
@@ -639,7 +640,7 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
                 <ul className="space-y-1 text-slate-300 text-[11px]">
                   {(activeRole === "Team Leader" || activeRole === "Gang Chief") && (
                     <>
-                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot approve own material requests (Requires Store Owner / Admin)</li>
+                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot approve own material requests (Requires Site Manager / Admin)</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot modify Site Store stock balances directly</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot change issued quantities after store approval</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot alter return condition inspections recorded by Store</li>
@@ -648,7 +649,7 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
                   {activeRole === "Section Head" && (
                     <>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot approve own personal request (Enforced anti-conflict rule)</li>
-                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot modify shelf inventory without Store Owner transaction record</li>
+                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot modify shelf inventory without Site Manager transaction record</li>
                       <li className="flex items-center gap-1.5 text-rose-300">
                         {sectionHeadCanApprove ? "✕ Approval authority restricted to section requests" : "✕ Requisition approval currently revoked by Super Admin"}
                       </li>
@@ -656,14 +657,14 @@ export const SiteStoreMaterialMovementHub: React.FC<SiteStoreMaterialMovementHub
                   )}
                   {isStoreOwner && (
                     <>
-                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot approve own personal requests if store owner submits as requester</li>
+                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot approve own personal requests if manager submits as requester</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot delete committed stock transactions (Immutable audit ledger)</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot override Super Admin locked discrepancies</li>
                     </>
                   )}
                   {isWarehouseManager && (
                     <>
-                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot execute internal Site Store issues (Isolated to Site Store Owner)</li>
+                      <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot execute internal Site Store issues (Isolated to Site Manager / Store Manager)</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot approve site-level gang requisitions without site assignment</li>
                       <li className="flex items-center gap-1.5 text-rose-300">✕ Cannot bypass Site Store physical intake inspection</li>
                     </>

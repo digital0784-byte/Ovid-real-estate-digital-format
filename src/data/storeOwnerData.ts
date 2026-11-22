@@ -456,7 +456,7 @@ export const initialSitePanelBreakdowns: SitePanelBreakdown[] = [
     missingCount: 35,
     conditionScore: 91.5,
     lastReportDate: "2026-07-21 18:00",
-    lastReporter: "Site Store Owner"
+    lastReporter: "Site Manager"
   }
 ];
 
@@ -597,7 +597,7 @@ export const initialRequisitionAuditLogs: RequisitionAuditLog[] = [
     requisitionId: "REQ-20260722-001",
     action: "MATERIAL_ISSUED_QR",
     performedBy: "Site Storekeeper (EMP-1002)",
-    jobPosition: "Store Owner",
+    jobPosition: "Site Manager",
     timestamp: "2026-07-22 06:30:45",
     gpsLocation: "8.9806° N, 38.7578° E",
     digitalSignature: "SIG-ETH-77401-STORE",

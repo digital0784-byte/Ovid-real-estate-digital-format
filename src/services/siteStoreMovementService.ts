@@ -65,7 +65,7 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     notes: "Requires standard alignment wedge sets and tie rods",
     status: "PARTIALLY_RETURNED",
     reviewedBy: "Eng. Sisay Alemu",
-    reviewedByRole: "Store Owner",
+    reviewedByRole: "Site Manager",
     reviewedAt: "2026-10-03 08:30 AM",
     issuedBy: "Eng. Sisay Alemu",
     issuedAt: "2026-10-03 09:00 AM",
@@ -78,8 +78,8 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     ],
     history: [
       { action: "CREATE_REQUEST", performedBy: "Kassahun Tadesse", performedByUid: "USER-TL-01", role: "Team Leader", timestamp: "2026-10-03 08:15 AM", details: "Requested 20 Pcs IWP-1200-600 with accessories", newStatus: "REQUESTED" },
-      { action: "APPROVE_REQUEST", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 08:30 AM", details: "Full approval of 20 units based on available stock (150 in store)", previousStatus: "REQUESTED", newStatus: "APPROVED" },
-      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 09:00 AM", details: "Issued 20 Pcs with 40 tie rods & 160 wedge pins", previousStatus: "APPROVED", newStatus: "ISSUED" },
+      { action: "APPROVE_REQUEST", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 08:30 AM", details: "Full approval of 20 units based on available stock (150 in store)", previousStatus: "REQUESTED", newStatus: "APPROVED" },
+      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 09:00 AM", details: "Issued 20 Pcs with 40 tie rods & 160 wedge pins", previousStatus: "APPROVED", newStatus: "ISSUED" },
       { action: "RECEIVE_MATERIAL", performedBy: "Kassahun Tadesse", performedByUid: "USER-TL-01", role: "Team Leader", timestamp: "2026-10-03 09:15 AM", details: "Receiver signed and confirmed delivery at 4th Floor Zone 1", previousStatus: "ISSUED", newStatus: "RECEIVED" },
       { action: "PARTIAL_RETURN", performedBy: "Kassahun Tadesse", performedByUid: "USER-TL-01", role: "Team Leader", timestamp: "2026-10-03 04:30 PM", details: "Returned 5 unused panels in good condition", previousStatus: "RECEIVED", newStatus: "PARTIALLY_RETURNED" }
     ]
@@ -122,7 +122,7 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     workActivity: "Staircase Casting Preparation",
     status: "RECEIVED",
     reviewedBy: "Eng. Sisay Alemu",
-    reviewedByRole: "Store Owner",
+    reviewedByRole: "Site Manager",
     reviewedAt: "2026-10-03 09:45 AM",
     issuedBy: "Eng. Sisay Alemu",
     issuedAt: "2026-10-03 10:00 AM",
@@ -134,8 +134,8 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     ],
     history: [
       { action: "CREATE_REQUEST", performedBy: "Bekele Haile", performedByUid: "USER-GC-01", role: "Gang Chief", timestamp: "2026-10-03 09:30 AM", details: "Requested 2 stair flight panels with props", newStatus: "REQUESTED" },
-      { action: "APPROVE_REQUEST", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 09:45 AM", details: "Approved in full", previousStatus: "REQUESTED", newStatus: "APPROVED" },
-      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 10:00 AM", details: "Issued 2 stair flight units", previousStatus: "APPROVED", newStatus: "ISSUED" },
+      { action: "APPROVE_REQUEST", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 09:45 AM", details: "Approved in full", previousStatus: "REQUESTED", newStatus: "APPROVED" },
+      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 10:00 AM", details: "Issued 2 stair flight units", previousStatus: "APPROVED", newStatus: "ISSUED" },
       { action: "RECEIVE_MATERIAL", performedBy: "Bekele Haile", performedByUid: "USER-GC-01", role: "Gang Chief", timestamp: "2026-10-03 10:10 AM", details: "Received at Stair Core 2", previousStatus: "ISSUED", newStatus: "RECEIVED" }
     ]
   },
@@ -172,7 +172,7 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     workActivity: "Beam Shuttering",
     status: "PARTIALLY_RETURNED",
     reviewedBy: "Eng. Sisay Alemu",
-    reviewedByRole: "Store Owner",
+    reviewedByRole: "Site Manager",
     reviewedAt: "2026-10-03 10:30 AM",
     issuedBy: "Eng. Sisay Alemu",
     issuedAt: "2026-10-03 11:00 AM",
@@ -181,8 +181,8 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     receiverConfirmation: true,
     history: [
       { action: "CREATE_REQUEST", performedBy: "Eng. Dawit Mengistu", performedByUid: "USER-SH-01", role: "Section Head", timestamp: "2026-10-03 10:15 AM", details: "Requested 80 units TR-15", newStatus: "REQUESTED" },
-      { action: "PARTIAL_APPROVE", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 10:30 AM", details: "Partially approved 60 units (20 remaining on back-order from main warehouse)", previousStatus: "REQUESTED", newStatus: "PARTIALLY_APPROVED" },
-      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 11:00 AM", details: "Issued 60 units to Section Head", previousStatus: "PARTIALLY_APPROVED", newStatus: "ISSUED" },
+      { action: "PARTIAL_APPROVE", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 10:30 AM", details: "Partially approved 60 units (20 remaining on back-order from main warehouse)", previousStatus: "REQUESTED", newStatus: "PARTIALLY_APPROVED" },
+      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 11:00 AM", details: "Issued 60 units to Section Head", previousStatus: "PARTIALLY_APPROVED", newStatus: "ISSUED" },
       { action: "RECEIVE_MATERIAL", performedBy: "Eng. Dawit Mengistu", performedByUid: "USER-SH-01", role: "Section Head", timestamp: "2026-10-03 11:15 AM", details: "Received and confirmed", previousStatus: "ISSUED", newStatus: "RECEIVED" },
       { action: "PARTIAL_RETURN", performedBy: "Eng. Dawit Mengistu", performedByUid: "USER-SH-01", role: "Section Head", timestamp: "2026-10-03 05:00 PM", details: "Returned 10 tie rods", previousStatus: "RECEIVED", newStatus: "PARTIALLY_RETURNED" }
     ]
@@ -220,14 +220,14 @@ export const INITIAL_MATERIAL_REQUESTS: EnhancedMaterialRequest[] = [
     workActivity: "Safety Rail Installation",
     status: "ISSUED",
     reviewedBy: "Eng. Sisay Alemu",
-    reviewedByRole: "Store Owner",
+    reviewedByRole: "Site Manager",
     reviewedAt: "2026-10-03 11:45 AM",
     issuedBy: "Eng. Sisay Alemu",
     issuedAt: "2026-10-03 12:00 PM",
     history: [
       { action: "CREATE_REQUEST", performedBy: "Mulugeta Assefa", performedByUid: "USER-TL-02", role: "Team Leader", timestamp: "2026-10-03 11:30 AM", details: "Requested 2 hammer drills", newStatus: "REQUESTED" },
-      { action: "APPROVE_REQUEST", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 11:45 AM", details: "Approved", previousStatus: "REQUESTED", newStatus: "APPROVED" },
-      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Store Owner", timestamp: "2026-10-03 12:00 PM", details: "Issued with serial check", previousStatus: "APPROVED", newStatus: "ISSUED" }
+      { action: "APPROVE_REQUEST", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 11:45 AM", details: "Approved", previousStatus: "REQUESTED", newStatus: "APPROVED" },
+      { action: "ISSUE_MATERIAL", performedBy: "Eng. Sisay Alemu", performedByUid: "USER-STO-01", role: "Site Manager", timestamp: "2026-10-03 12:00 PM", details: "Issued with serial check", previousStatus: "APPROVED", newStatus: "ISSUED" }
     ]
   }
 ];
@@ -472,7 +472,7 @@ export const INITIAL_DISCREPANCIES: InventoryDiscrepancy[] = [
     details: "10 units returned as Damaged by Section Head on 2026-10-03. Requires workshop maintenance.",
     detectedAt: "2026-10-03 05:05 PM",
     status: "INVESTIGATING",
-    assignedTo: ["Site Store Owner", "Warehouse Manager"]
+    assignedTo: ["Site Manager", "Warehouse Manager"]
   }
 ];
 
@@ -580,10 +580,10 @@ export class SiteStoreMovementService {
       zone: data.zone,
       sender: currentUser.name,
       senderRole: currentUser.role,
-      receiver: "Site Store Owner",
-      targetRoles: ["Store Owner", "Site Store Owner", "Store Manager", "Warehouse Manager", "Super Admin"],
+      receiver: "Site Manager & Store Manager",
+      targetRoles: ["Site Manager", "Store Manager", "Warehouse Manager", "Super Admin"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: data.priority === "Critical" },
-      actionTab: "storeOwnerApp",
+      actionTab: "warehouseSiteStore",
       actionPayload: { requestId: id, requestNumber }
     });
 
@@ -673,7 +673,7 @@ export class SiteStoreMovementService {
       receiver: req.requesterName,
       targetRoles: [req.requesterRole, "Team Leader", "Gang Chief", "Section Head"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-      actionTab: "storeOwnerApp",
+      actionTab: "warehouseSiteStore",
       actionPayload: { requestId, requestNumber: req.requestNumber }
     });
 
@@ -737,7 +737,7 @@ export class SiteStoreMovementService {
       receiver: req.requesterName,
       targetRoles: [req.requesterRole, "Team Leader", "Gang Chief", "Section Head"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-      actionTab: "storeOwnerApp"
+      actionTab: "warehouseSiteStore"
     });
 
     return updated;
@@ -895,7 +895,7 @@ export class SiteStoreMovementService {
       receiver: req.requesterName,
       targetRoles: [req.requesterRole, "Team Leader", "Gang Chief", "Section Head"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-      actionTab: "storeOwnerApp",
+      actionTab: "warehouseSiteStore",
       actionPayload: { issueId, requestId }
     });
 
@@ -994,10 +994,10 @@ export class SiteStoreMovementService {
       zone: issue.zone,
       sender: receiver.name,
       senderRole: receiver.role,
-      receiver: "Site Store Owner",
-      targetRoles: ["Store Owner", "Site Store Owner", "Warehouse Manager"],
+      receiver: "Site Manager & Store Manager",
+      targetRoles: ["Site Manager", "Store Manager", "Warehouse Manager"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: false },
-      actionTab: "storeOwnerApp"
+      actionTab: "warehouseSiteStore"
     });
 
     return updatedIssue;
@@ -1155,7 +1155,7 @@ export class SiteStoreMovementService {
         details: `${returnDetails.returnQty} ${issue.unit} of ${issue.materialName} returned as ${returnDetails.condition} by ${returnDetails.returner.name}. Reason: ${returnDetails.reason}`,
         detectedAt: `${dateStr} ${timeStr}`,
         status: "OPEN",
-        assignedTo: ["Site Store Owner", "Warehouse Manager", "Head Office Manager"]
+        assignedTo: ["Site Manager", "Warehouse Manager", "Head Office Manager"]
       };
       await DbService.writeDocument<InventoryDiscrepancy>(
         "inventoryDiscrepancies",
@@ -1164,7 +1164,7 @@ export class SiteStoreMovementService {
       );
     }
 
-    // Notify Store Owner & Warehouse Manager
+    // Notify Site Manager & Warehouse Manager
     EnterpriseNotificationService.createNotification({
       title: `Material Return Received: ${issue.materialName} (${returnDetails.returnQty} ${issue.unit})`,
       titleAm: `የተመለሰ ዕቃ ተቀባብሏል፡ ${issue.materialName} (${returnDetails.returnQty} ${issue.unit})`,
@@ -1177,10 +1177,10 @@ export class SiteStoreMovementService {
       siteName: issue.site,
       sender: returnDetails.returner.name,
       senderRole: returnDetails.returner.role,
-      receiver: "Site Storekeeper & Warehouse Manager",
-      targetRoles: ["Store Owner", "Site Store Owner", "Warehouse Manager", "Head Office Manager", "Super Admin"],
+      receiver: "Site Manager & Warehouse Manager",
+      targetRoles: ["Site Manager", "Store Manager", "Warehouse Manager", "Head Office Manager", "Super Admin"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: returnDetails.condition === "Damaged" },
-      actionTab: "storeOwnerApp"
+      actionTab: "warehouseSiteStore"
     });
 
     return newReturn;
