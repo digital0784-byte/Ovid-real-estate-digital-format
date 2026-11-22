@@ -22,6 +22,12 @@ import {
   resolveExtendedWarehouseRole,
   STORE_MANAGER_ALLOWED_REPORTS,
 } from "../services/warehouseStoreRbac";
+import {
+  getReportTitle,
+  getWarehouseSectionLabel,
+  tr,
+  translateWarehouseStatus,
+} from "../components/warehouse/warehouseI18n";
 
 function makeTestApp() {
   const store = new InMemoryWarehouseStore();
@@ -813,9 +819,10 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
       expect(storeMgrSections).not.toContain(forbiddenSection);
     }
 
-    // Store Manager allowed actions
+    // Store Manager allowed actions (including CONFIRM_FATIV for receiving fixed assets from Warehouse Manager)
     expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CREATE_MATERIAL_REQUEST")).toBe(true);
     expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CONFIRM_CONSUMABLE_RECEIPT")).toBe(true);
+    expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "CONFIRM_FATIV")).toBe(true);
     expect(canPerformWarehouseModuleAction(UserRole.STORE_MANAGER, "SUBMIT_TWO_WAY_RETURN")).toBe(true);
 
     // Store Manager forbidden Warehouse Manager / Director / Finance actions
@@ -863,7 +870,7 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
       .send({ action: "verify" });
     expect(smVerify.status).toBe(403);
 
-    // Store Manager CANNOT create GRV, dispatch GIV, release quarantine, or alter valuation
+    // Store Manager CANNOT create GRV, dispatch GIV/FATOV, release quarantine, or alter valuation
     const smGrv = await request(app)
       .post("/api/warehouse/grv")
       .set(asRole(UserRole.STORE_MANAGER))
@@ -875,6 +882,55 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
       .set(asRole(UserRole.STORE_MANAGER))
       .send({ dispatchType: "GIV", requestId: smReq.body.data.id, dispatchItems: [] });
     expect(smDispatch.status).toBe(403);
+
+    const smFatov = await request(app)
+      .post("/api/warehouse/dispatch")
+      .set(asRole(UserRole.STORE_MANAGER))
+      .send({ dispatchType: "FATOV", assetDocId: "FA-DOC-1", toLocationId: "PS-BOLE", vehicleNumber: "ET-3-11029", driverName: "Test" });
+    expect(smFatov.status).toBe(403);
+
+    // Store Manager CAN confirm incoming FATIV receipt of a fixed asset dispatched by Warehouse Manager
+    const mixerGrv = await request(app)
+      .post("/api/warehouse/grv")
+      .set(asRole(UserRole.WAREHOUSE_MANAGER))
+      .send({
+        warehouseId: "WH-CENTRAL",
+        warehouseName: "Kality Central Warehouse",
+        supplierName: "OVID Heavy Plant",
+        commercialInvoice: { invoiceNumber: "CI-MIX-900", invoiceDate: "2026-10-05", fileUrl: "https://x.co/mix.pdf", fileName: "mix.pdf", mimeType: "application/pdf" },
+        items: [{ itemId: "ITEM-CRANE", itemCode: "FA-MIX-01", itemName: "Concrete Transit Mixer 9m3", inventoryType: "Fixed Asset", unit: "unit", quantityReceived: 1, unitCost: 4500000, serialNumbers: ["SN-MIX-8801"] }],
+      });
+    expect(mixerGrv.status).toBe(201);
+    const createdAssetId = mixerGrv.body.data.fixedAssetsCreated[0].id;
+
+    const wmFatov = await request(app)
+      .post("/api/warehouse/dispatch")
+      .set(asRole(UserRole.WAREHOUSE_MANAGER))
+      .send({
+        dispatchType: "FATOV",
+        assetDocId: createdAssetId,
+        toLocationType: "ProjectStore",
+        toLocationId: "PS-BOLE",
+        toLocationName: "Bole Tower Site Store",
+        projectId: "PROJ-BOLE",
+        projectName: "Bole Heights Tower",
+        vehicleNumber: "ET-3-90901",
+        driverName: "Abebe Bikila",
+        driverPhone: "+251911000222",
+      });
+    expect(wmFatov.status).toBe(201);
+
+    const smFativConfirm = await request(app)
+      .post("/api/warehouse/transfers/receive")
+      .set(asRole(UserRole.STORE_MANAGER, { "x-test-project": "PROJ-BOLE" }))
+      .send({
+        receiptType: "FATIV",
+        fatovId: wmFatov.body.data.fatov.id,
+        quantityReceived: 1,
+        conditionReceived: "Good",
+      });
+    expect(smFativConfirm.status).toBe(200);
+    expect(smFativConfirm.body.data.fativ.status).toBe("Confirmed");
 
     const smQuarantine = await request(app)
       .post("/api/warehouse/quarantine/release")
@@ -901,5 +957,13 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
         .set(asRole(UserRole.STORE_MANAGER, { "x-test-project": "PROJ-BOLE" }));
       expect(deniedReport.status).toBe(403);
     }
+
+    // Full bilingual Amharic/English coverage across Store Manager sections, statuses, and reports
+    expect(tr(true, "English", "አማርኛ")).toBe("አማርኛ");
+    expect(tr(false, "English", "አማርኛ")).toBe("English");
+    expect(getWarehouseSectionLabel("material_requests", "Requests", true, { isStoreOrSiteSide: true })).toBe("ከመጋዘን እቃ መጠየቂያ");
+    expect(getWarehouseSectionLabel("giv_dispatch", "Dispatch", true, { isStoreOrSiteSide: true })).toBe("ከመጋዘን እቃ መቀበያ (GIV/FATIV)");
+    expect(translateWarehouseStatus("Submitted", true)).not.toBe("Submitted");
+    expect(getReportTitle("PROJECT_SITE_STORE_BALANCE", "Project Site Store Balance", true)).not.toBe("Project Site Store Balance");
   });
 });

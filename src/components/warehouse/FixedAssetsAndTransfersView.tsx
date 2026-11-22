@@ -9,6 +9,7 @@ import {
 import { canPerformWarehouseModuleAction } from "../../services/warehouseStoreRbac";
 import { buildPrintableVoucherHtml } from "../../services/warehouseManagementService";
 import { StatusBadge } from "./WarehouseSharedUi";
+import { tr } from "./warehouseI18n";
 
 export function FixedAssetsAndTransfersView({
   mode,
@@ -16,12 +17,14 @@ export function FixedAssetsAndTransfersView({
   actor,
   onFeedback,
   onOpenPrint,
+  isAmharic,
 }: {
   mode: "fixed_assets_big_balance" | "project_fixed_assets" | "fatov_fativ";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
   onOpenPrint: (title: string, html: string) => void;
+  isAmharic?: boolean;
 }) {
   const canFatov = canPerformWarehouseModuleAction(actor.role, "CREATE_FATOV");
   const canFativ = canPerformWarehouseModuleAction(actor.role, "CONFIRM_FATIV");
@@ -52,10 +55,10 @@ export function FixedAssetsAndTransfersView({
     setSubmitting(true);
     try {
       const asset = snapshot.fixedAssets.find((a) => a.id === fatovAssetDocId) || transferableAssets[0];
-      if (!asset) throw new Error("No available Fixed Asset selected for transfer.");
+      if (!asset) throw new Error(tr(isAmharic, "No available Fixed Asset selected for transfer.", "ለዝውውር የሚሆን ቋሚ ንብረት አልተመረጠም።"));
       const targetList = toType === "Warehouse" ? snapshot.warehouses : snapshot.projectStores;
       const dest: any = targetList.find((l) => l.id === toLocId) || targetList[0];
-      if (!dest) throw new Error("Select a valid destination Warehouse or Project Store.");
+      if (!dest) throw new Error(tr(isAmharic, "Select a valid destination Warehouse or Project Store.", "ትክክለኛ መድረሻ መጋዘን ወይም ሳይት ስቶር ይምረጡ።"));
 
       const res = await WarehouseStoreDataService.dispatchFixedAssetFatov(
         {
@@ -72,10 +75,14 @@ export function FixedAssetsAndTransfersView({
       );
       onFeedback(
         "success",
-        `Dispatched ${res.fatov.fatovNumber} for ${res.asset.assetId} (Orig GRV ${res.asset.originalGrvNumber}). Location stays in transit until FATIV confirmation.`
+        tr(
+          isAmharic,
+          `Dispatched ${res.fatov.fatovNumber} for ${res.asset.assetId} (Orig GRV ${res.asset.originalGrvNumber}). Location stays in transit until FATIV confirmation.`,
+          `${res.fatov.fatovNumber} ለ${res.asset.assetId} (የመጀመሪያ GRV ${res.asset.originalGrvNumber}) ተልኳል። FATIV እስኪረጋገጥ ድረስ በመንገድ ላይ (In Transit) ይቆያል።`
+        )
       );
     } catch (err: any) {
-      onFeedback("error", err?.message || "FATOV dispatch failed.");
+      onFeedback("error", err?.message || tr(isAmharic, "FATOV dispatch failed.", "FATOV መላክ አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -99,10 +106,14 @@ export function FixedAssetsAndTransfersView({
       setFativReason("");
       onFeedback(
         "success",
-        `Confirmed ${res.fativ.fativNumber}! Asset ${res.asset.assetId} moved to ${res.asset.currentLocationName} (Original GRV ${res.asset.originalGrvNumber} preserved).`
+        tr(
+          isAmharic,
+          `Confirmed ${res.fativ.fativNumber}! Asset ${res.asset.assetId} moved to ${res.asset.currentLocationName} (Original GRV ${res.asset.originalGrvNumber} preserved).`,
+          `${res.fativ.fativNumber} ተረጋግጧል! ንብረት ${res.asset.assetId} ወደ ${res.asset.currentLocationName} ተዛውሯል (የመጀመሪያ GRV ${res.asset.originalGrvNumber} ተጠብቋል)።`
+        )
       );
     } catch (err: any) {
-      onFeedback("error", err?.message || "FATIV confirmation failed.");
+      onFeedback("error", err?.message || tr(isAmharic, "FATIV confirmation failed.", "FATIV ማረጋገጥ አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -145,12 +156,12 @@ export function FixedAssetsAndTransfersView({
               <Wrench size={16} className="text-indigo-400" />
               <span>
                 {isBigBalance
-                  ? "BIG BALANCE — Central Fixed Asset Master Register"
-                  : "Per-Project Fixed Asset Register"}
+                  ? tr(isAmharic, "BIG BALANCE — Central Fixed Asset Master Register", "BIG BALANCE — ዋና የቋሚ ንብረቶች መዝገብ")
+                  : tr(isAmharic, "Per-Project Fixed Asset Register", "የየፕሮጀክቱ ቋሚ ንብረቶች መዝገብ")}
               </span>
             </h3>
             <p className="text-xs text-slate-400 mt-0.5">
-              Permanent Asset IDs and Original GRV Numbers remain locked to every asset across its entire lifecycle.
+              {tr(isAmharic, "Permanent Asset IDs and Original GRV Numbers remain locked to every asset across its entire lifecycle.", "ቋሚ የንብረት መለያ (Asset ID) እና የመጀመሪያ GRV ቁጥር በንብረቱ ሙሉ ዕድሜ ተጠብቀው ይቆያሉ።")}
             </p>
           </div>
           {!isBigBalance && (
@@ -159,7 +170,7 @@ export function FixedAssetsAndTransfersView({
               onChange={(e) => setSelectedProjFilter(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white"
             >
-              <option value="ALL">All Projects</option>
+              <option value="ALL">{tr(isAmharic, "All Projects", "ሁሉም ፕሮጀክቶች")}</option>
               {snapshot.erpProjects.map((p: any) => (
                 <option key={p.id} value={p.id}>{p.name || p.title}</option>
               ))}
@@ -172,13 +183,13 @@ export function FixedAssetsAndTransfersView({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
                 <tr>
-                  <th className="px-4 py-2.5">Asset ID</th>
-                  <th className="px-4 py-2.5">Asset Name & Serial</th>
-                  <th className="px-4 py-2.5">Original GRV</th>
-                  <th className="px-4 py-2.5">Current Location</th>
-                  <th className="px-4 py-2.5">Condition</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 text-right">History</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Asset ID", "የንብረት መለያ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Asset Name & Serial", "የንብረት ስም እና ሴሪያል")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Original GRV", "የመጀመሪያ GRV")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Current Location", "የአሁን ቦታ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Condition", "ሁኔታ/ይዞታ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Status", "ደረጃ")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "History", "ታሪክ")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -194,8 +205,8 @@ export function FixedAssetsAndTransfersView({
                       <div>{fa.currentLocationName}</div>
                       {fa.currentProjectName && <div className="text-[11px] text-cyan-300">{fa.currentProjectName}</div>}
                     </td>
-                    <td className="px-4 py-2.5"><StatusBadge status={fa.condition} /></td>
-                    <td className="px-4 py-2.5"><StatusBadge status={fa.status} /></td>
+                    <td className="px-4 py-2.5"><StatusBadge status={fa.condition} isAmharic={isAmharic} /></td>
+                    <td className="px-4 py-2.5"><StatusBadge status={fa.status} isAmharic={isAmharic} /></td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         type="button"
@@ -203,7 +214,7 @@ export function FixedAssetsAndTransfersView({
                         className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <History size={12} />
-                        <span>Timeline ({(fa.transferHistory || []).length})</span>
+                        <span>{tr(isAmharic, "Timeline", "ታሪክ")} ({(fa.transferHistory || []).length})</span>
                       </button>
                     </td>
                   </tr>
@@ -211,7 +222,7 @@ export function FixedAssetsAndTransfersView({
                 {rows.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
-                      No fixed assets registered in this view yet. Receive Fixed Asset equipment via GRV to capitalize into BIG BALANCE.
+                      {tr(isAmharic, "No fixed assets registered in this view yet. Receive Fixed Asset equipment via GRV to capitalize into BIG BALANCE.", "በዚህ ዝርዝር ውስጥ የተመዘገበ ቋሚ ንብረት የለም። ቋሚ ንብረት በGRV ሲገባ በራስ-ሰር BIG BALANCE ውስጥ ይመዘገባል።")}
                     </td>
                   </tr>
                 )}
@@ -226,7 +237,7 @@ export function FixedAssetsAndTransfersView({
               <div className="flex items-center justify-between border-b border-slate-800 pb-3">
                 <div>
                   <div className="text-xs font-mono text-indigo-400 font-bold">
-                    {historyAsset.assetId} · Orig GRV {historyAsset.originalGrvNumber}
+                    {historyAsset.assetId} · {tr(isAmharic, "Orig GRV", "የመጀመሪያ GRV")} {historyAsset.originalGrvNumber}
                   </div>
                   <h4 className="text-sm font-bold text-white">{historyAsset.assetName}</h4>
                 </div>
@@ -251,7 +262,7 @@ export function FixedAssetsAndTransfersView({
                       {ev.fromLocation} → {ev.toLocation}
                     </div>
                     <div className="text-slate-400">
-                      Condition: {ev.condition} · Receiver: {ev.receiverName || "-"}
+                      {tr(isAmharic, "Condition:", "ሁኔታ:")} {ev.condition} · {tr(isAmharic, "Receiver:", "ተቀባይ:")} {ev.receiverName || "-"}
                     </div>
                     {ev.notes && <div className="text-[11px] text-slate-400">{ev.notes}</div>}
                   </div>
@@ -277,7 +288,7 @@ export function FixedAssetsAndTransfersView({
           }`}
         >
           <Send size={13} />
-          <span>FATOV — Dispatch Out ({snapshot.fatovs.length})</span>
+          <span>{tr(isAmharic, "FATOV — Dispatch Out", "FATOV — ወደ ሌላ ቦታ መላኪያ")} ({snapshot.fatovs.length})</span>
         </button>
         <button
           type="button"
@@ -287,7 +298,7 @@ export function FixedAssetsAndTransfersView({
           }`}
         >
           <CheckCircle2 size={13} />
-          <span>FATIV — Confirm Receipt ({pendingFatovs.length} In Transit)</span>
+          <span>{tr(isAmharic, `FATIV — Confirm Receipt (${pendingFatovs.length} In Transit)`, `FATIV — መድረሱን ማረጋገጫ (${pendingFatovs.length} በመንገድ ላይ)`)}</span>
         </button>
       </div>
 
@@ -297,7 +308,7 @@ export function FixedAssetsAndTransfersView({
           <form onSubmit={handleDispatchFatov} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Send size={16} className="text-amber-400" />
-              <span>Fixed Asset Transfer Out Voucher (FATOV) — Automatic Gate Pass & In-Transit Lock</span>
+              <span>{tr(isAmharic, "Fixed Asset Transfer Out Voucher (FATOV) — Automatic Gate Pass & In-Transit Lock", "የቋሚ ንብረት መላኪያ ደረሰኝ (FATOV) — ራስ-ሰር የበር ማለፊያ")}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <select
@@ -320,8 +331,8 @@ export function FixedAssetsAndTransfersView({
                 }}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
               >
-                <option value="ProjectStore">Transfer to Project Site Store</option>
-                <option value="Warehouse">Return / Transfer to Central Warehouse</option>
+                <option value="ProjectStore">{tr(isAmharic, "Transfer to Project Site Store", "ወደ ፕሮጀክት ሳይት ስቶር አዛውር")}</option>
+                <option value="Warehouse">{tr(isAmharic, "Return / Transfer to Central Warehouse", "ወደ ዋናው መጋዘን መልስ / አዛውር")}</option>
               </select>
               <select
                 value={toLocId}
@@ -336,14 +347,14 @@ export function FixedAssetsAndTransfersView({
               </select>
               <input
                 required
-                placeholder="Vehicle Plate Number"
+                placeholder={tr(isAmharic, "Vehicle Plate Number", "የተሽከርካሪ ሰሌዳ ቁጥር")}
                 value={vehicleNumber}
                 onChange={(e) => setVehicleNumber(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
               />
               <input
                 required
-                placeholder="Driver Name"
+                placeholder={tr(isAmharic, "Driver Name", "የሹፌር ስም")}
                 value={driverName}
                 onChange={(e) => setDriverName(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -355,26 +366,26 @@ export function FixedAssetsAndTransfersView({
               className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <ArrowRightLeft size={14} />
-              <span>Dispatch FATOV & Generate Gate Pass</span>
+              <span>{tr(isAmharic, "Dispatch FATOV & Generate Gate Pass", "FATOV ላክ እና የበር ማለፊያ አዘጋጅ")}</span>
             </button>
           </form>
         )}
 
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-800 text-xs font-bold uppercase text-white">
-            FATOV Transfer Register ({snapshot.fatovs.length})
+            {tr(isAmharic, "FATOV Transfer Register", "የFATOV መላኪያ መዝገብ")} ({snapshot.fatovs.length})
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
                 <tr>
-                  <th className="px-4 py-2.5">FATOV No</th>
-                  <th className="px-4 py-2.5">Asset ID</th>
-                  <th className="px-4 py-2.5">Orig GRV</th>
-                  <th className="px-4 py-2.5">Route</th>
-                  <th className="px-4 py-2.5">Gate Pass</th>
-                  <th className="px-4 py-2.5">Status</th>
-                  <th className="px-4 py-2.5 text-right">Print</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "FATOV No", "የFATOV ቁጥር")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Asset ID", "የንብረት መለያ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Orig GRV", "የመጀመሪያ GRV")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Route", "መስመር")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Gate Pass", "የበር ማለፊያ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Status", "ሁኔታ")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Print", "አትም")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -385,7 +396,7 @@ export function FixedAssetsAndTransfersView({
                     <td className="px-4 py-2.5 font-mono text-emerald-300">{f.originalGrvNumber}</td>
                     <td className="px-4 py-2.5 text-white">{f.fromLocationName} → {f.toLocationName}</td>
                     <td className="px-4 py-2.5 font-mono text-cyan-300">{f.gatePassNumber}</td>
-                    <td className="px-4 py-2.5"><StatusBadge status={f.status} /></td>
+                    <td className="px-4 py-2.5"><StatusBadge status={f.status} isAmharic={isAmharic} /></td>
                     <td className="px-4 py-2.5 text-right">
                       <button
                         type="button"
@@ -393,7 +404,7 @@ export function FixedAssetsAndTransfersView({
                         className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                       >
                         <Printer size={12} />
-                        <span>Voucher</span>
+                        <span>{tr(isAmharic, "Voucher", "ደረሰኝ")}</span>
                       </button>
                     </td>
                   </tr>
@@ -408,27 +419,27 @@ export function FixedAssetsAndTransfersView({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
         <h3 className="text-sm font-bold text-white flex items-center gap-2">
           <CheckCircle2 size={16} className="text-emerald-400" />
-          <span>Fixed Asset Transfer In Voucher (FATIV) — Receiving Confirmation</span>
+          <span>{tr(isAmharic, "Fixed Asset Transfer In Voucher (FATIV) — Receiving Confirmation", "የቋሚ ንብረት መቀበያ (FATIV) — መድረሱን ማረጋገጫ")}</span>
         </h3>
         <p className="text-xs text-slate-400 mt-0.5">
-          Asset location updates ONLY when FATIV receiving is confirmed. Duplicate FATIV submissions are strictly prevented.
+          {tr(isAmharic, "Asset location updates ONLY when FATIV receiving is confirmed. Duplicate FATIV submissions are strictly prevented.", "የንብረቱ ቦታ የሚዘመነው FATIV መቀበሉ ሲረጋገጥ ብቻ ነው። ድጋሚ ማስገባት የተከለከለ ነው።")}
         </p>
       </div>
 
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-800 text-xs font-bold uppercase text-amber-400">
-          In-Transit FATOVs Awaiting Receiving Confirmation ({pendingFatovs.length})
+          {tr(isAmharic, "In-Transit FATOVs Awaiting Receiving Confirmation", "መቀበያ የሚጠብቁ በመንገድ ላይ ያሉ FATOVዎች")} ({pendingFatovs.length})
         </div>
         <div className="divide-y divide-slate-800">
           {pendingFatovs.map((f) => (
             <div key={f.id} className="p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div>
                 <div className="font-mono font-bold text-amber-400">
-                  {f.fatovNumber} · {f.assetId} (Orig GRV {f.originalGrvNumber})
+                  {f.fatovNumber} · {f.assetId} ({tr(isAmharic, "Orig GRV", "የመጀመሪያ GRV")} {f.originalGrvNumber})
                 </div>
                 <div className="text-white font-semibold mt-0.5">{f.assetName}</div>
                 <div className="text-slate-400">
-                  {f.fromLocationName} → {f.toLocationName} · Vehicle {f.vehicleNumber}
+                  {f.fromLocationName} → {f.toLocationName} · {tr(isAmharic, "Vehicle", "ተሽከርካሪ")} {f.vehicleNumber}
                 </div>
               </div>
               {canFativ && (
@@ -442,14 +453,14 @@ export function FixedAssetsAndTransfersView({
                   className="px-3.5 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 size={14} />
-                  <span>Confirm FATIV Receipt</span>
+                  <span>{tr(isAmharic, "Confirm FATIV Receipt", "FATIV መቀበሉን አረጋግጥ")}</span>
                 </button>
               )}
             </div>
           ))}
           {pendingFatovs.length === 0 && (
             <div className="p-6 text-center text-xs text-slate-500">
-              No in-transit Fixed Assets awaiting FATIV confirmation.
+              {tr(isAmharic, "No in-transit Fixed Assets awaiting FATIV confirmation.", "FATIV ማረጋገጫ የሚጠብቅ በመንገድ ላይ ያለ ቋሚ ንብረት የለም።")}
             </div>
           )}
         </div>
@@ -458,19 +469,19 @@ export function FixedAssetsAndTransfersView({
       {/* Confirmed FATIVs */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-800 text-xs font-bold uppercase text-white">
-          Completed FATIV Register ({snapshot.fativs.length})
+          {tr(isAmharic, "Completed FATIV Register", "የተጠናቀቁ FATIV መዝገብ")} ({snapshot.fativs.length})
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
               <tr>
-                <th className="px-4 py-2.5">FATIV No</th>
-                <th className="px-4 py-2.5">FATOV Ref</th>
-                <th className="px-4 py-2.5">Asset ID</th>
-                <th className="px-4 py-2.5">Orig GRV</th>
-                <th className="px-4 py-2.5">Received At</th>
-                <th className="px-4 py-2.5">Sent / Recv</th>
-                <th className="px-4 py-2.5">Status</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "FATIV No", "የFATIV ቁጥር")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "FATOV Ref", "የFATOV ማጣቀሻ")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Asset ID", "የንብረት መለያ")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Orig GRV", "የመጀመሪያ GRV")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Received At", "ተቀባይ ቦታ")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Sent / Recv", "የተላከ / የገባ")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Status", "ሁኔታ")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -482,7 +493,7 @@ export function FixedAssetsAndTransfersView({
                   <td className="px-4 py-2.5 font-mono text-amber-300">{fv.originalGrvNumber}</td>
                   <td className="px-4 py-2.5 text-white">{fv.receivingLocationName}</td>
                   <td className="px-4 py-2.5 font-mono tabular-nums">{fv.quantitySent} / {fv.quantityReceived}</td>
-                  <td className="px-4 py-2.5"><StatusBadge status={fv.status} /></td>
+                  <td className="px-4 py-2.5"><StatusBadge status={fv.status} isAmharic={isAmharic} /></td>
                 </tr>
               ))}
             </tbody>
@@ -494,10 +505,10 @@ export function FixedAssetsAndTransfersView({
         <div className="fixed inset-0 z-50 bg-slate-950/80 flex items-center justify-center p-4">
           <form onSubmit={handleConfirmFativ} className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md p-5 space-y-3">
             <h4 className="text-sm font-bold text-white">
-              Confirm FATIV Receipt for {receivingFatov.fatovNumber} ({receivingFatov.assetId})
+              {tr(isAmharic, "Confirm FATIV Receipt for", "FATIV መቀበሉን አረጋግጥ ለ")} {receivingFatov.fatovNumber} ({receivingFatov.assetId})
             </h4>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Quantity Received (Sent: {receivingFatov.quantitySent})</label>
+              <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, `Quantity Received (Sent: ${receivingFatov.quantitySent})`, `የተቀበሉት ብዛት (የተላከ: ${receivingFatov.quantitySent})`)}</label>
               <input
                 type="number"
                 min={0}
@@ -508,22 +519,22 @@ export function FixedAssetsAndTransfersView({
               />
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Inspected Condition</label>
+              <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Inspected Condition", "የተመረመረበት ሁኔታ")}</label>
               <select
                 value={fativCond}
                 onChange={(e) => setFativCond(e.target.value as any)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
               >
-                <option value="Good">Good (Usable)</option>
-                <option value="Under Inspection">Under Inspection (Quarantine)</option>
-                <option value="Damaged">Damaged (Quarantine)</option>
-                <option value="Defective">Defective (Quarantine)</option>
+                <option value="Good">{tr(isAmharic, "Good (Usable)", "ጥሩ (ለስራ ዝግጁ)")}</option>
+                <option value="Under Inspection">{tr(isAmharic, "Under Inspection (Quarantine)", "በምርመራ ላይ (ኳራንቲን)")}</option>
+                <option value="Damaged">{tr(isAmharic, "Damaged (Quarantine)", "የተጎዳ (ኳራንቲን)")}</option>
+                <option value="Defective">{tr(isAmharic, "Defective (Quarantine)", "ጉድለት ያለበት (ኳራንቲን)")}</option>
               </select>
             </div>
             {Number(fativQty) !== receivingFatov.quantitySent && (
               <input
                 required
-                placeholder="Mandatory discrepancy reason..."
+                placeholder={tr(isAmharic, "Mandatory discrepancy reason...", "የብዛት ልዩነት አስገዳጅ ምክንያት...")}
                 value={fativReason}
                 onChange={(e) => setFativReason(e.target.value)}
                 className="w-full bg-slate-950 border border-rose-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -535,14 +546,14 @@ export function FixedAssetsAndTransfersView({
                 onClick={() => setReceivingFatov(null)}
                 className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold cursor-pointer"
               >
-                Cancel
+                {tr(isAmharic, "Cancel", "ተው")}
               </button>
               <button
                 type="submit"
                 disabled={submitting}
                 className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer"
               >
-                Confirm & Update Asset Location
+                {tr(isAmharic, "Confirm & Update Asset Location", "አረጋግጥ እና የንብረት ቦታ አዘምን")}
               </button>
             </div>
           </form>

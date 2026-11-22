@@ -1718,6 +1718,62 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     unit: "Bags"
   });
 
+  const [showNewWarehouseReqModal, setShowNewWarehouseReqModal] = useState(false);
+  const [newWarehouseReqForm, setNewWarehouseReqForm] = useState({
+    materialName: "Dangote OPC 42.5N Cement",
+    requestedQty: 50,
+    unit: "Bags",
+    siteName: "Bole Heights Phase I",
+    building: "Building A",
+    floor: "Floor 4",
+    zone: "Zone 3",
+    purpose: ""
+  });
+
+  const handleSubmitWarehouseRequest = (e: React.FormEvent) => {
+    e.preventDefault();
+    const requesterName = currentUserProfile?.displayName || (isStoreManagerOnly ? "Store Manager" : "Site Manager");
+    const newReq: MaterialRequestItem = {
+      id: `REQ-WH-${Date.now().toString().slice(-6)}`,
+      requesterName,
+      requesterRole: String(currentUserRole || "Store Manager"),
+      siteName: newWarehouseReqForm.siteName || "Bole Heights Phase I",
+      building: newWarehouseReqForm.building || "Main Site",
+      floor: newWarehouseReqForm.floor || "All Floors",
+      zone: newWarehouseReqForm.zone || "Site Store",
+      materialName: newWarehouseReqForm.materialName,
+      requestedQty: Number(newWarehouseReqForm.requestedQty) || 1,
+      unit: newWarehouseReqForm.unit || "Pcs",
+      purpose: newWarehouseReqForm.purpose || (isAmharic ? "ለሳይት ስቶር ክምችት መሙያ" : "Site Store Replenishment"),
+      status: "Pending",
+      requestDate: new Date().toISOString().substring(0, 10)
+    };
+    setMaterialRequests(prev => [newReq, ...prev]);
+    DbService.saveMaterialRequest(newReq).catch(err => console.error("Error saving warehouse request:", err));
+    const notifObj = {
+      id: `NOTIF-WH-REQ-${Date.now()}`,
+      title: `Store Material Request: ${newReq.requestedQty} ${newReq.unit} ${newReq.materialName}`,
+      titleAm: `ከመጋዘን የእቃ ጥያቄ፡ ${newReq.requestedQty} ${newReq.unit} ${newReq.materialName}`,
+      description: `${requesterName} requested ${newReq.requestedQty} ${newReq.unit} of ${newReq.materialName} for ${newReq.siteName}.`,
+      descriptionAm: `${requesterName} ለ${newReq.siteName} ${newReq.requestedQty} ${newReq.unit} ${newReq.materialName} ጠይቀዋል።`,
+      category: "Material Request Notifications",
+      priority: "High",
+      status: "Unread",
+      projectName: newReq.siteName,
+      sender: requesterName,
+      senderRole: String(currentUserRole || "Store Manager"),
+      receiver: "Warehouse Manager",
+      targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.DIRECTOR, UserRole.SUPER_ADMIN],
+      actionTab: "requests",
+      timestamp: new Date().toISOString()
+    };
+    DbService.addNotification(notifObj).catch(err => console.error("Error writing warehouse request notification:", err));
+    onCreateNotification?.(notifObj);
+    onLogAction?.("Material Request to Warehouse", `Requested ${newReq.requestedQty} ${newReq.unit} of ${newReq.materialName} for ${newReq.siteName}`);
+    setShowNewWarehouseReqModal(false);
+    setNewWarehouseReqForm(prev => ({ ...prev, purpose: "" }));
+  };
+
   // QR / Barcode Simulator & Label Printing Module State
   const [scannedCode, setScannedCode] = useState("");
   const [scanResult, setScanResult] = useState<any | null>(null);
@@ -2250,12 +2306,12 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         <div className="text-right px-2">
           <span className="text-[10px] font-mono text-amber-400 font-bold uppercase block">
             {isSuperAdminOrHQ
-              ? "SUPER ADMIN MASTER ACCESS: UNIFIED WAREHOUSE & SITE STORE MODULES UNLOCKED"
+              ? (isAmharic ? "የሱፐር አድሚን ሙሉ ፈቃድ፡ መጋዘን እና ሳይት ስቶር ሙሉ በሙሉ ክፍት ነው" : "SUPER ADMIN MASTER ACCESS: UNIFIED WAREHOUSE & SITE STORE MODULES UNLOCKED")
               : appMode === "warehouse_manager"
-              ? "ROLE SCOPE: CENTRAL WAREHOUSE MANAGER"
+              ? (isAmharic ? "የሚና ወሰን፡ ማዕከላዊ መጋዘን አስተዳዳሪ" : "ROLE SCOPE: CENTRAL WAREHOUSE MANAGER")
               : isStoreManagerOnly
-              ? "ROLE SCOPE: STORE MANAGER (AUTHORIZED SITE OPERATIONS ONLY)"
-              : "ROLE SCOPE: ASSIGNED SITE MANAGER (SITE STORE OPERATIONS)"}
+              ? (isAmharic ? "የሚና ወሰን፡ ስቶር ማናጀር (የተፈቀዱ የሳይት ስቶር ስራዎች ብቻ)" : "ROLE SCOPE: STORE MANAGER (AUTHORIZED SITE OPERATIONS ONLY)")
+              : (isAmharic ? "የሚና ወሰን፡ ሳይት ማኔጀር (የሳይት ስቶር ስራዎች)" : "ROLE SCOPE: ASSIGNED SITE MANAGER (SITE STORE OPERATIONS)")}
           </span>
           <span className="text-[9px] text-slate-400">
             {isSuperAdminOrHQ
@@ -3289,14 +3345,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
                 <span className="text-[10px] font-black uppercase text-slate-400">{t("totalMaterials")}</span>
                 <span className="text-xl font-mono font-black text-white mt-2">{totalMaterialStockSum.toLocaleString()}</span>
-                <span className="text-[9px] text-slate-500 mt-1">Across 10 site store categories</span>
+                <span className="text-[9px] text-slate-500 mt-1">{isAmharic ? "በ10 የሳይት ስቶር ምድቦች" : "Across 10 site store categories"}</span>
               </div>
 
               {isSuperAdminOrHQ || appMode === "warehouse_manager" ? (
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
                   <span className="text-[10px] font-black uppercase text-slate-400">{t("formworkPanels")}</span>
-                  <span className="text-xl font-mono font-black text-amber-400 mt-2">{totalFormworkPanelsCount} Pcs</span>
-                  <span className="text-[9px] text-slate-500 mt-1">Controlled by Warehouse, HQ & Admin</span>
+                  <span className="text-xl font-mono font-black text-amber-400 mt-2">{totalFormworkPanelsCount} {isAmharic ? "ፍሬ" : "Pcs"}</span>
+                  <span className="text-[9px] text-slate-500 mt-1">{isAmharic ? "በመጋዘን፣ ዋና መ/ቤት እና አድሚን የሚቆጣጠር" : "Controlled by Warehouse, HQ & Admin"}</span>
                 </div>
               ) : (
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
@@ -3304,30 +3360,30 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     {isAmharic ? "የዛሬ ዕቃ መቀበያ እና ወጪ" : "Today's Site Receipts & Issues"}
                   </span>
                   <span className="text-xl font-mono font-black text-amber-400 mt-2">
-                    {receivingReports.length + issueRecords.length} Logs
+                    {receivingReports.length + issueRecords.length} {isAmharic ? "መዝገቦች" : "Logs"}
                   </span>
-                  <span className="text-[9px] text-slate-500 mt-1">Assigned site store transactions</span>
+                  <span className="text-[9px] text-slate-500 mt-1">{isAmharic ? "የተመደበ የሳይት ስቶር እንቅስቃሴ" : "Assigned site store transactions"}</span>
                 </div>
               )}
 
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
                 <span className="text-[10px] font-black uppercase text-slate-400">{t("availableStock")}</span>
                 <span className="text-xl font-mono font-black text-emerald-400 mt-2">{availableStockSum.toLocaleString()}</span>
-                <span className="text-[9px] text-emerald-500 mt-1">Ready for immediate issue</span>
+                <span className="text-[9px] text-emerald-500 mt-1">{isAmharic ? "ለወጪ ዝግጁ የሆነ" : "Ready for immediate issue"}</span>
               </div>
 
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
                 <span className="text-[10px] font-black uppercase text-slate-400">{t("reservedStock")}</span>
                 <span className="text-xl font-mono font-black text-blue-400 mt-2">{reservedStockSum.toLocaleString()}</span>
-                <span className="text-[9px] text-slate-500 mt-1">Allocated to active zones</span>
+                <span className="text-[9px] text-slate-500 mt-1">{isAmharic ? "ለንቁ ዞኖች የተመደበ" : "Allocated to active zones"}</span>
               </div>
 
               <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between">
                 <span className="text-[10px] font-black uppercase text-slate-400">{t("lowStockAlerts")}</span>
                 <span className={`text-xl font-mono font-black mt-2 ${lowStockCount > 0 ? "text-red-400 animate-pulse" : "text-emerald-400"}`}>
-                  {lowStockCount} Items
+                  {lowStockCount} {isAmharic ? "እቃዎች" : "Items"}
                 </span>
-                <span className="text-[9px] text-slate-500 mt-1">Below minimum threshold</span>
+                <span className="text-[9px] text-slate-500 mt-1">{isAmharic ? "ከዝቅተኛ ገደብ በታች" : "Below minimum threshold"}</span>
               </div>
             </div>
 
@@ -4120,9 +4176,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {/* 5. MATERIAL RECEIVING MODULE */}
         {activeTab === "receiving" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h2 className="text-lg font-black uppercase text-white">Material Receiving Register</h2>
+                <h2 className="text-lg font-black uppercase text-white">
+                  {isAmharic ? "ከመጋዘን እቃ መቀበያ መዝገብ" : "Material Receiving Register"}
+                </h2>
                 <p className="text-xs text-slate-400">{isAmharic ? "ከመጋዘን፣ ከአቅራቢዎች እና ከሌሎች ሳይቶች የመጡ እቃዎችን መረከቢያ" : "Verify Batch, Bundle, Serial, QR Code, GPS & Digital Signature"}</p>
               </div>
 
@@ -4141,14 +4199,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <th className="p-4">Report ID</th>
-                      <th className="p-4">Material Name</th>
-                      <th className="p-4">Quantity</th>
-                      <th className="p-4">Source</th>
-                      <th className="p-4">Batch / Bundle</th>
-                      <th className="p-4">Driver & Truck</th>
-                      <th className="p-4">GPS Verification</th>
-                      <th className="p-4">Status</th>
+                      <th className="p-4">{isAmharic ? "መለያ ቁጥር" : "Report ID"}</th>
+                      <th className="p-4">{isAmharic ? "የእቃው ስም" : "Material Name"}</th>
+                      <th className="p-4">{isAmharic ? "ብዛት" : "Quantity"}</th>
+                      <th className="p-4">{isAmharic ? "ምንጭ" : "Source"}</th>
+                      <th className="p-4">{isAmharic ? "ባች / ጥቅል" : "Batch / Bundle"}</th>
+                      <th className="p-4">{isAmharic ? "አሽከርካሪ እና መኪና" : "Driver & Truck"}</th>
+                      <th className="p-4">{isAmharic ? "የGPS ማረጋገጫ" : "GPS Verification"}</th>
+                      <th className="p-4">{isAmharic ? "ሁኔታ" : "Status"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
@@ -4167,7 +4225,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                         <td className="p-4">
                           <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-900 rounded text-[10px] font-black uppercase flex items-center space-x-1 w-fit">
                             <CheckCircle2 size={10} />
-                            <span>Received</span>
+                            <span>{isAmharic ? "ተቀብሏል" : "Received"}</span>
                           </span>
                         </td>
                       </tr>
@@ -4182,9 +4240,11 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {/* 3. MATERIAL ISSUE MODULE */}
         {activeTab === "issue" && (
           <div className="space-y-6 animate-fadeIn">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-wrap justify-between items-center gap-3">
               <div>
-                <h2 className="text-lg font-black uppercase text-white">Material Issue Log (Dispatch to Site)</h2>
+                <h2 className="text-lg font-black uppercase text-white">
+                  {isAmharic ? "የእቃ ወጪ መዝገብ (ለሳይት ቡድን)" : "Material Issue Log (Dispatch to Site)"}
+                </h2>
                 <p className="text-xs text-slate-400">{isAmharic ? "ለኢንጂነሮች፣ ለሱፐርቫይዘሮች እና ለጋንግ ቺፎች እቃዎችን ማስረከቢያ" : "Track receiver name, building, floor, zone & reduce stock automatically"}</p>
               </div>
 
@@ -4203,14 +4263,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
                     <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                      <th className="p-4">Issue ID</th>
-                      <th className="p-4">Receiver</th>
-                      <th className="p-4">Role / Dept</th>
-                      <th className="p-4">Target Location</th>
-                      <th className="p-4">Material Issued</th>
-                      <th className="p-4">Quantity</th>
-                      <th className="p-4">Issue Time</th>
-                      <th className="p-4">Signature</th>
+                      <th className="p-4">{isAmharic ? "የወጪ መለያ" : "Issue ID"}</th>
+                      <th className="p-4">{isAmharic ? "ተረካቢ" : "Receiver"}</th>
+                      <th className="p-4">{isAmharic ? "ሚና / ክፍል" : "Role / Dept"}</th>
+                      <th className="p-4">{isAmharic ? "ቦታ" : "Target Location"}</th>
+                      <th className="p-4">{isAmharic ? "የተሰጠ እቃ" : "Material Issued"}</th>
+                      <th className="p-4">{isAmharic ? "ብዛት" : "Quantity"}</th>
+                      <th className="p-4">{isAmharic ? "ጊዜ" : "Issue Time"}</th>
+                      <th className="p-4">{isAmharic ? "ፊርማ" : "Signature"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
@@ -4226,7 +4286,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                         <td className="p-4">
                           <span className="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-900 rounded text-[10px] font-bold flex items-center space-x-1 w-fit">
                             <PenTool size={10} />
-                            <span>Signed</span>
+                            <span>{isAmharic ? "ተፈርሟል" : "Signed"}</span>
                           </span>
                         </td>
                       </tr>
@@ -4242,7 +4302,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         {activeTab === "returns" && (
           <div className="space-y-6 animate-fadeIn">
             <div>
-              <h2 className="text-lg font-black uppercase text-white">Material Return & Condition Inspection</h2>
+              <h2 className="text-lg font-black uppercase text-white">
+                {isAmharic ? "የተመለሱ እቃዎች እና የሁኔታ ምርመራ" : "Material Return & Condition Inspection"}
+              </h2>
               <p className="text-xs text-slate-400">{isAmharic ? "ከሳይት የተመለሱ እቃዎችን ሁኔታ መመደቢያ (Good, Cleaning, Repair, Scrap)" : "Automated inventory reintegration based on physical inspection"}</p>
             </div>
 
@@ -4250,12 +4312,12 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
                   <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="p-4">Return ID</th>
-                    <th className="p-4">Material Name</th>
-                    <th className="p-4">Quantity</th>
-                    <th className="p-4">Returned By</th>
-                    <th className="p-4">Classified Condition</th>
-                    <th className="p-4">Inspection Notes</th>
+                    <th className="p-4">{isAmharic ? "የመመለሻ መለያ" : "Return ID"}</th>
+                    <th className="p-4">{isAmharic ? "የእቃው ስም" : "Material Name"}</th>
+                    <th className="p-4">{isAmharic ? "ብዛት" : "Quantity"}</th>
+                    <th className="p-4">{isAmharic ? "መላሽ" : "Returned By"}</th>
+                    <th className="p-4">{isAmharic ? "የእቃው ሁኔታ" : "Classified Condition"}</th>
+                    <th className="p-4">{isAmharic ? "የምርመራ ማስታወሻ" : "Inspection Notes"}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
@@ -4473,8 +4535,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
               <div>
                 <h2 className="text-lg font-black uppercase text-white">
                   {appMode === "warehouse_manager"
-                    ? "Warehouse Manager — Material Request Review & Approval"
-                    : "Site Manager & Store Manager — Material Requests to Warehouse Manager"}
+                    ? (isAmharic ? "የመጋዘን ማናጀር — የእቃ ጥያቄዎች ግምገማ እና ማጽደቂያ" : "Warehouse Manager — Material Request Review & Approval")
+                    : (isAmharic ? "ከመጋዘን ማናጀር እቃ መጠየቂያ እና መቀበያ" : "Store Manager & Site Manager — Material Requests to Warehouse Manager")}
                 </h2>
                 <p className="text-xs text-slate-400">
                   {appMode === "warehouse_manager"
@@ -4482,79 +4544,122 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     : (isAmharic ? "ከዋናው መጋዘን እቃ መጠየቂያ እና የተላኩትን መረከቢያ" : "Request materials from Warehouse Manager and track approval/dispatch status")}
                 </p>
               </div>
-              {(appMode === "store_owner" || isSuperAdminOrHQ) && !isStoreManagerOnly && (
-                <button
-                  onClick={() => setActiveTab("architecture-command")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer"
-                >
-                  + Create New Request to Warehouse
-                </button>
+              {(appMode === "store_owner" || isSuperAdminOrHQ || isStoreManagerOnly) && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => setShowNewWarehouseReqModal(true)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer flex items-center gap-1.5 shadow-md"
+                  >
+                    <Plus size={14} />
+                    <span>{isAmharic ? "+ ከዋናው መጋዘን እቃ ጠይቅ" : "+ Request Items from Warehouse"}</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("receiving")}
+                    className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-black uppercase cursor-pointer flex items-center gap-1.5 shadow-md"
+                  >
+                    <Truck size={14} />
+                    <span>{isAmharic ? "ከመጋዘን እቃ መቀበያ" : "Open Receiving (GIV)"}</span>
+                  </button>
+                </div>
               )}
             </div>
 
             <div className="bg-slate-950 rounded-2xl border border-slate-800 overflow-hidden">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                    <th className="p-4">Req ID</th>
-                    <th className="p-4">Requester</th>
-                    <th className="p-4">Target Site & Zone</th>
-                    <th className="p-4">Material Requested</th>
-                    <th className="p-4">Qty Needed</th>
-                    <th className="p-4">Purpose</th>
-                    <th className="p-4">Status</th>
-                    <th className="p-4">Role-Authorized Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                  {materialRequests.map(req => (
-                    <tr key={req.id} className="hover:bg-slate-900/40 text-slate-200">
-                      <td className="p-4 text-slate-400 font-bold">{req.id}</td>
-                      <td className="p-4 font-sans font-bold text-white">{req.requesterName} ({req.requesterRole})</td>
-                      <td className="p-4 font-sans text-slate-300">{req.building} - {req.floor}</td>
-                      <td className="p-4 font-sans font-bold text-amber-400">{req.materialName}</td>
-                      <td className="p-4 font-black text-white">{req.requestedQty} {req.unit}</td>
-                      <td className="p-4 font-sans text-slate-400 text-[11px]">{req.purpose}</td>
-                      <td className="p-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                          req.status === "Approved" ? "bg-emerald-950 text-emerald-400" :
-                          req.status === "Rejected" ? "bg-red-950 text-red-400" : "bg-amber-950 text-amber-400"
-                        }`}>
-                          {req.status}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        {(canonicalRole === "warehouse_manager" || isSuperAdminOrHQ) && appMode === "warehouse_manager" ? (
-                          req.status === "Pending" ? (
-                            <div className="flex space-x-2">
-                              <button
-                                onClick={() => handleApproveRequest(req.id)}
-                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
-                              >
-                                Approve & Issue
-                              </button>
-                              <button
-                                onClick={() => handleRejectRequest(req.id)}
-                                className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer"
-                              >
-                                Reject
-                              </button>
-                            </div>
-                          ) : (
-                            <span className="text-slate-500 text-[10px]">Processed by Warehouse</span>
-                          )
-                        ) : (
-                          req.status === "Pending" ? (
-                            <span className="text-amber-400 text-[10px] font-bold">Awaiting Warehouse Manager Approval</span>
-                          ) : (
-                            <span className="text-emerald-400 text-[10px] font-bold">{req.status}</span>
-                          )
-                        )}
-                      </td>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs border-collapse">
+                  <thead>
+                    <tr className="bg-slate-900 border-b border-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      <th className="p-4">{isAmharic ? "የጥያቄ መለያ" : "Req ID"}</th>
+                      <th className="p-4">{isAmharic ? "ጠያቂ" : "Requester"}</th>
+                      <th className="p-4">{isAmharic ? "ሳይት እና ቦታ" : "Target Site & Zone"}</th>
+                      <th className="p-4">{isAmharic ? "የተጠየቀ እቃ" : "Material Requested"}</th>
+                      <th className="p-4">{isAmharic ? "የተጠየቀ ብዛት" : "Qty Needed"}</th>
+                      <th className="p-4">{isAmharic ? "ዓላማ" : "Purpose"}</th>
+                      <th className="p-4">{isAmharic ? "ሁኔታ" : "Status"}</th>
+                      <th className="p-4">{isAmharic ? "የተፈቀደ ተግባር" : "Role-Authorized Action"}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
+                    {materialRequests.map(req => (
+                      <tr key={req.id} className="hover:bg-slate-900/40 text-slate-200">
+                        <td className="p-4 text-slate-400 font-bold">{req.id}</td>
+                        <td className="p-4 font-sans font-bold text-white">{req.requesterName} ({req.requesterRole})</td>
+                        <td className="p-4 font-sans text-slate-300">{req.building} - {req.floor}</td>
+                        <td className="p-4 font-sans font-bold text-amber-400">{req.materialName}</td>
+                        <td className="p-4 font-black text-white">{req.requestedQty} {req.unit}</td>
+                        <td className="p-4 font-sans text-slate-400 text-[11px]">{req.purpose}</td>
+                        <td className="p-4">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
+                            req.status === "Approved" || req.status === "Issued" ? "bg-emerald-950 text-emerald-400" :
+                            req.status === "Rejected" ? "bg-red-950 text-red-400" : "bg-amber-950 text-amber-400"
+                          }`}>
+                            {isAmharic
+                              ? req.status === "Approved"
+                                ? "ጸድቋል"
+                                : req.status === "Issued"
+                                ? "ተልኳል"
+                                : req.status === "Rejected"
+                                ? "ውድቅ ተደርጓል"
+                                : "በመጠባበቅ ላይ"
+                              : req.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          {(canonicalRole === "warehouse_manager" || isSuperAdminOrHQ) && appMode === "warehouse_manager" ? (
+                            req.status === "Pending" ? (
+                              <div className="flex space-x-2">
+                                <button
+                                  onClick={() => handleApproveRequest(req.id)}
+                                  className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                                >
+                                  {isAmharic ? "አጽድቅ እና ላክ" : "Approve & Issue"}
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequest(req.id)}
+                                  className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[10px] font-bold cursor-pointer"
+                                >
+                                  {isAmharic ? "ውድቅ አድርግ" : "Reject"}
+                                </button>
+                              </div>
+                            ) : (
+                              <span className="text-slate-500 text-[10px]">
+                                {isAmharic ? "በመጋዘን ማናጀር ተስተናግዷል" : "Processed by Warehouse"}
+                              </span>
+                            )
+                          ) : (
+                            req.status === "Pending" ? (
+                              <span className="text-amber-400 text-[10px] font-bold">
+                                {isAmharic ? "የመጋዘን ማናጀር ማጽደቂያ በመጠባበቅ ላይ" : "Awaiting Warehouse Manager Approval"}
+                              </span>
+                            ) : req.status === "Approved" || req.status === "Issued" ? (
+                              <button
+                                onClick={() => {
+                                  setReceiveForm(prev => ({
+                                    ...prev,
+                                    materialName: req.materialName,
+                                    quantity: req.requestedQty,
+                                    unit: req.unit || prev.unit,
+                                    source: "Warehouse",
+                                    receivedBy: currentUserProfile?.displayName || (isStoreManagerOnly ? "Store Manager" : "Site Manager")
+                                  }));
+                                  setShowReceiveModal(true);
+                                }}
+                                className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-[10px] font-bold cursor-pointer"
+                              >
+                                {isAmharic ? "መቀበሉን አረጋግጥ" : "Confirm Receipt"}
+                              </button>
+                            ) : (
+                              <span className="text-rose-400 text-[10px] font-bold">
+                                {isAmharic ? "ውድቅ ተደርጓል" : req.status}
+                              </span>
+                            )
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
@@ -5242,7 +5347,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
             <form onSubmit={handleReceiveMaterial} className="space-y-3 text-xs">
               <div>
                 <MaterialSearchAutocomplete
-                  label="Material Name"
+                  label={isAmharic ? "የእቃው ስም" : "Material Name"}
                   required
                   value={receiveForm.materialName}
                   storeItems={storeItems}
@@ -5263,7 +5368,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Quantity</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "ብዛት" : "Quantity"}</label>
                   <input
                     type="number"
                     required
@@ -5273,7 +5378,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Unit</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "መለኪያ" : "Unit"}</label>
                   <input
                     type="text"
                     required
@@ -5286,7 +5391,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Driver Name</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የአሽከርካሪው ስም" : "Driver Name"}</label>
                   <input
                     type="text"
                     required
@@ -5296,7 +5401,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Truck Plate</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የሰሌዳ ቁጥር" : "Truck Plate"}</label>
                   <input
                     type="text"
                     required
@@ -5309,14 +5414,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
               <div>
                 <div className="flex justify-between items-center mb-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">GPS Intake Location</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የተቀበለበት GPS ቦታ" : "GPS Intake Location"}</label>
                   <button
                     type="button"
                     onClick={() => acquireLiveGps(coords => setReceiveForm(prev => ({ ...prev, gpsLocation: coords })))}
                     className="text-[10px] text-amber-400 hover:text-amber-300 font-bold flex items-center space-x-1 cursor-pointer"
                   >
                     <Navigation size={10} className={isAcquiringGps ? "animate-spin" : ""} />
-                    <span>{isAcquiringGps ? "Acquiring GPS..." : "Get Live GPS"}</span>
+                    <span>{isAcquiringGps ? (isAmharic ? "GPS በመፈለግ ላይ..." : "Acquiring GPS...") : (isAmharic ? "ቀጥታ GPS ውሰድ" : "Get Live GPS")}</span>
                   </button>
                 </div>
                 <input
@@ -5337,13 +5442,123 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   onClick={() => setShowReceiveModal(false)}
                   className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold cursor-pointer"
                 >
-                  Cancel
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
                 </button>
                 <button
                   type="submit"
                   className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer"
                 >
-                  Save & Notify ERP
+                  {isAmharic ? "አስቀምጥ እና አሳውቅ" : "Save & Notify ERP"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* REQUEST ITEMS FROM WAREHOUSE MANAGER MODAL */}
+      {showNewWarehouseReqModal && (
+        <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-4 animate-scaleUp text-slate-100">
+            <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+              <h3 className="text-sm font-black uppercase text-white flex items-center space-x-2">
+                <FileText size={18} className="text-emerald-400" />
+                <span>{isAmharic ? "ከዋናው መጋዘን እቃ መጠየቂያ ቅጽ" : "Request Items from Warehouse Manager"}</span>
+              </h3>
+              <button onClick={() => setShowNewWarehouseReqModal(false)} className="text-slate-400 hover:text-white cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitWarehouseRequest} className="space-y-3 text-xs">
+              <div>
+                <MaterialSearchAutocomplete
+                  label={isAmharic ? "የእቃው ስም" : "Material Name"}
+                  required
+                  value={newWarehouseReqForm.materialName}
+                  storeItems={storeItems}
+                  isAmharic={isAmharic}
+                  onChange={(name, selectedMat) => {
+                    setNewWarehouseReqForm(prev => ({
+                      ...prev,
+                      materialName: name,
+                      unit: selectedMat?.unit || prev.unit
+                    }));
+                  }}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የተጠየቀ ብዛት" : "Requested Qty"}</label>
+                  <input
+                    type="number"
+                    min={1}
+                    required
+                    value={newWarehouseReqForm.requestedQty}
+                    onChange={e => setNewWarehouseReqForm({ ...newWarehouseReqForm, requestedQty: Number(e.target.value) })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "መለኪያ" : "Unit"}</label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseReqForm.unit}
+                    onChange={e => setNewWarehouseReqForm({ ...newWarehouseReqForm, unit: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የሳይት ስም" : "Target Site"}</label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseReqForm.siteName}
+                    onChange={e => setNewWarehouseReqForm({ ...newWarehouseReqForm, siteName: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "ህንጻ / ፎቅ" : "Building & Floor"}</label>
+                  <input
+                    type="text"
+                    required
+                    value={newWarehouseReqForm.building}
+                    onChange={e => setNewWarehouseReqForm({ ...newWarehouseReqForm, building: e.target.value })}
+                    className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] font-bold text-slate-400 uppercase">{isAmharic ? "የጥያቄው ዓላማ" : "Purpose / Notes"}</label>
+                <input
+                  type="text"
+                  value={newWarehouseReqForm.purpose}
+                  onChange={e => setNewWarehouseReqForm({ ...newWarehouseReqForm, purpose: e.target.value })}
+                  placeholder={isAmharic ? "ምሳሌ፡ ለሳይት ስቶር ክምችት መሙያ" : "e.g. Urgent site store replenishment"}
+                  className="w-full mt-1 bg-slate-950 border border-slate-800 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setShowNewWarehouseReqModal(false)}
+                  className="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-bold cursor-pointer"
+                >
+                  {isAmharic ? "ሰርዝ" : "Cancel"}
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold cursor-pointer"
+                >
+                  {isAmharic ? "ለመጋዘን ማናጀር ላክ" : "Submit to Warehouse Manager"}
                 </button>
               </div>
             </form>

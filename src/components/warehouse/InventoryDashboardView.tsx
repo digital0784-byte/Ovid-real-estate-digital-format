@@ -34,6 +34,7 @@ import { WarehouseDashboardFilters } from "../../types";
 import { ErpWarehouseSnapshot } from "../../services/warehouseStoreDataService";
 import { computeDashboardKpisAndCharts } from "../../services/warehouseManagementService";
 import { WarehouseSectionKey } from "../../services/warehouseStoreRbac";
+import { tr } from "./warehouseI18n";
 import { StatusBadge } from "./WarehouseSharedUi";
 
 const PIE_COLORS = ["#10b981", "#f59e0b", "#ef4444", "#06b6d4", "#8b5cf6", "#64748b"];
@@ -44,12 +45,14 @@ export function InventoryDashboardView({
   onChangeFilters,
   onNavigateSection,
   authorizedSections,
+  isAmharic = false,
 }: {
   snapshot: ErpWarehouseSnapshot;
   filters: WarehouseDashboardFilters;
   onChangeFilters: (next: WarehouseDashboardFilters) => void;
   onNavigateSection: (section: any) => void;
   authorizedSections?: WarehouseSectionKey[];
+  isAmharic?: boolean;
 }) {
   const { kpis, charts } = React.useMemo(
     () =>
@@ -103,112 +106,112 @@ export function InventoryDashboardView({
 
   const locationOptions = React.useMemo(() => {
     const list: Array<{ id: string; label: string }> = [];
-    snapshot.warehouses.forEach((w) => list.push({ id: w.id, label: `Warehouse: ${w.name}` }));
-    snapshot.projectStores.forEach((s) => list.push({ id: s.id, label: `Site Store: ${s.storeName}` }));
+    snapshot.warehouses.forEach((w) => list.push({ id: w.id, label: `${tr(isAmharic, "Warehouse", "መጋዘን")}: ${w.name}` }));
+    snapshot.projectStores.forEach((s) => list.push({ id: s.id, label: `${tr(isAmharic, "Site Store", "ሳይት ስቶር")}: ${s.storeName}` }));
     return list;
-  }, [snapshot.warehouses, snapshot.projectStores]);
+  }, [snapshot.warehouses, snapshot.projectStores, isAmharic]);
 
   const kpiCards = [
     {
-      label: "Total Inventory Items",
+      label: tr(isAmharic, "Total Inventory Items", "ጠቅላላ የእቃ አይነቶች"),
       value: kpis.totalInventoryItems,
       icon: Boxes,
       tone: "text-sky-400",
       target: "warehouse_inventory",
     },
     {
-      label: "Warehouse Consumables Qty",
+      label: tr(isAmharic, "Warehouse Consumables Qty", "በመጋዘን ያሉ አላቂ እቃዎች"),
       value: kpis.totalWarehouseConsumableStock.toLocaleString(),
       icon: Building2,
       tone: "text-emerald-400",
       target: "reports",
     },
     {
-      label: "Project Store Consumables",
+      label: tr(isAmharic, "Project Store Consumables", "በሳይት ስቶር ያሉ አላቂ እቃዎች"),
       value: kpis.totalProjectStoreConsumableStock.toLocaleString(),
       icon: Store,
       tone: "text-cyan-400",
       target: "giv_dispatch",
     },
     {
-      label: `Valuation (${snapshot.valuationSettings.valuationMethod})`,
+      label: `${tr(isAmharic, "Valuation", "የዋጋ ግምት")} (${snapshot.valuationSettings.valuationMethod})`,
       value: `${kpis.totalInventoryValuation.toLocaleString()} ETB`,
       icon: DollarSign,
       tone: "text-amber-400",
       target: "settings",
     },
     {
-      label: "Fixed Assets (BIG BALANCE)",
+      label: tr(isAmharic, "Fixed Assets (BIG BALANCE)", "ቋሚ ንብረቶች (BIG BALANCE)"),
       value: kpis.totalFixedAssetsBigBalance,
       icon: Wrench,
       tone: "text-indigo-400",
       target: "fixed_assets_big_balance",
     },
     {
-      label: "Assets in Warehouse",
+      label: tr(isAmharic, "Assets in Warehouse", "በመጋዘን ያሉ ቋሚ ንብረቶች"),
       value: kpis.fixedAssetsInWarehouse,
       icon: PackageCheck,
       tone: "text-emerald-300",
       target: "fixed_assets_big_balance",
     },
     {
-      label: "Assets Assigned to Projects",
+      label: tr(isAmharic, "Assets Assigned to Projects", "ለፕሮጀክት የተመደቡ ንብረቶች"),
       value: kpis.fixedAssetsInProjects,
       icon: Store,
       tone: "text-teal-400",
       target: "project_fixed_assets",
     },
     {
-      label: "Pending Material Requests",
+      label: tr(isAmharic, "Pending Material Requests", "በመጠባበቅ ላይ ያሉ የእቃ ጥያቄዎች"),
       value: kpis.pendingMaterialRequests,
       icon: ClipboardList,
       tone: "text-amber-300",
       target: "material_requests",
     },
     {
-      label: "Pending Director Approvals",
+      label: tr(isAmharic, "Pending Director Approvals", "የዳይሬክተር ውሳኔ የሚጠብቁ"),
       value: kpis.pendingDirectorApprovals,
       icon: ShieldAlert,
       tone: "text-rose-400",
       target: "director_approvals",
     },
     {
-      label: "Approved Pending Dispatch",
+      label: tr(isAmharic, "Approved Pending Dispatch", "ጸድቀው መላክ የሚጠብቁ"),
       value: kpis.approvedRequestsPendingDispatch,
       icon: Truck,
       tone: "text-sky-300",
       target: "giv_dispatch",
     },
     {
-      label: "Dispatched / In Transit",
+      label: tr(isAmharic, "Dispatched / In Transit", "ተልከው በመንገድ ላይ ያሉ"),
       value: kpis.dispatchedInTransitCount,
       icon: Truck,
       tone: "text-amber-400",
       target: "transportation",
     },
     {
-      label: "Pending Gate Passes",
+      label: tr(isAmharic, "Pending Gate Passes", "የበር ማለፊያ የሚጠብቁ"),
       value: kpis.pendingGatePasses,
       icon: QrCode,
       tone: "text-cyan-300",
       target: "gate_pass",
     },
     {
-      label: "Low Stock Alerts",
+      label: tr(isAmharic, "Low Stock Alerts", "ዝቅተኛ ክምችት ማስጠንቀቂያ"),
       value: kpis.lowStockAlertsCount,
       icon: AlertTriangle,
       tone: kpis.lowStockAlertsCount > 0 ? "text-rose-400" : "text-slate-400",
       target: "reports",
     },
     {
-      label: "Damaged / Quarantine Qty",
+      label: tr(isAmharic, "Damaged / Quarantine Qty", "የተበላሹ / ኳራንቲን ብዛት"),
       value: kpis.damagedQuarantineStockCount,
       icon: AlertTriangle,
       tone: kpis.damagedQuarantineStockCount > 0 ? "text-rose-400" : "text-slate-400",
       target: "quarantine_stock",
     },
     {
-      label: "GRVs w/ Commercial Invoice",
+      label: tr(isAmharic, "GRVs w/ Commercial Invoice", "የንግድ ደረሰኝ ያላቸው GRVዎች"),
       value: kpis.totalGrvsWithCommercialInvoices,
       icon: FileCheck2,
       tone: "text-emerald-400",
@@ -223,7 +226,7 @@ export function InventoryDashboardView({
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2 text-xs font-bold text-slate-200 uppercase tracking-wider">
             <Filter size={14} className="text-amber-400" />
-            <span>Global Inventory Filters (5 Dimensions)</span>
+            <span>{tr(isAmharic, "Global Inventory Filters (5 Dimensions)", "አጠቃላይ የክምችት ማጣሪያዎች (5 አቅጣጫዎች)")}</span>
           </div>
           <button
             type="button"
@@ -239,13 +242,13 @@ export function InventoryDashboardView({
             }
             className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
           >
-            Reset All Filters
+            {tr(isAmharic, "Reset All Filters", "ሁሉንም ማጣሪያዎች አጽዳ")}
           </button>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           <div>
-            <label className="block text-[11px] text-slate-400 mb-1">Date From</label>
+            <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Date From", "ከቀን")}</label>
             <input
               type="date"
               value={filters.dateFrom || ""}
@@ -254,7 +257,7 @@ export function InventoryDashboardView({
             />
           </div>
           <div>
-            <label className="block text-[11px] text-slate-400 mb-1">Date To</label>
+            <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Date To", "እስከ ቀን")}</label>
             <input
               type="date"
               value={filters.dateTo || ""}
@@ -263,13 +266,13 @@ export function InventoryDashboardView({
             />
           </div>
           <div>
-            <label className="block text-[11px] text-slate-400 mb-1">Project</label>
+            <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Project", "ፕሮጀክት")}</label>
             <select
               value={filters.projectId || "ALL"}
               onChange={(e) => onChangeFilters({ ...filters, projectId: e.target.value })}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
             >
-              <option value="ALL">All Projects</option>
+              <option value="ALL">{tr(isAmharic, "All Projects", "ሁሉም ፕሮጀክቶች")}</option>
               {projectOptions.map(([id, name]) => (
                 <option key={id} value={id}>
                   {name}
@@ -278,13 +281,13 @@ export function InventoryDashboardView({
             </select>
           </div>
           <div>
-            <label className="block text-[11px] text-slate-400 mb-1">Warehouse / Site Store</label>
+            <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Warehouse / Site Store", "መጋዘን / ሳይት ስቶር")}</label>
             <select
               value={filters.locationId || "ALL"}
               onChange={(e) => onChangeFilters({ ...filters, locationId: e.target.value })}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
             >
-              <option value="ALL">All Warehouses & Site Stores</option>
+              <option value="ALL">{tr(isAmharic, "All Warehouses & Site Stores", "ሁሉም መጋዘኖች እና ሳይት ስቶሮች")}</option>
               {locationOptions.map((loc) => (
                 <option key={loc.id} value={loc.id}>
                   {loc.label}
@@ -293,13 +296,13 @@ export function InventoryDashboardView({
             </select>
           </div>
           <div>
-            <label className="block text-[11px] text-slate-400 mb-1">Category</label>
+            <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Category", "ምድብ")}</label>
             <select
               value={filters.categoryId || "ALL"}
               onChange={(e) => onChangeFilters({ ...filters, categoryId: e.target.value })}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
             >
-              <option value="ALL">All Categories</option>
+              <option value="ALL">{tr(isAmharic, "All Categories", "ሁሉም ምድቦች")}</option>
               {snapshot.categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}
@@ -308,7 +311,7 @@ export function InventoryDashboardView({
             </select>
           </div>
           <div>
-            <label className="block text-[11px] text-slate-400 mb-1">Item Classification</label>
+            <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Item Classification", "የእቃ አይነት")}</label>
             <select
               value={filters.inventoryType}
               onChange={(e) =>
@@ -316,9 +319,9 @@ export function InventoryDashboardView({
               }
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white"
             >
-              <option value="ALL">All Types</option>
-              <option value="Consumable">Consumables Only</option>
-              <option value="Fixed Asset">Fixed Assets Only</option>
+              <option value="ALL">{tr(isAmharic, "All Types", "ሁሉም አይነቶች")}</option>
+              <option value="Consumable">{tr(isAmharic, "Consumables Only", "አላቂ እቃዎች ብቻ")}</option>
+              <option value="Fixed Asset">{tr(isAmharic, "Fixed Assets Only", "ቋሚ ንብረቶች ብቻ")}</option>
             </select>
           </div>
         </div>
@@ -356,7 +359,7 @@ export function InventoryDashboardView({
         {/* Chart 1 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">
-            1. Consumables Stock vs Fixed Assets by Category
+            {tr(isAmharic, "1. Consumables Stock vs Fixed Assets by Category", "1. አላቂ እቃዎች እና ቋሚ ንብረቶች በምድብ")}
           </h4>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -366,8 +369,8 @@ export function InventoryDashboardView({
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="consumablesQty" name="Consumables Qty" fill="#10b981" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="fixedAssetsCount" name="Fixed Assets Count" fill="#6366f1" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="consumablesQty" name={tr(isAmharic, "Consumables Qty", "አላቂ እቃ ብዛት")} fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="fixedAssetsCount" name={tr(isAmharic, "Fixed Assets Count", "ቋሚ ንብረት ብዛት")} fill="#6366f1" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -376,7 +379,7 @@ export function InventoryDashboardView({
         {/* Chart 2 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">
-            2. Warehouse vs Project Store Stock Distribution
+            {tr(isAmharic, "2. Warehouse vs Project Store Stock Distribution", "2. የመጋዘን እና የሳይት ስቶር ክምችት ስርጭት")}
           </h4>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -386,8 +389,8 @@ export function InventoryDashboardView({
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="availableQty" name="Usable Available Qty" fill="#06b6d4" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="quarantineQty" name="Quarantined Qty" fill="#ef4444" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="availableQty" name={tr(isAmharic, "Usable Available Qty", "ዝግጁ ክምችት")} fill="#06b6d4" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="quarantineQty" name={tr(isAmharic, "Quarantined Qty", "ኳራንቲን ብዛት")} fill="#ef4444" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -396,7 +399,7 @@ export function InventoryDashboardView({
         {/* Chart 3 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">
-            3. Material Plan vs Requested vs Dispatched
+            {tr(isAmharic, "3. Material Plan vs Requested vs Dispatched", "3. የታቀደ፣ የተጠየቀ እና የተላከ እቃ ንጽጽር")}
           </h4>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -406,9 +409,9 @@ export function InventoryDashboardView({
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Bar dataKey="planned" name="Planned" fill="#64748b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="requested" name="Requested" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="dispatched" name="Dispatched" fill="#10b981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="planned" name={tr(isAmharic, "Planned", "የታቀደ")} fill="#64748b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="requested" name={tr(isAmharic, "Requested", "የተጠየቀ")} fill="#f59e0b" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="dispatched" name={tr(isAmharic, "Dispatched", "የተላከ")} fill="#10b981" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -417,7 +420,7 @@ export function InventoryDashboardView({
         {/* Chart 4 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">
-            4. Inward vs Outward vs Return Movement Trend
+            {tr(isAmharic, "4. Inward vs Outward vs Return Movement Trend", "4. የገቢ፣ የወጪ እና የተመላሽ እቃዎች እንቅስቃሴ")}
           </h4>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -427,9 +430,9 @@ export function InventoryDashboardView({
                 <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: 12 }} />
                 <Legend wrapperStyle={{ fontSize: 11 }} />
-                <Area type="monotone" dataKey="received" name="GRV Received" stroke="#10b981" fill="#10b98133" />
-                <Area type="monotone" dataKey="dispatched" name="GIV/FATOV Out" stroke="#f59e0b" fill="#f59e0b33" />
-                <Area type="monotone" dataKey="returned" name="MRV Returned" stroke="#06b6d4" fill="#06b6d433" />
+                <Area type="monotone" dataKey="received" name={tr(isAmharic, "GRV Received", "በGRV የገባ")} stroke="#10b981" fill="#10b98133" />
+                <Area type="monotone" dataKey="dispatched" name={tr(isAmharic, "GIV/FATOV Out", "በGIV/FATOV የወጣ")} stroke="#f59e0b" fill="#f59e0b33" />
+                <Area type="monotone" dataKey="returned" name={tr(isAmharic, "MRV Returned", "በMRV የተመለሰ")} stroke="#06b6d4" fill="#06b6d433" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
@@ -438,7 +441,7 @@ export function InventoryDashboardView({
         {/* Chart 5 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">
-            5. Fixed Assets Condition Breakdown
+            {tr(isAmharic, "5. Fixed Assets Condition Breakdown", "5. የቋሚ ንብረቶች ሁኔታ ዝርዝር")}
           </h4>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -466,7 +469,7 @@ export function InventoryDashboardView({
         {/* Chart 6 */}
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
           <h4 className="text-xs font-bold text-slate-200 uppercase tracking-wider mb-3">
-            6. Two-Way Transportation & Gate Pass Status Summary
+            {tr(isAmharic, "6. Two-Way Transportation & Gate Pass Status Summary", "6. የሁለትዮሽ ትራንስፖርት እና የበር ማለፊያ ማጠቃለያ")}
           </h4>
           <div className="h-56">
             <ResponsiveContainer width="100%" height="100%">
@@ -475,7 +478,7 @@ export function InventoryDashboardView({
                 <XAxis type="number" tick={{ fill: "#94a3b8", fontSize: 11 }} />
                 <YAxis dataKey="status" type="category" width={120} tick={{ fill: "#94a3b8", fontSize: 10 }} />
                 <Tooltip contentStyle={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: 12 }} />
-                <Bar dataKey="count" name="Shipments" fill="#f59e0b" radius={[0, 4, 4, 0]} />
+                <Bar dataKey="count" name={tr(isAmharic, "Shipments", "ጭነቶች")} fill="#f59e0b" radius={[0, 4, 4, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -488,14 +491,14 @@ export function InventoryDashboardView({
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
               <AlertTriangle size={14} />
-              <span>Low Stock & Reorder Threshold Alerts</span>
+              <span>{tr(isAmharic, "Low Stock & Reorder Threshold Alerts", "ዝቅተኛ ክምችት እና ዳግም ማዘዣ ማስጠንቀቂያ")}</span>
             </h4>
-            <span className="text-[11px] font-mono text-slate-400">{lowStockRows.length} Active</span>
+            <span className="text-[11px] font-mono text-slate-400">{lowStockRows.length} {tr(isAmharic, "Active", "ንቁ")}</span>
           </div>
           {lowStockRows.length === 0 ? (
             <p className="text-xs text-slate-400 flex items-center gap-1.5">
               <CheckCircle2 size={14} className="text-emerald-400" />
-              All inventoried items are currently above minimum reorder levels.
+              {tr(isAmharic, "All inventoried items are currently above minimum reorder levels.", "ሁሉም የተመዘገቡ እቃዎች በቂ ክምችት ላይ ናቸው።")}
             </p>
           ) : (
             <div className="space-y-2">
@@ -514,7 +517,7 @@ export function InventoryDashboardView({
                     <div className="text-rose-400 font-bold">
                       {b.availableQty} {b.unit}
                     </div>
-                    <div className="text-[10px] text-slate-500">Min: {b.reorderPoint || b.minStockLevel}</div>
+                    <div className="text-[10px] text-slate-500">{tr(isAmharic, "Min", "ዝቅተኛ")}: {b.reorderPoint || b.minStockLevel}</div>
                   </div>
                 </div>
               ))}
@@ -526,7 +529,7 @@ export function InventoryDashboardView({
           <div className="flex items-center justify-between mb-3">
             <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
               <ShieldAlert size={14} />
-              <span>Segregated Quarantine & Damaged Stock</span>
+              <span>{tr(isAmharic, "Segregated Quarantine & Damaged Stock", "የተለዩ የተጎዱ እና ኳራንቲን እቃዎች")}</span>
             </h4>
             {(!authorizedSections || authorizedSections.includes("quarantine_stock")) && (
               <button
@@ -534,12 +537,12 @@ export function InventoryDashboardView({
                 onClick={() => onNavigateSection("quarantine_stock")}
                 className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
               >
-                Inspect Queue
+                {tr(isAmharic, "Inspect Queue", "ዝርዝሩን ይመልከቱ")}
               </button>
             )}
           </div>
           {quarantineRows.length === 0 ? (
-            <p className="text-xs text-slate-400">No items currently held in quarantine storage.</p>
+            <p className="text-xs text-slate-400">{tr(isAmharic, "No items currently held in quarantine storage.", "በአሁኑ ጊዜ በኳራንቲን ክምችት ውስጥ የተያዘ እቃ የለም።")}</p>
           ) : (
             <div className="space-y-2">
               {quarantineRows.map((b) => (
@@ -555,7 +558,7 @@ export function InventoryDashboardView({
                     <span className="font-mono text-rose-300 font-bold">
                       {b.quarantineQty} {b.unit}
                     </span>
-                    <StatusBadge status="Quarantined" />
+                    <StatusBadge status="Quarantined" isAmharic={isAmharic} />
                   </div>
                 </div>
               ))}

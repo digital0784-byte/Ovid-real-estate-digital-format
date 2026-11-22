@@ -5,13 +5,12 @@ import {
   BarChart3,
   Bell,
   BookOpen,
-  Boxes,
   Building2,
   ClipboardCheck,
   FileCheck2,
   FileSpreadsheet,
   FileText,
-  Layers,
+  Languages,
   Lock,
   PackageCheck,
   PackagePlus,
@@ -32,9 +31,11 @@ import {
   WarehouseActorContext,
 } from "../../services/warehouseStoreDataService";
 import {
+  canPerformWarehouseModuleAction,
   getAuthorizedSectionsForRole,
   WarehouseSectionKey,
 } from "../../services/warehouseStoreRbac";
+import { getWarehouseSectionLabel, tr } from "./warehouseI18n";
 import { ActionFeedbackBanner, PrintPreviewModal } from "./WarehouseSharedUi";
 import { InventoryDashboardView } from "./InventoryDashboardView";
 import { MasterDataAndFacilitiesView } from "./MasterDataAndFacilitiesView";
@@ -77,6 +78,7 @@ export function WarehouseSiteStoreModule({
   currentUserRole,
   currentUserProfile,
   isAmharic = false,
+  onToggleLanguage,
   workers = [],
   onLogAction,
   onCreateNotification,
@@ -84,10 +86,23 @@ export function WarehouseSiteStoreModule({
   currentUserRole: UserRole;
   currentUserProfile: any;
   isAmharic?: boolean;
+  onToggleLanguage?: () => void;
   workers?: Worker[];
   onLogAction?: (action: string, details: string) => void;
   onCreateNotification?: (notification: any) => void;
 }) {
+  const [localAmharicOverride, setLocalAmharicOverride] = useState<boolean | null>(null);
+  const effectiveAmharic = localAmharicOverride !== null ? localAmharicOverride : isAmharic;
+
+  const handleToggleLang = () => {
+    if (onToggleLanguage) {
+      setLocalAmharicOverride(null);
+      onToggleLanguage();
+    } else {
+      setLocalAmharicOverride(!effectiveAmharic);
+    }
+  };
+
   const actor: WarehouseActorContext = {
     uid: currentUserProfile?.uid || `UID-${String(currentUserRole).replace(/\s+/g, "_")}`,
     name: currentUserProfile?.displayName || `${currentUserRole} User`,
@@ -100,6 +115,11 @@ export function WarehouseSiteStoreModule({
     () => getAuthorizedSectionsForRole(currentUserRole),
     [currentUserRole]
   );
+
+  const isStoreOrSiteSide =
+    canPerformWarehouseModuleAction(currentUserRole, "CREATE_MATERIAL_REQUEST") &&
+    !canPerformWarehouseModuleAction(currentUserRole, "VERIFY_RETURN_MATERIAL_REQUEST") &&
+    !canPerformWarehouseModuleAction(currentUserRole, "PREPARE_CONFIRM_DISPATCH_GIV");
 
   const [activeSection, setActiveSection] = useState<WarehouseSectionKey>(
     authorizedSections[0] || "dashboard"
@@ -136,7 +156,11 @@ export function WarehouseSiteStoreModule({
   if (!snapshot) {
     return (
       <div className="p-8 text-center text-xs text-slate-400">
-        Connecting to Enterprise Warehouse & Site Store Firestore streams...
+        {tr(
+          effectiveAmharic,
+          "Connecting to Enterprise Warehouse & Site Store Firestore streams...",
+          "ከመጋዘን እና ሳይት ስቶር የFirestore መረጃ ስርዓት ጋር በመገናኘት ላይ..."
+        )}
       </div>
     );
   }
@@ -152,30 +176,43 @@ export function WarehouseSiteStoreModule({
       {/* Module Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <span className="px-2 py-0.5 rounded bg-amber-500/15 border border-amber-500/40 text-[10px] font-bold uppercase text-amber-300">
-              OVID ERP Logistics & Inventory
+              {tr(effectiveAmharic, "OVID ERP Logistics & Inventory", "OVID ERP መጋዘን እና ክምችት ስርዓት")}
             </span>
             <span className="text-[11px] font-mono text-emerald-400">
-              Valuation: {snapshot.valuationSettings.valuationMethod}
+              {tr(effectiveAmharic, "Valuation", "የዋጋ ግምት")}: {snapshot.valuationSettings.valuationMethod}
             </span>
           </div>
           <h2 className="text-lg font-extrabold text-white mt-1">
-            Warehouse & Site Store Management
+            {tr(effectiveAmharic, "Warehouse & Site Store Management", "የመጋዘን እና ሳይት ስቶር አስተዳደር")}
           </h2>
           <p className="text-xs text-slate-400">
-            Role: <strong className="text-white">{currentUserRole}</strong>
-            {actor.assignedProject ? ` · Scope: ${actor.assignedProject}` : ""}
+            {tr(effectiveAmharic, "Role", "ሚና")}: <strong className="text-white">{currentUserRole}</strong>
+            {actor.assignedProject ? ` · ${tr(effectiveAmharic, "Scope", "ፕሮጀክት")}: ${actor.assignedProject}` : ""}
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {isFinanceReadOnly && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-amber-300 text-xs font-semibold">
               <Lock size={13} />
-              Read-Only Financial Oversight (+ Valuation Settings)
+              {tr(
+                effectiveAmharic,
+                "Read-Only Financial Oversight (+ Valuation Settings)",
+                "ለንባብ ብቻ የፋይናንስ ቁጥጥር (+ የዋጋ ግምት ቅንብር)"
+              )}
             </span>
           )}
+          <button
+            type="button"
+            onClick={handleToggleLang}
+            className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-amber-300 font-bold flex items-center gap-1.5 cursor-pointer"
+            title={tr(effectiveAmharic, "Switch to Amharic", "ወደ እንግሊዝኛ ቀይር")}
+          >
+            <Languages size={14} />
+            <span>{effectiveAmharic ? "English" : "አማርኛ"}</span>
+          </button>
           {authorizedSections.includes("notifications") && (
             <button
               type="button"
@@ -183,7 +220,9 @@ export function WarehouseSiteStoreModule({
               className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-semibold flex items-center gap-1.5 cursor-pointer"
             >
               <Bell size={14} className="text-amber-400" />
-              <span>Alerts ({unreadCount})</span>
+              <span>
+                {tr(effectiveAmharic, "Alerts", "ማስጠንቀቂያ")} ({unreadCount})
+              </span>
             </button>
           )}
         </div>
@@ -194,6 +233,9 @@ export function WarehouseSiteStoreModule({
         {visibleTabs.map((tab) => {
           const Icon = tab.icon;
           const active = activeSection === tab.key;
+          const label = getWarehouseSectionLabel(tab.key, tab.label, effectiveAmharic, {
+            isStoreOrSiteSide,
+          });
           return (
             <button
               key={tab.key}
@@ -206,7 +248,7 @@ export function WarehouseSiteStoreModule({
               }`}
             >
               <Icon size={13} />
-              <span>{tab.label}</span>
+              <span>{label}</span>
             </button>
           );
         })}
@@ -222,6 +264,7 @@ export function WarehouseSiteStoreModule({
             filters={filters}
             onChangeFilters={setFilters}
             authorizedSections={authorizedSections}
+            isAmharic={effectiveAmharic}
             onNavigateSection={(sec) => {
               if (authorizedSections.includes(sec)) setActiveSection(sec);
             }}
@@ -233,6 +276,7 @@ export function WarehouseSiteStoreModule({
             mode={activeSection}
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
           />
         )}
@@ -244,6 +288,7 @@ export function WarehouseSiteStoreModule({
             mode={activeSection}
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
           />
         )}
@@ -253,6 +298,7 @@ export function WarehouseSiteStoreModule({
             mode={activeSection}
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
           />
@@ -262,6 +308,7 @@ export function WarehouseSiteStoreModule({
           <DispatchAndGivView
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
           />
@@ -274,6 +321,7 @@ export function WarehouseSiteStoreModule({
             mode={activeSection}
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
           />
@@ -284,6 +332,7 @@ export function WarehouseSiteStoreModule({
             mode={activeSection}
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
           />
@@ -294,6 +343,7 @@ export function WarehouseSiteStoreModule({
             mode={activeSection}
             snapshot={snapshot}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
           />
@@ -309,6 +359,7 @@ export function WarehouseSiteStoreModule({
             snapshot={snapshot}
             filters={filters}
             actor={actor}
+            isAmharic={effectiveAmharic}
             onFeedback={showFeedback}
             onOpenPrint={(title, html) => setPrintPreview({ title, html })}
           />
@@ -316,7 +367,7 @@ export function WarehouseSiteStoreModule({
 
         {(activeSection === "warehouse_fleet_formwork" || activeSection === "store_field_operations") && (
           <StoreOwnerApp
-            isAmharic={isAmharic}
+            isAmharic={effectiveAmharic}
             currentUserRole={currentUserRole}
             currentUserProfile={currentUserProfile}
             workers={workers}
@@ -333,6 +384,7 @@ export function WarehouseSiteStoreModule({
         <PrintPreviewModal
           title={printPreview.title}
           html={printPreview.html}
+          isAmharic={effectiveAmharic}
           onClose={() => setPrintPreview(null)}
         />
       )}

@@ -23,17 +23,20 @@ import {
   isStrictDirectorRole,
 } from "../../services/warehouseStoreRbac";
 import { compareMaterialRequestAgainstPlan } from "../../services/warehouseManagementService";
+import { tr } from "./warehouseI18n";
 import { StatusBadge } from "./WarehouseSharedUi";
 
 export function MaterialPlanningAndRequestsView({
   mode,
   snapshot,
   actor,
+  isAmharic = false,
   onFeedback,
 }: {
   mode: "material_planning" | "material_requests" | "director_approvals";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
+  isAmharic?: boolean;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
 }) {
   const canPlan = canPerformWarehouseModuleAction(actor.role, "CREATE_REVISE_MATERIAL_PLAN");
@@ -119,7 +122,7 @@ export function MaterialPlanningAndRequestsView({
             plannedQty: Number(l.plannedQty),
           };
         });
-      if (items.length === 0) throw new Error("Add at least one catalog item with positive quantity.");
+      if (items.length === 0) throw new Error(tr(isAmharic, "Add at least one catalog item with positive quantity.", "ቢያንስ አንድ እቃ ከብዛት ጋር ያስገቡ።"));
       const created = await WarehouseStoreDataService.createMaterialPlan(
         {
           title: planTitle,
@@ -131,9 +134,9 @@ export function MaterialPlanningAndRequestsView({
         actor
       );
       setPlanTitle("");
-      onFeedback("success", `Material Plan ${created.planNumber} published and ready for Site Store requests.`);
+      onFeedback("success", tr(isAmharic, `Material Plan ${created.planNumber} published and ready for Site Store requests.`, `የምህንድስና ዕቅድ ${created.planNumber} ታትሟል፣ ለሳይት ስቶር ጥያቄዎች ዝግጁ ነው።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to publish material plan.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to publish material plan.", "የእቃ ዕቅዱን ማተም አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -151,9 +154,9 @@ export function MaterialPlanningAndRequestsView({
       );
       setRevisingPlan(null);
       setRevReason("");
-      onFeedback("success", `${res.plan.planNumber} revised to Rev ${res.plan.revisionNumber}. Notifications dispatched.`);
+      onFeedback("success", tr(isAmharic, `${res.plan.planNumber} revised to Rev ${res.plan.revisionNumber}. Notifications dispatched.`, `${res.plan.planNumber} ወደ ክለሳ ${res.plan.revisionNumber} ተሻሽሏል። ማሳወቂያዎች ተልከዋል።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to revise plan.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to revise plan.", "ዕቅዱን ማሻሻል አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -166,7 +169,7 @@ export function MaterialPlanningAndRequestsView({
     try {
       const store = snapshot.projectStores.find((s) => s.id === reqStoreId) || snapshot.projectStores[0];
       const wh = snapshot.warehouses.find((w) => w.id === reqWhId) || snapshot.warehouses[0];
-      if (!store || !wh) throw new Error("Register a Warehouse and a Project Site Store first.");
+      if (!store || !wh) throw new Error(tr(isAmharic, "Register a Warehouse and a Project Site Store first.", "መጋዘን እና የፕሮጀክት ሳይት ስቶር መጀመሪያ መመዝገብ አለባቸው።"));
       const items = selectedPlan.items
         .map((pi) => {
           const entry = reqItemQtys[pi.itemId];
@@ -183,7 +186,7 @@ export function MaterialPlanningAndRequestsView({
           };
         })
         .filter(Boolean) as any[];
-      if (items.length === 0) throw new Error("Enter a positive requested quantity for at least one planned item.");
+      if (items.length === 0) throw new Error(tr(isAmharic, "Enter a positive requested quantity for at least one planned item.", "ቢያንስ ለአንድ የታቀደ እቃ የሚጠየቅ ብዛት ያስገቡ።"));
 
       const created = await WarehouseStoreDataService.createMaterialRequest(
         {
@@ -203,10 +206,14 @@ export function MaterialPlanningAndRequestsView({
       setReqItemQtys({});
       onFeedback(
         created.hasPlanMismatch ? "info" : "success",
-        `Request ${created.requestNumber} submitted for Warehouse Manager plan comparison verification.`
+        tr(
+          isAmharic,
+          `Request ${created.requestNumber} submitted for Warehouse Manager plan comparison verification.`,
+          `የእቃ ጥያቄ ${created.requestNumber} ለመጋዘን ማናጀር ማረጋገጫ ተልኳል።`
+        )
       );
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to submit material request.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to submit material request.", "የእቃ ጥያቄውን መላክ አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -224,11 +231,11 @@ export function MaterialPlanningAndRequestsView({
       onFeedback(
         action === "verify" ? "success" : "info",
         action === "verify"
-          ? `${res.request.requestNumber} verified & forwarded to Director for Final Approval.`
-          : `${res.request.requestNumber} returned due to discrepancy.`
+          ? tr(isAmharic, `${res.request.requestNumber} verified & forwarded to Director for Final Approval.`, `${res.request.requestNumber} ተረጋግጦ ለዳይሬክተር የመጨረሻ ውሳኔ ተላልፏል።`)
+          : tr(isAmharic, `${res.request.requestNumber} returned due to discrepancy.`, `${res.request.requestNumber} በልዩነት ምክንያት ተመልሷል።`)
       );
     } catch (err: any) {
-      onFeedback("error", err?.message || "Verification failed.");
+      onFeedback("error", err?.message || tr(isAmharic, "Verification failed.", "ማረጋገጥ አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -248,10 +255,10 @@ export function MaterialPlanningAndRequestsView({
       );
       onFeedback(
         decision === "Director Approved" ? "success" : "info",
-        `${res.request.requestNumber} permanently marked as ${decision}.`
+        tr(isAmharic, `${res.request.requestNumber} permanently marked as ${decision}.`, `${res.request.requestNumber} በቋሚነት "${decision}" ተብሎ ተወስኗል።`)
       );
     } catch (err: any) {
-      onFeedback("error", err?.message || "Director decision failed.");
+      onFeedback("error", err?.message || tr(isAmharic, "Director decision failed.", "የዳይሬክተር ውሳኔ አልተሳካም።"));
     } finally {
       setSubmitting(false);
     }
@@ -265,12 +272,12 @@ export function MaterialPlanningAndRequestsView({
           <form onSubmit={handleCreatePlan} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <FileText size={16} className="text-amber-400" />
-              <span>Create Approved Engineering Material Plan (Office Manager Engineer)</span>
+              <span>{tr(isAmharic, "Create Approved Engineering Material Plan (Office Manager Engineer)", "የጸደቀ የምህንድስና እቃ ዕቅድ መፍጠሪያ (Office Manager Engineer)")}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input
                 required
-                placeholder="Plan Title (e.g. Phase 2 Superstructure BOQ)"
+                placeholder={tr(isAmharic, "Plan Title (e.g. Phase 2 Superstructure BOQ)", "የዕቅዱ ርዕስ (ለምሳሌ፡ ምዕራፍ 2 BOQ)")}
                 value={planTitle}
                 onChange={(e) => setPlanTitle(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -286,7 +293,7 @@ export function MaterialPlanningAndRequestsView({
                 {snapshot.erpProjects.length === 0 && <option value="PROJ-MAIN">OVID Main Project</option>}
               </select>
               <input
-                placeholder="Engineering Department"
+                placeholder={tr(isAmharic, "Engineering Department", "የምህንድስና ክፍል")}
                 value={planDept}
                 onChange={(e) => setPlanDept(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -305,7 +312,7 @@ export function MaterialPlanningAndRequestsView({
                     }}
                     className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white sm:col-span-2"
                   >
-                    <option value="">Select Catalog Item...</option>
+                    <option value="">{tr(isAmharic, "Select Catalog Item...", "ከካታሎግ እቃ ይምረጡ...")}</option>
                     {snapshot.items.map((it) => (
                       <option key={it.id} value={it.id}>
                         {it.itemCode} — {it.itemName} ({it.unit}) [{it.inventoryType}]
@@ -315,7 +322,7 @@ export function MaterialPlanningAndRequestsView({
                   <input
                     type="number"
                     min={1}
-                    placeholder="Planned Qty"
+                    placeholder={tr(isAmharic, "Planned Qty", "የታቀደ ብዛት")}
                     value={line.plannedQty}
                     onChange={(e) => {
                       const next = [...planLines];
@@ -325,7 +332,7 @@ export function MaterialPlanningAndRequestsView({
                     className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
                   />
                   <input
-                    placeholder="Spec / Grade"
+                    placeholder={tr(isAmharic, "Spec / Grade", "መስፈርት / ደረጃ")}
                     value={line.specification}
                     onChange={(e) => {
                       const next = [...planLines];
@@ -341,7 +348,7 @@ export function MaterialPlanningAndRequestsView({
                 onClick={() => setPlanLines([...planLines, { itemId: "", plannedQty: 1, specification: "" }])}
                 className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
               >
-                + Add Another Material Line
+                {tr(isAmharic, "+ Add Another Material Line", "+ ሌላ እቃ ጨምር")}
               </button>
             </div>
 
@@ -351,7 +358,7 @@ export function MaterialPlanningAndRequestsView({
               className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Plus size={14} />
-              <span>Publish Material Plan</span>
+              <span>{tr(isAmharic, "Publish Material Plan", "የእቃ ዕቅዱን አትም")}</span>
             </button>
           </form>
         )}
@@ -367,13 +374,13 @@ export function MaterialPlanningAndRequestsView({
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-mono font-extrabold text-amber-400">{plan.planNumber}</span>
                       <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">
-                        Rev {plan.revisionNumber}
+                        {tr(isAmharic, "Rev", "ክለሳ")} {plan.revisionNumber}
                       </span>
-                      <StatusBadge status={plan.status} />
+                      <StatusBadge status={plan.status} isAmharic={isAmharic} />
                     </div>
                     <h4 className="text-sm font-bold text-white mt-1">{plan.title}</h4>
                     <div className="text-xs text-slate-400">
-                      Project: {plan.projectName} · Created by {plan.createdByName}
+                      {tr(isAmharic, "Project", "ፕሮጀክት")}: {plan.projectName} · {tr(isAmharic, "Created by", "አዘጋጅ")} {plan.createdByName}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -385,7 +392,7 @@ export function MaterialPlanningAndRequestsView({
                       className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                     >
                       <History size={13} />
-                      <span>Revisions ({revs.length})</span>
+                      <span>{tr(isAmharic, "Revisions", "ክለሳዎች")} ({revs.length})</span>
                     </button>
                     {canPlan && (
                       <button
@@ -397,7 +404,7 @@ export function MaterialPlanningAndRequestsView({
                         className="px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-600/40 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                       >
                         <Edit3 size={13} />
-                        <span>Revise Plan</span>
+                        <span>{tr(isAmharic, "Revise Plan", "ዕቅድ አሻሽል")}</span>
                       </button>
                     )}
                   </div>
@@ -407,10 +414,10 @@ export function MaterialPlanningAndRequestsView({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase">
                       <tr>
-                        <th className="px-3 py-2">Code</th>
-                        <th className="px-3 py-2">Item & Specification</th>
-                        <th className="px-3 py-2">Type</th>
-                        <th className="px-3 py-2 text-right">Planned Qty</th>
+                        <th className="px-3 py-2">{tr(isAmharic, "Code", "መለያ ኮድ")}</th>
+                        <th className="px-3 py-2">{tr(isAmharic, "Item & Specification", "እቃ እና መስፈርት")}</th>
+                        <th className="px-3 py-2">{tr(isAmharic, "Type", "አይነት")}</th>
+                        <th className="px-3 py-2 text-right">{tr(isAmharic, "Planned Qty", "የታቀደ ብዛት")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
@@ -420,7 +427,7 @@ export function MaterialPlanningAndRequestsView({
                           <td className="px-3 py-2 text-white">
                             {it.itemName} {it.specification && <span className="text-slate-400">({it.specification})</span>}
                           </td>
-                          <td className="px-3 py-2"><StatusBadge status={it.inventoryType} /></td>
+                          <td className="px-3 py-2"><StatusBadge status={it.inventoryType} isAmharic={isAmharic} /></td>
                           <td className="px-3 py-2 text-right font-mono font-bold text-emerald-300 tabular-nums">
                             {it.plannedQty} {it.unit}
                           </td>
@@ -432,16 +439,16 @@ export function MaterialPlanningAndRequestsView({
 
                 {viewingHistoryPlanId === plan.id && (
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 space-y-2">
-                    <div className="text-[11px] font-bold uppercase text-amber-400">Revision Audit History</div>
+                    <div className="text-[11px] font-bold uppercase text-amber-400">{tr(isAmharic, "Revision Audit History", "የክለሳ ታሪክ")}</div>
                     {revs.length === 0 ? (
-                      <div className="text-xs text-slate-500">Initial Revision 1 — no subsequent revisions.</div>
+                      <div className="text-xs text-slate-500">{tr(isAmharic, "Initial Revision 1 — no subsequent revisions.", "መጀመሪያ ክለሳ 1 — ተጨማሪ ማሻሻያ የለም።")}</div>
                     ) : (
                       revs.map((r) => (
                         <div key={r.id} className="text-xs border-b border-slate-800/70 pb-2 last:border-0">
                           <div className="font-semibold text-white">
-                            Rev {r.revisionNumber} by {r.revisedByName} ({r.revisedAt.slice(0, 10)})
+                            {tr(isAmharic, "Rev", "ክለሳ")} {r.revisionNumber} — {r.revisedByName} ({r.revisedAt.slice(0, 10)})
                           </div>
-                          <div className="text-slate-400">Reason: {r.reason}</div>
+                          <div className="text-slate-400">{tr(isAmharic, "Reason", "ምክንያት")}: {r.reason}</div>
                         </div>
                       ))
                     )}
@@ -460,7 +467,7 @@ export function MaterialPlanningAndRequestsView({
               className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-2xl p-5 space-y-4"
             >
               <h4 className="text-sm font-bold text-white">
-                Revise Material Plan {revisingPlan.planNumber} (Current Rev {revisingPlan.revisionNumber})
+                {tr(isAmharic, `Revise Material Plan ${revisingPlan.planNumber} (Current Rev ${revisingPlan.revisionNumber})`, `ዕቅድ ${revisingPlan.planNumber} ማሻሻል (አሁን ክለሳ ${revisingPlan.revisionNumber})`)}
               </h4>
               <div className="space-y-2 max-h-60 overflow-y-auto">
                 {revLines.map((rl, idx) => (
@@ -484,7 +491,7 @@ export function MaterialPlanningAndRequestsView({
               </div>
               <input
                 required
-                placeholder="Mandatory engineering revision reason..."
+                placeholder={tr(isAmharic, "Mandatory engineering revision reason...", "የምህንድስና ማሻሻያ ምክንያት (ግዴታ)...")}
                 value={revReason}
                 onChange={(e) => setRevReason(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -495,14 +502,14 @@ export function MaterialPlanningAndRequestsView({
                   onClick={() => setRevisingPlan(null)}
                   className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold cursor-pointer"
                 >
-                  Cancel
+                  {tr(isAmharic, "Cancel", "ሰርዝ")}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
                   className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer"
                 >
-                  Save Revision & Notify ERP
+                  {tr(isAmharic, "Save Revision & Notify ERP", "ማሻሻያውን አስቀምጥ እና አሳውቅ")}
                 </button>
               </div>
             </form>
@@ -528,7 +535,13 @@ export function MaterialPlanningAndRequestsView({
             }`}
           >
             <Send size={13} />
-            <span>Submit & Track Material Requests ({snapshot.materialRequests.length})</span>
+            <span>
+              {tr(
+                isAmharic,
+                `Submit & Track Material Requests (${snapshot.materialRequests.length})`,
+                `ከመጋዘን እቃ መጠየቂያ እና መከታተያ (${snapshot.materialRequests.length})`
+              )}
+            </span>
           </button>
           {canVerify && (
             <button
@@ -539,7 +552,13 @@ export function MaterialPlanningAndRequestsView({
               }`}
             >
               <ClipboardCheck size={13} />
-              <span>Warehouse Manager Plan Verification ({verificationQueue.length} Pending)</span>
+              <span>
+                {tr(
+                  isAmharic,
+                  `Warehouse Manager Plan Verification (${verificationQueue.length} Pending)`,
+                  `የመጋዘን ማናጀር ዕቅድ ማረጋገጫ (${verificationQueue.length} በመጠባበቅ ላይ)`
+                )}
+              </span>
             </button>
           )}
         </div>
@@ -550,11 +569,19 @@ export function MaterialPlanningAndRequestsView({
               <form onSubmit={handleSubmitRequest} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-4">
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <Send size={16} className="text-cyan-400" />
-                  <span>Request Items from Warehouse Manager & Track Status (Auto-Compared vs Engineering Plan)</span>
+                  <span>
+                    {tr(
+                      isAmharic,
+                      "Request Items from Warehouse Manager & Track Status (Auto-Compared vs Engineering Plan)",
+                      "ከመጋዘን ማናጀር እቃ መጠየቂያ እና ሁኔታ መከታተያ (ከምህንድስና ዕቅድ ጋር በራስ-ሰር ይነጻጸራል)"
+                    )}
+                  </span>
                 </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Approved Material Plan</label>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  {tr(isAmharic, "Approved Material Plan", "የጸደቀ የእቃ ዕቅድ")}
+                </label>
                 <select
                   value={selectedPlan?.id || ""}
                   onChange={(e) => setSelectedPlanId(e.target.value)}
@@ -562,13 +589,15 @@ export function MaterialPlanningAndRequestsView({
                 >
                   {snapshot.materialPlans.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.planNumber} (Rev {p.revisionNumber}) — {p.projectName}
+                      {p.planNumber} ({tr(isAmharic, "Rev", "ክለሳ")} {p.revisionNumber}) — {p.projectName}
                     </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Requesting Project Store</label>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  {tr(isAmharic, "Requesting Project Store", "ጠያቂው ሳይት ስቶር")}
+                </label>
                 <select
                   value={reqStoreId || snapshot.projectStores[0]?.id || ""}
                   onChange={(e) => setReqStoreId(e.target.value)}
@@ -580,7 +609,9 @@ export function MaterialPlanningAndRequestsView({
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Source Warehouse</label>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  {tr(isAmharic, "Source Warehouse", "ላኪው ዋና መጋዘን")}
+                </label>
                 <select
                   value={reqWhId || snapshot.warehouses[0]?.id || ""}
                   onChange={(e) => setReqWhId(e.target.value)}
@@ -592,7 +623,9 @@ export function MaterialPlanningAndRequestsView({
                 </select>
               </div>
               <div>
-                <label className="block text-[11px] text-slate-400 mb-1">Required By Date</label>
+                <label className="block text-[11px] text-slate-400 mb-1">
+                  {tr(isAmharic, "Required By Date", "የሚፈለግበት ቀን")}
+                </label>
                 <input
                   type="date"
                   value={reqDate}
@@ -604,7 +637,7 @@ export function MaterialPlanningAndRequestsView({
 
             <input
               required
-              placeholder="Work Package / Execution Purpose"
+              placeholder={tr(isAmharic, "Work Package / Execution Purpose", "የስራው ዓይነት / ምክንያት")}
               value={reqPurpose}
               onChange={(e) => setReqPurpose(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -615,11 +648,11 @@ export function MaterialPlanningAndRequestsView({
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase">
                     <tr>
-                      <th className="px-3 py-2">Planned Material</th>
-                      <th className="px-3 py-2 text-right">Planned Qty</th>
-                      <th className="px-3 py-2 text-right">Request Qty</th>
-                      <th className="px-3 py-2">Spec Override</th>
-                      <th className="px-3 py-2">Live Plan Check</th>
+                      <th className="px-3 py-2">{tr(isAmharic, "Planned Material", "በዕቅድ የተያዘ እቃ")}</th>
+                      <th className="px-3 py-2 text-right">{tr(isAmharic, "Planned Qty", "የታቀደ ብዛት")}</th>
+                      <th className="px-3 py-2 text-right">{tr(isAmharic, "Request Qty", "የሚጠየቅ ብዛት")}</th>
+                      <th className="px-3 py-2">{tr(isAmharic, "Spec Override", "መስፈርት (Spec)")}</th>
+                      <th className="px-3 py-2">{tr(isAmharic, "Live Plan Check", "ቀጥታ የዕቅድ ንጽጽር")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
@@ -654,7 +687,7 @@ export function MaterialPlanningAndRequestsView({
                           </td>
                           <td className="px-3 py-2">
                             <input
-                              placeholder="Spec matches plan"
+                              placeholder={tr(isAmharic, "Spec matches plan", "ከዕቅድ ጋር ይዛመዳል")}
                               value={reqItemQtys[pi.itemId]?.spec ?? pi.specification}
                               onChange={(e) =>
                                 setReqItemQtys({
@@ -671,12 +704,14 @@ export function MaterialPlanningAndRequestsView({
                           <td className="px-3 py-2">
                             {cmp ? (
                               cmp.comparisonStatus === "Matched" ? (
-                                <span className="text-emerald-400 font-semibold">Matched (Stock: {cmp.warehouseAvailableQty})</span>
+                                <span className="text-emerald-400 font-semibold">
+                                  {tr(isAmharic, "Matched", "ተዛምዷል")} ({tr(isAmharic, "Stock", "ክምችት")}: {cmp.warehouseAvailableQty})
+                                </span>
                               ) : (
                                 <span className="text-rose-400 font-semibold">{cmp.comparisonStatus}: {cmp.mismatchReason}</span>
                               )
                             ) : (
-                              <span className="text-slate-500">Enter qty</span>
+                              <span className="text-slate-500">{tr(isAmharic, "Enter qty", "ብዛት ያስገቡ")}</span>
                             )}
                           </td>
                         </tr>
@@ -686,7 +721,13 @@ export function MaterialPlanningAndRequestsView({
                 </table>
               </div>
             ) : (
-              <div className="text-xs text-amber-300">No Approved Material Plan available yet. Office Manager Engineer must publish a Material Plan first.</div>
+              <div className="text-xs text-amber-300">
+                {tr(
+                  isAmharic,
+                  "No Approved Material Plan available yet. Office Manager Engineer must publish a Material Plan first.",
+                  "እስካሁን የጸደቀ የምህንድስና እቃ ዕቅድ የለም። ቢሮ መሃንዲስ ማናጀር መጀመሪያ ዕቅድ ማተም አለበት።"
+                )}
+              </div>
             )}
 
             <button
@@ -695,12 +736,12 @@ export function MaterialPlanningAndRequestsView({
               className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Send size={14} />
-              <span>Submit Request for Verification</span>
+              <span>{tr(isAmharic, "Submit Request for Verification", "ጥያቄውን ለማረጋገጫ ላክ")}</span>
             </button>
           </form>
         )}
 
-            <RequestListCards requests={snapshot.materialRequests} />
+            <RequestListCards requests={snapshot.materialRequests} isAmharic={isAmharic} />
           </div>
         ) : (
           <div className="space-y-4">
@@ -708,18 +749,24 @@ export function MaterialPlanningAndRequestsView({
               <div>
                 <h3 className="text-sm font-bold text-white flex items-center gap-2">
                   <ClipboardCheck size={16} className="text-amber-400" />
-                  <span>Warehouse Manager — Engineering Plan Comparison & Verification Queue</span>
+                  <span>{tr(isAmharic, "Warehouse Manager — Engineering Plan Comparison & Verification Queue", "የመጋዘን ማናጀር — የምህንድስና ዕቅድ ማነጻጸሪያ እና ማረጋገጫ ወረፋ")}</span>
                 </h3>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  Warehouse Manager verifies exact alignment with Engineering Material Plan & available warehouse stock before forwarding to Director. Warehouse Manager cannot give final approval.
+                  {tr(
+                    isAmharic,
+                    "Warehouse Manager verifies exact alignment with Engineering Material Plan & available warehouse stock before forwarding to Director. Warehouse Manager cannot give final approval.",
+                    "የመጋዘን ማናጀር የቀረበውን ጥያቄ ከምህንድስና ዕቅድ እና ከመጋዘን ክምችት ጋር አረጋግጦ ለዳይሬክተር ያስተላልፋል። የመጨረሻ ውሳኔ የሚሰጠው በዳይሬክተር ብቻ ነው።"
+                  )}
                 </p>
               </div>
-              <span className="text-xs font-mono text-amber-400 font-bold">{verificationQueue.length} Pending</span>
+              <span className="text-xs font-mono text-amber-400 font-bold">
+                {verificationQueue.length} {tr(isAmharic, "Pending", "በመጠባበቅ ላይ")}
+              </span>
             </div>
 
             {verificationQueue.length === 0 ? (
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-400">
-                No submitted material requests awaiting Warehouse Manager verification.
+                {tr(isAmharic, "No submitted material requests awaiting Warehouse Manager verification.", "የመጋዘን ማናጀር ማረጋገጫ የሚጠብቅ የእቃ ጥያቄ የለም።")}
               </div>
             ) : (
               verificationQueue.map((reqDoc) => (
@@ -728,12 +775,12 @@ export function MaterialPlanningAndRequestsView({
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="font-mono font-bold text-amber-400 text-xs">{reqDoc.requestNumber}</span>
-                        <span className="text-xs text-slate-400">Plan {reqDoc.planNumber}</span>
-                        <StatusBadge status={reqDoc.status} />
-                        {reqDoc.hasPlanMismatch && <StatusBadge status="Plan Mismatch" />}
+                        <span className="text-xs text-slate-400">{tr(isAmharic, "Plan", "ዕቅድ")} {reqDoc.planNumber}</span>
+                        <StatusBadge status={reqDoc.status} isAmharic={isAmharic} />
+                        {reqDoc.hasPlanMismatch && <StatusBadge status="Plan Mismatch" isAmharic={isAmharic} />}
                       </div>
                       <div className="text-xs text-slate-300 mt-1">
-                        {reqDoc.projectName} ({reqDoc.projectStoreName}) ← {reqDoc.warehouseName} · By {reqDoc.requestedByName}
+                        {reqDoc.projectName} ({reqDoc.projectStoreName}) ← {reqDoc.warehouseName} · {tr(isAmharic, "By", "ጠያቂ")} {reqDoc.requestedByName}
                       </div>
                     </div>
                   </div>
@@ -745,12 +792,12 @@ export function MaterialPlanningAndRequestsView({
                     </div>
                   )}
 
-                  <RequestItemsTable items={reqDoc.items} />
+                  <RequestItemsTable items={reqDoc.items} isAmharic={isAmharic} />
 
                   {canVerify && (
                     <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
                       <input
-                        placeholder="Verification remarks or mandatory return reason..."
+                        placeholder={tr(isAmharic, "Verification remarks or mandatory return reason...", "የማረጋገጫ አስተያየት ወይም የመመለሻ ምክንያት...")}
                         value={actionNotes[reqDoc.id] || ""}
                         onChange={(e) => setActionNotes({ ...actionNotes, [reqDoc.id]: e.target.value })}
                         className="flex-1 min-w-[240px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white"
@@ -762,7 +809,7 @@ export function MaterialPlanningAndRequestsView({
                         className="px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                       >
                         <CheckCircle2 size={14} />
-                        <span>Verify & Forward to Director</span>
+                        <span>{tr(isAmharic, "Verify & Forward to Director", "አረጋግጥ እና ለዳይሬክተር ላክ")}</span>
                       </button>
                       <button
                         type="button"
@@ -771,7 +818,7 @@ export function MaterialPlanningAndRequestsView({
                         className="px-3.5 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-600 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                       >
                         <XCircle size={14} />
-                        <span>Return to Engineering / Store</span>
+                        <span>{tr(isAmharic, "Return to Engineering / Store", "ለምህንድስና / ስቶር መልስ")}</span>
                       </button>
                     </div>
                   )}
@@ -796,27 +843,31 @@ export function MaterialPlanningAndRequestsView({
         <div>
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <ShieldCheck size={16} className="text-rose-400" />
-            <span>Director Exclusive Final Approval Console</span>
+            <span>{tr(isAmharic, "Director Exclusive Final Approval Console", "የዳይሬክተር የመጨረሻ ማፅደቂያ መቆጣጠሪያ")}</span>
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            ONLY the Director role can Approve or Disapprove verified material requests. Decisions are permanent & cryptographically logged.
+            {tr(
+              isAmharic,
+              "ONLY the Director role can Approve or Disapprove verified material requests. Decisions are permanent & cryptographically logged.",
+              "የተረጋገጡ የእቃ ጥያቄዎችን ማጽደቅ ወይም መከልከል የሚችለው ዳይሬክተር ብቻ ነው። ውሳኔዎች ቋሚ እና በኦዲት መዝገብ የሚያዙ ናቸው።"
+            )}
           </p>
         </div>
         {!isDirector && (
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-rose-950/70 border border-rose-700/60 text-rose-300 text-xs font-semibold">
             <Lock size={13} />
-            Read-Only View (Director Only Action)
+            {tr(isAmharic, "Read-Only View (Director Only Action)", "ለንባብ ብቻ (የዳይሬክተር ተግባር ብቻ)")}
           </span>
         )}
       </div>
 
       <div className="space-y-3">
         <h4 className="text-xs font-bold uppercase text-amber-400">
-          Verified & Awaiting Director Final Decision ({pendingDir.length})
+          {tr(isAmharic, `Verified & Awaiting Director Final Decision (${pendingDir.length})`, `ተረጋግጠው የዳይሬክተር ውሳኔ የሚጠብቁ (${pendingDir.length})`)}
         </h4>
         {pendingDir.length === 0 && (
           <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 text-xs text-slate-400">
-            No requests currently pending Director approval.
+            {tr(isAmharic, "No requests currently pending Director approval.", "በአሁኑ ጊዜ የዳይሬክተር ውሳኔ የሚጠብቅ ጥያቄ የለም።")}
           </div>
         )}
         {pendingDir.map((reqDoc) => (
@@ -825,19 +876,19 @@ export function MaterialPlanningAndRequestsView({
               <div>
                 <div className="flex items-center gap-2">
                   <span className="font-mono font-bold text-amber-400 text-xs">{reqDoc.requestNumber}</span>
-                  <span className="text-xs text-slate-400">Plan {reqDoc.planNumber} (Rev {reqDoc.planRevisionNumber})</span>
-                  <StatusBadge status={reqDoc.status} />
+                  <span className="text-xs text-slate-400">{tr(isAmharic, "Plan", "ዕቅድ")} {reqDoc.planNumber} ({tr(isAmharic, "Rev", "ክለሳ")} {reqDoc.planRevisionNumber})</span>
+                  <StatusBadge status={reqDoc.status} isAmharic={isAmharic} />
                 </div>
                 <div className="text-xs text-slate-300 mt-1">
-                  {reqDoc.projectName} ({reqDoc.projectStoreName}) · Verified by {reqDoc.warehouseVerifiedByName}
+                  {reqDoc.projectName} ({reqDoc.projectStoreName}) · {tr(isAmharic, "Verified by", "ያረጋገጠው")} {reqDoc.warehouseVerifiedByName}
                 </div>
               </div>
             </div>
-            <RequestItemsTable items={reqDoc.items} />
+            <RequestItemsTable items={reqDoc.items} isAmharic={isAmharic} />
             {isDirector && (
               <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-slate-800">
                 <input
-                  placeholder="Director comments or mandatory disapproval reason..."
+                  placeholder={tr(isAmharic, "Director comments or mandatory disapproval reason...", "የዳይሬክተር አስተያየት ወይም የመከልከል ምክንያት...")}
                   value={actionNotes[reqDoc.id] || ""}
                   onChange={(e) => setActionNotes({ ...actionNotes, [reqDoc.id]: e.target.value })}
                   className="flex-1 min-w-[240px] bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white"
@@ -849,7 +900,7 @@ export function MaterialPlanningAndRequestsView({
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <CheckCircle2 size={14} />
-                  <span>Approve Permanently</span>
+                  <span>{tr(isAmharic, "Approve Permanently", "በቋሚነት አጽድቅ")}</span>
                 </button>
                 <button
                   type="button"
@@ -858,7 +909,7 @@ export function MaterialPlanningAndRequestsView({
                   className="px-4 py-1.5 rounded-lg bg-rose-700 hover:bg-rose-600 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
                 >
                   <XCircle size={14} />
-                  <span>Disapprove Permanently</span>
+                  <span>{tr(isAmharic, "Disapprove Permanently", "በቋሚነት ከልክል")}</span>
                 </button>
               </div>
             )}
@@ -868,26 +919,26 @@ export function MaterialPlanningAndRequestsView({
 
       <div className="space-y-3">
         <h4 className="text-xs font-bold uppercase text-slate-400">
-          Permanent Director Decision Archive ({decidedDir.length})
+          {tr(isAmharic, `Permanent Director Decision Archive (${decidedDir.length})`, `የዳይሬክተር ቋሚ ውሳኔ መዝገብ (${decidedDir.length})`)}
         </h4>
-        <RequestListCards requests={decidedDir} />
+        <RequestListCards requests={decidedDir} isAmharic={isAmharic} />
       </div>
     </div>
   );
 }
 
-function RequestItemsTable({ items }: { items: EngineeringMaterialRequest["items"] }) {
+function RequestItemsTable({ items, isAmharic = false }: { items: EngineeringMaterialRequest["items"]; isAmharic?: boolean }) {
   return (
     <div className="overflow-x-auto border border-slate-800 rounded-xl">
       <table className="w-full text-left text-xs">
         <thead className="bg-slate-950 text-slate-400 text-[10px] uppercase">
           <tr>
-            <th className="px-3 py-2">Code & Name</th>
-            <th className="px-3 py-2 text-right">Planned</th>
-            <th className="px-3 py-2 text-right">Prior Req</th>
-            <th className="px-3 py-2 text-right">This Req</th>
-            <th className="px-3 py-2 text-right">WH Avail</th>
-            <th className="px-3 py-2">Comparison</th>
+            <th className="px-3 py-2">{tr(isAmharic, "Code & Name", "ኮድ እና ስም")}</th>
+            <th className="px-3 py-2 text-right">{tr(isAmharic, "Planned", "የታቀደ")}</th>
+            <th className="px-3 py-2 text-right">{tr(isAmharic, "Prior Req", "ቀደም ያለ ጥያቄ")}</th>
+            <th className="px-3 py-2 text-right">{tr(isAmharic, "This Req", "አሁን የተጠየቀ")}</th>
+            <th className="px-3 py-2 text-right">{tr(isAmharic, "WH Avail", "መጋዘን ክምችት")}</th>
+            <th className="px-3 py-2">{tr(isAmharic, "Comparison", "ንጽጽር")}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
@@ -898,7 +949,7 @@ function RequestItemsTable({ items }: { items: EngineeringMaterialRequest["items
               <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-400">{it.previouslyApprovedOrIssuedQty}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums text-cyan-300 font-bold">{it.requestedQty}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{it.warehouseAvailableQty}</td>
-              <td className="px-3 py-2"><StatusBadge status={it.comparisonStatus} /></td>
+              <td className="px-3 py-2"><StatusBadge status={it.comparisonStatus} isAmharic={isAmharic} /></td>
             </tr>
           ))}
         </tbody>
@@ -907,7 +958,7 @@ function RequestItemsTable({ items }: { items: EngineeringMaterialRequest["items
   );
 }
 
-function RequestListCards({ requests }: { requests: EngineeringMaterialRequest[] }) {
+function RequestListCards({ requests, isAmharic = false }: { requests: EngineeringMaterialRequest[]; isAmharic?: boolean }) {
   return (
     <div className="space-y-3">
       {requests.map((r) => (
@@ -915,25 +966,30 @@ function RequestListCards({ requests }: { requests: EngineeringMaterialRequest[]
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="font-mono font-bold text-amber-400 text-xs">{r.requestNumber}</span>
-              <span className="text-xs text-slate-400">Plan {r.planNumber}</span>
-              <StatusBadge status={r.status} />
+              <span className="text-xs text-slate-400">{tr(isAmharic, "Plan", "ዕቅድ")} {r.planNumber}</span>
+              <StatusBadge status={r.status} isAmharic={isAmharic} />
             </div>
             <span className="text-[11px] text-slate-400 font-mono">{r.requestedDate}</span>
           </div>
           <div className="text-xs text-slate-300">
-            {r.projectName} ({r.projectStoreName}) ← {r.warehouseName} · {r.items.length} item(s)
+            {r.projectName} ({r.projectStoreName}) ← {r.warehouseName} · {r.items.length} {tr(isAmharic, "item(s)", "እቃ(ዎች)")}
           </div>
           {r.directorDecisionPermanent && (
             <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
               <Lock size={11} className="text-amber-400" />
               <span>
-                Permanent Decision by {r.directorDecisionByName} ({r.directorDecisionAt?.slice(0, 10)})
-                {r.disapprovalReason ? ` — Reason: ${r.disapprovalReason}` : ""}
+                {tr(isAmharic, "Permanent Decision by", "ቋሚ ውሳኔ በ")} {r.directorDecisionByName} ({r.directorDecisionAt?.slice(0, 10)})
+                {r.disapprovalReason ? ` — ${tr(isAmharic, "Reason", "ምክንያት")}: ${r.disapprovalReason}` : ""}
               </span>
             </div>
           )}
         </div>
       ))}
+      {requests.length === 0 && (
+        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500">
+          {tr(isAmharic, "No material requests recorded yet.", "እስካሁን የተመዘገበ የእቃ ጥያቄ የለም።")}
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 import { canPerformWarehouseModuleAction } from "../../services/warehouseStoreRbac";
 import { buildPrintableVoucherHtml } from "../../services/warehouseManagementService";
 import { StatusBadge } from "./WarehouseSharedUi";
+import { tr } from "./warehouseI18n";
 
 export function GrvAndCommercialInvoiceView({
   mode,
@@ -17,12 +18,14 @@ export function GrvAndCommercialInvoiceView({
   actor,
   onFeedback,
   onOpenPrint,
+  isAmharic,
 }: {
   mode: "grv" | "commercial_invoices";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
   onOpenPrint: (title: string, html: string) => void;
+  isAmharic?: boolean;
 }) {
   const canCreateGrv = canPerformWarehouseModuleAction(actor.role, "CREATE_FINALIZE_GRV");
   const canReplaceInv = canPerformWarehouseModuleAction(actor.role, "REPLACE_COMMERCIAL_INVOICE");
@@ -73,9 +76,9 @@ export function GrvAndCommercialInvoiceView({
     try {
       const uploaded = await uploadCommercialInvoiceFile(file, `CINV-${Date.now()}`);
       setInvFileMeta(uploaded);
-      onFeedback("info", `Attached Commercial Invoice file: ${uploaded.fileName}`);
+      onFeedback("info", tr(isAmharic, `Attached Commercial Invoice file: ${uploaded.fileName}`, `የንግድ ደረሰኝ ፋይል ተያይዟል: ${uploaded.fileName}`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Invalid Commercial Invoice file.");
+      onFeedback("error", err?.message || tr(isAmharic, "Invalid Commercial Invoice file.", "ልክ ያልሆነ የንግድ ደረሰኝ ፋይል።"));
     } finally {
       setUploadingInv(false);
     }
@@ -86,9 +89,9 @@ export function GrvAndCommercialInvoiceView({
     setSubmitting(true);
     try {
       const wh = snapshot.warehouses.find((w) => w.id === warehouseId) || snapshot.warehouses[0];
-      if (!wh) throw new Error("Register or select a destination Warehouse first.");
+      if (!wh) throw new Error(tr(isAmharic, "Register or select a destination Warehouse first.", "በመጀመሪያ መቀበያ መጋዘን ይምረጡ ወይም ይመዝግቡ።"));
       if (!invFileMeta) {
-        throw new Error("GRV blocked: Mandatory Commercial Invoice attachment (PDF/JPG/PNG) is missing.");
+        throw new Error(tr(isAmharic, "GRV blocked: Mandatory Commercial Invoice attachment (PDF/JPG/PNG) is missing.", "GRV ተከልክሏል: አስገዳጅ የንግድ ደረሰኝ ፋይል (PDF/JPG/PNG) አልተያያዘም።"));
       }
 
       const grvItems = lines
@@ -111,7 +114,7 @@ export function GrvAndCommercialInvoiceView({
             condition: "Good" as const,
           };
         });
-      if (grvItems.length === 0) throw new Error("Add at least one received item line.");
+      if (grvItems.length === 0) throw new Error(tr(isAmharic, "Add at least one received item line.", "ቢያንስ አንድ የገባ እቃ መስመር ያክሉ።"));
 
       const res = await WarehouseStoreDataService.finalizeGrv(
         {
@@ -141,14 +144,22 @@ export function GrvAndCommercialInvoiceView({
       setRemarks("");
       onFeedback(
         "success",
-        `Finalized ${res.grv.grvNumber} with Commercial Invoice ${res.commercialInvoice.invoiceNumber}. ${
-          res.createdAssets.length > 0
-            ? `${res.createdAssets.length} Fixed Asset(s) capitalized to BIG BALANCE!`
-            : "Consumable stock updated."
-        }`
+        tr(
+          isAmharic,
+          `Finalized ${res.grv.grvNumber} with Commercial Invoice ${res.commercialInvoice.invoiceNumber}. ${
+            res.createdAssets.length > 0
+              ? `${res.createdAssets.length} Fixed Asset(s) capitalized to BIG BALANCE!`
+              : "Consumable stock updated."
+          }`,
+          `${res.grv.grvNumber} ከንግድ ደረሰኝ ${res.commercialInvoice.invoiceNumber} ጋር ተጠናቋል። ${
+            res.createdAssets.length > 0
+              ? `${res.createdAssets.length} ቋሚ ንብረት(ቶች) ወደ BIG BALANCE ገብተዋል!`
+              : "የአላቂ እቃ ክምችት ተዘምኗል።"
+          }`
+        )
       );
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to finalize GRV.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to finalize GRV.", "GRV ማጠናቀቅ አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -202,9 +213,9 @@ export function GrvAndCommercialInvoiceView({
       setReplacingInv(null);
       setReplaceFileMeta(null);
       setReplaceReason("");
-      onFeedback("success", `Commercial Invoice ${updated.invoiceNumber} replaced & logged in audit trail.`);
+      onFeedback("success", tr(isAmharic, `Commercial Invoice ${updated.invoiceNumber} replaced & logged in audit trail.`, `የንግድ ደረሰኝ ${updated.invoiceNumber} ተተክቶ በኦዲት መዝገብ ተመዝግቧል።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to replace commercial invoice.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to replace commercial invoice.", "የንግድ ደረሰኙን መተካት አልተቻለም።"));
     } finally {
       setSubmitting(false);
     }
@@ -217,21 +228,21 @@ export function GrvAndCommercialInvoiceView({
           <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
             <h3 className="text-xs font-bold uppercase text-white flex items-center gap-2">
               <FileCheck2 size={15} className="text-emerald-400" />
-              <span>Commercial Invoice Register ({snapshot.commercialInvoices.length})</span>
+              <span>{tr(isAmharic, "Commercial Invoice Register", "የንግድ ደረሰኞች መዝገብ")} ({snapshot.commercialInvoices.length})</span>
             </h3>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
                 <tr>
-                  <th className="px-4 py-2.5">Invoice No</th>
-                  <th className="px-4 py-2.5">Date</th>
-                  <th className="px-4 py-2.5">Supplier</th>
-                  <th className="px-4 py-2.5">Linked GRV</th>
-                  <th className="px-4 py-2.5">Attachment</th>
-                  <th className="px-4 py-2.5 text-right">Amount</th>
-                  <th className="px-4 py-2.5">Revisions</th>
-                  {canReplaceInv && <th className="px-4 py-2.5 text-right">Action</th>}
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Invoice No", "የደረሰኝ ቁጥር")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Date", "ቀን")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Supplier", "አቅራቢ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Linked GRV", "የተያያዘ GRV")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Attachment", "አባሪ ፋይል")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Amount", "መጠን")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Revisions", "ለውጦች")}</th>
+                  {canReplaceInv && <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Action", "ድርጊት")}</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -267,7 +278,7 @@ export function GrvAndCommercialInvoiceView({
                           className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-amber-300 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                         >
                           <RefreshCw size={12} />
-                          <span>Replace</span>
+                          <span>{tr(isAmharic, "Replace", "ተካ")}</span>
                         </button>
                       </td>
                     )}
@@ -286,11 +297,11 @@ export function GrvAndCommercialInvoiceView({
             >
               <h4 className="text-sm font-bold text-white flex items-center gap-2">
                 <History size={15} className="text-amber-400" />
-                <span>Replace Commercial Invoice ({replacingInv.invoiceNumber})</span>
+                <span>{tr(isAmharic, "Replace Commercial Invoice", "የንግድ ደረሰኝ መተኪያ")} ({replacingInv.invoiceNumber})</span>
               </h4>
               <input
                 required
-                placeholder="Updated Invoice Number"
+                placeholder={tr(isAmharic, "Updated Invoice Number", "የተሻሻለ የደረሰኝ ቁጥር")}
                 value={replaceNewNo}
                 onChange={(e) => setReplaceNewNo(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -310,7 +321,7 @@ export function GrvAndCommercialInvoiceView({
               />
               <input
                 required
-                placeholder="Mandatory audit reason for replacing invoice..."
+                placeholder={tr(isAmharic, "Mandatory audit reason for replacing invoice...", "ደረሰኙን የመተካት አስገዳጅ ምክንያት...")}
                 value={replaceReason}
                 onChange={(e) => setReplaceReason(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -321,14 +332,14 @@ export function GrvAndCommercialInvoiceView({
                   onClick={() => setReplacingInv(null)}
                   className="px-3 py-1.5 rounded-lg bg-slate-800 text-slate-300 text-xs font-semibold cursor-pointer"
                 >
-                  Cancel
+                  {tr(isAmharic, "Cancel", "ተው")}
                 </button>
                 <button
                   type="submit"
                   disabled={submitting || !replaceFileMeta}
                   className="px-4 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold cursor-pointer"
                 >
-                  Confirm Replacement
+                  {tr(isAmharic, "Confirm Replacement", "መተካቱን አረጋግጥ")}
                 </button>
               </div>
             </form>
@@ -345,16 +356,16 @@ export function GrvAndCommercialInvoiceView({
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <PackagePlus size={16} className="text-emerald-400" />
-              <span>Goods Receiving Voucher (GRV) — Commercial Invoice Required</span>
+              <span>{tr(isAmharic, "Goods Receiving Voucher (GRV) — Commercial Invoice Required", "የእቃ መቀበያ ደረሰኝ (GRV) — የንግድ ደረሰኝ አስገዳጅ ነው")}</span>
             </h3>
             <span className="text-[11px] font-mono text-amber-300">
-              Fixed Assets automatically capitalize to BIG BALANCE with permanent Asset ID
+              {tr(isAmharic, "Fixed Assets automatically capitalize to BIG BALANCE with permanent Asset ID", "ቋሚ ንብረቶች በቋሚ Asset ID ወደ BIG BALANCE በራስ-ሰር ይመዘገባሉ")}
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Receiving Warehouse</label>
+              <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Receiving Warehouse", "ተቀባይ መጋዘን")}</label>
               <select
                 value={warehouseId || snapshot.warehouses[0]?.id || ""}
                 onChange={(e) => setWarehouseId(e.target.value)}
@@ -366,11 +377,11 @@ export function GrvAndCommercialInvoiceView({
               </select>
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Supplier Name</label>
+              <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Supplier Name", "የአቅራቢ ስም")}</label>
               <input
                 required
                 list="erp-suppliers-list"
-                placeholder="Supplier Name"
+                placeholder={tr(isAmharic, "Supplier Name", "የአቅራቢ ስም")}
                 value={supplierName}
                 onChange={(e) => setSupplierName(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white"
@@ -382,16 +393,16 @@ export function GrvAndCommercialInvoiceView({
               </datalist>
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">PO / Procurement Reference</label>
+              <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "PO / Procurement Reference", "የግዢ ትዕዛዝ (PO) ቁጥር")}</label>
               <input
-                placeholder="Optional PO Number"
+                placeholder={tr(isAmharic, "Optional PO Number", "የPO ቁጥር (ካለ)")}
                 value={poNumber}
                 onChange={(e) => setPoNumber(e.target.value)}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-2 text-xs text-white"
               />
             </div>
             <div>
-              <label className="block text-[11px] text-slate-400 mb-1">Received Date</label>
+              <label className="block text-[11px] text-slate-400 mb-1">{tr(isAmharic, "Received Date", "የገባበት ቀን")}</label>
               <input
                 type="date"
                 required
@@ -406,12 +417,12 @@ export function GrvAndCommercialInvoiceView({
           <div className="bg-slate-950/90 border border-amber-600/50 rounded-xl p-3.5 space-y-3">
             <div className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
               <FileUp size={14} />
-              <span>Mandatory Commercial Invoice Verification (Blocks GRV Without Valid File)</span>
+              <span>{tr(isAmharic, "Mandatory Commercial Invoice Verification (Blocks GRV Without Valid File)", "አስገዳጅ የንግድ ደረሰኝ ማረጋገጫ (ፋይል ሳይያያዝ GRV አይጠናቀቅም)")}</span>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
               <input
                 required
-                placeholder="Commercial Invoice Number *"
+                placeholder={tr(isAmharic, "Commercial Invoice Number *", "የንግድ ደረሰኝ ቁጥር *")}
                 value={invNo}
                 onChange={(e) => setInvNo(e.target.value)}
                 className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white"
@@ -430,10 +441,10 @@ export function GrvAndCommercialInvoiceView({
                   onChange={(e) => handleInvoiceFileSelect(e.target.files?.[0])}
                   className="text-xs text-slate-300 w-full"
                 />
-                {uploadingInv && <div className="text-[11px] text-amber-300 mt-1">Uploading to Storage...</div>}
+                {uploadingInv && <div className="text-[11px] text-amber-300 mt-1">{tr(isAmharic, "Uploading to Storage...", "ፋይል በመጫን ላይ...")}</div>}
                 {invFileMeta && (
                   <div className="text-[11px] text-emerald-400 mt-1 font-medium">
-                    Attached: {invFileMeta.fileName}
+                    {tr(isAmharic, "Attached:", "ተያይዟል:")} {invFileMeta.fileName}
                   </div>
                 )}
               </div>
@@ -455,7 +466,7 @@ export function GrvAndCommercialInvoiceView({
                   }}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white sm:col-span-2"
                 >
-                  <option value="">Select Catalog Item...</option>
+                  <option value="">{tr(isAmharic, "Select Catalog Item...", "ከካታሎግ እቃ ይምረጡ...")}</option>
                   {snapshot.items.map((it) => (
                     <option key={it.id} value={it.id}>
                       {it.itemCode} — {it.itemName} [{it.inventoryType}] ({it.unit})
@@ -465,7 +476,7 @@ export function GrvAndCommercialInvoiceView({
                 <input
                   type="number"
                   min={1}
-                  placeholder="Qty"
+                  placeholder={tr(isAmharic, "Qty", "ብዛት")}
                   value={line.quantityReceived}
                   onChange={(e) => {
                     const next = [...lines];
@@ -478,7 +489,7 @@ export function GrvAndCommercialInvoiceView({
                   type="number"
                   min={0}
                   step="0.01"
-                  placeholder="Unit Cost"
+                  placeholder={tr(isAmharic, "Unit Cost", "የነጠላ ዋጋ")}
                   value={line.unitCost}
                   onChange={(e) => {
                     const next = [...lines];
@@ -488,7 +499,7 @@ export function GrvAndCommercialInvoiceView({
                   className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono"
                 />
                 <input
-                  placeholder="Batch / Serials (comma-sep)"
+                  placeholder={tr(isAmharic, "Batch / Serials (comma-sep)", "ባች / ሴሪያል ቁጥሮች (በኮማ)")}
                   value={line.serialNumbersRaw || line.batchNumber}
                   onChange={(e) => {
                     const next = [...lines];
@@ -500,7 +511,7 @@ export function GrvAndCommercialInvoiceView({
                 />
                 <input
                   type="date"
-                  placeholder="Expiry Date"
+                  placeholder={tr(isAmharic, "Expiry Date", "የማብቂያ ቀን")}
                   value={line.expiryDate}
                   onChange={(e) => {
                     const next = [...lines];
@@ -521,7 +532,7 @@ export function GrvAndCommercialInvoiceView({
               }
               className="text-xs text-amber-400 hover:text-amber-300 font-semibold cursor-pointer"
             >
-              + Add Another Received Line
+              {tr(isAmharic, "+ Add Another Received Line", "+ ተጨማሪ የገባ እቃ መስመር ጨምር")}
             </button>
           </div>
 
@@ -531,7 +542,7 @@ export function GrvAndCommercialInvoiceView({
             className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
           >
             <FileCheck2 size={14} />
-            <span>Finalize GRV & Post Stock Ledger</span>
+            <span>{tr(isAmharic, "Finalize GRV & Post Stock Ledger", "GRV አጠናቅቅ እና ወደ መዝገብ አስገባ")}</span>
           </button>
         </form>
       )}
@@ -539,20 +550,20 @@ export function GrvAndCommercialInvoiceView({
       {/* Completed GRV Register */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-800 text-xs font-bold uppercase text-white">
-          Goods Receiving Vouchers ({snapshot.grvs.length})
+          {tr(isAmharic, "Goods Receiving Vouchers", "የእቃ መቀበያ ደረሰኞች (GRV)")} ({snapshot.grvs.length})
         </div>
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
               <tr>
-                <th className="px-4 py-2.5">GRV No</th>
-                <th className="px-4 py-2.5">Date</th>
-                <th className="px-4 py-2.5">Warehouse</th>
-                <th className="px-4 py-2.5">Supplier</th>
-                <th className="px-4 py-2.5">Commercial Invoice</th>
-                <th className="px-4 py-2.5 text-right">Total Value</th>
-                <th className="px-4 py-2.5">Status</th>
-                <th className="px-4 py-2.5 text-right">Print</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "GRV No", "የGRV ቁጥር")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Date", "ቀን")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Warehouse", "መጋዘን")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Supplier", "አቅራቢ")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Commercial Invoice", "የንግድ ደረሰኝ")}</th>
+                <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Total Value", "ጠቅላላ ዋጋ")}</th>
+                <th className="px-4 py-2.5">{tr(isAmharic, "Status", "ሁኔታ")}</th>
+                <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Print", "አትም")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
@@ -564,9 +575,9 @@ export function GrvAndCommercialInvoiceView({
                   <td className="px-4 py-2.5 text-slate-300">{grv.supplierName}</td>
                   <td className="px-4 py-2.5 font-mono text-amber-300">{grv.commercialInvoiceNo}</td>
                   <td className="px-4 py-2.5 text-right font-mono tabular-nums text-white">
-                    {grv.totalAmount.toLocaleString()} ETB
+                    {grv.totalAmount.toLocaleString()} {tr(isAmharic, "ETB", "ብር")}
                   </td>
-                  <td className="px-4 py-2.5"><StatusBadge status={grv.status} /></td>
+                  <td className="px-4 py-2.5"><StatusBadge status={grv.status} isAmharic={isAmharic} /></td>
                   <td className="px-4 py-2.5 text-right">
                     <button
                       type="button"
@@ -574,7 +585,7 @@ export function GrvAndCommercialInvoiceView({
                       className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-semibold inline-flex items-center gap-1 cursor-pointer"
                     >
                       <Printer size={12} />
-                      <span>Voucher</span>
+                      <span>{tr(isAmharic, "Voucher", "ደረሰኝ")}</span>
                     </button>
                   </td>
                 </tr>

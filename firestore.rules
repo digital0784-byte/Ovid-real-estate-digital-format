@@ -1974,8 +1974,10 @@ service cloud.firestore {
         (isWarehouseRole() || isSiteManager() || isAdminOrHeadOffice()) &&
         ('assetId' in incoming()) && incoming().assetId is string && incoming().assetId.size() > 0 &&
         ('originalGrvNumber' in incoming()) && incoming().originalGrvNumber is string && incoming().originalGrvNumber.size() > 0;
-      allow update: if isValidId(fatovId) &&
-        (isWarehouseRole() || isSiteManager() || isMaterialHandler() || isAdminOrHeadOffice()) &&
+      allow update: if isValidId(fatovId) && (
+        (isWarehouseRole() || isSiteManager() || isMaterialHandler() || isAdminOrHeadOffice()) ||
+        (isStoreManager() && incoming().diff(existing()).affectedKeys().hasOnly(['status', 'fativId', 'fativNumber', 'receivedByUid', 'receivedByName', 'receivedAt', 'updatedAt']))
+      ) &&
         incoming().assetId == existing().assetId &&
         incoming().originalGrvNumber == existing().originalGrvNumber;
       allow delete: if isSuperAdmin();

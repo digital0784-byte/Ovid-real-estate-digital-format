@@ -13,6 +13,7 @@ import {
 } from "../../services/warehouseStoreDataService";
 import { canPerformWarehouseModuleAction } from "../../services/warehouseStoreRbac";
 import { StatusBadge } from "./WarehouseSharedUi";
+import { tr } from "./warehouseI18n";
 
 type WarehouseInventorySubTab = "warehouses" | "balances" | "catalog_items" | "categories";
 
@@ -21,11 +22,13 @@ export function MasterDataAndFacilitiesView({
   snapshot,
   actor,
   onFeedback,
+  isAmharic,
 }: {
   mode: "warehouse_inventory" | "site_stores";
   snapshot: ErpWarehouseSnapshot;
   actor: WarehouseActorContext;
   onFeedback: (type: "success" | "error" | "info", message: string) => void;
+  isAmharic?: boolean;
 }) {
   const canEditMaster = canPerformWarehouseModuleAction(actor.role, "MANAGE_MASTER_DATA");
 
@@ -82,9 +85,9 @@ export function MasterDataAndFacilitiesView({
       await WarehouseStoreDataService.saveCategory(cat, actor);
       setCatCode("");
       setCatName("");
-      onFeedback("success", `Saved category ${cat.code} — ${cat.name}.`);
+      onFeedback("success", tr(isAmharic, `Saved category ${cat.code} — ${cat.name}.`, `ምድብ ${cat.code} — ${cat.name} ተቀምጧል።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to save category.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to save category.", "ምድቡን ማስቀመጥ አልተቻለም።"));
     }
   };
 
@@ -116,9 +119,9 @@ export function MasterDataAndFacilitiesView({
       setItemCode("");
       setItemName("");
       setSpec("");
-      onFeedback("success", `Catalog item ${item.itemCode} — ${item.itemName} saved.`);
+      onFeedback("success", tr(isAmharic, `Catalog item ${item.itemCode} — ${item.itemName} saved.`, `የካታሎግ እቃ ${item.itemCode} — ${item.itemName} ተቀምጧል።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to save item.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to save item.", "እቃውን ማስቀመጥ አልተቻለም።"));
     }
   };
 
@@ -142,9 +145,9 @@ export function MasterDataAndFacilitiesView({
       setWhCode("");
       setWhName("");
       setWhLoc("");
-      onFeedback("success", `Warehouse ${wh.name} registered & synced with ERP.`);
+      onFeedback("success", tr(isAmharic, `Warehouse ${wh.name} registered & synced with ERP.`, `መጋዘን ${wh.name} ተመዝግቦ ከERP ጋር ተገናኝቷል።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to register warehouse.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to register warehouse.", "መጋዘኑን መመዝገብ አልተቻለም።"));
     }
   };
 
@@ -169,9 +172,9 @@ export function MasterDataAndFacilitiesView({
       setPsCode("");
       setPsName("");
       setPsLoc("");
-      onFeedback("success", `Project Site Store ${ps.storeName} linked to ${ps.projectName}.`);
+      onFeedback("success", tr(isAmharic, `Project Site Store ${ps.storeName} linked to ${ps.projectName}.`, `የሳይት ስቶር ${ps.storeName} ከ${ps.projectName} ጋር ተያይዟል።`));
     } catch (err: any) {
-      onFeedback("error", err?.message || "Failed to register project store.");
+      onFeedback("error", err?.message || tr(isAmharic, "Failed to register project store.", "የፕሮጀክት ስቶሩን መመዝገብ አልተቻለም።"));
     }
   };
 
@@ -182,19 +185,19 @@ export function MasterDataAndFacilitiesView({
           <form onSubmit={handleSaveProjectStore} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Store size={16} className="text-cyan-400" />
-              <span>Register Project Site Store (Linked to ERP Project)</span>
+              <span>{tr(isAmharic, "Register Project Site Store (Linked to ERP Project)", "የፕሮጀክት ሳይት ስቶር መመዝገቢያ (ከERP ፕሮጀክት ጋር የተያያዘ)")}</span>
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <input
                 required
-                placeholder="Store Code (e.g. PS-BOLE-01)"
+                placeholder={tr(isAmharic, "Store Code (e.g. PS-BOLE-01)", "የስቶር ኮድ (ምሳሌ: PS-BOLE-01)")}
                 value={psCode}
                 onChange={(e) => setPsCode(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
               />
               <input
                 required
-                placeholder="Site Store Name"
+                placeholder={tr(isAmharic, "Site Store Name", "የሳይት ስቶር ስም")}
                 value={psName}
                 onChange={(e) => setPsName(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -213,14 +216,14 @@ export function MasterDataAndFacilitiesView({
               </select>
               <input
                 required
-                placeholder="Site Location / Zone"
+                placeholder={tr(isAmharic, "Site Location / Zone", "የሳይት አድራሻ / ዞን")}
                 value={psLoc}
                 onChange={(e) => setPsLoc(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
               />
               <input
                 required
-                placeholder="Site Manager Name"
+                placeholder={tr(isAmharic, "Site Manager Name", "የሳይት ማናጀር ስም")}
                 value={psOwner}
                 onChange={(e) => setPsOwner(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -231,7 +234,7 @@ export function MasterDataAndFacilitiesView({
               className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
             >
               <Plus size={14} />
-              <span>Register Site Store</span>
+              <span>{tr(isAmharic, "Register Site Store", "ሳይት ስቶሩን መዝግብ")}</span>
             </button>
           </form>
         )}
@@ -244,11 +247,11 @@ export function MasterDataAndFacilitiesView({
                   <span className="text-[11px] font-mono text-cyan-400 font-bold">{ps.storeCode}</span>
                   <h4 className="text-sm font-bold text-white">{ps.storeName}</h4>
                 </div>
-                <StatusBadge status={ps.status} />
+                <StatusBadge status={ps.status} isAmharic={isAmharic} />
               </div>
-              <div className="text-xs text-amber-300 font-semibold">Project: {ps.projectName}</div>
-              <div className="text-xs text-slate-400">Location: {ps.location}</div>
-              <div className="text-xs text-slate-300">Site Manager: {ps.storeOwnerName || "Unassigned"}</div>
+              <div className="text-xs text-amber-300 font-semibold">{tr(isAmharic, "Project:", "ፕሮጀክት:")} {ps.projectName}</div>
+              <div className="text-xs text-slate-400">{tr(isAmharic, "Location:", "አድራሻ:")} {ps.location}</div>
+              <div className="text-xs text-slate-300">{tr(isAmharic, "Site Manager:", "ሳይት ማናጀር:")} {ps.storeOwnerName || tr(isAmharic, "Unassigned", "ያልተመደበ")}</div>
             </div>
           ))}
         </div>
@@ -277,10 +280,10 @@ export function MasterDataAndFacilitiesView({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap gap-1.5">
         {(
           [
-            { id: "balances", label: `Live Stock Balances (${snapshot.stockBalances.length})`, icon: Boxes },
-            { id: "warehouses", label: `Warehouses (${snapshot.warehouses.length})`, icon: Building2 },
-            { id: "catalog_items", label: `Master Catalog (${snapshot.items.length})`, icon: PackagePlus },
-            { id: "categories", label: `Categories (${snapshot.categories.length})`, icon: Layers },
+            { id: "balances", label: `${tr(isAmharic, "Live Stock Balances", "የቀጥታ ክምችት ሚዛን")} (${snapshot.stockBalances.length})`, icon: Boxes },
+            { id: "warehouses", label: `${tr(isAmharic, "Warehouses", "መጋዘኖች")} (${snapshot.warehouses.length})`, icon: Building2 },
+            { id: "catalog_items", label: `${tr(isAmharic, "Master Catalog", "ዋና የእቃ ካታሎግ")} (${snapshot.items.length})`, icon: PackagePlus },
+            { id: "categories", label: `${tr(isAmharic, "Categories", "ምድቦች")} (${snapshot.categories.length})`, icon: Layers },
           ] as Array<{ id: WarehouseInventorySubTab; label: string; icon: React.ComponentType<any> }>
         ).map((tab) => {
           const Icon = tab.icon;
@@ -305,10 +308,10 @@ export function MasterDataAndFacilitiesView({
         <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
             <span className="text-xs font-bold text-slate-200 uppercase">
-              Warehouse & Site Store Stock Balances ({filteredBalances.length})
+              {tr(isAmharic, "Warehouse & Site Store Stock Balances", "የመጋዘን እና የሳይት ስቶር ክምችት ሚዛን")} ({filteredBalances.length})
             </span>
             <input
-              placeholder="Search item or location..."
+              placeholder={tr(isAmharic, "Search item or location...", "እቃ ወይም ቦታ ፈልግ...")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white w-60"
@@ -318,14 +321,14 @@ export function MasterDataAndFacilitiesView({
             <table className="w-full text-left text-xs">
               <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] sticky top-0">
                 <tr>
-                  <th className="px-4 py-2.5">Location</th>
-                  <th className="px-4 py-2.5">Item</th>
-                  <th className="px-4 py-2.5 text-right">Received</th>
-                  <th className="px-4 py-2.5 text-right">Issued</th>
-                  <th className="px-4 py-2.5 text-right">Returned</th>
-                  <th className="px-4 py-2.5 text-right">Usable Avail</th>
-                  <th className="px-4 py-2.5 text-right">Quarantine</th>
-                  <th className="px-4 py-2.5 text-right">Valuation (ETB)</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Location", "ቦታ")}</th>
+                  <th className="px-4 py-2.5">{tr(isAmharic, "Item", "እቃ")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Received", "ገቢ")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Issued", "ወጪ")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Returned", "ተመላሽ")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Usable Avail", "የሚገኝ ክምችት")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Quarantine", "ኳራንቲን")}</th>
+                  <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Valuation (ETB)", "ዋጋ (ብር)")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800">
@@ -358,7 +361,7 @@ export function MasterDataAndFacilitiesView({
                 {filteredBalances.length === 0 && (
                   <tr>
                     <td colSpan={8} className="px-4 py-6 text-center text-slate-500">
-                      No stock balance records yet. Finalize a GRV to receive materials into a warehouse.
+                      {tr(isAmharic, "No stock balance records yet. Finalize a GRV to receive materials into a warehouse.", "እስካሁን ምንም የክምችት መዝገብ የለም። እቃ ወደ መጋዘን ለመቀበል GRV ያጠናቅቁ።")}
                     </td>
                   </tr>
                 )}
@@ -374,39 +377,39 @@ export function MasterDataAndFacilitiesView({
             <form onSubmit={handleSaveWarehouse} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Building2 size={16} className="text-amber-400" />
-                <span>Register Central / Regional Warehouse</span>
+                <span>{tr(isAmharic, "Register Central / Regional Warehouse", "ዋና / ክልላዊ መጋዘን መመዝገቢያ")}</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <input
                   required
-                  placeholder="Warehouse Code (e.g. WH-MAIN)"
+                  placeholder={tr(isAmharic, "Warehouse Code (e.g. WH-MAIN)", "የመጋዘን ኮድ (ምሳሌ: WH-MAIN)")}
                   value={whCode}
                   onChange={(e) => setWhCode(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   required
-                  placeholder="Warehouse Name"
+                  placeholder={tr(isAmharic, "Warehouse Name", "የመጋዘን ስም")}
                   value={whName}
                   onChange={(e) => setWhName(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   required
-                  placeholder="Location / Subcity"
+                  placeholder={tr(isAmharic, "Location / Subcity", "አድራሻ / ክፍለ ከተማ")}
                   value={whLoc}
                   onChange={(e) => setWhLoc(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   required
-                  placeholder="Manager Name"
+                  placeholder={tr(isAmharic, "Manager Name", "የመጋዘን ኃላፊ ስም")}
                   value={whMgr}
                   onChange={(e) => setWhMgr(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
-                  placeholder="Capacity Note (e.g. 1000 Tons)"
+                  placeholder={tr(isAmharic, "Capacity Note (e.g. 1000 Tons)", "የመያዝ አቅም (ምሳሌ: 1000 Tons)")}
                   value={whCapNote}
                   onChange={(e) => setWhCapNote(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -417,7 +420,7 @@ export function MasterDataAndFacilitiesView({
                 className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus size={14} />
-                <span>Save Warehouse Facility</span>
+                <span>{tr(isAmharic, "Save Warehouse Facility", "መጋዘኑን መዝግብ")}</span>
               </button>
             </form>
           )}
@@ -430,10 +433,10 @@ export function MasterDataAndFacilitiesView({
                     <span className="text-[11px] font-mono text-amber-400 font-bold">{wh.code}</span>
                     <h4 className="text-sm font-bold text-white">{wh.name}</h4>
                   </div>
-                  <StatusBadge status={wh.status} />
+                  <StatusBadge status={wh.status} isAmharic={isAmharic} />
                 </div>
-                <div className="text-xs text-slate-400">Location: {wh.location}</div>
-                <div className="text-xs text-slate-300">Manager: {wh.managerName || "-"}</div>
+                <div className="text-xs text-slate-400">{tr(isAmharic, "Location:", "አድራሻ:")} {wh.location}</div>
+                <div className="text-xs text-slate-300">{tr(isAmharic, "Manager:", "ኃላፊ:")} {wh.managerName || "-"}</div>
                 {wh.capacityNote && <div className="text-[11px] text-slate-400">{wh.capacityNote}</div>}
               </div>
             ))}
@@ -447,25 +450,25 @@ export function MasterDataAndFacilitiesView({
             <form onSubmit={handleSaveItem} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <PackagePlus size={16} className="text-amber-400" />
-                <span>Register Consumable / Fixed Asset Master Item</span>
+                <span>{tr(isAmharic, "Register Consumable / Fixed Asset Master Item", "አላቂ እቃ / ቋሚ ንብረት በካታሎግ መመዝገቢያ")}</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                 <input
                   required
-                  placeholder="Item Code (e.g. CEM-42.5)"
+                  placeholder={tr(isAmharic, "Item Code (e.g. CEM-42.5)", "የእቃ ኮድ (ምሳሌ: CEM-42.5)")}
                   value={itemCode}
                   onChange={(e) => setItemCode(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   required
-                  placeholder="Item Name (e.g. OPC Cement 50kg)"
+                  placeholder={tr(isAmharic, "Item Name (e.g. OPC Cement 50kg)", "የእቃ ስም (ምሳሌ: OPC Cement 50kg)")}
                   value={itemName}
                   onChange={(e) => setItemName(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
-                  placeholder="Specification / Size / Brand"
+                  placeholder={tr(isAmharic, "Specification / Size / Brand", "ዝርዝር መግለጫ / መጠን / ብራንድ")}
                   value={spec}
                   onChange={(e) => setSpec(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -475,15 +478,15 @@ export function MasterDataAndFacilitiesView({
                   onChange={(e) => setItemType(e.target.value as any)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 >
-                  <option value="Consumable">Consumable Material</option>
-                  <option value="Fixed Asset">Fixed Asset / Equipment</option>
+                  <option value="Consumable">{tr(isAmharic, "Consumable Material", "አላቂ እቃ (Consumable)")}</option>
+                  <option value="Fixed Asset">{tr(isAmharic, "Fixed Asset / Equipment", "ቋሚ ንብረት / መሳሪያ")}</option>
                 </select>
                 <select
                   value={itemCatId}
                   onChange={(e) => setItemCatId(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 >
-                  <option value="">General Construction</option>
+                  <option value="">{tr(isAmharic, "General Construction", "ጠቅላላ ግንባታ")}</option>
                   {snapshot.categories.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -492,21 +495,21 @@ export function MasterDataAndFacilitiesView({
                 </select>
                 <input
                   required
-                  placeholder="Unit (bags, pcs, tons, m3)"
+                  placeholder={tr(isAmharic, "Unit (bags, pcs, tons, m3)", "መለኪያ (ከረጢት, ቁጥር, ቶን)")}
                   value={unit}
                   onChange={(e) => setUnit(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   type="number"
-                  placeholder="Min Stock Level"
+                  placeholder={tr(isAmharic, "Min Stock Level", "ዝቅተኛ ክምችት ገደብ")}
                   value={minStock}
                   onChange={(e) => setMinStock(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   type="number"
-                  placeholder="Reorder Point"
+                  placeholder={tr(isAmharic, "Reorder Point", "ዳግም ማዘዣ ነጥብ")}
                   value={reorderPt}
                   onChange={(e) => setReorderPt(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -514,7 +517,7 @@ export function MasterDataAndFacilitiesView({
                 <input
                   type="number"
                   step="0.01"
-                  placeholder="Standard Unit Cost (ETB)"
+                  placeholder={tr(isAmharic, "Standard Unit Cost (ETB)", "መደበኛ የነጠላ ዋጋ (ብር)")}
                   value={stdCost}
                   onChange={(e) => setStdCost(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
@@ -525,7 +528,7 @@ export function MasterDataAndFacilitiesView({
                     checked={batchTrackingEnabled}
                     onChange={(e) => setBatchTrackingEnabled(e.target.checked)}
                   />
-                  Track Batch Lot
+                  {tr(isAmharic, "Track Batch Lot", "ባች/ሎት ተከታተል")}
                 </label>
                 <label className="flex items-center gap-2 text-xs text-slate-300 px-2">
                   <input
@@ -533,7 +536,7 @@ export function MasterDataAndFacilitiesView({
                     checked={expiryTrackingEnabled}
                     onChange={(e) => setExpiryTrackingEnabled(e.target.checked)}
                   />
-                  Track Expiry Date
+                  {tr(isAmharic, "Track Expiry Date", "የማብቂያ ቀን ተከታተል")}
                 </label>
               </div>
               <button
@@ -541,7 +544,7 @@ export function MasterDataAndFacilitiesView({
                 className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus size={14} />
-                <span>Save Item to Master Catalog</span>
+                <span>{tr(isAmharic, "Save Item to Master Catalog", "እቃውን በዋናው ካታሎግ አስቀምጥ")}</span>
               </button>
             </form>
           )}
@@ -549,10 +552,10 @@ export function MasterDataAndFacilitiesView({
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <span className="text-xs font-bold text-slate-200 uppercase">
-                Unified Master Item Catalog ({filteredItems.length} — Reused from ERP Materials + Custom Items)
+                {tr(isAmharic, `Unified Master Item Catalog (${filteredItems.length} — Reused from ERP Materials + Custom Items)`, `ዋና የእቃ ካታሎግ (${filteredItems.length} — ከERP እቃዎች እና አዲስ የተመዘገቡ)`)}
               </span>
               <input
-                placeholder="Search code or name..."
+                placeholder={tr(isAmharic, "Search code or name...", "ኮድ ወይም ስም ፈልግ...")}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white w-60"
@@ -562,13 +565,13 @@ export function MasterDataAndFacilitiesView({
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[10px] sticky top-0">
                   <tr>
-                    <th className="px-4 py-2.5">Item Code</th>
-                    <th className="px-4 py-2.5">Name & Spec</th>
-                    <th className="px-4 py-2.5">Category</th>
-                    <th className="px-4 py-2.5">Type</th>
-                    <th className="px-4 py-2.5">Unit</th>
-                    <th className="px-4 py-2.5 text-right">Min / Reorder</th>
-                    <th className="px-4 py-2.5 text-right">Std Cost</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Item Code", "የእቃ ኮድ")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Name & Spec", "ስም እና መግለጫ")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Category", "ምድብ")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Type", "ዓይነት")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Unit", "መለኪያ")}</th>
+                    <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Min / Reorder", "ዝቅተኛ / ዳግም ማዘዣ")}</th>
+                    <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Std Cost", "መደበኛ ዋጋ")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -580,13 +583,13 @@ export function MasterDataAndFacilitiesView({
                         {item.specification && <div className="text-[11px] text-slate-400">{item.specification}</div>}
                       </td>
                       <td className="px-4 py-2.5 text-slate-300">{item.categoryName}</td>
-                      <td className="px-4 py-2.5"><StatusBadge status={item.inventoryType} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge status={item.inventoryType} isAmharic={isAmharic} /></td>
                       <td className="px-4 py-2.5 text-slate-300">{item.unit}</td>
                       <td className="px-4 py-2.5 text-right font-mono text-slate-300 tabular-nums">
                         {item.minStockLevel} / {item.reorderPoint}
                       </td>
                       <td className="px-4 py-2.5 text-right font-mono text-emerald-300 tabular-nums">
-                        {(item.standardUnitCost || 0).toLocaleString()} ETB
+                        {(item.standardUnitCost || 0).toLocaleString()} {tr(isAmharic, "ETB", "ብር")}
                       </td>
                     </tr>
                   ))}
@@ -603,19 +606,19 @@ export function MasterDataAndFacilitiesView({
             <form onSubmit={handleSaveCategory} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
               <h3 className="text-sm font-bold text-white flex items-center gap-2">
                 <Layers size={16} className="text-amber-400" />
-                <span>Register Inventory Category</span>
+                <span>{tr(isAmharic, "Register Inventory Category", "የእቃ ምድብ መመዝገቢያ")}</span>
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                 <input
                   required
-                  placeholder="Code (e.g. CON-STL)"
+                  placeholder={tr(isAmharic, "Code (e.g. CON-STL)", "ኮድ (ምሳሌ: CON-STL)")}
                   value={catCode}
                   onChange={(e) => setCatCode(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 />
                 <input
                   required
-                  placeholder="Category Name (e.g. Rebar & Steel)"
+                  placeholder={tr(isAmharic, "Category Name (e.g. Rebar & Steel)", "የምድብ ስም (ምሳሌ: ብረት እና ሪባር)")}
                   value={catName}
                   onChange={(e) => setCatName(e.target.value)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white sm:col-span-2"
@@ -625,8 +628,8 @@ export function MasterDataAndFacilitiesView({
                   onChange={(e) => setCatType(e.target.value as any)}
                   className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
                 >
-                  <option value="Consumable">Consumable</option>
-                  <option value="Fixed Asset">Fixed Asset</option>
+                  <option value="Consumable">{tr(isAmharic, "Consumable", "አላቂ እቃ")}</option>
+                  <option value="Fixed Asset">{tr(isAmharic, "Fixed Asset", "ቋሚ ንብረት")}</option>
                 </select>
               </div>
               <button
@@ -634,7 +637,7 @@ export function MasterDataAndFacilitiesView({
                 className="px-4 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer"
               >
                 <Plus size={14} />
-                <span>Save Category</span>
+                <span>{tr(isAmharic, "Save Category", "ምድቡን አስቀምጥ")}</span>
               </button>
             </form>
           )}
@@ -642,18 +645,18 @@ export function MasterDataAndFacilitiesView({
           <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
             <div className="px-4 py-3 border-b border-slate-800 flex items-center justify-between">
               <span className="text-xs font-bold text-slate-200 uppercase">
-                Inventory Categories ({snapshot.categories.length})
+                {tr(isAmharic, "Inventory Categories", "የእቃ ምድቦች")} ({snapshot.categories.length})
               </span>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-950 text-slate-400 uppercase text-[10px]">
                   <tr>
-                    <th className="px-4 py-2.5">Code</th>
-                    <th className="px-4 py-2.5">Category Name</th>
-                    <th className="px-4 py-2.5">Classification</th>
-                    <th className="px-4 py-2.5">Created By UID</th>
-                    {canEditMaster && <th className="px-4 py-2.5 text-right">Action</th>}
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Code", "ኮድ")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Category Name", "የምድብ ስም")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Classification", "ምደባ")}</th>
+                    <th className="px-4 py-2.5">{tr(isAmharic, "Created By UID", "መዝጋቢ መለያ")}</th>
+                    {canEditMaster && <th className="px-4 py-2.5 text-right">{tr(isAmharic, "Action", "ድርጊት")}</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800">
@@ -661,7 +664,7 @@ export function MasterDataAndFacilitiesView({
                     <tr key={cat.id} className="hover:bg-slate-800/40">
                       <td className="px-4 py-2.5 font-mono text-amber-400 font-bold">{cat.code}</td>
                       <td className="px-4 py-2.5 text-white font-semibold">{cat.name}</td>
-                      <td className="px-4 py-2.5"><StatusBadge status={cat.inventoryType} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge status={cat.inventoryType} isAmharic={isAmharic} /></td>
                       <td className="px-4 py-2.5 text-slate-400 font-mono">{cat.createdByUid || "-"}</td>
                       {canEditMaster && (
                         <td className="px-4 py-2.5 text-right">
@@ -669,7 +672,7 @@ export function MasterDataAndFacilitiesView({
                             type="button"
                             onClick={() => WarehouseStoreDataService.deleteCategory(cat.id, actor)}
                             className="text-rose-400 hover:text-rose-300 p-1 cursor-pointer"
-                            title="Delete Category"
+                            title={tr(isAmharic, "Delete Category", "ምድቡን ሰርዝ")}
                           >
                             <Trash2 size={14} />
                           </button>
@@ -680,7 +683,7 @@ export function MasterDataAndFacilitiesView({
                   {snapshot.categories.length === 0 && (
                     <tr>
                       <td colSpan={5} className="px-4 py-6 text-center text-slate-500">
-                        No custom inventory categories registered yet. Add one above to classify consumables & fixed assets.
+                        {tr(isAmharic, "No custom inventory categories registered yet. Add one above to classify consumables & fixed assets.", "እስካሁን የተመዘገቡ ምድቦች የሉም። ከላይ አዲስ ምድብ ያክሉ።")}
                       </td>
                     </tr>
                   )}

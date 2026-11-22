@@ -1,14 +1,17 @@
 import React from "react";
 import { Printer, X, FileCheck2, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { tr, translateWarehouseStatus } from "./warehouseI18n";
 
 export function PrintPreviewModal({
   title,
   html,
   onClose,
+  isAmharic = false,
 }: {
   title: string;
   html: string;
   onClose: () => void;
+  isAmharic?: boolean;
 }) {
   const iframeRef = React.useRef<HTMLIFrameElement | null>(null);
 
@@ -36,13 +39,13 @@ export function PrintPreviewModal({
               className="px-3.5 py-1.5 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-colors"
             >
               <Printer size={14} />
-              <span>Print / Save PDF</span>
+              <span>{tr(isAmharic, "Print / Save PDF", "አትም / PDF አስቀምጥ")}</span>
             </button>
             <button
               type="button"
               onClick={onClose}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
-              aria-label="Close Print Preview"
+              aria-label={tr(isAmharic, "Close Print Preview", "ዝጋ")}
             >
               <X size={16} />
             </button>
@@ -61,7 +64,7 @@ export function PrintPreviewModal({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
+export function StatusBadge({ status, isAmharic = false }: { status: string; isAmharic?: boolean }) {
   const s = (status || "").toLowerCase();
   let cls = "bg-slate-800 text-slate-300 border-slate-700";
   if (
@@ -109,7 +112,7 @@ export function StatusBadge({ status }: { status: string }) {
     <span
       className={`inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold border whitespace-nowrap ${cls}`}
     >
-      {status}
+      {translateWarehouseStatus(status, isAmharic)}
     </span>
   );
 }

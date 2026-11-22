@@ -3493,6 +3493,7 @@ export default function App() {
             currentUserRole={currentUserRole}
             currentUserProfile={currentUserProfile}
             isAmharic={isAmharic}
+            onToggleLanguage={() => setIsAmharic(!isAmharic)}
             workers={workers}
             onLogAction={(action, details) => logAction(action, details)}
             onCreateNotification={handleCreateNotification}
