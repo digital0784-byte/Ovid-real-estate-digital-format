@@ -161,7 +161,7 @@ export function ReturnsAndQuarantineView({
         { label: "Status", value: mrv.status },
       ],
       columns: ["Code", "Item Name", "Returned", "Usable Good", "Quarantined", "Condition", "Asset / Orig GRV"],
-      rows: mrv.items.map((i) => [
+      rows: (mrv.items || []).map((i) => [
         i.itemCode,
         i.itemName,
         `${i.quantityReturned} ${i.unit}`,
@@ -429,7 +429,7 @@ export function ReturnsAndQuarantineView({
                   <td className="px-4 py-2.5 font-mono text-cyan-400 font-bold">{m.mrvNumber}</td>
                   <td className="px-4 py-2.5 text-white">{m.sourceLocationName} → {m.destinationLocationName}</td>
                   <td className="px-4 py-2.5 text-slate-300">
-                    {m.items.map((i) => `${i.itemName} (${i.quantityReturned} ${i.unit}, ${i.condition})`).join(", ")}
+                    {(m.items || []).map((i) => `${i.itemName} (${i.quantityReturned} ${i.unit}, ${i.condition})`).join(", ")}
                   </td>
                   <td className="px-4 py-2.5"><StatusBadge status={m.status} isAmharic={isAmharic} /></td>
                   <td className="px-4 py-2.5 text-right space-x-2">

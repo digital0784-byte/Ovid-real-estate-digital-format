@@ -4580,18 +4580,28 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                    {materialRequests.map(req => (
+                    {materialRequests.map(req => {
+                      const anyReq = req as any;
+                      const firstLine = Array.isArray(anyReq.items) ? anyReq.items[0] : undefined;
+                      const displayReqId = anyReq.requestNumber || req.id;
+                      const displayRequester = req.requesterName || anyReq.requestedByName || "Store Manager";
+                      const displayRole = req.requesterRole || anyReq.requestedByRole || "Store Manager";
+                      const displayLocation = [req.building || anyReq.projectStoreName, req.floor || anyReq.projectName].filter(Boolean).join(" - ");
+                      const displayMaterial = req.materialName || firstLine?.itemName || "-";
+                      const displayQty = req.requestedQty ?? firstLine?.requestedQty ?? 0;
+                      const displayUnit = req.unit || firstLine?.unit || "";
+                      return (
                       <tr key={req.id} className="hover:bg-slate-900/40 text-slate-200">
-                        <td className="p-4 text-slate-400 font-bold">{req.id}</td>
-                        <td className="p-4 font-sans font-bold text-white">{req.requesterName} ({req.requesterRole})</td>
-                        <td className="p-4 font-sans text-slate-300">{req.building} - {req.floor}</td>
-                        <td className="p-4 font-sans font-bold text-amber-400">{req.materialName}</td>
-                        <td className="p-4 font-black text-white">{req.requestedQty} {req.unit}</td>
-                        <td className="p-4 font-sans text-slate-400 text-[11px]">{req.purpose}</td>
+                        <td className="p-4 text-slate-400 font-bold">{displayReqId}</td>
+                        <td className="p-4 font-sans font-bold text-white">{displayRequester} ({displayRole})</td>
+                        <td className="p-4 font-sans text-slate-300">{displayLocation || "-"}</td>
+                        <td className="p-4 font-sans font-bold text-amber-400">{displayMaterial}</td>
+                        <td className="p-4 font-black text-white">{displayQty} {displayUnit}</td>
+                        <td className="p-4 font-sans text-slate-400 text-[11px]">{req.purpose || "-"}</td>
                         <td className="p-4">
                           <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                            req.status === "Approved" || req.status === "Issued" ? "bg-emerald-950 text-emerald-400" :
-                            req.status === "Rejected" ? "bg-red-950 text-red-400" : "bg-amber-950 text-amber-400"
+                            req.status === "Approved" || req.status === "Issued" || anyReq.status === "Director Approved" || anyReq.status === "Fully Dispatched" ? "bg-emerald-950 text-emerald-400" :
+                            req.status === "Rejected" || anyReq.status === "Director Disapproved" ? "bg-red-950 text-red-400" : "bg-amber-950 text-amber-400"
                           }`}>
                             {isAmharic
                               ? req.status === "Approved"
@@ -4600,7 +4610,9 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                                 ? "ተልኳል"
                                 : req.status === "Rejected"
                                 ? "ውድቅ ተደርጓል"
-                                : "በመጠባበቅ ላይ"
+                                : req.status === "Pending"
+                                ? "በመጠባበቅ ላይ"
+                                : req.status
                               : req.status}
                           </span>
                         </td>
@@ -4627,18 +4639,18 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                               </span>
                             )
                           ) : (
-                            req.status === "Pending" ? (
+                            req.status === "Pending" || anyReq.status === "Submitted" ? (
                               <span className="text-amber-400 text-[10px] font-bold">
                                 {isAmharic ? "የመጋዘን ማናጀር ማጽደቂያ በመጠባበቅ ላይ" : "Awaiting Warehouse Manager Approval"}
                               </span>
-                            ) : req.status === "Approved" || req.status === "Issued" ? (
+                            ) : req.status === "Approved" || req.status === "Issued" || anyReq.status === "Director Approved" ? (
                               <button
                                 onClick={() => {
                                   setReceiveForm(prev => ({
                                     ...prev,
-                                    materialName: req.materialName,
-                                    quantity: req.requestedQty,
-                                    unit: req.unit || prev.unit,
+                                    materialName: displayMaterial,
+                                    quantity: Number(displayQty) || prev.quantity,
+                                    unit: displayUnit || prev.unit,
                                     source: "Warehouse",
                                     receivedBy: currentUserProfile?.displayName || (isStoreManagerOnly ? "Store Manager" : "Site Manager")
                                   }));
@@ -4656,7 +4668,8 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                           )}
                         </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

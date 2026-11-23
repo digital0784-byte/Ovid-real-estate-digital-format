@@ -426,6 +426,57 @@ export function mergeExistingCatalogItems(
   return Array.from(map.values());
 }
 
+export function normalizeMaterialRequestRecord(raw: any): EngineeringMaterialRequest {
+  const items = Array.isArray(raw?.items)
+    ? raw.items
+    : raw?.materialName
+    ? [
+        {
+          id: raw.id ? `${raw.id}-1` : "LINE-1",
+          requestId: raw.id || "",
+          itemId: raw.itemId || raw.materialId || raw.id || "CUSTOM",
+          itemCode: raw.itemCode || "SITE-REQ",
+          itemName: String(raw.materialName),
+          specification: raw.purpose || "",
+          inventoryType: "Consumable" as const,
+          unit: String(raw.unit || "Pcs"),
+          plannedQty: 0,
+          previouslyApprovedOrIssuedQty: 0,
+          requestedQty: Number(raw.requestedQty || 0),
+          warehouseAvailableQty: 0,
+          approvedQty: raw.status === "Approved" || raw.status === "Issued" ? Number(raw.requestedQty || 0) : 0,
+          dispatchedQty: raw.status === "Issued" ? Number(raw.requestedQty || 0) : 0,
+          remainingDispatchQty: raw.status === "Issued" ? 0 : Number(raw.requestedQty || 0),
+          comparisonStatus: "Matched" as const,
+        },
+      ]
+    : [];
+
+  return {
+    ...raw,
+    requestNumber: raw?.requestNumber || raw?.id || "REQ",
+    planId: raw?.planId || "",
+    planNumber: raw?.planNumber || "SITE-STORE",
+    planRevisionNumber: Number(raw?.planRevisionNumber || 1),
+    projectId: raw?.projectId || raw?.siteName || "PROJ-MAIN",
+    projectName: raw?.projectName || raw?.siteName || "Site Store",
+    projectStoreId: raw?.projectStoreId || raw?.siteName || "SITE-STORE",
+    projectStoreName:
+      raw?.projectStoreName ||
+      [raw?.building, raw?.floor, raw?.zone].filter(Boolean).join(" / ") ||
+      raw?.siteName ||
+      "Site Store",
+    warehouseId: raw?.warehouseId || "WH-CENTRAL",
+    warehouseName: raw?.warehouseName || "Central Warehouse",
+    requestedByUid: raw?.requestedByUid || raw?.requesterId || "",
+    requestedByName: raw?.requestedByName || raw?.requesterName || "Store Manager",
+    requestedByRole: raw?.requestedByRole || raw?.requesterRole || "Store Manager",
+    requestedDate: raw?.requestedDate || raw?.requestDate || "",
+    createdAt: raw?.createdAt || raw?.requestDate || "",
+    items,
+  } as EngineeringMaterialRequest;
+}
+
 // =========================================================================
 // UNIFIED REAL-TIME SUBSCRIPTION & CACHE ENGINE
 // =========================================================================
@@ -533,15 +584,19 @@ export function subscribeWarehouseErpModule(
       emit();
     }),
     subscribeCol<MaterialPlanRecord>("materialPlans", (d) => {
-      state.materialPlans = [...d].sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
+      state.materialPlans = d
+        .map((p) => ({ ...p, items: Array.isArray(p?.items) ? p.items : [] }))
+        .sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
       emit();
     }),
     subscribeCol<MaterialPlanRevisionRecord>("materialPlanRevisions", (d) => {
       state.materialPlanRevisions = [...d].sort((a, b) => (b.revisedAt || "").localeCompare(a.revisedAt || ""));
       emit();
     }),
-    subscribeCol<EngineeringMaterialRequest>("materialRequests", (d) => {
-      state.materialRequests = [...d].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    subscribeCol<any>("materialRequests", (d) => {
+      state.materialRequests = d
+        .map((r) => normalizeMaterialRequestRecord(r))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       emit();
     }),
     subscribeCol<MaterialApprovalRecord>("materialApprovals", (d) => {
@@ -549,15 +604,21 @@ export function subscribeWarehouseErpModule(
       emit();
     }),
     subscribeCol<GoodsReceivingVoucher>("goodsReceivingVouchers", (d) => {
-      state.grvs = [...d].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      state.grvs = d
+        .map((g) => ({ ...g, items: Array.isArray(g?.items) ? g.items : [] }))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       emit();
     }),
     subscribeCol<GoodsIssueVoucher>("goodsIssueVouchers", (d) => {
-      state.givs = [...d].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      state.givs = d
+        .map((g) => ({ ...g, items: Array.isArray(g?.items) ? g.items : [] }))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       emit();
     }),
     subscribeCol<MaterialReturnVoucher>("materialReturnVouchers", (d) => {
-      state.mrvs = [...d].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+      state.mrvs = d
+        .map((m) => ({ ...m, items: Array.isArray(m?.items) ? m.items : [] }))
+        .sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       emit();
     }),
     subscribeCol<FixedAssetRecord>("fixedAssets", (d) => {

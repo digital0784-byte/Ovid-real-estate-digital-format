@@ -924,10 +924,10 @@ export function computeDashboardKpisAndCharts(
   const planCompareChart = dataset.materialPlans
     .filter((p) => !filters.projectId || filters.projectId === "ALL" || p.projectId === filters.projectId)
     .map((p) => {
-      const planned = p.items.reduce((s, i) => s + (i.plannedQty || 0), 0);
+      const planned = (p.items || []).reduce((s, i) => s + (i.plannedQty || 0), 0);
       const reqs = filteredRequests.filter((r) => r.planId === p.id && r.status !== "Director Disapproved");
-      const requested = reqs.reduce((s, r) => s + r.items.reduce((si, i) => si + (i.requestedQty || 0), 0), 0);
-      const dispatched = reqs.reduce((s, r) => s + r.items.reduce((si, i) => si + (i.dispatchedQty || 0), 0), 0);
+      const requested = reqs.reduce((s, r) => s + (r.items || []).reduce((si, i) => si + (i.requestedQty || 0), 0), 0);
+      const dispatched = reqs.reduce((s, r) => s + (r.items || []).reduce((si, i) => si + (i.dispatchedQty || 0), 0), 0);
       return {
         plan: p.planNumber,
         project: p.projectName,
@@ -1149,12 +1149,12 @@ export function generateWarehouseReportData(
       columns = ["Plan No", "Project", "Item Code", "Item Name", "Unit", "Planned Qty", "Requested Qty", "Approved Qty", "Dispatched Qty", "Remaining Plan"];
       for (const p of dataset.materialPlans.filter((mp) => matchProject(mp.projectId))) {
         const reqs = dataset.materialRequests.filter((r) => r.planId === p.id && r.status !== "Director Disapproved");
-        for (const pi of p.items) {
+        for (const pi of (p.items || [])) {
           let reqQty = 0;
           let appQty = 0;
           let dispQty = 0;
           for (const r of reqs) {
-            for (const ri of r.items) {
+            for (const ri of (r.items || [])) {
               if (ri.itemId === pi.itemId || ri.itemCode === pi.itemCode) {
                 reqQty += ri.requestedQty || 0;
                 appQty += ri.approvedQty || 0;
@@ -1206,7 +1206,7 @@ export function generateWarehouseReportData(
           "Destination Project Store": g.projectStoreName,
           "Vehicle": g.vehicleNumber,
           "Driver": g.driverName,
-          "Dispatched Qty Total": round2(g.items.reduce((s, i) => s + i.dispatchedQty, 0)),
+          "Dispatched Qty Total": round2((g.items || []).reduce((s, i) => s + i.dispatchedQty, 0)),
           "Cost (ETB)": g.totalCost,
           "Gate Pass No": g.gatePassNumber || "-",
           "Status": g.status,
@@ -1216,7 +1216,7 @@ export function generateWarehouseReportData(
     case "PARTIAL_DISPATCH_BALANCE": {
       columns = ["Request No", "Project", "Item Code", "Item Name", "Approved Qty", "Dispatched Qty", "Remaining Pending", "Status"];
       for (const r of dataset.materialRequests.filter((req) => matchProject(req.projectId))) {
-        for (const ri of r.items) {
+        for (const ri of (r.items || [])) {
           if (ri.approvedQty > 0) {
             rows.push({
               "Request No": r.requestNumber,
@@ -1361,9 +1361,9 @@ export function generateWarehouseReportData(
           "Source": m.sourceLocationName,
           "Destination": m.destinationLocationName,
           "Ref GIV/GRV": m.originalGivNumber || m.originalGrvNumber || "-",
-          "Total Returned": round2(m.items.reduce((s, i) => s + i.quantityReturned, 0)),
-          "Accepted Good": round2(m.items.reduce((s, i) => s + i.quantityAcceptedGood, 0)),
-          "Quarantined": round2(m.items.reduce((s, i) => s + i.quantityQuarantined, 0)),
+          "Total Returned": round2((m.items || []).reduce((s, i) => s + i.quantityReturned, 0)),
+          "Accepted Good": round2((m.items || []).reduce((s, i) => s + i.quantityAcceptedGood, 0)),
+          "Quarantined": round2((m.items || []).reduce((s, i) => s + i.quantityQuarantined, 0)),
           "Status": m.status,
         }));
       break;

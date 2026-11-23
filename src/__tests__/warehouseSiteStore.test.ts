@@ -1,3 +1,5 @@
+import React from "react";
+import { render } from "@testing-library/react";
 import { describe, it, expect, beforeEach } from "vitest";
 import express from "express";
 import request from "supertest";
@@ -28,6 +30,8 @@ import {
   tr,
   translateWarehouseStatus,
 } from "../components/warehouse/warehouseI18n";
+import { MaterialPlanningAndRequestsView } from "../components/warehouse/MaterialPlanningAndRequestsView";
+import { normalizeMaterialRequestRecord } from "../services/warehouseStoreDataService";
 
 function makeTestApp() {
   const store = new InMemoryWarehouseStore();
@@ -965,5 +969,74 @@ describe("Warehouse & Site Store Enterprise Management — Full Functional & Sec
     expect(getWarehouseSectionLabel("giv_dispatch", "Dispatch", true, { isStoreOrSiteSide: true })).toBe("ከመጋዘን እቃ መቀበያ (GIV/FATIV)");
     expect(translateWarehouseStatus("Submitted", true)).not.toBe("Submitted");
     expect(getReportTitle("PROJECT_SITE_STORE_BALANCE", "Project Site Store Balance", true)).not.toBe("Project Site Store Balance");
+  });
+
+  // 24. REGRESSION TEST: Legacy Site Store materialRequests docs without .items never crash material_requests view
+  it("renders MaterialPlanningAndRequestsView safely in Amharic even when legacy materialRequests docs lack items array", () => {
+    const legacyDoc = {
+      id: "REQ-LEGACY-1",
+      requesterName: "Abebe Store Manager",
+      requesterRole: "Store Manager",
+      siteName: "Bole Heights Phase I",
+      building: "Building A",
+      floor: "Floor 2",
+      zone: "Zone 1",
+      materialName: "Dangote OPC 42.5N Cement",
+      requestedQty: 50,
+      unit: "Bags",
+      purpose: "Foundation slab",
+      status: "Pending",
+      requestDate: "2026-11-22",
+    };
+
+    const normalized = normalizeMaterialRequestRecord(legacyDoc);
+    expect(normalized.items).toHaveLength(1);
+    expect(normalized.items[0].itemName).toBe("Dangote OPC 42.5N Cement");
+    expect(normalized.requestNumber).toBe("REQ-LEGACY-1");
+
+    const { container } = render(
+      React.createElement(MaterialPlanningAndRequestsView, {
+        mode: "material_requests",
+        isAmharic: true,
+        actor: {
+          uid: "UID-SM",
+          name: "Store Manager",
+          role: UserRole.STORE_MANAGER,
+          assignedProject: "PROJ-BOLE",
+        },
+        onFeedback: () => {},
+        snapshot: {
+          categories: [],
+          items: [],
+          warehouses: [],
+          projectStores: [],
+          stockBalances: [],
+          stockLedger: [],
+          materialPlans: [{ id: "PLAN-1", planNumber: "MP-01", projectId: "P1", projectName: "P1" } as any],
+          materialPlanRevisions: [],
+          materialRequests: [legacyDoc as any, { ...normalized, id: "REQ-LEGACY-NORM" }],
+          materialApprovals: [],
+          grvs: [],
+          givs: [],
+          mrvs: [],
+          fixedAssets: [],
+          fatovs: [],
+          fativs: [],
+          transports: [],
+          gatePasses: [],
+          commercialInvoices: [],
+          notifications: [],
+          auditLogs: [],
+          valuationSettings: { id: "default", valuationMethod: "WMA", updatedAt: "", updatedByName: "System" } as any,
+          erpProjects: [],
+          erpSuppliers: [],
+          erpProcurements: [],
+          erpTrucks: [],
+        },
+      })
+    );
+
+    expect(container.textContent).toContain("ከመጋዘን እቃ መጠየቂያ እና መከታተያ");
+    expect(container.textContent).toContain("REQ-LEGACY-1");
   });
 });

@@ -55,7 +55,7 @@ export function DispatchAndGivView({
     if (!activeReq) return;
     setSubmitting(true);
     try {
-      const dispatchItems = activeReq.items
+      const dispatchItems = (activeReq.items || [])
         .map((it) => ({
           itemId: it.itemId,
           itemCode: it.itemCode,
@@ -162,7 +162,7 @@ export function DispatchAndGivView({
         { label: "Total Valuation", value: `${giv.totalCost.toLocaleString()} ETB` },
       ],
       columns: ["Code", "Material", "Approved", "Prev Issued", "This Dispatch", "Remaining", "Total Cost"],
-      rows: giv.items.map((i) => [
+      rows: (giv.items || []).map((i) => [
         i.itemCode,
         i.itemName,
         `${i.approvedQty} ${i.unit}`,
@@ -252,7 +252,7 @@ export function DispatchAndGivView({
                         {giv.warehouseName} → {giv.projectStoreName} ({giv.projectName})
                       </div>
                       <div className="text-slate-400 text-[11px]">
-                        {giv.items.map((it) => `${it.itemName}: ${it.dispatchedQty} ${it.unit}`).join(" · ")} ·{" "}
+                        {(giv.items || []).map((it) => `${it.itemName}: ${it.dispatchedQty} ${it.unit}`).join(" · ")} ·{" "}
                         {tr(isAmharic, "Vehicle", "መኪና")}: {giv.vehicleNumber} ({giv.driverName})
                       </div>
                     </div>
@@ -433,7 +433,7 @@ export function DispatchAndGivView({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
-                      {activeReq.items.map((it) => (
+                      {(activeReq.items || []).map((it) => (
                         <tr key={it.itemId}>
                           <td className="px-3 py-2 text-white font-semibold">
                             {it.itemCode} — {it.itemName}

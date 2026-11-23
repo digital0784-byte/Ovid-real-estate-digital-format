@@ -77,7 +77,7 @@ export function MaterialPlanningAndRequestsView({
   // Live automatic plan vs request comparison preview
   const liveComparison = React.useMemo(() => {
     if (!selectedPlan) return null;
-    const requestedItems = selectedPlan.items
+    const requestedItems = (selectedPlan.items || [])
       .map((pi) => {
         const entry = reqItemQtys[pi.itemId];
         const qty = Number(entry?.qty || 0);
@@ -170,7 +170,7 @@ export function MaterialPlanningAndRequestsView({
       const store = snapshot.projectStores.find((s) => s.id === reqStoreId) || snapshot.projectStores[0];
       const wh = snapshot.warehouses.find((w) => w.id === reqWhId) || snapshot.warehouses[0];
       if (!store || !wh) throw new Error(tr(isAmharic, "Register a Warehouse and a Project Site Store first.", "መጋዘን እና የፕሮጀክት ሳይት ስቶር መጀመሪያ መመዝገብ አለባቸው።"));
-      const items = selectedPlan.items
+      const items = (selectedPlan.items || [])
         .map((pi) => {
           const entry = reqItemQtys[pi.itemId];
           const qty = Number(entry?.qty || 0);
@@ -399,7 +399,7 @@ export function MaterialPlanningAndRequestsView({
                         type="button"
                         onClick={() => {
                           setRevisingPlan(plan);
-                          setRevLines(plan.items.map((i) => ({ ...i })));
+                          setRevLines((plan.items || []).map((i) => ({ ...i })));
                         }}
                         className="px-3 py-1.5 rounded-lg bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-600/40 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
                       >
@@ -421,7 +421,7 @@ export function MaterialPlanningAndRequestsView({
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800">
-                      {plan.items.map((it) => (
+                      {(plan.items || []).map((it) => (
                         <tr key={it.itemId}>
                           <td className="px-3 py-2 font-mono text-amber-300">{it.itemCode}</td>
                           <td className="px-3 py-2 text-white">
@@ -446,7 +446,7 @@ export function MaterialPlanningAndRequestsView({
                       revs.map((r) => (
                         <div key={r.id} className="text-xs border-b border-slate-800/70 pb-2 last:border-0">
                           <div className="font-semibold text-white">
-                            {tr(isAmharic, "Rev", "ክለሳ")} {r.revisionNumber} — {r.revisedByName} ({r.revisedAt.slice(0, 10)})
+                            {tr(isAmharic, "Rev", "ክለሳ")} {r.revisionNumber} — {r.revisedByName} ({(r.revisedAt || "").slice(0, 10)})
                           </div>
                           <div className="text-slate-400">{tr(isAmharic, "Reason", "ምክንያት")}: {r.reason}</div>
                         </div>
@@ -656,7 +656,7 @@ export function MaterialPlanningAndRequestsView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800">
-                    {selectedPlan.items.map((pi) => {
+                    {(selectedPlan.items || []).map((pi) => {
                       const cmp = liveComparison?.comparedItems.find((c) => c.itemId === pi.itemId);
                       return (
                         <tr key={pi.itemId}>
@@ -942,8 +942,8 @@ function RequestItemsTable({ items, isAmharic = false }: { items: EngineeringMat
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-800">
-          {items.map((it) => (
-            <tr key={it.id}>
+          {(items || []).map((it, idx) => (
+            <tr key={it.id || it.itemId || idx}>
               <td className="px-3 py-2 text-white font-medium">{it.itemCode} — {it.itemName}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums">{it.plannedQty} {it.unit}</td>
               <td className="px-3 py-2 text-right font-mono tabular-nums text-slate-400">{it.previouslyApprovedOrIssuedQty}</td>
@@ -961,19 +961,26 @@ function RequestItemsTable({ items, isAmharic = false }: { items: EngineeringMat
 function RequestListCards({ requests, isAmharic = false }: { requests: EngineeringMaterialRequest[]; isAmharic?: boolean }) {
   return (
     <div className="space-y-3">
-      {requests.map((r) => (
+      {requests.map((r) => {
+        const lineItems = Array.isArray(r.items) ? r.items : [];
+        return (
         <div key={r.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="font-mono font-bold text-amber-400 text-xs">{r.requestNumber}</span>
-              <span className="text-xs text-slate-400">{tr(isAmharic, "Plan", "ዕቅድ")} {r.planNumber}</span>
+              <span className="font-mono font-bold text-amber-400 text-xs">{r.requestNumber || r.id}</span>
+              <span className="text-xs text-slate-400">{tr(isAmharic, "Plan", "ዕቅድ")} {r.planNumber || "SITE-STORE"}</span>
               <StatusBadge status={r.status} isAmharic={isAmharic} />
             </div>
-            <span className="text-[11px] text-slate-400 font-mono">{r.requestedDate}</span>
+            <span className="text-[11px] text-slate-400 font-mono">{r.requestedDate || ""}</span>
           </div>
           <div className="text-xs text-slate-300">
-            {r.projectName} ({r.projectStoreName}) ← {r.warehouseName} · {r.items.length} {tr(isAmharic, "item(s)", "እቃ(ዎች)")}
+            {r.projectName} ({r.projectStoreName}) ← {r.warehouseName} · {lineItems.length} {tr(isAmharic, "item(s)", "እቃ(ዎች)")}
           </div>
+          {lineItems.length > 0 && (
+            <div className="text-[11px] text-slate-400">
+              {lineItems.map((it) => `${it.itemName}: ${it.requestedQty} ${it.unit}`).join(" · ")}
+            </div>
+          )}
           {r.directorDecisionPermanent && (
             <div className="text-[11px] text-slate-400 flex items-center gap-1.5">
               <Lock size={11} className="text-amber-400" />
@@ -984,7 +991,8 @@ function RequestListCards({ requests, isAmharic = false }: { requests: Engineeri
             </div>
           )}
         </div>
-      ))}
+        );
+      })}
       {requests.length === 0 && (
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-500">
           {tr(isAmharic, "No material requests recorded yet.", "እስካሁን የተመዘገበ የእቃ ጥያቄ የለም።")}

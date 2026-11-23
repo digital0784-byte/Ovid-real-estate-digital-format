@@ -176,10 +176,10 @@ export function GrvAndCommercialInvoiceView({
         { label: "Invoice Date", value: grv.commercialInvoiceDate || "-" },
         { label: "PO Reference", value: grv.poNumber || "-" },
         { label: "Total Value", value: `${grv.totalAmount.toLocaleString()} ETB` },
-        { label: "Fixed Asset Lines", value: String(grv.items.filter((i) => i.inventoryType === "Fixed Asset").length) },
+        { label: "Fixed Asset Lines", value: String((grv.items || []).filter((i) => i.inventoryType === "Fixed Asset").length) },
       ],
       columns: ["Code", "Item Name", "Type", "Qty", "Unit", "Unit Cost", "Line Total", "Batch/Expiry"],
-      rows: grv.items.map((it) => [
+      rows: (grv.items || []).map((it) => [
         it.itemCode,
         it.itemName,
         it.inventoryType,
