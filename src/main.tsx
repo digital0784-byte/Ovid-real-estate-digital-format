@@ -5,15 +5,26 @@ import App from './App.tsx';
 import { ErrorBoundary } from './components/ErrorBoundary.tsx';
 import './index.css';
 
-// Unregister Service Workers to guarantee clean loading and prevent stale cache blocking
+import {registerSW} from 'virtual:pwa-register';
+
+// Register PWA Service Worker for offline app-shell precaching in browsers and Android WebView
 if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
-  navigator.serviceWorker.getRegistrations().then((registrations) => {
-    for (const registration of registrations) {
-      registration.unregister();
-    }
-  }).catch((err) => {
-    console.log('Service Worker cleanup:', err);
-  });
+  try {
+    const updateSW = registerSW({
+      immediate: true,
+      onNeedRefresh() {
+        updateSW(true).catch(() => {});
+      },
+      onOfflineReady() {
+        console.info('[PWA] App shell cached and ready for offline use.');
+      },
+      onRegisterError(err) {
+        console.warn('[PWA] Service Worker registration notice:', err);
+      },
+    });
+  } catch (err) {
+    console.warn('[PWA] Service Worker init skipped:', err);
+  }
 }
 
 try {

@@ -52,8 +52,11 @@ import {
   UserPlus,
   UserCheck,
   Briefcase,
-  ChevronDown
+  ChevronDown,
+  WifiOff
 } from "lucide-react";
+import { PWAInstallButton } from "./PWAInstallButton";
+import { useOnlineStatus } from "../hooks/useOnlineStatus";
 
 const formatToE164 = (phone: string): string => {
   const cleaned = phone.trim().replace(/[^\d+]/g, "");
@@ -97,6 +100,7 @@ interface LoginScreenProps {
 }
 
 export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, auditLogsCount }: LoginScreenProps) {
+  const isOnline = useOnlineStatus();
   // Authentication Method Choice
   const [authMethod, setAuthMethod] = useState<"credentials" | "phone" | "empId" | "biometric">("credentials");
   
@@ -856,13 +860,22 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
           </div>
         </div>
 
-        <button 
-          onClick={onLanguageToggle}
-          className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer"
-        >
-          <Globe size={13} className="text-red-500" />
-          <span>{isAmharic ? "English" : "አማርኛ"}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          {!isOnline && (
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-bold">
+              <WifiOff size={12} />
+              <span className="hidden sm:inline">{isAmharic ? "ከመስመር ውጭ" : "Offline"}</span>
+            </span>
+          )}
+          <PWAInstallButton isAmharic={isAmharic} />
+          <button 
+            onClick={onLanguageToggle}
+            className="px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 hover:bg-slate-800 text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer"
+          >
+            <Globe size={13} className="text-red-500" />
+            <span>{isAmharic ? "English" : "አማርኛ"}</span>
+          </button>
+        </div>
       </div>
 
       {/* Main Authentication Core */}

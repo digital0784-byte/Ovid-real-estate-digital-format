@@ -1181,7 +1181,16 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
   const isDev = process.env.NODE_ENV === "development";
 
   if (hasBuiltDist && !isDev) {
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          const base = path.basename(filePath);
+          if (base === "sw.js" || base === "manifest.webmanifest" || base === "registerSW.js") {
+            res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+          }
+        },
+      })
+    );
     app.get("*", (req, res, next) => {
       if (req.path.startsWith("/api/") || req.path.startsWith("/iclock/")) {
         return next();

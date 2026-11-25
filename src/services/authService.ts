@@ -523,3 +523,59 @@ export async function hasFreshMfaClaim(forceRefresh = false): Promise<boolean> {
     return false;
   }
 }
+
+const CACHED_PROFILE_PREFIX = "erp_cached_user_profile_v1_";
+
+export function saveCachedUserProfile(profile: {
+  uid: string;
+  role: string;
+  status: string;
+  [key: string]: any;
+}): void {
+  if (typeof window === "undefined" || !profile?.uid) return;
+  try {
+    const resolved = resolveUserRole(profile);
+    if (resolved === "Pending" || profile.status !== "Active") return;
+    window.localStorage.setItem(
+      `${CACHED_PROFILE_PREFIX}${profile.uid}`,
+      JSON.stringify({ ...profile, role: resolved, status: "Active", _cachedAt: Date.now() })
+    );
+  } catch {
+    // Ignore storage quota errors
+  }
+}
+
+export function loadCachedUserProfile<T = FirestoreUserRecord>(uid: string | undefined | null): T | null {
+  if (typeof window === "undefined" || !uid) return null;
+  try {
+    const raw = window.localStorage.getItem(`${CACHED_PROFILE_PREFIX}${uid}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    const resolved = resolveUserRole(parsed);
+    if (resolved === "Pending") return null;
+    return { ...parsed, role: resolved, status: "Active" } as T;
+  } catch {
+    return null;
+  }
+}
+
+export function clearCachedUserProfile(uid?: string | null): void {
+  if (typeof window === "undefined") return;
+  try {
+    if (uid) {
+      window.localStorage.removeItem(`${CACHED_PROFILE_PREFIX}${uid}`);
+      return;
+    }
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i++) {
+      const k = window.localStorage.key(i);
+      if (k && k.startsWith(CACHED_PROFILE_PREFIX)) {
+        keysToRemove.push(k);
+      }
+    }
+    keysToRemove.forEach((k) => window.localStorage.removeItem(k));
+  } catch {
+    // Ignore storage errors
+  }
+}
+

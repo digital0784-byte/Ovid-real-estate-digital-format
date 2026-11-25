@@ -13,7 +13,10 @@ import {
   getMfaStatus,
   enrollMfa,
   verifyMfa,
-  signOutCurrentUser
+  signOutCurrentUser,
+  saveCachedUserProfile,
+  loadCachedUserProfile,
+  clearCachedUserProfile
 } from "./services/authService";
 import { 
   initialWorkers, 
@@ -88,6 +91,8 @@ import { TaskManagementSearchHub } from "./components/TaskManagementSearchHub";
 import { FirestoreDataExplorer } from "./components/FirestoreDataExplorer";
 import { HrmEnterpriseModule, HrmSubTab } from "./components/hrm/HrmEnterpriseModule";
 import { resolveBiometricMappingPermissions } from "./services/biometricMappingService";
+import { PWAInstallButton } from "./components/PWAInstallButton";
+import { OfflineIndicator } from "./components/OfflineIndicator";
 
 // Lucide Icons
 import { 
@@ -402,22 +407,50 @@ export default function App() {
     }
 
     let unsubProfile: (() => void) | undefined;
+    let offlineFallbackTimer: ReturnType<typeof setTimeout> | undefined;
 
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       if (unsubProfile) {
         unsubProfile();
         unsubProfile = undefined;
       }
+      if (offlineFallbackTimer) {
+        clearTimeout(offlineFallbackTimer);
+        offlineFallbackTimer = undefined;
+      }
 
       if (firebaseUser) {
         setIsAuthenticated(true);
-        setIsAuthLoading(true);
+        const cachedProfile = loadCachedUserProfile<UserProfile>(firebaseUser.uid);
+
+        if (typeof navigator !== "undefined" && navigator.onLine === false && cachedProfile) {
+          setCurrentUserProfile(cachedProfile);
+          setCurrentUserRole(cachedProfile.role as UserRole);
+          setIsAuthLoading(false);
+        } else {
+          setIsAuthLoading(true);
+          if (cachedProfile) {
+            offlineFallbackTimer = setTimeout(() => {
+              setCurrentUserProfile((prev) => prev || cachedProfile);
+              setCurrentUserRole((prevRole) =>
+                prevRole && prevRole !== ("Pending" as UserRole)
+                  ? prevRole
+                  : (cachedProfile.role as UserRole)
+              );
+              setIsAuthLoading(false);
+            }, 2500);
+          }
+        }
 
         if (db) {
           const userDocRef = doc(db, "users", firebaseUser.uid);
           unsubProfile = onSnapshot(
             userDocRef,
             (docSnap) => {
+              if (offlineFallbackTimer) {
+                clearTimeout(offlineFallbackTimer);
+                offlineFallbackTimer = undefined;
+              }
               if (docSnap.exists()) {
                 const data = docSnap.data();
                 const resolvedRole = resolveUserRole(data);
@@ -443,6 +476,11 @@ export default function App() {
                   assignedSite: data.assignedSite,
                   createdAt: data.createdAt
                 };
+                if (resolvedRole !== "Pending" && effectiveStatus === "Active") {
+                  saveCachedUserProfile(profile);
+                } else {
+                  clearCachedUserProfile(firebaseUser.uid);
+                }
                 setCurrentUserProfile(profile);
                 setCurrentUserRole(resolvedRole as UserRole);
               } else {
@@ -458,14 +496,28 @@ export default function App() {
                   email: firebaseUser.email || "",
                   phoneNumber: firebaseUser.phoneNumber || ""
                 };
+                clearCachedUserProfile(firebaseUser.uid);
                 setCurrentUserProfile(profile);
                 setCurrentUserRole("Pending" as UserRole);
               }
               setIsAuthLoading(false);
             },
             (error: any) => {
+              if (offlineFallbackTimer) {
+                clearTimeout(offlineFallbackTimer);
+                offlineFallbackTimer = undefined;
+              }
               handleFirestoreError(error, OperationType.GET, `users/${firebaseUser.uid}`);
-              const isUnavailable = error?.code === "unavailable";
+              const isUnavailable =
+                error?.code === "unavailable" ||
+                (typeof navigator !== "undefined" && navigator.onLine === false);
+              const fallbackCached = cachedProfile || loadCachedUserProfile<UserProfile>(firebaseUser.uid);
+              if (isUnavailable && fallbackCached) {
+                setCurrentUserProfile((prev) => prev || fallbackCached);
+                setCurrentUserRole(fallbackCached.role as UserRole);
+                setIsAuthLoading(false);
+                return;
+              }
               const fallbackProfile: UserProfile = {
                 uid: firebaseUser.uid,
                 displayName: firebaseUser.displayName || firebaseUser.email?.split("@")[0] || "Authenticated User",
@@ -502,12 +554,15 @@ export default function App() {
     });
 
     return () => {
+      if (offlineFallbackTimer) clearTimeout(offlineFallbackTimer);
       if (unsubProfile) unsubProfile();
       unsubscribe();
     };
   }, []);
 
   const handleLogout = async () => {
+    const logoutUid = currentUserProfile?.uid || auth?.currentUser?.uid;
+    clearCachedUserProfile(logoutUid);
     try {
       await signOutCurrentUser();
     } catch (err) {
@@ -2197,6 +2252,9 @@ export default function App() {
                 <span className="font-mono">A+</span>
               </button>
             </div>
+
+            {/* In-App PWA Install Prompt (hidden inside standalone / WebView APK) */}
+            <PWAInstallButton isAmharic={isAmharic} />
 
             {/* Settings ⚙️ Quick Access Button */}
             <button
@@ -4439,6 +4497,8 @@ export default function App() {
           </div>
         )}
       </AnimatePresence>
+
+      <OfflineIndicator isAmharic={isAmharic} />
 
     </div>
   );
