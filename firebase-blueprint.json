@@ -281,18 +281,27 @@
     },
     "Notification": {
       "title": "Notification",
-      "description": "Real-time critical systems alert payload.",
+      "description": "Real-time critical systems alert payload strictly scoped by targetRoles or target UIDs.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "recipientId": { "type": "string" },
+        "userId": { "type": "string" },
+        "targetUserId": { "type": "string" },
+        "targetUserIds": { "type": "array", "items": { "type": "string" } },
+        "targetRoles": { "type": "array", "items": { "type": "string" } },
+        "category": { "type": "string" },
+        "priority": { "type": "string" },
+        "status": { "type": "string" },
+        "projectName": { "type": "string" },
+        "readBy": { "type": "array", "items": { "type": "string" } },
         "title": { "type": "string" },
         "message": { "type": "string" },
         "type": { "type": "string" },
         "read": { "type": "boolean" },
         "timestamp": { "type": "string" }
       },
-      "required": ["id", "recipientId", "title", "message", "read", "timestamp"]
+      "required": ["id", "title", "message", "read", "timestamp"]
     },
     "Approval": {
       "title": "Approval",
@@ -1837,15 +1846,20 @@
     },
     "InventoryNotification": {
       "title": "InventoryNotification",
-      "description": "Real-time warehouse, planning, request, dispatch, security, and quarantine notifications.",
+      "description": "Real-time warehouse, planning, request, dispatch, security, and quarantine notifications strictly scoped by targetRoles.",
       "type": "object",
       "properties": {
         "id": { "type": "string", "maxLength": 128 },
         "eventType": { "type": "string", "maxLength": 80 },
         "title": { "type": "string", "maxLength": 200 },
+        "message": { "type": "string", "maxLength": 2000 },
+        "severity": { "type": "string", "maxLength": 32 },
+        "targetRoles": { "type": "array", "items": { "type": "string" } },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "readByUids": { "type": "array", "items": { "type": "string" } },
         "createdAt": { "type": "string", "maxLength": 64 }
       },
-      "required": ["id", "eventType", "title", "createdAt"]
+      "required": ["id", "eventType", "title", "targetRoles", "createdAt"]
     },
     "InventoryAuditLog": {
       "title": "InventoryAuditLog",

@@ -1022,6 +1022,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           receiver: "Director & Finance Manager",
           targetRoles: [
             UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
             UserRole.HEAD_OFFICE,
             UserRole.FINANCE_MANAGER,
           ],
@@ -1056,6 +1057,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           receiver: "Director, Finance & Project Manager",
           targetRoles: [
             UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
             UserRole.HEAD_OFFICE,
             UserRole.FINANCE_MANAGER,
             UserRole.PROJECT_MANAGER,
@@ -1091,6 +1093,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           receiver: "Director & Finance Manager",
           targetRoles: [
             UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
             UserRole.HEAD_OFFICE,
             UserRole.FINANCE_MANAGER,
           ],
@@ -1123,6 +1126,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           receiver: "Director & Finance Manager",
           targetRoles: [
             UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
             UserRole.HEAD_OFFICE,
             UserRole.FINANCE_MANAGER,
           ],
@@ -1155,6 +1159,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
         receiver: "Director, Finance Manager & Auditor",
         targetRoles: [
           UserRole.SUPER_ADMIN,
+          UserRole.DIRECTOR,
           UserRole.HEAD_OFFICE,
           UserRole.FINANCE_MANAGER,
           UserRole.AUDITOR,
@@ -1188,6 +1193,7 @@ export const FinanceErpHub: React.FC<FinanceErpHubProps> = ({
           receiver: "Auditor, Director & Finance Manager",
           targetRoles: [
             UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
             UserRole.HEAD_OFFICE,
             UserRole.FINANCE_MANAGER,
             UserRole.AUDITOR,

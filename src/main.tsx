@@ -24,6 +24,7 @@ try {
       </ErrorBoundary>
     </StrictMode>,
   );
+  (window as any).__ERP_MARK_APP_RENDERED__?.();
 } catch (err) {
   console.error('Root Mount Error:', err);
 }

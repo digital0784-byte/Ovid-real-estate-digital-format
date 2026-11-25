@@ -581,7 +581,7 @@ export class SiteStoreMovementService {
       sender: currentUser.name,
       senderRole: currentUser.role,
       receiver: "Site Manager & Store Manager",
-      targetRoles: ["Site Manager", "Store Manager", "Warehouse Manager", "Super Admin"],
+      targetRoles: ["Site Manager", "Store Manager", "Warehouse Manager", "Director", "Super Admin"],
       deliveryChannels: { inApp: true, push: true, email: false, sms: data.priority === "Critical" },
       actionTab: "warehouseSiteStore",
       actionPayload: { requestId: id, requestNumber }
@@ -1464,6 +1464,12 @@ export class SiteStoreMovementService {
           roleName: "Head Office Manager",
           targetRoles: ["Head Office Manager", "Head Office", "head_office"],
           nameAm: "የዋና መስሪያ ቤት ስራ አስኪያጅ"
+        },
+        {
+          idSuffix: "dir",
+          roleName: "Director",
+          targetRoles: ["Director"],
+          nameAm: "ዳይሬክተር"
         },
         {
           idSuffix: "admin",

@@ -49,6 +49,7 @@ import { NotificationService, adaptToEnterpriseNotification } from "../services/
 
 interface EnterpriseNotificationCenterProps {
   currentUserRole: UserRole | string;
+  currentUserId?: string;
   selectedProject: string;
   onNavigateToTab?: (tabName: string) => void;
   onLogAudit?: (action: string, details: string) => void;
@@ -132,6 +133,7 @@ const ALL_CATEGORIES: NotificationCategory[] = [
 
 export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenterProps> = ({
   currentUserRole,
+  currentUserId,
   selectedProject,
   onNavigateToTab,
   onLogAudit,
@@ -349,7 +351,8 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
       const filtered = NotificationService.getNotificationsForRoleAndProject(
         currentUserRole,
         selectedProject,
-        combined.length > 0 ? combined : undefined
+        combined.length > 0 ? combined : undefined,
+        currentUserId
       );
       setNotifications(NotificationService.sortNewestToOldest(filtered));
     };
@@ -361,7 +364,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
     });
 
     return () => unsubscribe();
-  }, [systemNotifications, currentUserRole, selectedProject]);
+  }, [systemNotifications, currentUserRole, currentUserId, selectedProject]);
 
   // Sync project filter if top dropdown changes
   useEffect(() => {
@@ -369,7 +372,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   }, [selectedProject]);
 
   const isItemUnread = (n: EnterpriseNotification) => {
-    return NotificationService.isNotificationUnread(n, String(currentUserRole));
+    return NotificationService.isNotificationUnread(n, String(currentUserRole), currentUserId);
   };
 
   // Filtered Notifications - Strictly Sorted Newest to Oldest (new to old)
@@ -489,7 +492,7 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
 
   // Actions
   const handleMarkAllRead = () => {
-    NotificationService.markAllAsRead(currentUserRole, selectedProject);
+    NotificationService.markAllAsRead(currentUserRole, selectedProject, currentUserId);
     if (onMarkAllAsRead) onMarkAllAsRead();
     if (onLogAudit) onLogAudit("NOTIFICATIONS_MARK_ALL_READ", `Role: ${currentUserRole}, Project: ${selectedProject}`);
   };
@@ -497,18 +500,18 @@ export const EnterpriseNotificationCenter: React.FC<EnterpriseNotificationCenter
   const handleActionClick = (notif: EnterpriseNotification, action: "read" | "unread" | "ack" | "complete" | "snooze" | "archive" | "delete") => {
     switch (action) {
       case "read":
-        NotificationService.markAsRead(notif.id, String(currentUserRole));
+        NotificationService.markAsRead(notif.id, String(currentUserRole), currentUserId);
         if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "unread":
         // Strict system policy: Once read, a notification never reverts to unread / new
         break;
       case "ack":
-        NotificationService.acknowledge(notif.id, String(currentUserRole));
+        NotificationService.acknowledge(notif.id, String(currentUserRole), currentUserId);
         if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "complete":
-        NotificationService.markAsCompleted(notif.id, String(currentUserRole));
+        NotificationService.markAsCompleted(notif.id, String(currentUserRole), currentUserId);
         if (onMarkAsRead) onMarkAsRead(notif.id);
         break;
       case "snooze":

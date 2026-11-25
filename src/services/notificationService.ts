@@ -4,6 +4,74 @@ const STORAGE_KEY_NOTIFICATIONS = "buildsync_enterprise_notifications";
 const STORAGE_KEY_SETTINGS = "buildsync_notification_settings";
 const STORAGE_KEY_READ_IDS = "buildsync_read_notification_ids";
 
+export interface NotificationUserContext {
+  role?: UserRole | string;
+  uid?: string;
+  projectName?: string;
+}
+
+const CANONICAL_ROLE_ALIASES: Array<{ canonical: string; aliases: string[] }> = [
+  { canonical: UserRole.SUPER_ADMIN, aliases: [UserRole.SUPER_ADMIN, "Super Admin", "super_admin", "Admin", "admin", "System Admin"] },
+  { canonical: UserRole.DIRECTOR, aliases: [UserRole.DIRECTOR, "Director", "director", "Directory", "directory"] },
+  { canonical: UserRole.HEAD_OFFICE, aliases: [UserRole.HEAD_OFFICE, "Head Office", "Head Office Manager", "head_office"] },
+  { canonical: UserRole.PROJECT_MANAGER, aliases: [UserRole.PROJECT_MANAGER, "Project Manager", "project_manager", "Project Head"] },
+  { canonical: UserRole.SECTION_HEAD, aliases: [UserRole.SECTION_HEAD, "Section Head", "section_head"] },
+  { canonical: UserRole.OPERATION_MANAGER, aliases: [UserRole.OPERATION_MANAGER, "Operation Manager", "operation_manager"] },
+  { canonical: UserRole.OFFICE_MANAGER, aliases: [UserRole.OFFICE_MANAGER, "Office Manager", "Office Manager Engineer", "office_manager"] },
+  { canonical: UserRole.OFFICE_AND_TECHNICAL_ENGINEERING, aliases: [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING, "Office & Technical Engineering"] },
+  { canonical: UserRole.FINANCE_MANAGER, aliases: [UserRole.FINANCE_MANAGER, "Finance Manager", "finance_manager"] },
+  { canonical: UserRole.ACCOUNTANT, aliases: [UserRole.ACCOUNTANT, "Accountant", "accountant"] },
+  { canonical: UserRole.AUDITOR, aliases: [UserRole.AUDITOR, "Auditor", "auditor"] },
+  { canonical: UserRole.HR_MANAGER, aliases: [UserRole.HR_MANAGER, "HR Manager", "hr_manager"] },
+  { canonical: UserRole.HR, aliases: [UserRole.HR, "HR", "hr"] },
+  { canonical: UserRole.WAREHOUSE_MANAGER, aliases: [UserRole.WAREHOUSE_MANAGER, "Warehouse Manager", "warehouse_manager"] },
+  { canonical: UserRole.SITE_MANAGER, aliases: [UserRole.SITE_MANAGER, "Site Manager", "site_manager", "Store Owner", "Site Store Owner", "site_store_owner", "store_owner"] },
+  { canonical: UserRole.STORE_MANAGER, aliases: [UserRole.STORE_MANAGER, "Store Manager", "store_manager"] },
+  { canonical: UserRole.SITE_ENGINEER, aliases: [UserRole.SITE_ENGINEER, "Site Engineer", "site_engineer"] },
+  { canonical: UserRole.SURVEYOR, aliases: [UserRole.SURVEYOR, "Surveyor", "surveyor"] },
+  { canonical: UserRole.HSE_OFFICER, aliases: [UserRole.HSE_OFFICER, "HSE Officer", "Safety Officer", "hse_officer"] },
+  { canonical: UserRole.SUPERVISOR, aliases: [UserRole.SUPERVISOR, "Supervisor", "supervisor"] },
+  { canonical: UserRole.TIME_KEEPER, aliases: [UserRole.TIME_KEEPER, "Time Keeper", "time_keeper"] },
+  { canonical: UserRole.TEAM_LEADER, aliases: [UserRole.TEAM_LEADER, "Team Leader", "team_leader"] },
+  { canonical: UserRole.GANG_CHIEF, aliases: [UserRole.GANG_CHIEF, "Gang Chief", "gang_chief"] },
+  { canonical: UserRole.ASSEMBLER, aliases: [UserRole.ASSEMBLER, "Assembler", "assembler"] },
+  { canonical: UserRole.MATERIAL_HANDLING, aliases: [UserRole.MATERIAL_HANDLING, "Material Handling", "material_handler"] },
+  { canonical: UserRole.DRIVER, aliases: [UserRole.DRIVER, "Driver", "driver"] },
+  { canonical: UserRole.GATE_SECURITY_OFFICER, aliases: [UserRole.GATE_SECURITY_OFFICER, "Gate Security Officer", "Security Officer", "gate_security"] },
+  { canonical: UserRole.SYSTEM_OPERATOR, aliases: [UserRole.SYSTEM_OPERATOR, "System Operator", "system_operator"] },
+  { canonical: UserRole.WORKER, aliases: [UserRole.WORKER, "Worker", "worker"] },
+  { canonical: UserRole.EMPLOYEE, aliases: [UserRole.EMPLOYEE, "Employee", "employee"] },
+  { canonical: "Pending", aliases: ["Pending", "pending"] }
+];
+
+export function normalizeNotificationRole(role?: UserRole | string): string {
+  if (!role) return "";
+  const cleaned = String(role).trim();
+  if (!cleaned) return "";
+  const lowered = cleaned.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ");
+  for (const group of CANONICAL_ROLE_ALIASES) {
+    if (
+      group.aliases.some(
+        (alias) => alias.toLowerCase().replace(/_/g, " ").replace(/\s+/g, " ") === lowered
+      )
+    ) {
+      return group.canonical;
+    }
+  }
+  return cleaned;
+}
+
+export function getRoleMatchAliases(role?: UserRole | string): string[] {
+  const canonical = normalizeNotificationRole(role);
+  if (!canonical) return [];
+  const group = CANONICAL_ROLE_ALIASES.find((g) => g.canonical === canonical);
+  if (group) {
+    return Array.from(new Set(group.aliases)).slice(0, 10);
+  }
+  const raw = String(role || "").trim();
+  return Array.from(new Set([canonical, raw].filter(Boolean))).slice(0, 10);
+}
+
 // Realistic seed notifications across all 31 Categories
 const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
   // 1. Attendance
@@ -50,7 +118,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Warehouse ERP System",
     senderRole: "Warehouse Manager",
     receiver: "Procurement & Store Managers",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
     date: "2026-07-23",
     time: "06:45 AM",
     timestamp: Date.now() - 3600000 * 3,
@@ -126,7 +194,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Head Office Finance Dept",
     senderRole: "Finance Manager",
     receiver: "Project Manager & Finance",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER],
     date: "2026-07-22",
     time: "11:20 AM",
     timestamp: Date.now() - 3600000 * 20,
@@ -224,7 +292,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Procurement Portal",
     senderRole: "Head Office",
     receiver: "Head Office & Finance",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER],
     date: "2026-07-21",
     time: "03:40 PM",
     timestamp: Date.now() - 3600000 * 40,
@@ -293,7 +361,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Subcontractor Management Portal",
     senderRole: "Finance Manager",
     receiver: "Finance Manager & Project Manager",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.AUDITOR],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.AUDITOR],
     date: "2026-07-23",
     time: "07:00 AM",
     timestamp: Date.now() - 3600000 * 2.5,
@@ -315,7 +383,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Time Keeper & HR Dept",
     senderRole: "Time Keeper",
     receiver: "Project Manager & Finance",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.HR_MANAGER, UserRole.TIME_KEEPER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.HR_MANAGER, UserRole.HR, UserRole.TIME_KEEPER],
     date: "2026-07-23",
     time: "06:30 AM",
     timestamp: Date.now() - 3600000 * 3.5,
@@ -337,7 +405,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "BuildSync Financial AI Engine",
     senderRole: "System AI",
     receiver: "Head Office & Finance Manager",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.AUDITOR],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.AUDITOR],
     date: "2026-07-22",
     time: "09:00 PM",
     timestamp: Date.now() - 3600000 * 11,
@@ -364,7 +432,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Mulugeta B. (Project Manager)",
     senderRole: "Project Manager",
     receiver: "All Project Stakeholders",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
     date: "2026-07-22",
     time: "06:00 PM",
     timestamp: Date.now() - 3600000 * 14,
@@ -622,7 +690,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Fixed Asset ERP Engine",
     senderRole: "Finance Manager",
     receiver: "Finance Manager & Auditors",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.AUDITOR],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.AUDITOR],
     date: "2026-07-20",
     time: "02:00 PM",
     timestamp: Date.now() - 3600000 * 75,
@@ -644,7 +712,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "BuildSync Antigravity AI Engine",
     senderRole: "System AI",
     receiver: "Project Manager & Section Heads",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.SITE_ENGINEER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.SITE_ENGINEER],
     date: "2026-07-23",
     time: "08:18 AM",
     timestamp: Date.now() - 3600000 * 0.05,
@@ -712,7 +780,7 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     sender: "Security Gate Clearance Kiosk",
     senderRole: "Super Admin",
     receiver: "HR & Site Security Admin",
-    targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.HR_MANAGER, "Security Officer", UserRole.PROJECT_MANAGER],
+    targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.HR_MANAGER, UserRole.HR, UserRole.GATE_SECURITY_OFFICER, UserRole.PROJECT_MANAGER],
     date: "2026-07-23",
     time: "06:10 AM",
     timestamp: Date.now() - 3600000 * 4,
@@ -735,11 +803,16 @@ const SEED_NOTIFICATIONS: EnterpriseNotification[] = [
     senderRole: "System Admin",
     receiver: "All ERP System Users",
     targetRoles: [
-      UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.WAREHOUSE_MANAGER,
-      UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD,
-      UserRole.SUPERVISOR, UserRole.SITE_ENGINEER, UserRole.SURVEYOR,
-      UserRole.HSE_OFFICER, UserRole.TEAM_LEADER, UserRole.GANG_CHIEF, UserRole.TIME_KEEPER,
-      UserRole.ASSEMBLER, UserRole.DRIVER, UserRole.AUDITOR
+      UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.OPERATION_MANAGER,
+      UserRole.OFFICE_MANAGER, UserRole.OFFICE_AND_TECHNICAL_ENGINEERING,
+      UserRole.FINANCE_MANAGER, UserRole.ACCOUNTANT, UserRole.AUDITOR,
+      UserRole.HR_MANAGER, UserRole.HR,
+      UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER,
+      UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.SUPERVISOR,
+      UserRole.SITE_ENGINEER, UserRole.SURVEYOR, UserRole.HSE_OFFICER,
+      UserRole.TEAM_LEADER, UserRole.GANG_CHIEF, UserRole.TIME_KEEPER,
+      UserRole.ASSEMBLER, UserRole.MATERIAL_HANDLING, UserRole.DRIVER,
+      UserRole.GATE_SECURITY_OFFICER, UserRole.SYSTEM_OPERATOR, UserRole.WORKER, UserRole.EMPLOYEE
     ],
     date: "2026-07-22",
     time: "01:00 AM",
@@ -760,8 +833,8 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
       status: "Unread",
       projectName: "Global System",
       sender: "System Engine",
-      receiver: "All Users",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
+      receiver: "Super Admin & Director",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR],
       date: new Date().toISOString().slice(0, 10),
       time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       timestamp: Date.now()
@@ -770,6 +843,14 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
 
   const rawId = rawNotif.id || "";
   const isPersistRead = !!(rawId && NotificationService.isReadPersistently(rawId));
+  const activeCtx = NotificationService.getActiveUserContext();
+  const activeRole = activeCtx?.role ? normalizeNotificationRole(activeCtx.role) : "";
+  const isReadByActiveUser =
+    Array.isArray(rawNotif.readBy) &&
+    (rawNotif.readBy.includes("all") ||
+      (activeRole && rawNotif.readBy.some((r: any) => normalizeNotificationRole(String(r)) === activeRole)) ||
+      (activeCtx?.uid && rawNotif.readBy.includes(activeCtx.uid)));
+
   const isRead = !!(
     isPersistRead ||
     rawNotif.read === true ||
@@ -777,10 +858,10 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
     rawNotif.status === "Read" ||
     rawNotif.status === "Acknowledged" ||
     rawNotif.status === "Completed" ||
-    (Array.isArray(rawNotif.readBy) && rawNotif.readBy.length > 0)
+    isReadByActiveUser
   );
 
-  // If determined to be read, immediately lock it persistently into read storage
+  // If determined to be read in this browser session, lock it persistently
   if (isRead && rawId) {
     NotificationService.markIdAsReadPersistently(rawId);
   }
@@ -788,24 +869,30 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
   const numericTs = NotificationService.getNumericTimestamp(rawNotif) || Date.now();
   const dateObj = new Date(numericTs);
 
+  const hasExplicitUserTarget = Boolean(
+    rawNotif.userId ||
+    rawNotif.targetUserId ||
+    (rawNotif.recipientId && rawNotif.recipientId !== "all") ||
+    (Array.isArray(rawNotif.targetUserIds) && rawNotif.targetUserIds.length > 0)
+  );
+
+  const resolvedTargetRoles: (UserRole | string)[] =
+    Array.isArray(rawNotif.targetRoles) && rawNotif.targetRoles.length > 0
+      ? rawNotif.targetRoles
+      : rawNotif.targetRole
+      ? [String(rawNotif.targetRole)]
+      : hasExplicitUserTarget
+      ? []
+      : [UserRole.SUPER_ADMIN, UserRole.DIRECTOR];
+
   if (rawNotif.category && rawNotif.description && rawNotif.status) {
     return {
       ...rawNotif,
       status: isRead ? "Read" : rawNotif.status,
       read: isRead ? true : !!rawNotif.read,
-      readBy: isRead ? (Array.isArray(rawNotif.readBy) && rawNotif.readBy.length > 0 ? rawNotif.readBy : ["all"]) : rawNotif.readBy || [],
+      readBy: Array.isArray(rawNotif.readBy) ? rawNotif.readBy : [],
       timestamp: numericTs,
-      targetRoles: rawNotif.targetRoles || [
-        UserRole.SUPER_ADMIN,
-        UserRole.HEAD_OFFICE,
-        UserRole.PROJECT_MANAGER,
-        UserRole.SITE_ENGINEER,
-        UserRole.STORE_MANAGER,
-        UserRole.SITE_MANAGER,
-        UserRole.WAREHOUSE_MANAGER,
-        UserRole.SUPERVISOR,
-        UserRole.WORKER
-      ]
+      targetRoles: resolvedTargetRoles
     } as EnterpriseNotification;
   }
 
@@ -815,6 +902,8 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
     titleAm: rawNotif.titleAm || rawNotif.title,
     description: rawNotif.message || rawNotif.description || "",
     descriptionAm: rawNotif.descriptionAm || rawNotif.message || "",
+    message: rawNotif.message || rawNotif.description || "",
+    messageAm: rawNotif.messageAm || rawNotif.descriptionAm || "",
     category: (rawNotif.category as NotificationCategory) || "System Update Notifications",
     priority: (rawNotif.priority as NotificationPriority) || "Medium",
     status: (isRead ? "Read" : (rawNotif.status as NotificationStatus) || "Unread"),
@@ -822,24 +911,19 @@ export function adaptToEnterpriseNotification(rawNotif: any): EnterpriseNotifica
     siteName: rawNotif.siteName || "Main Site",
     sender: rawNotif.sender || "System Engine",
     senderRole: rawNotif.senderRole || "System",
-    receiver: rawNotif.receiver || "All ERP Users",
-    targetRoles: rawNotif.targetRoles || [
-      UserRole.SUPER_ADMIN,
-      UserRole.HEAD_OFFICE,
-      UserRole.PROJECT_MANAGER,
-      UserRole.SITE_ENGINEER,
-      UserRole.STORE_MANAGER,
-      UserRole.SITE_MANAGER,
-      UserRole.WAREHOUSE_MANAGER,
-      UserRole.SUPERVISOR,
-      UserRole.WORKER
-    ],
+    receiver: rawNotif.receiver || "Authorized Role Users",
+    targetRoles: resolvedTargetRoles,
+    targetRole: rawNotif.targetRole,
+    userId: rawNotif.userId,
+    recipientId: rawNotif.recipientId,
+    targetUserId: rawNotif.targetUserId,
+    targetUserIds: Array.isArray(rawNotif.targetUserIds) ? rawNotif.targetUserIds : undefined,
     date: dateObj.toISOString().slice(0, 10),
     time: dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     timestamp: numericTs,
     isAiGenerated: !!rawNotif.isAiGenerated,
     read: isRead,
-    readBy: rawNotif.readBy || (isRead ? ["all"] : []),
+    readBy: Array.isArray(rawNotif.readBy) ? rawNotif.readBy : [],
     deliveryChannels: rawNotif.deliveryChannels || { inApp: true, push: false, email: false, sms: false },
     actionTab: rawNotif.actionTab || "dashboard"
   };
@@ -947,6 +1031,15 @@ export class NotificationService {
   private static listeners: Set<NotificationListener> = new Set();
   private static isSoundEnabled: boolean = true;
   private static isPushEnabled: boolean = true;
+  private static activeUserContext: NotificationUserContext | null = null;
+
+  public static setActiveUserContext(ctx: NotificationUserContext | null): void {
+    this.activeUserContext = ctx ? { ...ctx } : null;
+  }
+
+  public static getActiveUserContext(): NotificationUserContext | null {
+    return this.activeUserContext;
+  }
 
   // Browser Push Permission Management
   public static getBrowserPermission(): NotificationPermission {
@@ -1081,13 +1174,20 @@ export class NotificationService {
     }
   }
 
-  public static isNotificationUnread(notif: any, currentUserRole?: string): boolean {
+  public static isNotificationUnread(notif: any, currentUserRole?: string, currentUserId?: string): boolean {
     if (!notif) return false;
     if (this.isReadPersistently(notif.id)) return false;
     if (notif.status === "Read" || notif.status === "Acknowledged" || notif.status === "Completed") return false;
     if (notif.read === true || notif.isRead === true) return false;
-    if (currentUserRole && Array.isArray(notif.readBy) && (notif.readBy.includes(String(currentUserRole)) || notif.readBy.includes("all"))) {
-      return false;
+    const normalizedRole = currentUserRole ? normalizeNotificationRole(currentUserRole) : "";
+    if (Array.isArray(notif.readBy)) {
+      if (notif.readBy.includes("all")) return false;
+      if (normalizedRole && notif.readBy.some((r: any) => normalizeNotificationRole(String(r)) === normalizedRole)) {
+        return false;
+      }
+      if (currentUserId && notif.readBy.includes(currentUserId)) {
+        return false;
+      }
     }
     return true;
   }
@@ -1197,7 +1297,12 @@ export class NotificationService {
   }
 
   // Merge remote notifications coming from Firestore onSnapshot
-  public static mergeRemoteNotifications(remoteItems: any[], currentUserRole?: string, currentProject?: string): void {
+  public static mergeRemoteNotifications(
+    remoteItems: any[],
+    currentUserRole?: string,
+    currentProject?: string,
+    currentUserId?: string
+  ): void {
     if (!remoteItems || remoteItems.length === 0) return;
 
     const readIds = this.getReadNotificationIds();
@@ -1207,7 +1312,11 @@ export class NotificationService {
 
     remoteItems.forEach(item => {
       const adapted = adaptToEnterpriseNotification(item);
-      const isAlreadyRead = readIds.has(adapted.id) || (adapted as any).read === true || adapted.status === "Read";
+      const isAlreadyRead =
+        readIds.has(adapted.id) ||
+        (adapted as any).read === true ||
+        adapted.status === "Read" ||
+        !this.isNotificationUnread(adapted, currentUserRole, currentUserId);
 
       if (isAlreadyRead) {
         adapted.status = "Read";
@@ -1234,12 +1343,17 @@ export class NotificationService {
     const updatedList = this.sortNewestToOldest(Array.from(currentMap.values()));
     this.saveNotifications(updatedList);
 
-    // Trigger real-time alert for newly received remote notifications
-    if (newIncomingItems.length > 0) {
+    // Trigger real-time alert ONLY for newly received remote notifications targeted to active user role/UID
+    const normalizedRole = normalizeNotificationRole(currentUserRole);
+    if (newIncomingItems.length > 0 && normalizedRole && normalizedRole !== "Pending") {
       newIncomingItems.forEach(newItem => {
-        // Filter by role/project relevance
-        const forUser = this.getNotificationsForRoleAndProject(currentUserRole || "Super Admin", currentProject, [newItem]);
-        if (forUser.length > 0) {
+        if (
+          this.isNotificationTargetedToUser(newItem, {
+            role: currentUserRole,
+            uid: currentUserId,
+            projectName: currentProject
+          })
+        ) {
           this.dispatchLiveRealNotification(newItem);
         }
       });
@@ -1259,70 +1373,126 @@ export class NotificationService {
     this.listeners.forEach(fn => fn(this.sortNewestToOldest(list)));
   }
 
-  // Filter notifications according to RBAC role and assigned project
-  public static getNotificationsForRoleAndProject(
+  public static isNotificationTargetedToUser(
+    notif: Partial<Omit<EnterpriseNotification, "category" | "priority" | "status" | "timestamp">> & {
+      category?: string;
+      priority?: string;
+      status?: string;
+      timestamp?: number | string | any;
+    } & Record<string, any>,
+    userCtx?: NotificationUserContext | null
+  ): boolean {
+    if (!notif || !userCtx) return false;
+    const canonicalUserRole = normalizeNotificationRole(userCtx.role);
+    if (!canonicalUserRole || canonicalUserRole === "Pending") {
+      return false;
+    }
+
+    // Filter out snoozed notifications if snoozedUntil is in the future
+    if (notif.isSnoozed && notif.snoozedUntil) {
+      if (new Date(notif.snoozedUntil).getTime() > Date.now()) {
+        return false;
+      }
+    }
+
+    // Project scope check
+    const filterProj = userCtx.projectName ? String(userCtx.projectName).trim() : "";
+    const notifProj = notif.projectName ? String(notif.projectName).trim() : "";
+    if (
+      filterProj &&
+      filterProj !== "ALL" &&
+      filterProj !== "All Projects" &&
+      notifProj &&
+      notifProj !== "Global System" &&
+      notifProj !== "All Projects" &&
+      notifProj.toLowerCase() !== filterProj.toLowerCase() &&
+      !(filterProj.length >= 3 && notifProj.toLowerCase().includes(filterProj.toLowerCase())) &&
+      !(notifProj.length >= 3 && filterProj.toLowerCase().includes(notifProj.toLowerCase()))
+    ) {
+      return false;
+    }
+
+    // Explicit UID targeting check
+    const explicitUids = new Set<string>();
+    const addUid = (val: any) => {
+      if (typeof val === "string") {
+        const trimmed = val.trim();
+        if (trimmed && trimmed.toLowerCase() !== "all") {
+          explicitUids.add(trimmed);
+        }
+      }
+    };
+    addUid(notif.userId);
+    addUid(notif.targetUserId);
+    addUid(notif.recipientId);
+    if (Array.isArray(notif.targetUserIds)) {
+      notif.targetUserIds.forEach(addUid);
+    }
+
+    const rawTargets: string[] = Array.isArray(notif.targetRoles)
+      ? notif.targetRoles.map(String).filter(Boolean)
+      : notif.targetRole
+      ? [String(notif.targetRole)]
+      : [];
+
+    if (explicitUids.size > 0) {
+      if (userCtx.uid && explicitUids.has(userCtx.uid)) {
+        return true;
+      }
+      // If notification is strictly UID-targeted (no targetRoles), block non-matching users
+      if (rawTargets.length === 0) {
+        return false;
+      }
+      // If user has a real Firebase UID (not a synthetic UID-* demo token), enforce strict UID match
+      if (userCtx.uid && !userCtx.uid.startsWith("UID-") && !explicitUids.has(userCtx.uid)) {
+        return false;
+      }
+    }
+
+    // Strict canonical role matching — ZERO wildcard bypasses
+    if (rawTargets.length === 0) {
+      return (
+        canonicalUserRole === UserRole.SUPER_ADMIN ||
+        canonicalUserRole === UserRole.DIRECTOR
+      );
+    }
+
+    const userAliases = getRoleMatchAliases(canonicalUserRole).map((a) =>
+      normalizeNotificationRole(a).toLowerCase()
+    );
+
+    return rawTargets.some((target) => {
+      const targetCanonical = normalizeNotificationRole(target).toLowerCase();
+      return (
+        targetCanonical === canonicalUserRole.toLowerCase() ||
+        userAliases.includes(targetCanonical)
+      );
+    });
+  }
+
+  // Filter notifications according to RBAC role, optional UID, and assigned project
+  public static getNotificationsForRoleAndProject<
+    T extends Partial<Omit<EnterpriseNotification, "category" | "priority" | "status" | "timestamp">> & {
+      category?: string;
+      priority?: string;
+      status?: string;
+      timestamp?: number | string | any;
+    } & Record<string, any>
+  >(
     role: UserRole | string,
     projectName?: string,
-    customList?: EnterpriseNotification[]
-  ): EnterpriseNotification[] {
-    const all = customList || this.getNotifications();
-    const roleStr = String(role);
+    customList?: T[],
+    uid?: string
+  ): T[] {
+    const all = (customList || this.getNotifications()) as T[];
     const readIds = this.getReadNotificationIds();
+    const userCtx: NotificationUserContext = { role, uid, projectName };
 
-    const filtered = all.filter(n => {
-      // Role check: If super admin, head office, HR manager, store owner, or role matches targetRoles
-      const matchesRole = 
-        roleStr === UserRole.SUPER_ADMIN || 
-        roleStr === UserRole.HEAD_OFFICE || 
-        roleStr === UserRole.HR_MANAGER ||
-        roleStr === UserRole.SITE_MANAGER ||
-        roleStr === "Super Admin" ||
-        roleStr === "Admin" ||
-        roleStr === "Head Office" ||
-        roleStr === "Site Manager" ||
-        roleStr === "Store Owner" ||
-        roleStr === "Store Manager" ||
-        roleStr === "HR Manager" ||
-        roleStr === "HR" ||
-        roleStr.toLowerCase().includes("admin") ||
-        roleStr.toLowerCase().includes("head office") ||
-        roleStr.toLowerCase().includes("store") ||
-        roleStr.toLowerCase().includes("site manager") ||
-        roleStr.toLowerCase().includes("hr") ||
-        (!n.targetRoles || n.targetRoles.length === 0) ||
-        (n.targetRoles || []).some(r => {
-          const rStr = String(r).toLowerCase().replace(/_/g, " ");
-          const targetRoleStr = roleStr.toLowerCase().replace(/_/g, " ");
-          return rStr === targetRoleStr ||
-                 rStr.includes(targetRoleStr) ||
-                 targetRoleStr.includes(rStr) ||
-                 (rStr.includes("admin") && targetRoleStr.includes("admin")) ||
-                 (rStr.includes("head office") && targetRoleStr.includes("head office")) ||
-                 (rStr.includes("store") && targetRoleStr.includes("store")) ||
-                 (rStr.includes("hr") && targetRoleStr.includes("hr"));
-        });
-
-      // Project check: If global or matched or no project filter
-      const matchesProject = !projectName || 
-        projectName === "ALL" || 
-        n.projectName === "Global System" || 
-        n.projectName === projectName || 
-        !n.projectName ||
-        (n.projectName && projectName.toLowerCase().includes(n.projectName.toLowerCase())) ||
-        (n.projectName && n.projectName.toLowerCase().includes(projectName.toLowerCase()));
-
-      // Filter out snoozed if snoozedUntil is in future
-      let isStillSnoozed = false;
-      if (n.isSnoozed && n.snoozedUntil) {
-        isStillSnoozed = new Date(n.snoozedUntil).getTime() > Date.now();
-      }
-
-      return matchesRole && matchesProject && !isStillSnoozed;
-    });
+    const filtered = all.filter((n) => this.isNotificationTargetedToUser(n, userCtx));
 
     // Ensure read status is respected and sort newest to oldest
-    const processed = filtered.map(item => {
-      if (readIds.has(item.id)) {
+    const processed = filtered.map((item) => {
+      if (item.id && readIds.has(item.id)) {
         return {
           ...item,
           status: "Read" as NotificationStatus,
@@ -1336,13 +1506,13 @@ export class NotificationService {
   }
 
   // Unread count
-  public static getUnreadCount(role: UserRole | string, projectName?: string): number {
-    const filtered = this.getNotificationsForRoleAndProject(role, projectName);
-    return filtered.filter(n => this.isNotificationUnread(n, String(role)) && !n.isArchived).length;
+  public static getUnreadCount(role: UserRole | string, projectName?: string, uid?: string): number {
+    const filtered = this.getNotificationsForRoleAndProject(role, projectName, undefined, uid);
+    return filtered.filter(n => this.isNotificationUnread(n, String(role), uid) && !n.isArchived).length;
   }
 
   // Update Notification Status
-  public static markAsRead(id: string, role?: string): void {
+  public static markAsRead(id: string, role?: string, uid?: string): void {
     if (!id) return;
     this.markIdAsReadPersistently(id);
     const list = this.getNotifications();
@@ -1352,7 +1522,7 @@ export class NotificationService {
       (item as any).read = true;
       if (!Array.isArray(item.readBy)) item.readBy = [];
       if (role && !item.readBy.includes(role)) item.readBy.push(role);
-      if (!item.readBy.includes("all")) item.readBy.push("all");
+      if (uid && !item.readBy.includes(uid)) item.readBy.push(uid);
       this.saveNotifications(list);
     }
   }
@@ -1364,7 +1534,7 @@ export class NotificationService {
     console.info(`[NotificationService] Notification ${id} read status is permanently locked: once read, it cannot revert to unread.`);
   }
 
-  public static acknowledge(id: string, role?: string): void {
+  public static acknowledge(id: string, role?: string, uid?: string): void {
     if (!id) return;
     this.markIdAsReadPersistently(id);
     const list = this.getNotifications();
@@ -1374,12 +1544,12 @@ export class NotificationService {
       (item as any).read = true;
       if (!Array.isArray(item.readBy)) item.readBy = [];
       if (role && !item.readBy.includes(role)) item.readBy.push(role);
-      if (!item.readBy.includes("all")) item.readBy.push("all");
+      if (uid && !item.readBy.includes(uid)) item.readBy.push(uid);
       this.saveNotifications(list);
     }
   }
 
-  public static markAsCompleted(id: string, role?: string): void {
+  public static markAsCompleted(id: string, role?: string, uid?: string): void {
     if (!id) return;
     this.markIdAsReadPersistently(id);
     const list = this.getNotifications();
@@ -1389,7 +1559,7 @@ export class NotificationService {
       (item as any).read = true;
       if (!Array.isArray(item.readBy)) item.readBy = [];
       if (role && !item.readBy.includes(role)) item.readBy.push(role);
-      if (!item.readBy.includes("all")) item.readBy.push("all");
+      if (uid && !item.readBy.includes(uid)) item.readBy.push(uid);
       this.saveNotifications(list);
     }
   }
@@ -1419,36 +1589,17 @@ export class NotificationService {
     this.saveNotifications(filtered);
   }
 
-  public static markAllAsRead(role: UserRole | string, projectName?: string): void {
+  public static markAllAsRead(role: UserRole | string, projectName?: string, uid?: string): void {
     const list = this.getNotifications();
-    const roleStr = String(role);
     const readIdsToPersist: string[] = [];
 
     list.forEach(n => {
-      const matchesRole = 
-        roleStr === UserRole.SUPER_ADMIN || 
-        roleStr === UserRole.HEAD_OFFICE || 
-        roleStr === UserRole.HR_MANAGER ||
-        roleStr === "Super Admin" ||
-        roleStr === "Admin" ||
-        roleStr === "Head Office" ||
-        roleStr === "HR Manager" ||
-        roleStr === "HR" ||
-        roleStr.toLowerCase().includes("admin") ||
-        roleStr.toLowerCase().includes("head office") ||
-        roleStr.toLowerCase().includes("hr") ||
-        (n.targetRoles || []).some(r => {
-          const rStr = String(r).toLowerCase();
-          const targetRoleStr = roleStr.toLowerCase();
-          return rStr === targetRoleStr ||
-                 (rStr.includes("admin") && targetRoleStr.includes("admin")) ||
-                 (rStr.includes("head office") && targetRoleStr.includes("head office")) ||
-                 (rStr.includes("hr") && targetRoleStr.includes("hr"));
-        });
-      const matchesProject = !projectName || projectName === "ALL" || n.projectName === "Global System" || n.projectName === projectName;
-      if (matchesRole && matchesProject) {
+      if (this.isNotificationTargetedToUser(n, { role, uid, projectName })) {
         n.status = "Read";
         (n as any).read = true;
+        if (!Array.isArray(n.readBy)) n.readBy = [];
+        if (role && !n.readBy.includes(String(role))) n.readBy.push(String(role));
+        if (uid && !n.readBy.includes(uid)) n.readBy.push(uid);
         readIdsToPersist.push(n.id);
       }
     });
@@ -1478,9 +1629,19 @@ export class NotificationService {
   public static createNotification(params: Omit<EnterpriseNotification, "id" | "date" | "time" | "timestamp">): EnterpriseNotification {
     const list = this.getNotifications();
     const now = new Date();
-    
+
+    const safeTargets =
+      Array.isArray(params.targetRoles) && params.targetRoles.length > 0
+        ? params.targetRoles
+        : params.targetRole
+        ? [params.targetRole]
+        : params.userId || params.targetUserId || params.recipientId || (Array.isArray(params.targetUserIds) && params.targetUserIds.length > 0)
+        ? []
+        : [UserRole.SUPER_ADMIN, UserRole.DIRECTOR];
+
     const newNotif: EnterpriseNotification = {
       ...params,
+      targetRoles: safeTargets,
       id: `NOTIF-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       date: now.toISOString().slice(0, 10),
       time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -1490,8 +1651,13 @@ export class NotificationService {
     list.unshift(newNotif);
     this.saveNotifications(list);
 
-    // Live dispatch (Sound + Browser Push + Floating Banner + Vibration)
-    this.dispatchLiveRealNotification(newNotif);
+    // Live dispatch (Sound + Browser Push + Floating Banner + Vibration) ONLY if targeted to current authenticated user
+    if (
+      this.activeUserContext &&
+      this.isNotificationTargetedToUser(newNotif, this.activeUserContext)
+    ) {
+      this.dispatchLiveRealNotification(newNotif);
+    }
 
     return newNotif;
   }
@@ -1524,7 +1690,7 @@ export class NotificationService {
         sender: "BuildSync AI Inventory Engine",
         senderRole: "System AI",
         receiver: "Warehouse, Site & Store Managers",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.WAREHOUSE_MANAGER, UserRole.SITE_MANAGER, UserRole.STORE_MANAGER],
         isAiGenerated: true,
         aiConfidence: 0.98,
         deliveryChannels: { inApp: true, push: true, email: true, sms: true },
@@ -1585,7 +1751,7 @@ export class NotificationService {
         sender: "BuildSync Cost AI Predictor",
         senderRole: "System AI",
         receiver: "Finance Manager & Project Manager",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.AUDITOR],
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.AUDITOR],
         isAiGenerated: true,
         aiConfidence: 0.96,
         deliveryChannels: { inApp: true, push: true, email: true, sms: false },
@@ -1604,7 +1770,7 @@ export class NotificationService {
         sender: "BuildSync Biometric Anti-Fraud AI",
         senderRole: "System AI",
         receiver: "Time Keeper & HR Admin",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.HR_MANAGER, UserRole.TIME_KEEPER, "Security Officer"],
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HR_MANAGER, UserRole.HR, UserRole.TIME_KEEPER, UserRole.GATE_SECURITY_OFFICER],
         isAiGenerated: true,
         aiConfidence: 0.99,
         deliveryChannels: { inApp: true, push: true, email: true, sms: true },
@@ -1687,7 +1853,7 @@ export class NotificationService {
         sender: "BuildSync Antigravity Schedule AI",
         senderRole: "System AI",
         receiver: "Project Manager & Section Head",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.SITE_ENGINEER],
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SECTION_HEAD, UserRole.SITE_ENGINEER],
         isAiGenerated: true,
         aiConfidence: 0.94,
         deliveryChannels: { inApp: true, push: true, email: true, sms: false },
@@ -1708,7 +1874,7 @@ export class NotificationService {
         sender: "BuildSync Security AI Patrol",
         senderRole: "System AI",
         receiver: "Admin & Security Officers",
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.WAREHOUSE_MANAGER, "Security Officer"],
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.WAREHOUSE_MANAGER, UserRole.GATE_SECURITY_OFFICER],
         isAiGenerated: true,
         aiConfidence: 0.99,
         deliveryChannels: { inApp: true, push: true, email: true, sms: true },

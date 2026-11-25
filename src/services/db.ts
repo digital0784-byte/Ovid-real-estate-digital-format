@@ -1,5 +1,5 @@
 import { db, auth, storage, isFirebaseReady, handleFirestoreError, OperationType, sanitizeForFirestore } from "../firebase";
-import { NotificationService } from "./notificationService";
+import { NotificationService, getRoleMatchAliases, normalizeNotificationRole } from "./notificationService";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { 
   collection, 
@@ -701,7 +701,7 @@ export const DbService = {
   },
 
   // === SYSTEM NOTIFICATIONS ===
-  async getNotifications(): Promise<any[]> {
+  async getNotifications(userFilter?: { role?: string; uid?: string }): Promise<any[]> {
     const defaultNotifs: any[] = [
       {
         id: "n-1",
@@ -713,6 +713,7 @@ export const DbService = {
         priority: "High",
         status: "Unread",
         projectName: "Addis Ababa Tower Block A",
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
         timestamp: new Date().toISOString(),
         read: false
       },
@@ -726,11 +727,63 @@ export const DbService = {
         priority: "Critical",
         status: "Unread",
         projectName: "Addis Ababa Tower Block A",
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.HSE_OFFICER, UserRole.PROJECT_MANAGER, UserRole.SUPERVISOR],
         timestamp: new Date().toISOString(),
         read: false
       }
     ];
-    const items = await fetchCollection<any>("notifications", defaultNotifs);
+
+    let items: any[] = [];
+    const canonicalRole = userFilter?.role ? normalizeNotificationRole(userFilter.role) : "";
+    const isAdminOrDirector =
+      canonicalRole === UserRole.SUPER_ADMIN ||
+      canonicalRole === UserRole.DIRECTOR ||
+      canonicalRole === UserRole.HEAD_OFFICE;
+
+    if (canQueryFirestore() && db && userFilter?.role && !isAdminOrDirector) {
+      if (canonicalRole === "Pending") {
+        return [];
+      }
+      const aliases = getRoleMatchAliases(canonicalRole);
+      try {
+        const queries: Promise<any>[] = [];
+        if (aliases.length > 0) {
+          queries.push(
+            getDocs(query(collection(db, "notifications"), where("targetRoles", "array-contains-any", aliases)))
+          );
+        }
+        if (userFilter.uid) {
+          queries.push(getDocs(query(collection(db, "notifications"), where("userId", "==", userFilter.uid))));
+          queries.push(getDocs(query(collection(db, "notifications"), where("targetUserId", "==", userFilter.uid))));
+          queries.push(getDocs(query(collection(db, "notifications"), where("recipientId", "==", userFilter.uid))));
+        }
+        const snaps = await Promise.all(queries);
+        const dedup = new Map<string, any>();
+        snaps.forEach((snap) => {
+          snap.docs.forEach((docSnap: any) => {
+            const data = docSnap.data();
+            const docId = data.id || docSnap.id;
+            dedup.set(docId, { ...data, id: docId });
+          });
+        });
+        items = offlineEngine.reconcileWithOutbox<any>("notifications", Array.from(dedup.values()));
+      } catch (err) {
+        handleFirestoreError(err, OperationType.GET, "notifications");
+        items = offlineEngine.getCache<any>("notifications", defaultNotifs);
+      }
+    } else {
+      items = await fetchCollection<any>("notifications", defaultNotifs);
+    }
+
+    // Strict client-side role & UID enforcement
+    if (userFilter?.role) {
+      items = items.filter((n) =>
+        NotificationService.isNotificationTargetedToUser(n, {
+          role: userFilter.role,
+          uid: userFilter.uid
+        })
+      );
+    }
 
     // Apply persistent read state so read notifications never revert to unread
     let readIds = new Set<string>();
@@ -745,7 +798,12 @@ export const DbService = {
     }
 
     const processed = items.map(n => {
-      if (readIds.has(n.id) || n.status === "Read" || n.read === true) {
+      const readByMatches =
+        Array.isArray(n.readBy) &&
+        (n.readBy.includes("all") ||
+          (canonicalRole && n.readBy.some((r: any) => normalizeNotificationRole(String(r)) === canonicalRole)) ||
+          (userFilter?.uid && n.readBy.includes(userFilter.uid)));
+      if (readIds.has(n.id) || n.status === "Read" || n.read === true || readByMatches) {
         return { ...n, status: "Read", read: true };
       }
       return n;
@@ -762,58 +820,141 @@ export const DbService = {
 
   subscribeNotifications(
     callback: (notifs: any[]) => void,
-    onError?: (error: any) => void
+    onError?: (error: any) => void,
+    userFilter?: { role?: string; uid?: string }
   ): () => void {
-    if (canQueryFirestore() && db) {
-      const colRef = collection(db, "notifications");
-      const unsubscribe = onSnapshot(
-        colRef,
-        (snapshot) => {
-          const items = snapshot.empty
-            ? []
-            : snapshot.docs.map(docSnap => {
-                const data = docSnap.data();
-                return { ...data, id: data.id || docSnap.id };
-              });
-          const reconciled = offlineEngine.reconcileWithOutbox<any>("notifications", items);
+    const canonicalRole = userFilter?.role ? normalizeNotificationRole(userFilter.role) : "";
+    if (canonicalRole === "Pending") {
+      callback([]);
+      return () => {};
+    }
 
-          let readIds = new Set<string>();
-          if (typeof window !== "undefined") {
-            try {
-              const raw = localStorage.getItem("buildsync_read_notification_ids");
-              if (raw) {
-                const parsed = JSON.parse(raw);
-                if (Array.isArray(parsed)) readIds = new Set<string>(parsed);
-              }
-            } catch {}
+    const processAndEmit = (rawItems: any[]) => {
+      const reconciled = offlineEngine.reconcileWithOutbox<any>("notifications", rawItems);
+      const roleFiltered = userFilter?.role
+        ? reconciled.filter((n) =>
+            NotificationService.isNotificationTargetedToUser(n, {
+              role: userFilter.role,
+              uid: userFilter.uid
+            })
+          )
+        : reconciled;
+
+      let readIds = new Set<string>();
+      if (typeof window !== "undefined") {
+        try {
+          const raw = localStorage.getItem("buildsync_read_notification_ids");
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) readIds = new Set<string>(parsed);
           }
+        } catch {}
+      }
 
-          const processed = reconciled.map(n => {
-            if (readIds.has(n.id) || n.status === "Read" || n.read === true) {
-              return { ...n, status: "Read", read: true };
-            }
-            return n;
-          }).sort((a, b) => {
-            const timeB = NotificationService.getNumericTimestamp(b);
-            const timeA = NotificationService.getNumericTimestamp(a);
-            if (timeB !== timeA) return timeB - timeA;
-            return String(b.id || "").localeCompare(String(a.id || ""));
-          });
-
-          offlineEngine.saveCache("notifications", processed);
-          callback(processed);
-        },
-        (error) => {
-          handleFirestoreError(error, OperationType.GET, "notifications");
-          if (onError) onError(error);
-          const cached = offlineEngine.getCache<any>("notifications", []);
-          callback(cached);
+      const processed = roleFiltered.map(n => {
+        const readByMatches =
+          Array.isArray(n.readBy) &&
+          (n.readBy.includes("all") ||
+            (canonicalRole && n.readBy.some((r: any) => normalizeNotificationRole(String(r)) === canonicalRole)) ||
+            (userFilter?.uid && n.readBy.includes(userFilter.uid)));
+        if (readIds.has(n.id) || n.status === "Read" || n.read === true || readByMatches) {
+          return { ...n, status: "Read", read: true };
         }
-      );
-      return unsubscribe;
+        return n;
+      }).sort((a, b) => {
+        const timeB = NotificationService.getNumericTimestamp(b);
+        const timeA = NotificationService.getNumericTimestamp(a);
+        if (timeB !== timeA) return timeB - timeA;
+        return String(b.id || "").localeCompare(String(a.id || ""));
+      });
+
+      offlineEngine.saveCache("notifications", processed);
+      callback(processed);
+    };
+
+    if (canQueryFirestore() && db) {
+      const isAdminOrDirector =
+        !userFilter?.role ||
+        canonicalRole === UserRole.SUPER_ADMIN ||
+        canonicalRole === UserRole.DIRECTOR ||
+        canonicalRole === UserRole.HEAD_OFFICE;
+
+      if (isAdminOrDirector) {
+        const colRef = collection(db, "notifications");
+        return onSnapshot(
+          colRef,
+          (snapshot) => {
+            const items = snapshot.empty
+              ? []
+              : snapshot.docs.map(docSnap => {
+                  const data = docSnap.data();
+                  return { ...data, id: data.id || docSnap.id };
+                });
+            processAndEmit(items);
+          },
+          (error) => {
+            handleFirestoreError(error, OperationType.GET, "notifications");
+            if (onError) onError(error);
+            const cached = offlineEngine.getCache<any>("notifications", []);
+            processAndEmit(cached);
+          }
+        );
+      }
+
+      // Non-admin/non-director: run scoped Firestore queries matching security rules
+      const aliases = getRoleMatchAliases(canonicalRole);
+      const bucketDocs = new Map<string, Map<string, any>>();
+      const emitCombined = () => {
+        const merged = new Map<string, any>();
+        bucketDocs.forEach((docMap) => {
+          docMap.forEach((val, key) => merged.set(key, val));
+        });
+        processAndEmit(Array.from(merged.values()));
+      };
+
+      const unsubs: Array<() => void> = [];
+      const attachScopedQuery = (key: string, q: any) => {
+        bucketDocs.set(key, new Map());
+        const unsub = onSnapshot(
+          q,
+          (snapshot: any) => {
+            const m = new Map<string, any>();
+            if (!snapshot.empty) {
+              snapshot.docs.forEach((docSnap: any) => {
+                const data = docSnap.data();
+                const docId = data.id || docSnap.id;
+                m.set(docId, { ...data, id: docId });
+              });
+            }
+            bucketDocs.set(key, m);
+            emitCombined();
+          },
+          (error: any) => {
+            handleFirestoreError(error, OperationType.GET, "notifications");
+            if (onError) onError(error);
+          }
+        );
+        unsubs.push(unsub);
+      };
+
+      if (aliases.length > 0) {
+        attachScopedQuery(
+          "roles",
+          query(collection(db, "notifications"), where("targetRoles", "array-contains-any", aliases))
+        );
+      }
+      if (userFilter?.uid) {
+        attachScopedQuery("userId", query(collection(db, "notifications"), where("userId", "==", userFilter.uid)));
+        attachScopedQuery("targetUserId", query(collection(db, "notifications"), where("targetUserId", "==", userFilter.uid)));
+        attachScopedQuery("recipientId", query(collection(db, "notifications"), where("recipientId", "==", userFilter.uid)));
+      }
+
+      return () => {
+        unsubs.forEach((u) => u());
+      };
     } else {
       const cached = offlineEngine.getCache<any>("notifications", []);
-      callback(cached);
+      processAndEmit(cached);
       return () => {};
     }
   },

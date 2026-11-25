@@ -301,7 +301,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
       sender: newReq.requesterName,
       senderRole: String(currentUserRole) || "Site Manager",
       receiver: "Warehouse Manager",
-      targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
+      targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.DIRECTOR, UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
       actionTab: "warehouseSiteStore"
     });
 
@@ -427,7 +427,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         sender: "Warehouse Manager",
         senderRole: "Warehouse Manager",
         receiver: "Site Manager & Store Manager",
-        targetRoles: [UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.SUPER_ADMIN],
+        targetRoles: [UserRole.SITE_MANAGER, UserRole.STORE_MANAGER, UserRole.DIRECTOR, UserRole.SUPER_ADMIN],
         actionTab: "warehouseSiteStore"
       });
 
@@ -535,7 +535,7 @@ export const WarehouseStoreRoleArchitecturePanel: React.FC<WarehouseStoreRoleArc
         sender: newDisc.reportedByName,
         senderRole: "Site Manager",
         receiver: "Warehouse Manager",
-        targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
+        targetRoles: [UserRole.WAREHOUSE_MANAGER, UserRole.DIRECTOR, UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
         actionTab: "warehouseSiteStore"
       });
     }

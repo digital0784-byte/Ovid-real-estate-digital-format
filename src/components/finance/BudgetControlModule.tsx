@@ -646,6 +646,7 @@ export const BudgetControlModule: React.FC<BudgetControlModuleProps> = ({
       receiver: "Finance Manager, PM & General Manager",
       targetRoles: [
         UserRole.SUPER_ADMIN,
+        UserRole.DIRECTOR,
         UserRole.HEAD_OFFICE,
         UserRole.FINANCE_MANAGER,
         UserRole.PROJECT_MANAGER,

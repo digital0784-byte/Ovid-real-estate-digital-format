@@ -18,11 +18,17 @@ import { NotificationService } from "../services/notificationService";
 interface LiveNotificationToastProps {
   onNavigateToTab?: (tab: string) => void;
   isAmharic?: boolean;
+  currentUserRole?: string;
+  currentUserId?: string;
+  selectedProject?: string;
 }
 
 export const LiveNotificationToast: React.FC<LiveNotificationToastProps> = ({
   onNavigateToTab,
-  isAmharic = true
+  isAmharic = true,
+  currentUserRole,
+  currentUserId,
+  selectedProject
 }) => {
   const [activeNotification, setActiveNotification] = useState<EnterpriseNotification | null>(null);
   const [progress, setProgress] = useState<number>(100);
@@ -30,10 +36,19 @@ export const LiveNotificationToast: React.FC<LiveNotificationToastProps> = ({
   useEffect(() => {
     const handleLiveEvent = (e: CustomEvent<EnterpriseNotification>) => {
       const notif = e.detail;
-      if (notif) {
-        setActiveNotification(notif);
-        setProgress(100);
+      if (!notif) return;
+      if (
+        currentUserRole &&
+        !NotificationService.isNotificationTargetedToUser(notif, {
+          role: currentUserRole,
+          uid: currentUserId,
+          projectName: selectedProject
+        })
+      ) {
+        return;
       }
+      setActiveNotification(notif);
+      setProgress(100);
     };
 
     window.addEventListener("buildsync_live_notification" as any, handleLiveEvent);
@@ -41,7 +56,7 @@ export const LiveNotificationToast: React.FC<LiveNotificationToastProps> = ({
     return () => {
       window.removeEventListener("buildsync_live_notification" as any, handleLiveEvent);
     };
-  }, []);
+  }, [currentUserRole, currentUserId, selectedProject]);
 
   // Timer countdown for auto-dismiss
   useEffect(() => {
@@ -102,7 +117,7 @@ export const LiveNotificationToast: React.FC<LiveNotificationToastProps> = ({
   const style = getPriorityStyle(activeNotification.priority);
 
   const handleAction = () => {
-    NotificationService.markAsRead(activeNotification.id);
+    NotificationService.markAsRead(activeNotification.id, currentUserRole, currentUserId);
     if (activeNotification.actionTab && onNavigateToTab) {
       onNavigateToTab(activeNotification.actionTab);
     }

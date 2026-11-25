@@ -466,9 +466,15 @@ export interface SystemNotification {
   senderRole?: string;
   receiver?: string;
   targetRoles?: (UserRole | string)[];
+  userId?: string;
+  recipientId?: string;
+  targetUserId?: string;
+  targetUserIds?: string[];
   actionTab?: string;
   titleAm?: string;
+  description?: string;
   descriptionAm?: string;
+  messageAm?: string;
 }
 
 export interface AIPredictionsResult {
@@ -1068,6 +1074,12 @@ export interface EnterpriseNotification {
   senderRole?: string;
   receiver?: string;
   targetRoles: (UserRole | string)[];
+  userId?: string;
+  recipientId?: string;
+  targetUserId?: string;
+  targetUserIds?: string[];
+  message?: string;
+  messageAm?: string;
   date: string;
   time: string;
   timestamp: number;

@@ -302,7 +302,7 @@ export class RoleChangeApprovalService {
       sender: params.userName,
       senderRole: String(params.currentRole),
       receiver: "Admin / Head Office",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE],
       deliveryChannels: { inApp: true, push: true, email: true, sms: false }
     });
 

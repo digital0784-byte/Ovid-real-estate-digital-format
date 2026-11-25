@@ -74,6 +74,7 @@ interface SmartNotification {
   messageAm: string;
   timestamp: string;
   isRead: boolean;
+  targetRoles?: (UserRole | string)[];
 }
 
 interface SyncTransaction {
@@ -112,30 +113,38 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
   onLogAction,
   systemNotifications
 }) => {
-  // Sync systemNotifications prop into smart notifications list
+  // Sync systemNotifications prop into smart notifications list (strictly scoped by currentUserRole)
   useEffect(() => {
     if (!systemNotifications) return;
     const readIds = NotificationService.getReadNotificationIds();
-    
-    setNotifications((prev) => {
-      // 1. Update existing items in prev if marked read
-      const updatedPrev = prev.map(n => {
-        if (readIds.has(n.id)) {
-          return { ...n, isRead: true };
-        }
-        const sysMatch = systemNotifications.find(s => s.id === n.id);
-        if (sysMatch && sysMatch.read) {
-          NotificationService.markIdAsReadPersistently(n.id);
-          return { ...n, isRead: true };
-        }
-        return n;
-      });
+    const roleTargetedSys = systemNotifications.filter((sys) =>
+      NotificationService.isNotificationTargetedToUser(sys, { role: currentUserRole })
+    );
 
-      const prevIds = new Set(updatedPrev.map(n => n.id));
-      
-      const newMapped: SmartNotification[] = systemNotifications
-        .filter(sys => !prevIds.has(sys.id))
-        .map(sys => {
+    setNotifications((prev) => {
+      // Keep only items without targetRoles or targeted to currentUserRole, and update read state
+      const updatedPrev = prev
+        .filter((n) =>
+          !n.targetRoles ||
+          NotificationService.isNotificationTargetedToUser({ targetRoles: n.targetRoles }, { role: currentUserRole })
+        )
+        .map((n) => {
+          if (readIds.has(n.id)) {
+            return { ...n, isRead: true };
+          }
+          const sysMatch = roleTargetedSys.find((s) => s.id === n.id);
+          if (sysMatch && sysMatch.read) {
+            NotificationService.markIdAsReadPersistently(n.id);
+            return { ...n, isRead: true };
+          }
+          return n;
+        });
+
+      const prevIds = new Set(updatedPrev.map((n) => n.id));
+
+      const newMapped: SmartNotification[] = roleTargetedSys
+        .filter((sys) => !prevIds.has(sys.id))
+        .map((sys) => {
           const isNewReg = sys.type === "New Registrant";
           const isRead = sys.read || readIds.has(sys.id);
           if (isRead) {
@@ -148,15 +157,16 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
             titleAm: sys.title,
             messageEn: sys.message,
             messageAm: sys.message,
-            timestamp: new Date(sys.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            isRead: isRead
+            timestamp: new Date(sys.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+            isRead,
+            targetRoles: sys.targetRoles,
           };
         });
-        
-      if (newMapped.length === 0) return updatedPrev;
+
+      if (newMapped.length === 0 && updatedPrev.length === prev.length) return updatedPrev;
       return [...newMapped, ...updatedPrev];
     });
-  }, [systemNotifications]);
+  }, [systemNotifications, currentUserRole]);
 
   // Connection and Live Sync States
   const [isCloudOnline, setIsCloudOnline] = useState<boolean>(true);
@@ -788,8 +798,15 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
 
   const attendancePercentage = totalEmployees > 0 ? Math.round((presentTodayCount / totalEmployees) * 100) : 0;
 
+  const visibleNotifications = useMemo(() => {
+    return notifications.filter((n) =>
+      !n.targetRoles ||
+      NotificationService.isNotificationTargetedToUser({ targetRoles: n.targetRoles }, { role: currentUserRole })
+    );
+  }, [notifications, currentUserRole]);
+
   // Unread notification count
-  const unreadCount = notifications.filter(n => !n.isRead).length;
+  const unreadCount = visibleNotifications.filter(n => !n.isRead).length;
 
   return (
     <div className="space-y-6">
@@ -2033,9 +2050,9 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
             
             <button
               onClick={() => {
-                const allIds = notifications.map(n => n.id);
+                const allIds = visibleNotifications.map(n => n.id);
                 NotificationService.markMultipleIdsAsReadPersistently(allIds);
-                setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+                setNotifications(prev => prev.map(n => allIds.includes(n.id) ? { ...n, isRead: true } : n));
               }}
               className="bg-slate-50 hover:bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-bold text-slate-700 cursor-pointer"
             >
@@ -2044,12 +2061,12 @@ export const HeadOfficeSyncModule: React.FC<HeadOfficeSyncModuleProps> = ({
           </div>
 
           <div className="space-y-3">
-            {notifications.length === 0 ? (
+            {visibleNotifications.length === 0 ? (
               <div className="text-center py-8 text-xs text-slate-400 italic border border-dashed border-slate-200 rounded-xl">
-                {isAmharic ? "ምንም የደህንነት ወይም የመገኘት ማሳወቂያዎች የሉም።" : "No notifications yet. Real-time events will appear here as they occur."}
+                {isAmharic ? "ምንም የደህንነት ወይም የመገኘት ማሳወቂያዎች የሉም።" : "No notifications targeted to your role."}
               </div>
             ) : (
-              notifications.map((notif) => (
+              visibleNotifications.map((notif) => (
               <div
                 key={notif.id}
                 onClick={() => {

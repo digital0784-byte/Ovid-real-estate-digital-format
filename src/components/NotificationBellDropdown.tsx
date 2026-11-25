@@ -21,6 +21,7 @@ import { NotificationService, adaptToEnterpriseNotification } from "../services/
 
 interface NotificationBellDropdownProps {
   currentUserRole: UserRole | string;
+  currentUserId?: string;
   selectedProject: string;
   onNavigateToHub: () => void;
   onNavigateToTab?: (tabName: string) => void;
@@ -32,6 +33,7 @@ interface NotificationBellDropdownProps {
 
 export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> = ({
   currentUserRole,
+  currentUserId,
   selectedProject,
   onNavigateToHub,
   onNavigateToTab,
@@ -140,7 +142,8 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
       const filtered = NotificationService.getNotificationsForRoleAndProject(
         currentUserRole,
         selectedProject,
-        combined.length > 0 ? combined : undefined
+        combined.length > 0 ? combined : undefined,
+        currentUserId
       );
       setNotifications(NotificationService.sortNewestToOldest(filtered));
     };
@@ -152,7 +155,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
     });
 
     return () => unsubscribe();
-  }, [systemNotifications, currentUserRole, selectedProject]);
+  }, [systemNotifications, currentUserRole, currentUserId, selectedProject]);
 
   // Click outside listener
   useEffect(() => {
@@ -166,7 +169,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   }, []);
 
   const isItemUnread = (n: EnterpriseNotification) => {
-    return NotificationService.isNotificationUnread(n, String(currentUserRole));
+    return NotificationService.isNotificationUnread(n, String(currentUserRole), currentUserId);
   };
 
   const unreadCount = notifications.filter(n => isItemUnread(n) && !n.isArchived).length;
@@ -197,7 +200,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
   };
 
   const handleActionClick = (notif: EnterpriseNotification) => {
-    NotificationService.markAsRead(notif.id);
+    NotificationService.markAsRead(notif.id, String(currentUserRole), currentUserId);
     if (onMarkAsRead) onMarkAsRead(notif.id);
     if (notif.actionTab && onNavigateToTab) {
       onNavigateToTab(notif.actionTab);
@@ -271,7 +274,7 @@ export const NotificationBellDropdown: React.FC<NotificationBellDropdownProps> =
                 <button
                   id="btn-bell-mark-all-read"
                   onClick={() => {
-                    NotificationService.markAllAsRead(currentUserRole, selectedProject);
+                    NotificationService.markAllAsRead(currentUserRole, selectedProject, currentUserId);
                     if (onMarkAllAsRead) onMarkAllAsRead();
                   }}
                   className="px-2 py-1 text-[11px] font-medium bg-white/10 hover:bg-white/20 text-white rounded-md transition-colors flex items-center space-x-1"

@@ -4,7 +4,9 @@ import {
   doc,
   getDocs,
   onSnapshot,
+  query,
   setDoc,
+  where,
 } from "firebase/firestore";
 import { getDownloadURL, ref, uploadBytes } from "firebase/storage";
 import {
@@ -70,6 +72,11 @@ import {
   isStrictDirectorRole,
   resolveExtendedWarehouseRole,
 } from "./warehouseStoreRbac";
+import {
+  getRoleMatchAliases,
+  normalizeNotificationRole,
+  NotificationService,
+} from "./notificationService";
 
 function canQueryFirestore(): boolean {
   return Boolean(isFirebaseReady && db && auth && auth.currentUser);
@@ -481,7 +488,8 @@ export function normalizeMaterialRequestRecord(raw: any): EngineeringMaterialReq
 // UNIFIED REAL-TIME SUBSCRIPTION & CACHE ENGINE
 // =========================================================================
 export function subscribeWarehouseErpModule(
-  onUpdate: (snapshot: ErpWarehouseSnapshot) => void
+  onUpdate: (snapshot: ErpWarehouseSnapshot) => void,
+  actor?: { role?: UserRole | string; uid?: string; assignedProject?: string }
 ): () => void {
   const state: ErpWarehouseSnapshot = {
     categories: [],
@@ -645,10 +653,67 @@ export function subscribeWarehouseErpModule(
       state.commercialInvoices = [...d].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
       emit();
     }),
-    subscribeCol<InventoryNotificationRecord>("inventoryNotifications", (d) => {
-      state.notifications = [...d].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+    (() => {
+      const activeCtx = actor?.role
+        ? { role: actor.role, uid: actor.uid }
+        : NotificationService.getActiveUserContext();
+      const normalizedRole = activeCtx?.role ? normalizeNotificationRole(activeCtx.role) : "";
+      const filterNotifs = (list: InventoryNotificationRecord[]): InventoryNotificationRecord[] => {
+        const sorted = [...list].sort((a, b) => (b.createdAt || "").localeCompare(a.createdAt || ""));
+        if (!activeCtx?.role) return sorted;
+        return sorted.filter((n) =>
+          NotificationService.isNotificationTargetedToUser(n as any, {
+            role: activeCtx.role,
+            uid: activeCtx.uid,
+          })
+        );
+      };
+
+      if (normalizedRole === "Pending") {
+        state.notifications = [];
+        emit();
+        return () => {};
+      }
+
+      if (canQueryFirestore() && db) {
+        const isBroadAccess =
+          normalizedRole === UserRole.SUPER_ADMIN ||
+          normalizedRole === UserRole.DIRECTOR ||
+          normalizedRole === UserRole.HEAD_OFFICE;
+        const aliases = normalizedRole ? getRoleMatchAliases(normalizedRole).slice(0, 10) : [];
+        const notifQuery =
+          !isBroadAccess && aliases.length > 0
+            ? query(collection(db, "inventoryNotifications"), where("targetRoles", "array-contains-any", aliases))
+            : collection(db, "inventoryNotifications");
+
+        return onSnapshot(
+          notifQuery,
+          (snap) => {
+            const docs = snap.docs.map((d) => ({
+              ...(d.data() as InventoryNotificationRecord),
+              id: (d.data() as any)?.id || d.id,
+            }));
+            const filtered = filterNotifs(docs);
+            offlineEngine.saveCache("inventoryNotifications", filtered);
+            state.notifications = filtered;
+            emit();
+          },
+          (err) => {
+            handleFirestoreError(err, OperationType.GET, "inventoryNotifications");
+            state.notifications = filterNotifs(
+              offlineEngine.getCache<InventoryNotificationRecord>("inventoryNotifications", [])
+            );
+            emit();
+          }
+        );
+      }
+
+      state.notifications = filterNotifs(
+        offlineEngine.getCache<InventoryNotificationRecord>("inventoryNotifications", [])
+      );
       emit();
-    }),
+      return () => {};
+    })(),
     subscribeCol<InventoryAuditLogRecord>("inventoryAuditLogs", (d) => {
       state.auditLogs = [...d].sort((a, b) => (b.timestamp || "").localeCompare(a.timestamp || ""));
       emit();

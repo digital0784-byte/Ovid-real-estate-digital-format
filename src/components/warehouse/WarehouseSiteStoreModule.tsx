@@ -30,6 +30,7 @@ import {
   subscribeWarehouseErpModule,
   WarehouseActorContext,
 } from "../../services/warehouseStoreDataService";
+import { NotificationService } from "../../services/notificationService";
 import {
   canPerformWarehouseModuleAction,
   getAuthorizedSectionsForRole,
@@ -137,11 +138,18 @@ export function WarehouseSiteStoreModule({
   const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
 
   useEffect(() => {
-    const unsub = subscribeWarehouseErpModule((nextSnap) => {
-      setSnapshot(nextSnap);
-    });
+    const unsub = subscribeWarehouseErpModule(
+      (nextSnap) => {
+        setSnapshot(nextSnap);
+      },
+      {
+        role: currentUserRole,
+        uid: actor.uid,
+        assignedProject: actor.assignedProject,
+      }
+    );
     return () => unsub();
-  }, []);
+  }, [currentUserRole, actor.uid, actor.assignedProject]);
 
   useEffect(() => {
     if (!authorizedSections.includes(activeSection)) {
@@ -165,7 +173,13 @@ export function WarehouseSiteStoreModule({
     );
   }
 
-  const unreadCount = snapshot.notifications.filter(
+  const visibleNotifications = snapshot.notifications.filter((n) =>
+    NotificationService.isNotificationTargetedToUser(n as any, {
+      role: currentUserRole,
+      uid: actor.uid,
+    })
+  );
+  const unreadCount = visibleNotifications.filter(
     (n) => !(n.readByUids || []).includes(actor.uid)
   ).length;
   const visibleTabs = SECTION_META.filter((m) => authorizedSections.includes(m.key));

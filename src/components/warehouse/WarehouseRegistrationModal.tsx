@@ -459,7 +459,7 @@ export const WarehouseRegistrationModal: React.FC<WarehouseRegistrationModalProp
         projectName: resolvedWarehouseName,
         sender: currentUserProfile?.displayName || "Warehouse Manager",
         senderRole: String(currentUserRole || "Warehouse Manager"),
-        targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.WAREHOUSE_MANAGER],
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.WAREHOUSE_MANAGER],
         actionTab: "warehouse-dashboard",
         timestamp: new Date().toISOString(),
         date: registrationDate,

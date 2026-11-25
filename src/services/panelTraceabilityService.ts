@@ -1577,7 +1577,7 @@ export class PanelTraceabilityService {
       movementRecordsCount: todayMovements.length,
       generatedAt: new Date().toISOString(),
       generatedBy: `${user.name} (${user.role})`,
-      notificationsSentTo: ["Warehouse Manager", "Head Office Manager", "Project Manager", "Super Admin"]
+      notificationsSentTo: ["Warehouse Manager", "Head Office Manager", "Project Manager", "Director", "Super Admin"]
     };
 
     // Send notification to authorized managers (Section 15)
@@ -1588,7 +1588,7 @@ export class PanelTraceabilityService {
       category: "Aluminum Formwork Panel Tracking Notifications",
       priority: "Medium",
       status: "Unread",
-      targetRoles: ["Warehouse Manager", "Head Office Manager", "Project Manager", "Super Admin"],
+      targetRoles: ["Warehouse Manager", "Head Office Manager", "Project Manager", "Director", "Super Admin"],
       sender: "Panel Movement Automated Service",
       actionTab: "panelTraceability",
       actionUrl: "/traceability",

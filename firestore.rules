@@ -265,6 +265,59 @@ service cloud.firestore {
       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
     }
 
+    // Canonical role alias matching for strictly role-scoped notifications
+    function getRoleVariantsForNotifications() {
+      return getUserRole() in ['Director', 'director', 'Directory', 'directory']
+        ? ['Director', 'director', 'Directory', 'directory']
+        : getUserRole() in ['Head Office', 'Head Office Manager', 'head_office']
+        ? ['Head Office', 'Head Office Manager', 'head_office']
+        : getUserRole() in ['Project Manager', 'project_manager', 'Project Head']
+        ? ['Project Manager', 'project_manager', 'Project Head']
+        : getUserRole() in ['Section Head', 'section_head']
+        ? ['Section Head', 'section_head']
+        : getUserRole() in ['Operation Manager', 'operation_manager']
+        ? ['Operation Manager', 'operation_manager']
+        : getUserRole() in ['Office Manager', 'Office Manager Engineer', 'office_manager']
+        ? ['Office Manager', 'Office Manager Engineer', 'office_manager']
+        : getUserRole() in ['Finance Manager', 'finance_manager']
+        ? ['Finance Manager', 'finance_manager']
+        : getUserRole() in ['Warehouse Manager', 'warehouse_manager']
+        ? ['Warehouse Manager', 'warehouse_manager']
+        : getUserRole() in ['Site Manager', 'site_manager', 'Store Owner', 'Site Store Owner', 'site_store_owner', 'store_owner']
+        ? ['Site Manager', 'site_manager', 'Store Owner', 'Site Store Owner', 'site_store_owner', 'store_owner']
+        : getUserRole() in ['Store Manager', 'store_manager']
+        ? ['Store Manager', 'store_manager']
+        : getUserRole() in ['HR Manager', 'hr_manager']
+        ? ['HR Manager', 'hr_manager']
+        : getUserRole() in ['HR', 'hr']
+        ? ['HR', 'hr']
+        : getUserRole() in ['Gate Security Officer', 'Security Officer', 'gate_security']
+        ? ['Gate Security Officer', 'Security Officer', 'gate_security']
+        : getUserRole() in ['HSE Officer', 'Safety Officer', 'hse_officer']
+        ? ['HSE Officer', 'Safety Officer', 'hse_officer']
+        : getUserRole() in ['Material Handling', 'material_handler']
+        ? ['Material Handling', 'material_handler']
+        : getUserRole() in ['System Operator', 'system_operator']
+        ? ['System Operator', 'system_operator']
+        : [getUserRole()];
+    }
+
+    function isNotificationTargetedByRole() {
+      return resource != null &&
+        ('targetRoles' in resource.data) &&
+        resource.data.targetRoles is list &&
+        resource.data.targetRoles.hasAny(getRoleVariantsForNotifications());
+    }
+
+    function isNotificationTargetedByUid() {
+      return resource != null && (
+        ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
+        ('recipientId' in resource.data && resource.data.recipientId == request.auth.uid) ||
+        ('targetUserId' in resource.data && resource.data.targetUserId == request.auth.uid) ||
+        ('targetUserIds' in resource.data && resource.data.targetUserIds is list && request.auth.uid in resource.data.targetUserIds)
+      );
+    }
+
     // ==========================================
     // MODULE-SPECIFIC RULE MATCHING
     // ==========================================
@@ -960,24 +1013,28 @@ service cloud.firestore {
       allow delete: if isAdminOrHeadOffice();
     }
 
-    // 11. Notifications
+    // 11. Notifications (Strictly role-scoped & UID-scoped)
     match /notifications/{notifId} {
-      allow read: if isApprovedUser();
-      allow create: if isApprovedUser();
-      allow update: if isApprovedUser() && (
-        isAdminOrHeadOffice() ||
-        (resource != null && (
-          ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
-          ('recipientId' in resource.data && resource.data.recipientId == request.auth.uid)
-        ))
-      );
-      allow delete: if isAdminOrHeadOffice() || (
+      allow read: if isDirectorOrAdmin() || (
         isApprovedUser() && (
-          resource != null && (
-            ('userId' in resource.data && resource.data.userId == request.auth.uid) ||
-            ('recipientId' in resource.data && resource.data.recipientId == request.auth.uid)
-          )
+          isNotificationTargetedByRole() ||
+          isNotificationTargetedByUid()
         )
+      );
+      allow create: if isApprovedUser() || (
+        isSignedIn() &&
+        ('type' in incoming()) &&
+        incoming().type == 'New Registrant'
+      );
+      allow update: if isDirectorOrAdmin() || (
+        isApprovedUser() &&
+        (isNotificationTargetedByRole() || isNotificationTargetedByUid()) &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'read', 'isRead', 'status', 'readBy', 'serverReceivedAt', 'capturedAt', 'updatedAt'
+        ])
+      );
+      allow delete: if isDirectorOrAdmin() || (
+        isApprovedUser() && isNotificationTargetedByUid()
       );
     }
 
@@ -2021,12 +2078,18 @@ service cloud.firestore {
       allow delete: if isSuperAdmin();
     }
 
-    // 23.19 inventoryNotifications
+    // 23.19 inventoryNotifications (Strictly role-scoped)
     match /inventoryNotifications/{notifId} {
-      allow read: if canReadWarehouseModule();
+      allow read: if isDirectorStrict() || isAdminOrHeadOffice() || (
+        canReadWarehouseModule() && isNotificationTargetedByRole()
+      );
       allow create: if isApprovedUser();
-      allow update: if isApprovedUser();
-      allow delete: if isSuperAdmin();
+      allow update: if isDirectorStrict() || isAdminOrHeadOffice() || (
+        canReadWarehouseModule() &&
+        isNotificationTargetedByRole() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['readByUids', 'updatedAt'])
+      );
+      allow delete: if isSuperAdmin() || isDirectorStrict();
     }
 
     // 23.20 inventoryAuditLogs (Strictly create-only immutable audit ledger)

@@ -391,6 +391,13 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
 
       await DbService.addWorker(newWorker).catch(() => {});
 
+      const registrantTargetRoles: (UserRole | string)[] = [
+        UserRole.SUPER_ADMIN,
+        UserRole.DIRECTOR,
+        UserRole.HEAD_OFFICE,
+        UserRole.HR_MANAGER,
+        UserRole.HR,
+      ];
       const newNotif: SystemNotification = {
         id: `NOTIF-REG-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
         type: "New Registrant",
@@ -398,6 +405,11 @@ export function LoginScreen({ onLoginSuccess, isAmharic, onLanguageToggle, audit
         message: isAmharic
           ? `አዲስ ሰራተኛ ${regName.trim()} (${sanitizedRegRole}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${fullEmpId}`
           : `New staff member ${regName.trim()} (${sanitizedRegRole}) has registered on the system. ID: ${fullEmpId}`,
+        category: "User Approval Notifications",
+        priority: "High",
+        status: "Unread",
+        projectName: "Global System",
+        targetRoles: registrantTargetRoles,
         timestamp: nowIso,
         read: false,
       };

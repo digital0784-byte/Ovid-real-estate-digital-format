@@ -140,9 +140,13 @@
             msg.textContent = "Still loading... check your connection";
             msg.style.cssText = "font-size:15px;font-weight:600;margin:0;color:#e2e8f0;";
 
+            var msgAm = document.createElement("p");
+            msgAm.textContent = "እየጫነ ነው... የኢንተርኔት ግንኙነትዎን ያረጋግጡ";
+            msgAm.style.cssText = "font-size:13px;font-weight:500;margin:0;color:#94a3b8;";
+
             var retryBtn = document.createElement("button");
             retryBtn.type = "button";
-            retryBtn.textContent = "Retry";
+            retryBtn.textContent = "Retry / እንደገና ሞክር";
             retryBtn.style.cssText =
               "background:#dc2626;color:#ffffff;border:none;border-radius:8px;padding:8px 20px;font-size:13px;font-weight:700;cursor:pointer;";
             retryBtn.onclick = function () {
@@ -150,10 +154,11 @@
             };
 
             box.appendChild(msg);
+            box.appendChild(msgAm);
             box.appendChild(retryBtn);
             document.body.appendChild(box);
           }
-        }, 10000);
+        }, 20000);
 
         window.__ERP_MARK_APP_RENDERED__ = function () {
           window.__ERP_APP_RENDERED__ = true;
@@ -163,6 +168,17 @@
             watchdog.parentNode.removeChild(watchdog);
           }
         };
+
+        var rootTarget = document.getElementById("root");
+        if (rootTarget && typeof MutationObserver !== "undefined") {
+          var rootObserver = new MutationObserver(function () {
+            if (rootTarget.childElementCount > 0) {
+              window.__ERP_MARK_APP_RENDERED__();
+              rootObserver.disconnect();
+            }
+          });
+          rootObserver.observe(rootTarget, { childList: true });
+        }
 
         function checkLocalStorage() {
           try {

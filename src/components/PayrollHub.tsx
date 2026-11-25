@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { Worker, UserRole, AttendanceRecord, AttendanceMethod, PayrollRecord } from "../types";
 import { DbService } from "../services/db";
+import { NotificationService } from "../services/notificationService";
 
 interface PayrollHubProps {
   workers: Worker[];
@@ -69,6 +70,7 @@ export interface PayrollNotification {
   id: string;
   type: "payslip" | "overtime_request" | "undertime_alert" | "payroll_ready" | "approved";
   recipient: string; // Role or specific Name
+  targetRoles?: UserRole[];
   title: string;
   message: string;
   timestamp: string;
@@ -418,6 +420,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       id: "N-PAY-001",
       type: "payroll_ready",
       recipient: "Head Office",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.HR],
       title: "July 2026 Payroll Calculation Ready",
       message: "The auto-calculation for Digital Construction ERP site B1 roster is compiled. Review needed.",
       timestamp: "2026-07-09 08:30 AM",
@@ -427,6 +430,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       id: "N-PAY-002",
       type: "overtime_request",
       recipient: "Project Manager",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.PROJECT_MANAGER, UserRole.OPERATION_MANAGER],
       title: "Overtime Approval Desk",
       message: "6 workers have logged overtime excess of 10+ hours this week. Authorized sign-off requested.",
       timestamp: "2026-07-09 09:12 AM",
@@ -436,6 +440,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       id: "N-PAY-003",
       type: "undertime_alert",
       recipient: "Supervisor",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.HR_MANAGER, UserRole.SUPERVISOR, UserRole.TIME_KEEPER],
       title: "Undertime Violation Recorded",
       message: `${workers[0]?.name || "Assigned Worker"} logged 6.2 net working hours yesterday. Reason: Late arrival.`,
       timestamp: "2026-07-09 10:05 AM",
@@ -445,12 +450,28 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       id: "N-PAY-004",
       type: "payslip",
       recipient: "Employee",
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.HR, UserRole.EMPLOYEE, UserRole.WORKER, UserRole.ASSEMBLER, UserRole.DRIVER, UserRole.TEAM_LEADER, UserRole.GANG_CHIEF],
       title: "Payslip Available",
       message: "Payslip for July 2026 is published on the local kiosk and Digital Construction ERP employee hub.",
       timestamp: "2026-07-09 11:00 AM",
       read: false
     }
   ]);
+
+  const visibleNotifications = useMemo(() => {
+    const defaultRolesByRecipient: Record<string, UserRole[]> = {
+      "Head Office": [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.HR],
+      "Project Manager": [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.PROJECT_MANAGER, UserRole.OPERATION_MANAGER],
+      "Supervisor": [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.HR_MANAGER, UserRole.SUPERVISOR, UserRole.TIME_KEEPER],
+      "Employee": [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.HR, UserRole.EMPLOYEE, UserRole.WORKER, UserRole.ASSEMBLER, UserRole.DRIVER, UserRole.TEAM_LEADER, UserRole.GANG_CHIEF],
+      "Authorized Personnel": [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SUPERVISOR, UserRole.TEAM_LEADER, UserRole.TIME_KEEPER],
+      "All": [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.HR, UserRole.PROJECT_MANAGER],
+    };
+    return notifications.filter((n) => {
+      const roles = n.targetRoles || defaultRolesByRecipient[n.recipient] || [UserRole.SUPER_ADMIN, UserRole.DIRECTOR];
+      return NotificationService.isNotificationTargetedToUser({ targetRoles: roles }, { role: currentUserRole });
+    });
+  }, [notifications, currentUserRole]);
 
   // Aggregate stats derived from dynamic state
   const dashboardStats = useMemo(() => {
@@ -614,7 +635,8 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
       const newNotif: PayrollNotification = {
         id: `N-PAY-${Math.floor(100 + Math.random() * 900)}`,
         type: "approved",
-        recipient: "All",
+        recipient: "Head Office",
+        targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER, UserRole.HR_MANAGER, UserRole.HR],
         title: `${selectedPeriod} Salary Ledgers Approved & Saved`,
         message: `Master payroll for ${selectedPeriod} calculated from attendance has been persisted to cloud database.`,
         timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
@@ -845,9 +867,9 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
           >
             <Bell size={13} />
             <span>{isAmharic ? "ማሳወቂያዎች" : "Alert Center"}</span>
-            {notifications.filter(n => !n.read).length > 0 && (
+            {visibleNotifications.filter(n => !n.read).length > 0 && (
               <span className="absolute -top-1 -right-1 bg-emerald-500 text-slate-950 text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce">
-                {notifications.filter(n => !n.read).length}
+                {visibleNotifications.filter(n => !n.read).length}
               </span>
             )}
           </button>
@@ -1212,12 +1234,12 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
                     <span>{isAmharic ? "ቀጥታ የደመወዝ ማንቂያዎች" : "Live Payroll Alerts Queue"}</span>
                   </span>
                   <span className="bg-red-50 text-red-600 text-[9px] px-1.5 py-0.5 rounded-full font-bold">
-                    {notifications.filter(n => !n.read).length} Active
+                    {visibleNotifications.filter(n => !n.read).length} Active
                   </span>
                 </h3>
 
                 <div className="mt-4 space-y-3 max-h-56 overflow-y-auto scrollbar-thin">
-                  {notifications.slice(0, 3).map((notif) => (
+                  {visibleNotifications.slice(0, 3).map((notif) => (
                     <div key={notif.id} className="flex items-start space-x-2 text-xs border-b border-slate-100 pb-2 last:border-b-0">
                       <div className="mt-0.5">
                         {notif.type === "undertime_alert" && <TrendingDown size={14} className="text-amber-500" />}
@@ -1909,10 +1931,16 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
 
                         const notifMessage = `Compiled ${focusTitle} successfully transmitted to: ${recStr}. ${reportNotes ? 'Notes: ' + reportNotes : ''}`;
                         
+                        const dispatchTargets: UserRole[] = [UserRole.SUPER_ADMIN, UserRole.DIRECTOR];
+                        if (sendToTeamLeader) dispatchTargets.push(UserRole.TEAM_LEADER);
+                        if (sendToTimeKeeper) dispatchTargets.push(UserRole.TIME_KEEPER);
+                        if (sendToHeadOffice) dispatchTargets.push(UserRole.HEAD_OFFICE, UserRole.HR_MANAGER, UserRole.FINANCE_MANAGER);
+
                         const newNotif: PayrollNotification = {
                           id: `N-PAY-${Math.floor(100 + Math.random() * 900)}`,
                           type: "payroll_ready",
                           recipient: sendToHeadOffice ? "Head Office" : "Authorized Personnel",
+                          targetRoles: Array.from(new Set(dispatchTargets)),
                           title: `Auto-Report Dispatched: ${focusTitle}`,
                           message: notifMessage,
                           timestamp: new Date().toISOString().slice(0, 16).replace("T", " "),
@@ -2056,7 +2084,7 @@ export const PayrollHub: React.FC<PayrollHubProps> = ({
           </div>
 
           <div className="space-y-3">
-            {notifications.map((n) => (
+            {visibleNotifications.map((n) => (
               <div 
                 key={n.id} 
                 className={`p-4 rounded-xl border transition-all flex items-start gap-3 ${

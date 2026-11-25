@@ -955,7 +955,7 @@ export default function App() {
           DbService.getQualitySnags(),
           DbService.getQualityLogs(),
           DbService.getAuditLogs(),
-          DbService.getNotifications(),
+          DbService.getNotifications({ role: currentUserRole, uid: currentUserProfile?.uid }),
           DbService.getFormworkPanels(),
           DbService.getPanelMovementLogs()
         ]);
@@ -986,7 +986,7 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, [isAuthenticated, isPendingUser, mfaGateRequired]);
+  }, [isAuthenticated, isPendingUser, mfaGateRequired, currentUserRole, currentUserProfile?.uid]);
 
   // Attach real-time onSnapshot listeners for formworkPanels and panelMovementLogs collections
   React.useEffect(() => {
@@ -1140,6 +1140,19 @@ export default function App() {
     };
   }, [isAuthenticated, lastActivity, sessionTimeoutMinutes]);
 
+  // Keep NotificationService active user context strictly synchronized
+  React.useEffect(() => {
+    if (!isAuthenticated || isPendingUser || mfaGateRequired) {
+      NotificationService.setActiveUserContext(null);
+      return;
+    }
+    NotificationService.setActiveUserContext({
+      role: currentUserRole,
+      uid: currentUserProfile?.uid,
+      projectName: selectedProject || "ALL"
+    });
+  }, [isAuthenticated, isPendingUser, mfaGateRequired, currentUserRole, currentUserProfile?.uid, selectedProject]);
+
   // Real-Time Notification Stream from Firestore & Local Sync for authenticated users
   React.useEffect(() => {
     if (!isAuthenticated || isPendingUser || mfaGateRequired) return;
@@ -1152,21 +1165,25 @@ export default function App() {
     };
     window.addEventListener("navigate_to_app_tab" as any, handleTabNav);
 
-    // Real-Time Firestore onSnapshot Stream
+    const activeUid = currentUserProfile?.uid;
+
+    // Real-Time Firestore onSnapshot Stream scoped strictly to current user's role & UID
     const unsubscribeNotifications = DbService.subscribeNotifications((fetched) => {
       if (!fetched) return;
-      
+
       const readIds = NotificationService.getReadNotificationIds();
+      const roleTargeted = fetched.filter((item) =>
+        NotificationService.isNotificationTargetedToUser(item, {
+          role: currentUserRole,
+          uid: activeUid,
+          projectName: selectedProject || "ALL"
+        })
+      );
 
       // Ensure any fetched item that was ever marked read locally or persistently is locked as Read
-      const sanitizedFetched = fetched.map((item) => {
-        const isAlreadyRead = readIds.has(item.id) || 
-          item.read === true || 
-          item.isRead === true || 
-          item.status === "Read" || 
-          item.status === "Acknowledged" || 
-          item.status === "Completed" || 
-          (Array.isArray(item.readBy) && (item.readBy.includes(currentUserRole) || item.readBy.includes("all")));
+      const sanitizedFetched = roleTargeted.map((item) => {
+        const isAlreadyRead = readIds.has(item.id) ||
+          !NotificationService.isNotificationUnread(item, String(currentUserRole), activeUid);
 
         if (isAlreadyRead) {
           NotificationService.markIdAsReadPersistently(item.id);
@@ -1174,7 +1191,7 @@ export default function App() {
             ...item,
             read: true,
             status: "Read" as const,
-            readBy: Array.isArray(item.readBy) && item.readBy.length > 0 ? item.readBy : ["all"]
+            readBy: Array.isArray(item.readBy) ? item.readBy : []
           };
         }
         return item;
@@ -1186,10 +1203,17 @@ export default function App() {
         const prevReadIds = new Set(prev.filter(p => p.read === true || p.status === "Read").map(p => p.id));
         const prevIds = new Set(prev.map(n => n.id));
         const newNotifs = sortedFetched.filter(n => !prevIds.has(n.id) && !readIds.has(n.id) && !prevReadIds.has(n.id));
-        
+
         if (newNotifs.length > 0) {
           newNotifs.forEach(notif => {
-            if (notif.type === "New Registrant") {
+            if (
+              notif.type === "New Registrant" &&
+              NotificationService.isNotificationTargetedToUser(notif, {
+                role: currentUserRole,
+                uid: activeUid,
+                projectName: selectedProject || "ALL"
+              })
+            ) {
               triggerNotificationToast(
                 "New Registrant",
                 notif.message || notif.description || notif.title || "New registrant account pending review"
@@ -1210,9 +1234,9 @@ export default function App() {
         return NotificationService.sortNewestToOldest(merged);
       });
 
-      // Synchronize into NotificationService and trigger live alerts/chimes/browser notifications
-      NotificationService.mergeRemoteNotifications(sortedFetched, currentUserRole, selectedProject);
-    });
+      // Synchronize into NotificationService and trigger live alerts/chimes/browser notifications strictly for matching role/UID
+      NotificationService.mergeRemoteNotifications(sortedFetched, currentUserRole, selectedProject, activeUid);
+    }, undefined, { role: currentUserRole, uid: activeUid });
 
     return () => {
       window.removeEventListener("navigate_to_app_tab" as any, handleTabNav);
@@ -1220,7 +1244,7 @@ export default function App() {
         unsubscribeNotifications();
       }
     };
-  }, [isAuthenticated, currentUserRole, selectedProject]);
+  }, [isAuthenticated, isPendingUser, mfaGateRequired, currentUserRole, currentUserProfile?.uid, selectedProject]);
 
   // Trigger system notification toast for cross-app transmissions
   const triggerNotificationToast = (action: string, details?: string) => {
@@ -1568,7 +1592,14 @@ export default function App() {
     });
     logAction("Worker Registered", `Added/Updated worker ${w.name} (${w.trade}) to department ${w.department}`);
 
-    // Create a system notification so Admin and Head Office can see the new registrant
+    // Create a system notification strictly for Admin, Director, Head Office, and HR
+    const registrantTargetRoles: (UserRole | string)[] = [
+      UserRole.SUPER_ADMIN,
+      UserRole.DIRECTOR,
+      UserRole.HEAD_OFFICE,
+      UserRole.HR_MANAGER,
+      UserRole.HR
+    ];
     const newNotif: SystemNotification = {
       id: `NOTIF-REG-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`,
       type: "New Registrant",
@@ -1576,15 +1607,28 @@ export default function App() {
       message: isAmharic 
         ? `አዲስ ሰራተኛ ${w.name} (${w.trade || w.department}) በሲስተሙ ላይ ተመዝግቧል። መለያ ቁጥር: ${w.id}`
         : `New staff member ${w.name} (${w.trade || w.department}) has registered on the system. ID: ${w.id}`,
+      category: "User Approval Notifications",
+      priority: "High",
+      status: "Unread",
+      projectName: selectedProject || "Global System",
+      targetRoles: registrantTargetRoles,
       timestamp: new Date().toISOString(),
       read: false
     };
 
     try {
       await DbService.addNotification(newNotif);
-      setNotifications((prev) => [newNotif, ...prev]);
+      if (
+        NotificationService.isNotificationTargetedToUser(newNotif, {
+          role: currentUserRole,
+          uid: currentUserProfile?.uid,
+          projectName: selectedProject || "ALL"
+        })
+      ) {
+        setNotifications((prev) => [newNotif, ...prev]);
+      }
 
-      // Create Enterprise Notification for Admin, Head Office, and HR
+      // Create Enterprise Notification for Admin, Director, Head Office, and HR
       NotificationService.createNotification({
         title: `New Registrant: ${w.name}`,
         titleAm: `አዲስ ተመዝጋቢ: ${w.name}`,
@@ -1597,25 +1641,19 @@ export default function App() {
         siteName: "Worker Enrollment Kiosk",
         sender: w.name,
         senderRole: String(w.position || w.trade || "Registered Worker"),
-        receiver: "Admin, Head Office & HR",
-        targetRoles: [
-          UserRole.SUPER_ADMIN,
-          UserRole.HEAD_OFFICE,
-          UserRole.HR_MANAGER,
-          "Admin",
-          "Head Office",
-          "HR Manager",
-          "HR"
-        ],
+        receiver: "Admin, Director, Head Office & HR",
+        targetRoles: registrantTargetRoles,
         deliveryChannels: { inApp: true, push: true, email: true, sms: false },
         actionTab: "admin"
       });
-      
-      // Also trigger a toast instantly for current user if they are admin, head office, or HR
+
+      // Also trigger a toast instantly for current user ONLY if their role matches targetRoles
       if (
-        currentUserRole === UserRole.SUPER_ADMIN || 
-        currentUserRole === UserRole.HEAD_OFFICE ||
-        currentUserRole === UserRole.HR_MANAGER
+        NotificationService.isNotificationTargetedToUser(newNotif, {
+          role: currentUserRole,
+          uid: currentUserProfile?.uid,
+          projectName: selectedProject || "ALL"
+        })
       ) {
         triggerNotificationToast("New Registrant", newNotif.message);
       }
@@ -1629,26 +1667,22 @@ export default function App() {
       const isObj = notifData && typeof notifData === "object";
       const title = isObj ? (notifData.title || "Material Event") : String(notifData);
       const desc = isObj ? (notifData.description || notifData.message || notifData.title || "") : (optionalMessage || String(notifData));
+      const resolvedTargetRoles: (UserRole | string)[] =
+        isObj && Array.isArray(notifData.targetRoles) && notifData.targetRoles.length > 0
+          ? notifData.targetRoles
+          : isObj && notifData.targetRole
+          ? [String(notifData.targetRole)]
+          : [UserRole.SUPER_ADMIN, UserRole.DIRECTOR];
 
       if (NotificationService && NotificationService.createNotification) {
-        NotificationService.createNotification(isObj ? notifData : {
+        NotificationService.createNotification(isObj ? { ...notifData, targetRoles: resolvedTargetRoles } : {
           title,
           description: desc,
           category: "Inventory & Material Dispatch",
           priority: "Medium",
           status: "Unread",
           projectName: selectedProject || "Global System",
-          targetRoles: [
-            UserRole.SUPER_ADMIN,
-            UserRole.HEAD_OFFICE,
-            UserRole.PROJECT_MANAGER,
-            UserRole.SITE_ENGINEER,
-            UserRole.STORE_MANAGER,
-            UserRole.SITE_MANAGER,
-            UserRole.WAREHOUSE_MANAGER,
-            UserRole.SUPERVISOR,
-            UserRole.WORKER
-          ]
+          targetRoles: resolvedTargetRoles
         });
       }
 
@@ -1667,18 +1701,8 @@ export default function App() {
         siteName: isObj && notifData.siteName ? notifData.siteName : "Main Site",
         sender: isObj && notifData.sender ? notifData.sender : "Store Manager",
         senderRole: isObj && notifData.senderRole ? notifData.senderRole : "Store Manager",
-        receiver: isObj && notifData.receiver ? notifData.receiver : "All ERP Users",
-        targetRoles: isObj && notifData.targetRoles ? notifData.targetRoles : [
-          UserRole.SUPER_ADMIN,
-          UserRole.HEAD_OFFICE,
-          UserRole.PROJECT_MANAGER,
-          UserRole.SITE_ENGINEER,
-          UserRole.STORE_MANAGER,
-          UserRole.SITE_MANAGER,
-          UserRole.WAREHOUSE_MANAGER,
-          UserRole.SUPERVISOR,
-          UserRole.WORKER
-        ],
+        receiver: isObj && notifData.receiver ? notifData.receiver : "Authorized Role Users",
+        targetRoles: resolvedTargetRoles,
         actionTab: isObj && notifData.actionTab ? notifData.actionTab : "morning-requisitions",
         titleAm: isObj && notifData.titleAm ? notifData.titleAm : title,
         descriptionAm: isObj && notifData.descriptionAm ? notifData.descriptionAm : desc,
@@ -1686,26 +1710,32 @@ export default function App() {
       };
 
       await DbService.addNotification(sysNotif);
-      setNotifications((prev) => [sysNotif, ...prev]);
-
-      triggerNotificationToast(title, desc);
+      const isForCurrentUser = NotificationService.isNotificationTargetedToUser(sysNotif, {
+        role: currentUserRole,
+        uid: currentUserProfile?.uid,
+        projectName: selectedProject || "ALL"
+      });
+      if (isForCurrentUser) {
+        setNotifications((prev) => [sysNotif, ...prev]);
+        triggerNotificationToast(title, desc);
+      }
     } catch (err) {
       console.error("Error creating notification in App.tsx:", err);
     }
-  }, [selectedProject]);
+  }, [selectedProject, currentUserRole, currentUserProfile?.uid]);
 
   const handleMarkAsReadNotification = React.useCallback(async (id: string) => {
-    // 1. Immediately lock ID into persistent storage so it can NEVER revert
+    const activeUid = currentUserProfile?.uid;
+    // 1. Immediately lock ID into persistent storage for this browser user
     NotificationService.markIdAsReadPersistently(id);
-    NotificationService.markAsRead(id, currentUserRole);
+    NotificationService.markAsRead(id, currentUserRole, activeUid);
 
     setNotifications((prev) => {
       const updated = prev.map((n) => {
         if (n.id === id) {
           const currentReadBy = Array.isArray(n.readBy) ? n.readBy : [];
-          const newReadBy = currentReadBy.includes(currentUserRole)
-            ? currentReadBy
-            : [...currentReadBy, currentUserRole, "all"];
+          const additions = [String(currentUserRole), activeUid].filter((x): x is string => Boolean(x));
+          const newReadBy = Array.from(new Set([...currentReadBy, ...additions]));
           return {
             ...n,
             read: true,
@@ -1718,26 +1748,40 @@ export default function App() {
 
       const target = updated.find((n) => n.id === id);
       if (target) {
-        DbService.updateNotification(target).catch((e) =>
+        const isMultiRole = Array.isArray(target.targetRoles) && target.targetRoles.length > 1;
+        const original = prev.find((n) => n.id === id);
+        const firestorePayload = isMultiRole && original
+          ? { ...original, readBy: target.readBy }
+          : target;
+        DbService.updateNotification(firestorePayload).catch((e) =>
           console.error("Error updating notification in Firestore:", e)
         );
       }
       return NotificationService.sortNewestToOldest(updated);
     });
-  }, [currentUserRole]);
+  }, [currentUserRole, currentUserProfile?.uid]);
 
   const handleMarkAllAsReadNotifications = React.useCallback(async () => {
-    NotificationService.markAllAsRead(currentUserRole, selectedProject);
+    const activeUid = currentUserProfile?.uid;
+    NotificationService.markAllAsRead(currentUserRole, selectedProject, activeUid);
 
     setNotifications((prev) => {
-      const allIds = prev.map(n => n.id);
-      NotificationService.markMultipleIdsAsReadPersistently(allIds);
+      const visibleIds = prev
+        .filter((n) =>
+          NotificationService.isNotificationTargetedToUser(n, {
+            role: currentUserRole,
+            uid: activeUid,
+            projectName: selectedProject || "ALL"
+          })
+        )
+        .map((n) => n.id);
+      NotificationService.markMultipleIdsAsReadPersistently(visibleIds);
 
+      const additions = [String(currentUserRole), activeUid].filter((x): x is string => Boolean(x));
       const updated = prev.map((n) => {
+        if (!visibleIds.includes(n.id)) return n;
         const currentReadBy = Array.isArray(n.readBy) ? n.readBy : [];
-        const newReadBy = currentReadBy.includes(currentUserRole)
-          ? currentReadBy
-          : [...currentReadBy, currentUserRole, "all"];
+        const newReadBy = Array.from(new Set([...currentReadBy, ...additions]));
         return {
           ...n,
           read: true,
@@ -1746,14 +1790,19 @@ export default function App() {
         };
       });
 
-      updated.forEach((n) => {
-        DbService.updateNotification(n).catch((e) =>
-          console.error("Error updating notification in Firestore:", e)
-        );
-      });
+      updated
+        .filter((n) => visibleIds.includes(n.id))
+        .forEach((n) => {
+          const isMultiRole = Array.isArray(n.targetRoles) && n.targetRoles.length > 1;
+          const original = prev.find((p) => p.id === n.id);
+          const payload = isMultiRole && original ? { ...original, readBy: n.readBy } : n;
+          DbService.updateNotification(payload).catch((e) =>
+            console.error("Error updating notification in Firestore:", e)
+          );
+        });
       return NotificationService.sortNewestToOldest(updated);
     });
-  }, [currentUserRole, selectedProject]);
+  }, [currentUserRole, currentUserProfile?.uid, selectedProject]);
 
   const handleUpdateWorker = async (updatedWorker: Worker) => {
     setWorkers((prev) => prev.map((w) => (w.id === updatedWorker.id ? updatedWorker : w)));
@@ -1842,10 +1891,11 @@ export default function App() {
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${activeRole} | Metadata: ${JSON.stringify(loginLog)}`, activeRole);
 
           if (activeRole !== ("Pending" as any) && (!auth?.currentUser || !isSensitiveRole(activeRole) || method.includes("MFA"))) {
+            const activeUid = registeredProfile?.uid || auth?.currentUser?.uid;
             Promise.all([
               DbService.getWorkers(),
               DbService.getAuditLogs(),
-              DbService.getNotifications()
+              DbService.getNotifications({ role: activeRole, uid: activeUid })
             ]).then(([fetchedWorkers, fetchedAudit, fetchedNotifications]) => {
               setWorkers(fetchedWorkers);
               setAuditLogs(fetchedAudit);
@@ -2074,7 +2124,13 @@ export default function App() {
       style={{ zoom: `${zoomLevel}%` }}
     >
       {/* Live Floating Notification Toast */}
-      <LiveNotificationToast onNavigateToTab={(tab) => setActiveTab(tab)} isAmharic={isAmharic} />
+      <LiveNotificationToast
+        onNavigateToTab={(tab) => setActiveTab(tab)}
+        isAmharic={isAmharic}
+        currentUserRole={currentUserRole}
+        currentUserId={currentUserProfile?.uid}
+        selectedProject={selectedProject || "ALL"}
+      />
       
       {/* HEADER SECTION (No-print for tidy PDF generation) */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-40 no-print shadow-xs">
@@ -2227,6 +2283,7 @@ export default function App() {
             {/* Enterprise Notification Bell Dropdown */}
             <NotificationBellDropdown
               currentUserRole={currentUserRole}
+              currentUserId={currentUserProfile?.uid}
               selectedProject={selectedProject || "ALL"}
               onNavigateToHub={() => navigateToTab("notificationCenter")}
               onNavigateToTab={(tabName) => navigateToTab(tabName)}
@@ -2353,7 +2410,7 @@ export default function App() {
                 <span className="flex items-center gap-1.5">
                   <span>{isAmharic ? "ማስታወቂያዎች Center" : "Notifications Center"}</span>
                   <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-slate-950 font-black text-[10px]">
-                    {NotificationService.getUnreadCount(currentUserRole, selectedProject)}
+                    {NotificationService.getUnreadCount(currentUserRole, selectedProject, currentUserProfile?.uid)}
                   </span>
                 </span>
               </button>
@@ -3463,6 +3520,7 @@ export default function App() {
         {activeTab === "notificationCenter" && (
           <EnterpriseNotificationCenter
             currentUserRole={currentUserRole}
+            currentUserId={currentUserProfile?.uid}
             selectedProject={selectedProject || "ALL"}
             onNavigateToTab={(tabName) => setActiveTab(tabName)}
             onLogAudit={(action, details) => logAction(action, details)}

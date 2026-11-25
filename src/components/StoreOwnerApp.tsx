@@ -723,6 +723,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([]);
   const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([]);
   const [storeNotifications, setStoreNotifications] = useState<any[]>([]);
+  const visibleStoreNotifications = useMemo(() => {
+    return storeNotifications.filter((n) =>
+      NotificationService.isNotificationTargetedToUser(n, {
+        role: currentUserRole,
+        uid: currentUserProfile?.uid,
+      })
+    );
+  }, [storeNotifications, currentUserRole, currentUserProfile?.uid]);
 
   // Live GPS Acquisition state & handler
   const [isAcquiringGps, setIsAcquiringGps] = useState(false);
@@ -895,7 +903,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           DbService.getDailyReturnReports(),
           DbService.getDailyConsolidatedReports(),
           DbService.getWarehouses(),
-          DbService.getNotifications()
+          DbService.getNotifications({ role: currentUserRole, uid: currentUserProfile?.uid })
         ]);
         if (active) {
           if (panels) setDbPanels(panels);
@@ -1442,7 +1450,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       sender: newRet.gangChiefName || "Site Manager",
       senderRole: jobPos,
       receiver: "Store Manager & Warehouse Manager",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR],
       actionTab: "evening-returns",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
@@ -1457,7 +1465,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         category: "Material Return Notifications",
         priority: returnNotif.priority === "High" ? "High" : "Medium",
         status: "Unread",
-        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Site Manager", "Super Admin"],
+        targetRoles: returnNotif.targetRoles,
         moduleSource: "Warehouse & Site Store ERP"
       });
     }
@@ -1972,7 +1980,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       sender: receiveForm.receivedBy || "Store Manager",
       senderRole: "Store Manager",
       receiver: "Store Manager & Warehouse Manager",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER],
       actionTab: "material-receiving",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
@@ -1987,7 +1995,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         category: "Inventory & Material Dispatch",
         priority: "Medium",
         status: "Unread",
-        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin"],
+        targetRoles: notifObj.targetRoles,
         moduleSource: "Warehouse & Site Store ERP"
       });
     }
@@ -2079,7 +2087,16 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       sender: "Store Manager",
       senderRole: "Store Manager",
       receiver: issueForm.receiverName,
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.SITE_MANAGER, UserRole.PROJECT_MANAGER, UserRole.SITE_ENGINEER, UserRole.SUPERVISOR, UserRole.WORKER],
+      targetRoles: Array.from(new Set([
+        UserRole.SUPER_ADMIN,
+        UserRole.DIRECTOR,
+        UserRole.HEAD_OFFICE,
+        UserRole.WAREHOUSE_MANAGER,
+        UserRole.STORE_MANAGER,
+        UserRole.SITE_MANAGER,
+        UserRole.PROJECT_MANAGER,
+        ...(issueForm.receiverRole ? [issueForm.receiverRole as UserRole] : []),
+      ])),
       actionTab: "material-issuance",
       timestamp: new Date().toISOString(),
       date: new Date().toISOString().substring(0, 10),
@@ -2094,7 +2111,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
         category: "Inventory & Material Dispatch",
         priority: "Medium",
         status: "Unread",
-        targetRoles: ["Store Manager", "Warehouse Manager", "Project Manager", "Head Office", "Super Admin", issueForm.receiverRole],
+        targetRoles: notifObj.targetRoles,
         moduleSource: "Warehouse & Site Store ERP"
       });
     }
@@ -2123,7 +2140,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           sender: "Store Manager",
           senderRole: "Store Manager",
           receiver: target.requesterName,
-          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.WORKER],
+          targetRoles: Array.from(new Set([
+            UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
+            UserRole.WAREHOUSE_MANAGER,
+            UserRole.STORE_MANAGER,
+            UserRole.SITE_MANAGER,
+            ((target as any).requesterRole || UserRole.SITE_ENGINEER) as UserRole,
+          ])),
           actionTab: "requests"
         });
       }
@@ -2150,7 +2174,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           sender: "Store Manager",
           senderRole: "Store Manager",
           receiver: target.requesterName,
-          targetRoles: [UserRole.SUPER_ADMIN, UserRole.WAREHOUSE_MANAGER, UserRole.STORE_MANAGER, UserRole.WORKER],
+          targetRoles: Array.from(new Set([
+            UserRole.SUPER_ADMIN,
+            UserRole.DIRECTOR,
+            UserRole.WAREHOUSE_MANAGER,
+            UserRole.STORE_MANAGER,
+            UserRole.SITE_MANAGER,
+            ((target as any).requesterRole || UserRole.SITE_ENGINEER) as UserRole,
+          ])),
           actionTab: "requests"
         });
       }
@@ -5121,12 +5152,12 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                 </p>
               </div>
               <span className="px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-full text-xs font-bold">
-                {storeNotifications.length} {isAmharic ? "ማሳወቂያዎች" : "Notifications"}
+                {visibleStoreNotifications.length} {isAmharic ? "ማሳወቂያዎች" : "Notifications"}
               </span>
             </div>
 
             <div className="space-y-3">
-              {storeNotifications.length === 0 ? (
+              {visibleStoreNotifications.length === 0 ? (
                 <div className="p-8 bg-slate-950 rounded-xl border border-slate-800 text-center space-y-2">
                   <Bell className="mx-auto text-slate-600 animate-pulse" size={32} />
                   <p className="text-sm font-bold text-slate-400">
@@ -5137,7 +5168,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   </p>
                 </div>
               ) : (
-                storeNotifications.map((notif, idx) => {
+                visibleStoreNotifications.map((notif, idx) => {
                   const titleStr = isAmharic && notif.titleAm ? notif.titleAm : (notif.title || notif.type || "Notification");
                   const descStr = isAmharic && notif.messageAm ? notif.messageAm : (notif.message || notif.description || "");
                   const timeStr = notif.time || (notif.timestamp ? new Date(notif.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "Just now");

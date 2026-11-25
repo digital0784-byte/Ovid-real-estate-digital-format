@@ -20,6 +20,7 @@ import {
 } from "../../services/warehouseManagementService";
 import { StatusBadge } from "./WarehouseSharedUi";
 import { getReportTitle, tr } from "./warehouseI18n";
+import { NotificationService } from "../../services/notificationService";
 
 export function WarehouseReportsLedgerAuditView({
   mode,
@@ -350,15 +351,26 @@ export function WarehouseReportsLedgerAuditView({
   }
 
   if (mode === "notifications") {
+    const visibleNotifications = snapshot.notifications.filter((n) =>
+      NotificationService.isNotificationTargetedToUser(n as any, {
+        role: actor.role,
+        uid: actor.uid,
+      })
+    );
     return (
       <div className="space-y-3">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex items-center justify-between">
           <h3 className="text-sm font-bold text-white flex items-center gap-2">
             <Bell size={16} className="text-amber-400" />
-            <span>{tr(isAmharic, "Automated ERP Inventory & Approval Notifications", "ራስ-ሰር የERP ክምችት እና ማፅደቂያ ማስጠንቀቂያዎች")} ({snapshot.notifications.length})</span>
+            <span>{tr(isAmharic, "Automated ERP Inventory & Approval Notifications", "ራስ-ሰር የERP ክምችት እና ማፅደቂያ ማስጠንቀቂያዎች")} ({visibleNotifications.length})</span>
           </h3>
         </div>
-        {snapshot.notifications.map((n) => {
+        {visibleNotifications.length === 0 && (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-xs text-slate-400">
+            {tr(isAmharic, "No notifications targeted to your role.", "ለእርስዎ የስራ ድርሻ የተላኩ ማስጠንቀቂያዎች የሉም።")}
+          </div>
+        )}
+        {visibleNotifications.map((n) => {
           const isRead = (n.readByUids || []).includes(actor.uid);
           return (
             <div key={n.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">

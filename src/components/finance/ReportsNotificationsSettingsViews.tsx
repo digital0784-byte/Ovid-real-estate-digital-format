@@ -267,7 +267,7 @@ export const ReportsNotificationsSettingsViews: React.FC<
       sender: actorName,
       senderRole: actorRole,
       receiver: "Director & Finance Manager",
-      targetRoles: [UserRole.SUPER_ADMIN, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER],
+      targetRoles: [UserRole.SUPER_ADMIN, UserRole.DIRECTOR, UserRole.HEAD_OFFICE, UserRole.FINANCE_MANAGER],
       date: nowIso.slice(0, 10),
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       timestamp: Date.now(),
