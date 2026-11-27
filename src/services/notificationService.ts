@@ -38,6 +38,8 @@ const CANONICAL_ROLE_ALIASES: Array<{ canonical: string; aliases: string[] }> = 
   { canonical: UserRole.MATERIAL_HANDLING, aliases: [UserRole.MATERIAL_HANDLING, "Material Handling", "material_handler"] },
   { canonical: UserRole.DRIVER, aliases: [UserRole.DRIVER, "Driver", "driver"] },
   { canonical: UserRole.GATE_SECURITY_OFFICER, aliases: [UserRole.GATE_SECURITY_OFFICER, "Gate Security Officer", "Security Officer", "gate_security"] },
+  { canonical: UserRole.PROCUREMENT_OFFICER, aliases: [UserRole.PROCUREMENT_OFFICER, "Procurement Officer", "procurement_officer"] },
+  { canonical: UserRole.EVALUATION_COMMITTEE, aliases: [UserRole.EVALUATION_COMMITTEE, "Evaluation Committee", "evaluation_committee"] },
   { canonical: UserRole.SYSTEM_OPERATOR, aliases: [UserRole.SYSTEM_OPERATOR, "System Operator", "system_operator"] },
   { canonical: UserRole.WORKER, aliases: [UserRole.WORKER, "Worker", "worker"] },
   { canonical: UserRole.EMPLOYEE, aliases: [UserRole.EMPLOYEE, "Employee", "employee"] },

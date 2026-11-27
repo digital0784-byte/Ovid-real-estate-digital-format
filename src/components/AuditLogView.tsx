@@ -156,7 +156,10 @@ export const AuditLogView: React.FC<AuditLogViewProps> = ({ logs, isAmharic, t }
     [UserRole.FINANCE_MANAGER]: "bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200",
     [UserRole.HSE_OFFICER]: "bg-emerald-100 text-emerald-900 border-emerald-300",
     [UserRole.DRIVER]: "bg-stone-50 text-stone-700 border-stone-200",
-    [UserRole.AUDITOR]: "bg-slate-100 text-slate-800 border-slate-300"
+    [UserRole.AUDITOR]: "bg-slate-100 text-slate-800 border-slate-300",
+    [UserRole.PROCUREMENT_OFFICER]: "bg-cyan-50 text-cyan-800 border-cyan-300",
+    [UserRole.EVALUATION_COMMITTEE]: "bg-violet-50 text-violet-800 border-violet-300",
+    [UserRole.DIRECTOR]: "bg-red-50 text-red-800 border-red-300"
   };
 
   return (

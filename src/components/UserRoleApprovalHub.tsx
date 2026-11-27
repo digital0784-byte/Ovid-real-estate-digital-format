@@ -72,6 +72,8 @@ const CONSTRUCTION_ROLES_CATALOG = [
   { role: UserRole.WAREHOUSE_MANAGER, nameEn: "Warehouse Manager", nameAm: "የመጋዘን አስተዳዳሪ" },
   { role: UserRole.HR_MANAGER, nameEn: "HR", nameAm: "የሰው ኃይል አስተዳዳሪ (HR)" },
   { role: UserRole.DRIVER, nameEn: "Driver", nameAm: "የተሽከርካሪ አሽከርካሪ" },
+  { role: UserRole.PROCUREMENT_OFFICER, nameEn: "Procurement Officer", nameAm: "የግዢ ኦፊሰር (Procurement Officer)" },
+  { role: UserRole.EVALUATION_COMMITTEE, nameEn: "Evaluation Committee", nameAm: "የግዢ ግምገማ ኮሚቴ (Evaluation Committee)" },
   { role: UserRole.WORKER, nameEn: "Worker", nameAm: "የግንባታ ሠራተኛ (Worker)" }
 ];
 

@@ -28,7 +28,9 @@ export enum UserRole {
   DRIVER = "Driver",
   WORKER = "Worker",
   MATERIAL_HANDLING = "Material Handling",
-  GATE_SECURITY_OFFICER = "Gate Security Officer"
+  GATE_SECURITY_OFFICER = "Gate Security Officer",
+  PROCUREMENT_OFFICER = "Procurement Officer",
+  EVALUATION_COMMITTEE = "Evaluation Committee"
 }
 
 export interface AuditLog {
@@ -5559,6 +5561,248 @@ export interface FinancialAuditFindingRecord {
   createdAt: string;
   updatedAt: string;
 }
+
+// ============================================================================
+// PROCUREMENT AUTHORITY, WORKFLOW & GOVERNANCE TYPES
+// ============================================================================
+
+export type ProcurementWorkflowStatus =
+  | "Draft"
+  | "Submitted for Evaluation"
+  | "Quotation Collection"
+  | "Under Evaluation"
+  | "Award Recommended"
+  | "Budget Approved"
+  | "PO Authorized"
+  | "Executed"
+  | "Rejected"
+  | "Resubmitted";
+
+export interface ProcurementLineItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  specification: string;
+  estimatedUnitCostEtb?: number;
+}
+
+export interface ProcurementSupportingDoc {
+  id: string;
+  name: string;
+  category: "Specification" | "Quotation" | "Evaluation Report" | "Budget Memo" | "Contract / PO" | "Other";
+  urlOrRef: string;
+  uploadedBy: string;
+  uploadedByUid: string;
+  uploadedAt: string;
+}
+
+export interface ProcurementRejectionEntry {
+  id: string;
+  stage: ProcurementWorkflowStatus;
+  rejectedByUid: string;
+  rejectedByName: string;
+  rejectedByRole: UserRole | string;
+  reason: string;
+  rejectedAt: string;
+  resubmittedAt?: string;
+  resubmissionComment?: string;
+}
+
+export interface ProcurementRequestRecord {
+  id: string;
+  requestNumber: string; // e.g., PR-2026-0001
+  title: string;
+  projectId: string;
+  projectName: string;
+  items: ProcurementLineItem[];
+  requiredDeliveryDate: string;
+  estimatedTotalEtb: number;
+  justification: string;
+  status: ProcurementWorkflowStatus;
+  createdByUid: string;
+  createdByName: string;
+  createdByRole: UserRole | string;
+  submittedAt?: string;
+  resubmittedAt?: string;
+  resubmissionComment?: string;
+  quotationCount: number;
+  evaluationId?: string;
+  recommendedQuotationId?: string;
+  recommendedSupplierName?: string;
+  budgetAllocationId?: string;
+  allocatedBudgetEtb?: number;
+  budgetApprovedByUid?: string;
+  budgetApprovedByName?: string;
+  budgetApprovedAt?: string;
+  poId?: string;
+  poNumber?: string;
+  poAuthorizedByUid?: string;
+  poAuthorizedByName?: string;
+  poAuthorizedAt?: string;
+  executedByUid?: string;
+  executedByName?: string;
+  executedAt?: string;
+  executionNotes?: string;
+  lastRejectionReason?: string;
+  lastRejectedByName?: string;
+  lastRejectedByRole?: string;
+  lastRejectedAt?: string;
+  rejectionHistory: ProcurementRejectionEntry[];
+  supportingDocuments: ProcurementSupportingDoc[];
+  createdAt: string;
+  updatedAt: string;
+  capturedAt?: string;
+  serverReceivedAt?: string;
+}
+
+export interface ProcurementQuotationRecord {
+  id: string;
+  requestId: string;
+  requestNumber: string;
+  supplierName: string;
+  supplierContact: string;
+  supplierTin?: string;
+  unitPriceSummary: string;
+  totalAmountEtb: number;
+  currency: "ETB" | "USD" | "EUR";
+  deliveryLeadTimeDays: number;
+  paymentTerms: string;
+  technicalComplianceNotes: string;
+  attachmentName: string;
+  attachmentUrlOrRef: string;
+  collectedByUid: string;
+  collectedByName: string;
+  collectedByRole: UserRole | string;
+  collectedAt: string;
+  createdAt: string;
+  capturedAt?: string;
+  serverReceivedAt?: string;
+}
+
+export interface EvaluationCommitteeMember {
+  name: string;
+  role: string;
+  uid?: string;
+}
+
+export interface QuotationEvaluationScore {
+  quotationId: string;
+  supplierName: string;
+  technicalScore: number; // 0..100
+  financialScore: number; // 0..100
+  weightedTotalScore: number; // 0..100
+  remarks: string;
+}
+
+export interface ProcurementEvaluationRecord {
+  id: string;
+  requestId: string;
+  requestNumber: string;
+  committeeMembers: EvaluationCommitteeMember[];
+  quotationScores: QuotationEvaluationScore[];
+  recommendedQuotationId: string;
+  recommendedSupplierName: string;
+  recommendedAmountEtb: number;
+  technicalScore: number;
+  financialScore: number;
+  totalScore: number;
+  recommendationReasons: string;
+  evaluationReportSummary: string;
+  supportingDocuments: ProcurementSupportingDoc[];
+  evaluatedByUid: string;
+  evaluatedByName: string;
+  evaluatedByRole: UserRole | string;
+  evaluatedAt: string;
+  createdAt: string;
+  capturedAt?: string;
+  serverReceivedAt?: string;
+}
+
+export interface ProcurementBudgetAllocationRecord {
+  id: string;
+  allocationNumber: string;
+  requestId: string;
+  requestNumber: string;
+  projectId: string;
+  projectName: string;
+  decision: "Approved" | "Rejected";
+  allocatedBudgetEtb: number;
+  budgetLine: string;
+  costCenter: string;
+  fiscalYear: string;
+  comments: string;
+  authorizedByUid: string;
+  authorizedByName: string;
+  authorizedByRole: UserRole | string;
+  authorizedAt: string;
+  createdAt: string;
+  capturedAt?: string;
+  serverReceivedAt?: string;
+}
+
+export interface ProcurementOrderRecord {
+  id: string;
+  poNumber: string;
+  requestId: string;
+  requestNumber: string;
+  projectId: string;
+  projectName: string;
+  quotationId: string;
+  evaluationId: string;
+  budgetAllocationId: string;
+  supplierName: string;
+  supplierContact: string;
+  authorizedAmountEtb: number;
+  deliveryTerms: string;
+  requiredDeliveryDate: string;
+  status: "Authorized" | "Executed";
+  authorizedByUid: string;
+  authorizedByName: string;
+  authorizedByRole: UserRole | string;
+  authorizedAt: string;
+  executedByUid?: string;
+  executedByName?: string;
+  executedAt?: string;
+  executionReference?: string;
+  executionNotes?: string;
+  createdAt: string;
+  updatedAt: string;
+  capturedAt?: string;
+  serverReceivedAt?: string;
+}
+
+export type ProcurementAuditAction =
+  | "PR_CREATED"
+  | "PR_UPDATED"
+  | "PR_SUBMITTED"
+  | "PR_RESUBMITTED"
+  | "QUOTATION_COLLECTED"
+  | "EVALUATION_SUBMITTED"
+  | "WINNER_RECOMMENDED"
+  | "BUDGET_APPROVED"
+  | "BUDGET_REJECTED"
+  | "PO_AUTHORIZED"
+  | "PROCUREMENT_EXECUTED"
+  | "REQUEST_REJECTED";
+
+export interface ProcurementAuditLogRecord {
+  id: string;
+  requestId: string;
+  requestNumber: string;
+  action: ProcurementAuditAction;
+  actorUid: string;
+  actorName: string;
+  actorRole: UserRole | string;
+  previousStatus: ProcurementWorkflowStatus | "None";
+  newStatus: ProcurementWorkflowStatus;
+  comments: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+  capturedAt?: string;
+  serverReceivedAt?: string;
+}
+
 
 
 

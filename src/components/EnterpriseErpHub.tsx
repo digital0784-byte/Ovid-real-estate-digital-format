@@ -3,6 +3,7 @@ import { DbService } from "../services/db";
 import { blockedAsSimulation } from "../config/features";
 import { db, isFirebaseReady } from "../firebase";
 import { collection, onSnapshot } from "firebase/firestore";
+import { ProcurementWorkflowHub } from "./ProcurementWorkflowHub";
 import {
   Boxes,
   Truck,
@@ -2230,18 +2231,28 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
         </div>
       )}
 
-      {/* --- 4. PROCUREMENT MANAGEMENT --- */}
+      {/* --- 4. PROCUREMENT MANAGEMENT (THREE-TIER AUTHORITY WORKFLOW) --- */}
       {activeSubTab === "procurement" && (
-        <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-black uppercase text-slate-800">{isAmharic ? "የግዢ ፍላጎት፣ ትዕዛዝና አቅራቢዎች ማዕከል" : "Procurement, Purchase Orders & Supplier Portal"}</h3>
-              <p className="text-xs text-slate-500">{isAmharic ? "የግዢ መጠየቂያዎችን ይከታተሉ፣ ያጽድቁ እና የክፍያ ሁኔታዎችን ይቆጣጠሩ" : "Track workflow status of material requests, pricing approvals, and invoices"}</p>
-            </div>
-          </div>
+        <div className="space-y-6">
+          <ProcurementWorkflowHub
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            onLogAction={onLogAction}
+          />
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 space-y-4">
+          {procurements.length > 0 && (
+            <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-xs space-y-4">
+              <div>
+                <h3 className="text-xs font-black uppercase text-slate-700">
+                  {isAmharic ? "ነባር የግዢ መዝገቦች (Legacy Procurement Archive)" : "Legacy Procurement Records Archive (Read-Only)"}
+                </h3>
+                <p className="text-[11px] text-slate-500">
+                  {isAmharic
+                    ? "ቀደም ሲል የተመዘገቡ የግዢ መረጃዎች ተጠብቀው ይገኛሉ፤ አዲስ የግዢ ጥያቄዎች ከላይ ባለው ባለ 3-ደረጃ የሥልጣን ቁጥጥር ይፈጸማሉ።"
+                    : "Existing ERP procurement records are preserved read-only. All new requisitions, evaluations, and Director budget approvals follow the enforced workflow above."}
+                </p>
+              </div>
               <div className="overflow-x-auto border border-slate-100 rounded-xl">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-slate-50 text-slate-400 font-bold uppercase text-[9px] tracking-wider">
@@ -2253,7 +2264,6 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                       <th className="p-3">{isAmharic ? "አቅራቢ" : "Supplier"}</th>
                       <th className="p-3">{isAmharic ? "ሁኔታ" : "Workflow Status"}</th>
                       <th className="p-3">{isAmharic ? "ተቆጣጣሪ" : "Authority"}</th>
-                      <th className="p-3 text-center">{isAmharic ? "እርምጃ" : "Actions"}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-semibold text-slate-700">
@@ -2265,97 +2275,18 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
                         <td className="p-3 font-mono font-bold text-slate-800">{pr.cost}</td>
                         <td className="p-3 text-slate-500">{pr.supplier}</td>
                         <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded-full text-[9px] font-black ${
-                            pr.status.includes("Completed") || pr.status.includes("Received") ? "bg-green-50 text-green-700 border border-green-200/50" : 
-                            pr.status.includes("Approved") ? "bg-blue-50 text-blue-700 border border-blue-200/50" : 
-                            "bg-amber-50 text-amber-700 border border-amber-200/50 animate-pulse"
-                          }`}>
-                            {isAmharic ? (
-                              pr.status === "Pending Approval" ? "ፍቃድ በመጠባበቅ ላይ" :
-                              pr.status.includes("Approved") ? "ተፈቅዷል" :
-                              pr.status.includes("Received") || pr.status.includes("Completed") ? "ተጠናቋል" : pr.status
-                            ) : pr.status}
+                          <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-slate-100 text-slate-700 border border-slate-200">
+                            {pr.status}
                           </span>
                         </td>
                         <td className="p-3 text-slate-400 text-[10px]">{pr.approvalBy}</td>
-                        <td className="p-3 text-center">
-                          {pr.status === "Pending Approval" ? (
-                            <button
-                              onClick={() => handleApprovePr(pr.id)}
-                              className="bg-red-600 hover:bg-red-700 text-white font-bold text-[9px] px-2 py-1 rounded-md cursor-pointer transition-all uppercase"
-                            >
-                              {isAmharic ? "አጽድቅ" : "Approve PR"}
-                            </button>
-                          ) : (
-                            <span className="text-[10px] text-slate-400">{isAmharic ? "ተቆልፏል" : "Locked"}</span>
-                          )}
-                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </div>
-
-            <div className="bg-slate-50 p-4 rounded-xl border border-slate-200/60 space-y-4 h-fit">
-              <h4 className="text-xs font-black uppercase text-slate-800">{isAmharic ? "አዲስ የግዢ መጠየቂያ መመዝገቢያ" : "Issue New Purchase Request"}</h4>
-              <form onSubmit={handleAddProcurement} className="space-y-3">
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "የእቃው ዝርዝር" : "Item Details"}</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={isAmharic ? "ምሳሌ፡ M12 ባለከፍተኛ ጥንካሬ ፒኖች" : "e.g. M12 High tensile alignment pins"}
-                    className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
-                    value={newPrItem.item}
-                    onChange={(e) => setNewPrItem({ ...newPrItem, item: e.target.value })}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ብዛት" : "Quantity"}</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder={isAmharic ? "ምሳሌ፡ 5,000 ፍሬ" : "e.g. 5,000 Pcs"}
-                      className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none font-mono"
-                      value={newPrItem.qty}
-                      onChange={(e) => setNewPrItem({ ...newPrItem, qty: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "ግምታዊ ዋጋ" : "Estimated Cost"}</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder={isAmharic ? "ምሳሌ፡ 45,000 ብር" : "e.g. ETB 45,000"}
-                      className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none font-mono"
-                      value={newPrItem.cost}
-                      onChange={(e) => setNewPrItem({ ...newPrItem, cost: e.target.value })}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isAmharic ? "አቅራቢ ድርጅት" : "Preferred Supplier"}</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder={isAmharic ? "ምሳሌ፡ ኢትዮ ፋስተነርስ ኃ.የተ.የግ.ማ" : "e.g. Ethio Fasteners Ltd"}
-                    className="w-full mt-1 border border-slate-200 rounded-lg p-2 bg-white text-xs font-semibold focus:outline-none"
-                    value={newPrItem.supplier}
-                    onChange={(e) => setNewPrItem({ ...newPrItem, supplier: e.target.value })}
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-red-600 hover:bg-red-700 text-white rounded-lg py-2 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                >
-                  <Plus size={13} />
-                  <span>{isAmharic ? "የግዢ ጥያቄውን ላክ" : "Submit Procurement Order"}</span>
-                </button>
-              </form>
-            </div>
-          </div>
+          )}
         </div>
       )}
 

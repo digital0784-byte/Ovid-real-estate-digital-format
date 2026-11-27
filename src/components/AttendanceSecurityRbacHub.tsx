@@ -363,6 +363,35 @@ const ENTERPRISE_ROLES_SPEC: Record<string, {
       "STRICTLY FORBIDDEN from creating, editing, or deleting any records",
       "Cannot modify system parameters or configuration"
     ]
+  },
+  [UserRole.PROCUREMENT_OFFICER]: {
+    title: "21. Procurement Officer",
+    category: "Financial & Procurement",
+    description: "Purchase requisition preparation, technical specifications & PO execution after Director authorization.",
+    canDo: [
+      "Create Purchase Requisition / Purchase Order Requests",
+      "Enter item descriptions, quantities, specifications & required delivery dates",
+      "Submit purchase requests for evaluation and resubmit rejected requests with comments",
+      "Execute procurement after Director Budget & PO Authorization"
+    ],
+    cannotDo: [
+      "STRICTLY FORBIDDEN from collecting/evaluating supplier quotations",
+      "STRICTLY FORBIDDEN from selecting winning suppliers or approving budget allocations"
+    ]
+  },
+  [UserRole.EVALUATION_COMMITTEE]: {
+    title: "22. Evaluation Committee",
+    category: "Financial & Procurement",
+    description: "Supplier quotation collection, technical/financial comparison & documented award recommendation.",
+    canDo: [
+      "Collect, register and compare supplier quotations",
+      "Evaluate technical and financial offers with member names, scores, reasons & supporting docs",
+      "Select and recommend winning supplier and submit contract award recommendations"
+    ],
+    cannotDo: [
+      "Cannot create initial purchase requests",
+      "STRICTLY FORBIDDEN from approving budget allocations or authorizing POs (Director Only)"
+    ]
   }
 };
 

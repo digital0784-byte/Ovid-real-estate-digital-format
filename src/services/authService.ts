@@ -100,6 +100,8 @@ export function normalizeLegacyRole(role: string): string {
   const trimmed = role.trim();
   const lower = trimmed.toLowerCase();
   if (lower === "directory") return UserRole.DIRECTOR;
+  if (lower === "procurement_officer" || lower === "procurement officer") return UserRole.PROCUREMENT_OFFICER;
+  if (lower === "evaluation_committee" || lower === "evaluation committee") return UserRole.EVALUATION_COMMITTEE;
   if (
     lower === "store owner" ||
     lower === "site store owner" ||
@@ -174,6 +176,10 @@ function getPrefixFromRole(role: string): string {
       return "MH";
     case UserRole.GATE_SECURITY_OFFICER:
       return "GS";
+    case UserRole.PROCUREMENT_OFFICER:
+      return "PO";
+    case UserRole.EVALUATION_COMMITTEE:
+      return "EC";
     default:
       return "W";
   }

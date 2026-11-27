@@ -24,6 +24,7 @@ export type DashboardKind =
   | "fieldWorker"
   | "warehouse"
   | "gate"
+  | "procurement"
   | "system";
 
 export const DASHBOARD_KIND_BY_ROLE: Record<UserRole, DashboardKind> = {
@@ -64,6 +65,9 @@ export const DASHBOARD_KIND_BY_ROLE: Record<UserRole, DashboardKind> = {
   [UserRole.MATERIAL_HANDLING]: "warehouse",
 
   [UserRole.GATE_SECURITY_OFFICER]: "gate",
+
+  [UserRole.PROCUREMENT_OFFICER]: "procurement",
+  [UserRole.EVALUATION_COMMITTEE]: "procurement",
 
   [UserRole.SYSTEM_OPERATOR]: "system",
 };
@@ -224,6 +228,20 @@ export const KIND_META: Record<DashboardKind, DashboardKindMeta> = {
       "headOfficeSync",
       "launchReadiness",
       "biometricBoard",
+    ],
+  },
+  procurement: {
+    kind: "procurement",
+    titleEn: "Procurement Governance & Evaluation Desk",
+    titleAm: "የግዢ አስተዳደር እና ግምገማ ዳሽቦርድ",
+    subtitleEn: "Purchase requisitions, supplier quotations, committee evaluations, Director budget approvals, and authorized POs.",
+    subtitleAm: "የግዢ መጠየቂያዎች፣ የአቅራቢ ዋጋዎች፣ የኮሚቴ ግምገማ፣ የዳይሬክተር በጀት ፈቃድ እና የPO አፈፃፀም።",
+    quickLinkTabs: [
+      "procurementWorkflow",
+      "enterpriseErp",
+      "warehouseSiteStore",
+      "notificationCenter",
+      "auditLog",
     ],
   },
 };
@@ -1150,6 +1168,47 @@ export function computeKpis(
           value: allOpenTasks,
           tone: allOpenTasks > 0 ? "warn" : "ok",
           linkTab: "taskManagement",
+        },
+      ];
+    }
+
+    case "procurement": {
+      const pendingEvalTasks = myOpenTasks.filter((t) =>
+        String(t.category || "").toLowerCase().includes("procure") ||
+        String(t.taskName || "").toLowerCase().includes("procure")
+      ).length;
+      return [
+        {
+          key: "myOpenTasks",
+          labelEn: "My Open Tasks",
+          labelAm: "ክፍት ተግባራቶቼ",
+          value: myOpenTasks.length,
+          tone: myOpenTasks.length > 0 ? "warn" : "ok",
+          linkTab: "procurementWorkflow",
+        },
+        {
+          key: "procurementQueue",
+          labelEn: "Procurement Tasks",
+          labelAm: "የግዢ ተግባራት",
+          value: pendingEvalTasks,
+          tone: pendingEvalTasks > 0 ? "warn" : "neutral",
+          linkTab: "procurementWorkflow",
+        },
+        {
+          key: "activeWorkers",
+          labelEn: "Active Workforce",
+          labelAm: "ንቁ ሰራተኞች",
+          value: workers.length,
+          tone: "neutral",
+          linkTab: "procurementWorkflow",
+        },
+        {
+          key: "zones",
+          labelEn: "Project Sites",
+          labelAm: "የፕሮጀክት ሳይቶች",
+          value: zones.length,
+          tone: "neutral",
+          linkTab: "procurementWorkflow",
         },
       ];
     }

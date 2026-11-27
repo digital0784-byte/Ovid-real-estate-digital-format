@@ -16,7 +16,7 @@
         "trade": { "type": "string" },
         "position": { "type": "string" },
         "requestedRole": { "type": "string" },
-        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Director", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Warehouse Manager", "Site Manager", "Store Manager", "HR Manager", "Finance Manager", "Accountant"] },
+        "role": { "type": "string", "enum": ["Pending", "Super Admin", "Head Office", "Director", "Project Manager", "Site Engineer", "Supervisor", "Time Keeper", "Team Leader", "Gang Chief", "Worker", "Warehouse Manager", "Site Manager", "Store Manager", "HR Manager", "Finance Manager", "Accountant", "Auditor", "Procurement Officer", "Evaluation Committee"] },
         "status": { "type": "string", "enum": ["Pending", "Active", "Suspended"] },
         "createdAt": { "type": "string" },
         "updatedAt": { "type": "string" }
@@ -2087,6 +2087,114 @@
         "detectedById": { "type": "string", "maxLength": 128 }
       },
       "required": ["id", "findingNo", "anomalyCategory", "severity", "title", "status", "detectedById"]
+    },
+    "ProcurementRequest": {
+      "title": "ProcurementRequest",
+      "description": "Purchase Requisition / PO request governed by Procurement Officer, Evaluation Committee, and Director.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestNumber": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 240 },
+        "projectId": { "type": "string", "maxLength": 128 },
+        "projectName": { "type": "string", "maxLength": 160 },
+        "items": { "type": "array" },
+        "requiredDeliveryDate": { "type": "string", "maxLength": 64 },
+        "estimatedTotalEtb": { "type": "number" },
+        "justification": { "type": "string", "maxLength": 2000 },
+        "status": {
+          "type": "string",
+          "enum": ["Draft", "Submitted for Evaluation", "Quotation Collection", "Under Evaluation", "Award Recommended", "Budget Approved", "PO Authorized", "Executed", "Rejected", "Resubmitted"]
+        },
+        "createdByUid": { "type": "string", "maxLength": 128 },
+        "createdByName": { "type": "string", "maxLength": 120 },
+        "createdByRole": { "type": "string", "maxLength": 64 },
+        "quotationCount": { "type": "number" },
+        "evaluationId": { "type": "string", "maxLength": 128 },
+        "recommendedQuotationId": { "type": "string", "maxLength": 128 },
+        "recommendedSupplierName": { "type": "string", "maxLength": 160 },
+        "budgetAllocationId": { "type": "string", "maxLength": 128 },
+        "allocatedBudgetEtb": { "type": "number" },
+        "poId": { "type": "string", "maxLength": 128 },
+        "poNumber": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "requestNumber", "title", "projectId", "projectName", "items", "requiredDeliveryDate", "estimatedTotalEtb", "status", "createdByUid"]
+    },
+    "ProcurementQuotation": {
+      "title": "ProcurementQuotation",
+      "description": "Supplier quotation collected and registered by Evaluation Committee.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "supplierName": { "type": "string", "maxLength": 160 },
+        "totalAmountEtb": { "type": "number" },
+        "attachmentName": { "type": "string", "maxLength": 200 },
+        "attachmentUrlOrRef": { "type": "string", "maxLength": 500 },
+        "collectedByUid": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "requestId", "supplierName", "totalAmountEtb", "attachmentName", "attachmentUrlOrRef", "collectedByUid"]
+    },
+    "ProcurementEvaluation": {
+      "title": "ProcurementEvaluation",
+      "description": "Evaluation Committee report, scores, member names, reasons, and winner recommendation.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "committeeMembers": { "type": "array" },
+        "recommendedQuotationId": { "type": "string", "maxLength": 128 },
+        "recommendedSupplierName": { "type": "string", "maxLength": 160 },
+        "technicalScore": { "type": "number" },
+        "financialScore": { "type": "number" },
+        "totalScore": { "type": "number" },
+        "recommendationReasons": { "type": "string", "maxLength": 4000 },
+        "supportingDocuments": { "type": "array" },
+        "evaluatedByUid": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "requestId", "committeeMembers", "recommendedQuotationId", "technicalScore", "financialScore", "recommendationReasons", "supportingDocuments", "evaluatedByUid"]
+    },
+    "ProcurementBudgetAllocation": {
+      "title": "ProcurementBudgetAllocation",
+      "description": "Director-only project procurement budget allocation and approval record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "decision": { "type": "string", "enum": ["Approved", "Rejected"] },
+        "allocatedBudgetEtb": { "type": "number" },
+        "budgetLine": { "type": "string", "maxLength": 128 },
+        "authorizedByUid": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "requestId", "decision", "allocatedBudgetEtb", "authorizedByUid"]
+    },
+    "ProcurementOrder": {
+      "title": "ProcurementOrder",
+      "description": "Director-authorized Contract / Purchase Order unlocked for Procurement Execution.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "poNumber": { "type": "string", "maxLength": 64 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "budgetAllocationId": { "type": "string", "maxLength": 128 },
+        "authorizedAmountEtb": { "type": "number" },
+        "status": { "type": "string", "enum": ["Authorized", "Executed"] },
+        "authorizedByUid": { "type": "string", "maxLength": 128 }
+      },
+      "required": ["id", "poNumber", "requestId", "budgetAllocationId", "authorizedAmountEtb", "status", "authorizedByUid"]
+    },
+    "ProcurementAuditLog": {
+      "title": "ProcurementAuditLog",
+      "description": "Immutable approval history and audit log for all procurement stages.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "requestId": { "type": "string", "maxLength": 128 },
+        "action": { "type": "string", "maxLength": 64 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "timestamp": { "type": "string", "maxLength": 64 }
+      },
+      "required": ["id", "requestId", "action", "actorUid", "timestamp"]
     }
   },
   "firestore": {
@@ -2553,6 +2661,30 @@
     "/financialAuditFindings/{findingId}": {
       "schema": "FinancialAuditFinding",
       "description": "Internal audit anomalies, CAPA corrective actions, and resolution registry."
+    },
+    "/procurementRequests/{requestId}": {
+      "schema": "ProcurementRequest",
+      "description": "Purchase Requisitions created by Procurement Officer and governed by multi-role workflow approvals."
+    },
+    "/procurementQuotations/{quotationId}": {
+      "schema": "ProcurementQuotation",
+      "description": "Supplier quotations collected and registered exclusively by the Evaluation Committee."
+    },
+    "/procurementEvaluations/{evaluationId}": {
+      "schema": "ProcurementEvaluation",
+      "description": "Evaluation Committee technical/financial scoring, member names, reasons, supporting docs, and winner recommendations."
+    },
+    "/procurementBudgetAllocations/{allocationId}": {
+      "schema": "ProcurementBudgetAllocation",
+      "description": "Director-only project procurement budget allocations and financial authorizations."
+    },
+    "/procurementOrders/{orderId}": {
+      "schema": "ProcurementOrder",
+      "description": "Director-authorized Contracts / Purchase Orders unlocked for execution."
+    },
+    "/procurementAuditLogs/{logId}": {
+      "schema": "ProcurementAuditLog",
+      "description": "Immutable create-only approval history and audit log for all procurement stages."
     }
   }
 }

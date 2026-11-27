@@ -11,6 +11,7 @@ import { getFirestore } from "firebase-admin/firestore";
 import { TOTP, Secret } from "otpauth";
 import { createBiometricConnectorRouter } from "./src/server/biometricConnectorRouter";
 import { createWarehouseStoreRouter } from "./src/server/warehouseStoreRouter";
+import { createProcurementRouter } from "./src/server/procurementRouter";
 import { fetchUserProfileWithIdToken } from "./src/server/firestoreUserLookup";
 let firebaseConfigJson: any = {};
 try {
@@ -107,6 +108,8 @@ function normalizeLegacyServerRole(role: unknown): any {
   const trimmed = role.trim();
   const lower = trimmed.toLowerCase();
   if (lower === "directory") return "Director";
+  if (lower === "procurement_officer" || lower === "procurement officer") return "Procurement Officer";
+  if (lower === "evaluation_committee" || lower === "evaluation committee") return "Evaluation Committee";
   if (
     lower === "store owner" ||
     lower === "site store owner" ||
@@ -1174,6 +1177,18 @@ Return a JSON object matching this schema exactly. Do NOT return markdown or wra
     }),
   });
   app.use(warehouseStoreRouter);
+
+  // Enterprise Procurement Authority & Workflow Router
+  const { router: procurementRouter } = createProcurementRouter({
+    verifyAppCheck,
+    requireAuth,
+    requireActiveUser,
+    getProjectConfig: () => ({
+      projectId: firebaseConfigJson.projectId || process.env.FIREBASE_PROJECT_ID || "digital-construction-erp",
+      databaseId: firebaseConfigJson.firestoreDatabaseId || "(default)",
+    }),
+  });
+  app.use(procurementRouter);
 
   // Serve static assets or mount Vite dev middleware
   const distPath = path.resolve(process.cwd(), "dist");

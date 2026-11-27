@@ -232,6 +232,33 @@ service cloud.firestore {
       return hasAnyRole(['Gate Security Officer', 'Security Officer']);
     }
 
+    function isProcurementOfficer() {
+      return hasAnyRole(['Procurement Officer', 'procurement_officer']);
+    }
+
+    function isEvaluationCommittee() {
+      return hasAnyRole(['Evaluation Committee', 'evaluation_committee']);
+    }
+
+    // Strict Governance Authority: Only the Director can authorize budget allocation and PO issuance
+    function isProcurementDirector() {
+      return isApprovedUser() && hasAnyRole(['Director', 'director', 'Directory', 'directory']);
+    }
+
+    function canReadProcurementGovernance() {
+      return isApprovedUser() && (
+        isProcurementOfficer() ||
+        isEvaluationCommittee() ||
+        isProcurementDirector() ||
+        isAdminOrHeadOffice() ||
+        isFinanceManager() ||
+        isProjectManager() ||
+        isWarehouseRole() ||
+        isOperationManager() ||
+        isAuditor()
+      );
+    }
+
     function canReadWarehouseModule() {
       return isApprovedUser() && (
         isDirectorStrict() ||
@@ -297,6 +324,10 @@ service cloud.firestore {
         ? ['HSE Officer', 'Safety Officer', 'hse_officer']
         : getUserRole() in ['Material Handling', 'material_handler']
         ? ['Material Handling', 'material_handler']
+        : getUserRole() in ['Procurement Officer', 'procurement_officer']
+        ? ['Procurement Officer', 'procurement_officer']
+        : getUserRole() in ['Evaluation Committee', 'evaluation_committee']
+        ? ['Evaluation Committee', 'evaluation_committee']
         : getUserRole() in ['System Operator', 'system_operator']
         ? ['System Operator', 'system_operator']
         : [getUserRole()];
@@ -2279,6 +2310,245 @@ service cloud.firestore {
       allow create, update: if isValidId(findingId) &&
         (isAuditor() || isFinanceManager() || isDirectorStrict() || isSuperAdmin()) && mfaSafe();
       allow delete: if isSuperAdmin();
+    }
+
+    // =========================================================================
+    // 25. PROCUREMENT AUTHORITY & WORKFLOW GOVERNANCE (ZERO-TRUST)
+    // =========================================================================
+
+    // 25.1 procurementRequests (Strict stage transitions & separation of duties)
+    match /procurementRequests/{requestId} {
+      allow read: if canReadProcurementGovernance();
+      allow create: if isValidId(requestId) &&
+        isProcurementOfficer() &&
+        mfaSafe() &&
+        incoming().keys().hasAll([
+          'id', 'requestNumber', 'title', 'projectId', 'projectName',
+          'items', 'requiredDeliveryDate', 'estimatedTotalEtb', 'justification',
+          'status', 'createdByUid', 'createdByName', 'createdByRole',
+          'quotationCount', 'rejectionHistory', 'supportingDocuments',
+          'createdAt', 'updatedAt'
+        ]) &&
+        incoming().keys().hasOnly([
+          'id', 'requestNumber', 'title', 'projectId', 'projectName',
+          'items', 'requiredDeliveryDate', 'estimatedTotalEtb', 'justification',
+          'status', 'createdByUid', 'createdByName', 'createdByRole',
+          'submittedAt', 'quotationCount', 'rejectionHistory', 'supportingDocuments',
+          'createdAt', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+        ]) &&
+        incoming().createdByUid == request.auth.uid &&
+        incoming().status in ['Draft', 'Submitted for Evaluation'] &&
+        incoming().quotationCount == 0 &&
+        incoming().items is list && incoming().items.size() >= 1 &&
+        incoming().requiredDeliveryDate is string && incoming().requiredDeliveryDate.size() > 0 &&
+        !('budgetAllocationId' in incoming()) &&
+        !('poId' in incoming()) &&
+        !('evaluationId' in incoming());
+
+      allow update: if isValidId(requestId) && mfaSafe() && (
+        // Stage 1/Resubmit: Procurement Officer ONLY (Draft / Rejected / Resubmitted -> Draft / Submitted for Evaluation)
+        (
+          isProcurementOfficer() &&
+          existing().status in ['Draft', 'Rejected', 'Resubmitted'] &&
+          incoming().status in ['Draft', 'Submitted for Evaluation', 'Resubmitted'] &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'items', 'requiredDeliveryDate', 'estimatedTotalEtb', 'justification',
+            'status', 'submittedAt', 'resubmittedAt', 'resubmissionComment',
+            'rejectionHistory', 'supportingDocuments', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+          ])
+        ) ||
+        // Stage 2-3: Evaluation Committee collects quotations
+        (
+          isEvaluationCommittee() &&
+          existing().status in ['Submitted for Evaluation', 'Quotation Collection', 'Under Evaluation'] &&
+          incoming().status in ['Quotation Collection', 'Under Evaluation'] &&
+          incoming().quotationCount is number && incoming().quotationCount >= existing().quotationCount &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'quotationCount', 'status', 'supportingDocuments', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+          ])
+        ) ||
+        // Stage 4: Evaluation Committee submits documented evaluation & winner recommendation
+        (
+          isEvaluationCommittee() &&
+          existing().status in ['Quotation Collection', 'Under Evaluation'] &&
+          incoming().quotationCount is number && incoming().quotationCount >= 1 &&
+          incoming().status == 'Award Recommended' &&
+          ('evaluationId' in incoming()) && incoming().evaluationId is string && incoming().evaluationId.size() > 0 &&
+          ('recommendedQuotationId' in incoming()) && incoming().recommendedQuotationId is string && incoming().recommendedQuotationId.size() > 0 &&
+          ('recommendedSupplierName' in incoming()) && incoming().recommendedSupplierName is string && incoming().recommendedSupplierName.size() > 0 &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'evaluationId', 'recommendedQuotationId', 'recommendedSupplierName',
+            'supportingDocuments', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+          ])
+        ) ||
+        // Evaluation Committee rejection/return to Procurement Officer with mandatory comment
+        (
+          isEvaluationCommittee() &&
+          existing().status in ['Submitted for Evaluation', 'Quotation Collection', 'Under Evaluation'] &&
+          incoming().status == 'Rejected' &&
+          ('lastRejectionReason' in incoming()) && incoming().lastRejectionReason is string && incoming().lastRejectionReason.size() > 0 &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'lastRejectionReason', 'lastRejectedByName', 'lastRejectedByRole',
+            'lastRejectedAt', 'rejectionHistory', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+          ])
+        ) ||
+        // Stage 5: Director ONLY authorizes or rejects Budget Allocation
+        (
+          isProcurementDirector() &&
+          existing().status == 'Award Recommended' &&
+          (
+            (
+              incoming().status == 'Budget Approved' &&
+              ('budgetAllocationId' in incoming()) && incoming().budgetAllocationId is string && incoming().budgetAllocationId.size() > 0 &&
+              ('allocatedBudgetEtb' in incoming()) && incoming().allocatedBudgetEtb is number && incoming().allocatedBudgetEtb > 0 &&
+              ('budgetApprovedByUid' in incoming()) && incoming().budgetApprovedByUid == request.auth.uid &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'budgetAllocationId', 'allocatedBudgetEtb',
+                'budgetApprovedByUid', 'budgetApprovedByName', 'budgetApprovedAt',
+                'updatedAt', 'capturedAt', 'serverReceivedAt'
+              ])
+            ) ||
+            (
+              incoming().status == 'Rejected' &&
+              ('lastRejectionReason' in incoming()) && incoming().lastRejectionReason is string && incoming().lastRejectionReason.size() > 0 &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'lastRejectionReason', 'lastRejectedByName', 'lastRejectedByRole',
+                'lastRejectedAt', 'rejectionHistory', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+              ])
+            )
+          )
+        ) ||
+        // Stage 6: Director ONLY authorizes Contract / Purchase Order after Budget Approved
+        (
+          isProcurementDirector() &&
+          existing().status == 'Budget Approved' &&
+          ('budgetAllocationId' in existing()) && existing().budgetAllocationId is string && existing().budgetAllocationId.size() > 0 &&
+          (
+            (
+              incoming().status == 'PO Authorized' &&
+              ('poId' in incoming()) && incoming().poId is string && incoming().poId.size() > 0 &&
+              ('poNumber' in incoming()) && incoming().poNumber is string && incoming().poNumber.size() > 0 &&
+              ('poAuthorizedByUid' in incoming()) && incoming().poAuthorizedByUid == request.auth.uid &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'poId', 'poNumber', 'poAuthorizedByUid', 'poAuthorizedByName', 'poAuthorizedAt',
+                'updatedAt', 'capturedAt', 'serverReceivedAt'
+              ])
+            ) ||
+            (
+              incoming().status == 'Rejected' &&
+              ('lastRejectionReason' in incoming()) && incoming().lastRejectionReason is string && incoming().lastRejectionReason.size() > 0 &&
+              incoming().diff(existing()).affectedKeys().hasOnly([
+                'status', 'lastRejectionReason', 'lastRejectedByName', 'lastRejectedByRole',
+                'lastRejectedAt', 'rejectionHistory', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+              ])
+            )
+          )
+        ) ||
+        // Stage 7: Execution blocked unless Budget Allocation + PO Authorization both exist
+        (
+          (isProcurementOfficer() || isProcurementDirector()) &&
+          existing().status == 'PO Authorized' &&
+          ('budgetAllocationId' in existing()) && existing().budgetAllocationId is string && existing().budgetAllocationId.size() > 0 &&
+          ('poId' in existing()) && existing().poId is string && existing().poId.size() > 0 &&
+          incoming().status == 'Executed' &&
+          ('executedByUid' in incoming()) && incoming().executedByUid == request.auth.uid &&
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'status', 'executedByUid', 'executedByName', 'executedAt', 'executionNotes',
+            'updatedAt', 'capturedAt', 'serverReceivedAt'
+          ])
+        )
+      );
+
+      allow delete: if false; // Preserve all procurement records & documents
+    }
+
+    // 25.2 procurementQuotations (Evaluation Committee ONLY, create-only immutable)
+    match /procurementQuotations/{quotationId} {
+      allow read: if canReadProcurementGovernance();
+      allow create: if isValidId(quotationId) &&
+        isEvaluationCommittee() &&
+        mfaSafe() &&
+        incoming().collectedByUid == request.auth.uid &&
+        incoming().supplierName is string && incoming().supplierName.size() > 0 &&
+        incoming().totalAmountEtb is number && incoming().totalAmountEtb > 0 &&
+        incoming().attachmentName is string && incoming().attachmentName.size() > 0 &&
+        incoming().attachmentUrlOrRef is string && incoming().attachmentUrlOrRef.size() > 0 &&
+        exists(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)) &&
+        get(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)).data.status in [
+          'Submitted for Evaluation', 'Quotation Collection', 'Under Evaluation'
+        ];
+      allow update, delete: if false;
+    }
+
+    // 25.3 procurementEvaluations (Evaluation Committee ONLY, requires members, scores, reasons & docs)
+    match /procurementEvaluations/{evaluationId} {
+      allow read: if canReadProcurementGovernance();
+      allow create: if isValidId(evaluationId) &&
+        isEvaluationCommittee() &&
+        mfaSafe() &&
+        incoming().evaluatedByUid == request.auth.uid &&
+        incoming().committeeMembers is list && incoming().committeeMembers.size() >= 1 &&
+        incoming().recommendationReasons is string && incoming().recommendationReasons.size() > 0 &&
+        incoming().supportingDocuments is list && incoming().supportingDocuments.size() >= 1 &&
+        incoming().technicalScore is number && incoming().technicalScore >= 0 && incoming().technicalScore <= 100 &&
+        incoming().financialScore is number && incoming().financialScore >= 0 && incoming().financialScore <= 100 &&
+        exists(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)) &&
+        get(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)).data.status in [
+          'Quotation Collection', 'Under Evaluation'
+        ];
+      allow update, delete: if false;
+    }
+
+    // 25.4 procurementBudgetAllocations (Director ONLY, immutable)
+    match /procurementBudgetAllocations/{allocationId} {
+      allow read: if canReadProcurementGovernance();
+      allow create: if isValidId(allocationId) &&
+        isProcurementDirector() &&
+        mfaSafe() &&
+        incoming().authorizedByUid == request.auth.uid &&
+        incoming().decision in ['Approved', 'Rejected'] &&
+        (incoming().decision == 'Rejected' || (incoming().allocatedBudgetEtb is number && incoming().allocatedBudgetEtb > 0)) &&
+        exists(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)) &&
+        get(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)).data.status == 'Award Recommended';
+      allow update, delete: if false;
+    }
+
+    // 25.5 procurementOrders (Director ONLY authorizes PO; execution requires Budget Approved + PO)
+    match /procurementOrders/{orderId} {
+      allow read: if canReadProcurementGovernance();
+      allow create: if isValidId(orderId) &&
+        isProcurementDirector() &&
+        mfaSafe() &&
+        incoming().authorizedByUid == request.auth.uid &&
+        incoming().status == 'Authorized' &&
+        incoming().authorizedAmountEtb is number && incoming().authorizedAmountEtb > 0 &&
+        exists(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)) &&
+        get(/databases/$(database)/documents/procurementRequests/$(incoming().requestId)).data.status == 'Budget Approved' &&
+        exists(/databases/$(database)/documents/procurementBudgetAllocations/$(incoming().budgetAllocationId)) &&
+        get(/databases/$(database)/documents/procurementBudgetAllocations/$(incoming().budgetAllocationId)).data.decision == 'Approved';
+      allow update: if isValidId(orderId) &&
+        (isProcurementOfficer() || isProcurementDirector()) &&
+        mfaSafe() &&
+        existing().status == 'Authorized' &&
+        incoming().status == 'Executed' &&
+        incoming().executedByUid == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'executedByUid', 'executedByName', 'executedAt',
+          'executionReference', 'executionNotes', 'updatedAt', 'capturedAt', 'serverReceivedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    // 25.6 procurementAuditLogs (Immutable create-only procurement approval & audit trail)
+    match /procurementAuditLogs/{logId} {
+      allow read: if canReadProcurementGovernance();
+      allow create: if isValidId(logId) &&
+        isApprovedUser() &&
+        (isProcurementOfficer() || isEvaluationCommittee() || isProcurementDirector()) &&
+        incoming().actorUid == request.auth.uid &&
+        incoming().action is string && incoming().action.size() > 0 &&
+        incoming().requestId is string && incoming().requestId.size() > 0;
+      allow update, delete: if false;
     }
   }
 }

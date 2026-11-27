@@ -93,6 +93,7 @@ import { HrmEnterpriseModule, HrmSubTab } from "./components/hrm/HrmEnterpriseMo
 import { resolveBiometricMappingPermissions } from "./services/biometricMappingService";
 import { PWAInstallButton } from "./components/PWAInstallButton";
 import { OfflineIndicator } from "./components/OfflineIndicator";
+import { ProcurementWorkflowHub } from "./components/ProcurementWorkflowHub";
 
 // Lucide Icons
 import { 
@@ -141,7 +142,8 @@ import {
   QrCode,
   ArrowLeft,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  ShoppingCart
 } from "lucide-react";
 
 export interface UserProfile {
@@ -308,6 +310,7 @@ export default function App() {
       securitySettings: { am: "ደህንነት እና ምርጫዎች", en: "Security & Settings" },
       warehouseSiteStore: { am: "መጋዘንና ሳይት ስቶር ERP", en: "Warehouse & Site Store ERP" },
       enterpriseErp: { am: "ኢንተርፕራይዝ ERP Suite", en: "Enterprise ERP Suite" },
+      procurementWorkflow: { am: "የግዢ ሥርዓት እና ቁጥጥር", en: "Procurement Governance" },
       financeErp: { am: "የፋይናንስ ERP Hub", en: "Finance ERP Hub" },
       headOfficeSync: { am: "የደመና መረጃ ሲንክ", en: "Real-Time Cloud Sync" },
       auditLog: { am: "ኦዲት መዝገብ", en: "Audit Log" },
@@ -757,10 +760,10 @@ export default function App() {
     }
   };
 
-  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "siteStoreMovement", "warehouseSiteStore"];
+  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "procurementWorkflow", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "siteStoreMovement", "warehouseSiteStore"];
   const allTabs = SIMULATIONS_ENABLED
     ? rawAllTabs
-    : rawAllTabs.filter(tab => !SIMULATION_ONLY_TABS.has(tab));
+    : rawAllTabs.filter((tab) => !SIMULATION_ONLY_TABS.has(tab));
 
   // Aluminum Formwork Management System is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
   const formworkAllowedRoles: UserRole[] = [
@@ -776,7 +779,7 @@ export default function App() {
     [UserRole.DIRECTOR]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.OFFICE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "warehouseSiteStore", "workerProfiles", "attendance", "projectDocs", "auditLog", "securitySettings", "mobileApps"],
-    [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "enterpriseErp", "warehouseSiteStore", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
+    [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "enterpriseErp", "procurementWorkflow", "warehouseSiteStore", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
     [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmBiometricMapping", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
@@ -784,7 +787,7 @@ export default function App() {
     [UserRole.TEAM_LEADER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.GANG_CHIEF]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.ASSEMBLER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
-    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
+    [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "procurementWorkflow", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.SITE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.STORE_MANAGER]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.MATERIAL_HANDLING]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
@@ -793,13 +796,15 @@ export default function App() {
     [UserRole.WORKER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.HR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
     [UserRole.HR_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "performance", "financeErp", "admin", "auditLog", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "hrmEnterprise", "enterpriseErp", "warehouseSiteStore", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
+    [UserRole.FINANCE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "hrmEnterprise", "enterpriseErp", "procurementWorkflow", "warehouseSiteStore", "siteStoreMovement", "workerProfiles", "attendance", "auditLog", "subcontractorPortal", "headOfficeSync", "securitySettings", "mobileApps"],
     [UserRole.ACCOUNTANT]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "financeErp", "enterpriseErp", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.SECTION_HEAD]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "siteLayout", "projectDocs", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SURVEYOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "siteLayout", "cadDrawing", "projectDocs", "surveying", "securitySettings", "mobileApps"],
     [UserRole.HSE_OFFICER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "safetyQuality", "aiInspection", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
     [UserRole.DRIVER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "securitySettings", "mobileApps"],
-    [UserRole.AUDITOR]: ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "financeErp", "hrmEnterprise", "enterpriseErp", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"]
+    [UserRole.AUDITOR]: ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "financeErp", "hrmEnterprise", "enterpriseErp", "procurementWorkflow", "siteStoreMovement", "auditLog", "workerProfiles", "attendance", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.PROCUREMENT_OFFICER]: ["dashboard", "taskManagement", "notificationCenter", "procurementWorkflow", "enterpriseErp", "warehouseSiteStore", "auditLog", "securitySettings", "mobileApps"],
+    [UserRole.EVALUATION_COMMITTEE]: ["dashboard", "taskManagement", "notificationCenter", "procurementWorkflow", "enterpriseErp", "auditLog", "securitySettings", "mobileApps"]
   };
 
   const hasAccess = (tab: string): boolean => {
@@ -2516,6 +2521,19 @@ export default function App() {
               </button>
             )}
 
+            {/* Procurement Governance Tab */}
+            {tabPermissions[currentUserRole]?.includes("procurementWorkflow") && (
+              <button
+                onClick={() => navigateToTab("procurementWorkflow")}
+                className={`px-4 py-3 flex items-center space-x-1.5 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "procurementWorkflow" ? "text-white border-red-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <ShoppingCart size={15} className="text-cyan-400" />
+                <span>{isAmharic ? "የግዢ ቁጥጥር (Procurement)" : "Procurement Governance"}</span>
+              </button>
+            )}
+
             {/* Finance ERP Hub Tab */}
             {tabPermissions[currentUserRole]?.includes("financeErp") && (
               <button
@@ -2971,6 +2989,7 @@ export default function App() {
                     {[
                       { id: "warehouseSiteStore", num: 7, nameEn: "Warehouse & Site Store ERP", nameAm: "7. መጋዘንና ሳይት ስቶር ERP", icon: Building2 },
                       { id: "enterpriseErp", num: 9, nameEn: "Enterprise ERP Suite", nameAm: "9. ኢንተርፕራይዝ ERP (Enterprise ERP)", icon: Cpu },
+                      { id: "procurementWorkflow", num: "9.1", nameEn: "Procurement Governance", nameAm: "9.1 የግዢ ሥርዓት እና ቁጥጥር", icon: ShoppingCart },
                       { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP (Finance ERP Hub)", icon: DollarSign },
                       { id: "headOfficeSync", num: 11, nameEn: "Real-Time Cloud Sync", nameAm: "11. የደመና መረጃ ሲንክ (Cloud Sync)", icon: Database },
                       { id: "auditLog", num: 12, nameEn: "Audit Log", nameAm: "12. ኦዲት መዝገብ (Audit Log)", icon: ShieldCheck },
@@ -3234,6 +3253,16 @@ export default function App() {
             isAmharic={isAmharic}
             currentUserRole={currentUserRole}
             currentUserProfile={currentUserProfile}
+            onLogAction={(action, details) => logAction(action, details)}
+          />
+        )}
+
+        {activeTab === "procurementWorkflow" && (
+          <ProcurementWorkflowHub
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            projects={zones.map((z) => ({ id: z.id, name: z.name }))}
             onLogAction={(action, details) => logAction(action, details)}
           />
         )}
@@ -4004,6 +4033,25 @@ export default function App() {
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
                           {isAmharic ? "የዋና መስሪያ ቤት አጠቃላይ የኢንተርፕራይዝ ሲስተም" : "Centralized corporate executive suite"}
+                        </p>
+                      </button>
+                    )}
+
+                    {hasAccess("procurementWorkflow") && (
+                      <button
+                        onClick={() => { navigateToTab("procurementWorkflow"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "procurementWorkflow" ? "bg-cyan-950/40 border-cyan-500 shadow-md shadow-cyan-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-cyan-500/10 text-cyan-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <ShoppingCart size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "9.1 የግዢ ቁጥጥር (Procurement)" : "9.1 Procurement Governance"}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የግዢ ኦፊሰር፣ የግምገማ ኮሚቴ እና የዳይሬክተር በጀት ፈቃድ" : "Procurement Officer PRs, Committee evaluation & Director budget/PO approvals"}
                         </p>
                       </button>
                     )}
