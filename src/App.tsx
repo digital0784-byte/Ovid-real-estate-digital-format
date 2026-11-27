@@ -88,6 +88,7 @@ import { LiveNotificationToast } from "./components/LiveNotificationToast";
 import { NotificationService } from "./services/notificationService";
 import { PanelTraceabilityModule } from "./components/PanelTraceabilityModule";
 import { TaskManagementSearchHub } from "./components/TaskManagementSearchHub";
+import { normalizeLegacyTabToWarehouse, WarehouseHubSectionId } from "./config/warehouseSections";
 import { FirestoreDataExplorer } from "./components/FirestoreDataExplorer";
 import { HrmEnterpriseModule, HrmSubTab } from "./components/hrm/HrmEnterpriseModule";
 import { resolveBiometricMappingPermissions } from "./services/biometricMappingService";
@@ -195,6 +196,7 @@ export default function App() {
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [isAmharic, setIsAmharic] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [warehouseInitialSection, setWarehouseInitialSection] = useState<WarehouseHubSectionId | undefined>(undefined);
   const [hrmInitialSubTab, setHrmInitialSubTab] = useState<HrmSubTab>("dashboard");
   const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
   const [showModulesMenu, setShowModulesMenu] = useState(false);
@@ -248,10 +250,18 @@ export default function App() {
 
   // Navigate to tab with history tracking & auto-close drawer on mobile
   const navigateToTab = (newTab: string) => {
-    let targetTab = newTab;
-    if (newTab === "warehouseManagerApp" || newTab === "storeOwnerApp") {
-      targetTab = "warehouseSiteStore";
-    } else if (newTab === "hrmBiometricMapping") {
+    const resolved = normalizeLegacyTabToWarehouse(newTab, currentUserRole);
+    let targetTab = resolved.tab;
+    if (resolved.blockedAttempt) {
+      setDeniedRouteBanner(resolved.blockedAttempt);
+    }
+    if (resolved.initialSection) {
+      setWarehouseInitialSection(resolved.initialSection);
+    } else if (targetTab === "warehouseSiteStore") {
+      setWarehouseInitialSection(undefined);
+    }
+
+    if (newTab === "hrmBiometricMapping") {
       setHrmInitialSubTab("biometric-mapping");
     } else if (newTab.startsWith("hrmEnterprise:")) {
       const sub = newTab.split(":")[1] as HrmSubTab;
@@ -260,7 +270,7 @@ export default function App() {
     } else if (newTab === "hrmEnterprise") {
       setHrmInitialSubTab("dashboard");
     }
-    if (targetTab === activeTab) {
+    if (targetTab === activeTab && !resolved.initialSection) {
       if (typeof window !== "undefined" && window.innerWidth < 1024) {
         setIsSidebarOpen(false);
       }
@@ -308,7 +318,8 @@ export default function App() {
       notificationCenter: { am: "የማስታወቂያዎች ማዕከል", en: "Notifications Center" },
       admin: { am: "የአድሚን ማፅደቂያ ቦርድ", en: "Admin Role Approval" },
       securitySettings: { am: "ደህንነት እና ምርጫዎች", en: "Security & Settings" },
-      warehouseSiteStore: { am: "መጋዘንና ሳይት ስቶር ERP", en: "Warehouse & Site Store ERP" },
+      warehouseSiteStore: { am: "መጋዘን እና ሳይት ስቶር", en: "Warehouse & Site Store" },
+      storeOwnerApp: { am: "የሳይት ስቶር መተግበሪያ", en: "Site Store App" },
       enterpriseErp: { am: "ኢንተርፕራይዝ ERP Suite", en: "Enterprise ERP Suite" },
       procurementWorkflow: { am: "የግዢ ሥርዓት እና ቁጥጥር", en: "Procurement Governance" },
       financeErp: { am: "የፋይናንስ ERP Hub", en: "Finance ERP Hub" },
@@ -760,7 +771,7 @@ export default function App() {
     }
   };
 
-  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "procurementWorkflow", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "siteStoreMovement", "warehouseSiteStore"];
+  const rawAllTabs = ["dashboard", "taskManagement", "firestoreExplorer", "notificationCenter", "customInputHub", "workerProfiles", "enterpriseErp", "procurementWorkflow", "financeErp", "hrmEnterprise", "hrmBiometricMapping", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "planning", "progress", "performance", "safetyQuality", "predictions", "admin", "auditLog", "aiInspection", "headOfficeSync", "siteLayout", "cadDrawing", "projectDocs", "surveying", "formworkManagement", "panelTraceability", "securitySettings", "mobileApps", "launchReadiness", "subcontractorPortal", "siteStoreMovement", "warehouseSiteStore", "storeOwnerApp"];
   const allTabs = SIMULATIONS_ENABLED
     ? rawAllTabs
     : rawAllTabs.filter((tab) => !SIMULATION_ONLY_TABS.has(tab));
@@ -780,7 +791,7 @@ export default function App() {
     [UserRole.OFFICE_AND_TECHNICAL_ENGINEERING]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.OFFICE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "warehouseSiteStore", "workerProfiles", "attendance", "projectDocs", "auditLog", "securitySettings", "mobileApps"],
     [UserRole.OPERATION_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "hrmBiometricMapping", "enterpriseErp", "procurementWorkflow", "warehouseSiteStore", "workerProfiles", "attendance", "planning", "progress", "performance", "safetyQuality", "projectDocs", "subcontractorPortal", "auditLog", "securitySettings", "mobileApps"],
-    [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement"),
+    [UserRole.PROJECT_MANAGER]: allTabs.filter(t => t !== "formworkManagement" && t !== "storeOwnerApp"),
     [UserRole.SITE_ENGINEER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmBiometricMapping", "panelTraceability", "siteStoreMovement", "planning", "progress", "safetyQuality", "aiInspection", "predictions", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.SUPERVISOR]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "workerProfiles", "planning", "progress", "performance", "safetyQuality", "aiInspection", "siteLayout", "cadDrawing", "projectDocs", "surveying", "subcontractorPortal", "securitySettings", "mobileApps"],
     [UserRole.TIME_KEEPER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "workerProfiles", "attendance", "biometricBoard", "fingerprintBoard", "biometricKiosk", "performance", "progress", "securitySettings", "mobileApps"],
@@ -788,8 +799,8 @@ export default function App() {
     [UserRole.GANG_CHIEF]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "panelTraceability", "siteStoreMovement", "attendance", "fingerprintBoard", "progress", "safetyQuality", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.ASSEMBLER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
     [UserRole.WAREHOUSE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "formworkManagement", "enterpriseErp", "procurementWorkflow", "projectDocs", "securitySettings", "mobileApps", "launchReadiness"],
-    [UserRole.SITE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
-    [UserRole.STORE_MANAGER]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
+    [UserRole.SITE_MANAGER]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "storeOwnerApp", "warehouseSiteStore", "panelTraceability", "siteStoreMovement", "projectDocs", "securitySettings", "mobileApps"],
+    [UserRole.STORE_MANAGER]: ["storeOwnerApp", "warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.MATERIAL_HANDLING]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.GATE_SECURITY_OFFICER]: ["warehouseSiteStore", "notificationCenter", "securitySettings"],
     [UserRole.EMPLOYEE]: ["dashboard", "taskManagement", "notificationCenter", "customInputHub", "hrmEnterprise", "workerProfiles", "attendance", "progress", "siteLayout", "securitySettings", "mobileApps"],
@@ -830,23 +841,30 @@ export default function App() {
     reason: string;
   } | null>(null);
 
-  // Auto-redirect legacy warehouseManagerApp / storeOwnerApp routes and enforce role access
+  // Auto-redirect legacy warehouseManagerApp alias and enforce strict role route isolation
   React.useEffect(() => {
     if (!currentUserRole) return;
 
-    if (activeTab === "warehouseManagerApp" || activeTab === "storeOwnerApp") {
-      setActiveTab("warehouseSiteStore");
+    if (activeTab === "warehouseManagerApp") {
+      const resolved = normalizeLegacyTabToWarehouse("warehouseManagerApp", currentUserRole);
+      if (resolved.blockedAttempt) {
+        setDeniedRouteBanner(resolved.blockedAttempt);
+      }
+      if (resolved.initialSection) {
+        setWarehouseInitialSection(resolved.initialSection);
+      }
+      setActiveTab(resolved.tab);
       return;
     }
 
     if (!hasAccess(activeTab)) {
       const allowed = tabPermissions[currentUserRole] || ["dashboard"];
       const fallback =
-        currentUserRole === UserRole.WAREHOUSE_MANAGER ||
-        currentUserRole === UserRole.SITE_MANAGER ||
-        currentUserRole === UserRole.STORE_MANAGER ||
-        currentUserRole === UserRole.MATERIAL_HANDLING ||
-        currentUserRole === UserRole.GATE_SECURITY_OFFICER
+        currentUserRole === UserRole.SITE_MANAGER || currentUserRole === UserRole.STORE_MANAGER
+          ? "storeOwnerApp"
+          : currentUserRole === UserRole.WAREHOUSE_MANAGER ||
+            currentUserRole === UserRole.MATERIAL_HANDLING ||
+            currentUserRole === UserRole.GATE_SECURITY_OFFICER
           ? "warehouseSiteStore"
           : allowed.includes("dashboard")
           ? "dashboard"
@@ -854,7 +872,10 @@ export default function App() {
       setDeniedRouteBanner({
         attemptedRoute: `/${activeTab}`,
         redirectedTo: `/${fallback}`,
-        reason: `Access Denied — Your role (${currentUserRole}) is not authorized for this module.`
+        reason:
+          currentUserRole === UserRole.WAREHOUSE_MANAGER && activeTab === "storeOwnerApp"
+            ? "Access Denied — Warehouse Manager cannot access Store Owner App."
+            : `Access Denied — Your role (${currentUserRole}) is not authorized for this module.`
       });
       setActiveTab(fallback);
     }
@@ -1631,8 +1652,42 @@ export default function App() {
     logAction("Quality Snag Resolved", `Marked outstanding defect ID: ${snagId} as Resolved & verified.`);
   };
 
-  // Admin roster operations
+  const showHrManagerOnlyPolicyToast = (actionDescAm: string, actionDescEn: string) => {
+    const toastId = `${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [
+      {
+        id: toastId,
+        titleEn: "HR Manager Authorization Required",
+        titleAm: "የHR Manager ፈቃድ ያስፈልጋል",
+        descEn: actionDescEn,
+        descAm: actionDescAm,
+        type: "warning",
+        senderApp: "HR Policy Guard",
+        senderAppAm: "የHR ሕግ ቁጥጥር",
+        receiverApp: String(currentUserRole),
+        receiverAppAm: String(currentUserRole),
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }),
+      },
+      ...prev.slice(0, 4),
+    ]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== toastId));
+    }, 6000);
+  };
+
+  // Admin roster operations (Company policy: strictly HR Manager ONLY)
   const handleAddWorker = async (w: Worker) => {
+    if (currentUserRole !== UserRole.HR_MANAGER) {
+      logAction(
+        "Unauthorized Worker Registration Blocked",
+        `Blocked ${currentUserRole} from registering employee ${w.name} (${w.id}). Only HR Manager is authorized.`
+      );
+      showHrManagerOnlyPolicyToast(
+        "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማስመዝገብና ማሻሻል የሚችለው HR manager ብቻ ነው።",
+        "According to company policy, only the HR Manager can register or modify employee information."
+      );
+      return;
+    }
     setWorkers((prev) => [w, ...prev.filter(existing => existing.id !== w.id)]);
     await DbService.addWorker(w);
     await DbService.saveUser({
@@ -1864,13 +1919,75 @@ export default function App() {
     });
   }, [currentUserRole, currentUserProfile?.uid, selectedProject]);
 
+  const isBiometricOnlyWorkerUpdate = (existingWorker: Worker | undefined, nextWorker: Worker): boolean => {
+    if (!existingWorker) return false;
+    const allowedBiometricKeys = new Set([
+      "biometricEnrollmentStatus",
+      "biometricWorkflowStage",
+      "biometricDeviceId",
+      "biometricDeviceName",
+      "biometricDeviceModel",
+      "biometricDeviceSerialNumber",
+      "biometricDeviceUserId",
+      "biometricEnrollmentDate",
+      "biometricMappingStatus",
+      "biometricMappingId",
+      "biometricAttendanceActivated",
+      "biometricAttendanceActivatedAt",
+      "biometricEnrolledBy",
+      "biometricEnrolledByUid",
+      "biometricRegistered",
+      "updatedAt",
+    ]);
+    const allKeys = new Set([
+      ...Object.keys(existingWorker as Record<string, any>),
+      ...Object.keys(nextWorker as Record<string, any>),
+    ]);
+    for (const key of allKeys) {
+      if (allowedBiometricKeys.has(key)) continue;
+      const prevVal = (existingWorker as Record<string, any>)[key];
+      const nextVal = (nextWorker as Record<string, any>)[key];
+      if (JSON.stringify(prevVal ?? null) !== JSON.stringify(nextVal ?? null)) {
+        return false;
+      }
+    }
+    return true;
+  };
+
   const handleUpdateWorker = async (updatedWorker: Worker) => {
+    const existingWorker = workers.find((w) => w.id === updatedWorker.id);
+    const isAllowedBiometricOnlyByHrOfficer =
+      currentUserRole === UserRole.HR && isBiometricOnlyWorkerUpdate(existingWorker, updatedWorker);
+
+    if (currentUserRole !== UserRole.HR_MANAGER && !isAllowedBiometricOnlyByHrOfficer) {
+      logAction(
+        "Unauthorized Worker Update Blocked",
+        `Blocked ${currentUserRole} from modifying employee ${updatedWorker.name} (${updatedWorker.id}). Only HR Manager is authorized.`
+      );
+      showHrManagerOnlyPolicyToast(
+        "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችለው HR manager ብቻ ነው።",
+        "According to company policy, only the HR Manager can modify and update employee information."
+      );
+      return;
+    }
+
     setWorkers((prev) => prev.map((w) => (w.id === updatedWorker.id ? updatedWorker : w)));
     await DbService.updateWorker(updatedWorker);
     logAction("Worker Profile Updated", `Modified credentials/skills for ${updatedWorker.name} (${updatedWorker.id})`);
   };
 
   const handleDeleteWorker = async (id: string) => {
+    if (currentUserRole !== UserRole.HR_MANAGER) {
+      logAction(
+        "Unauthorized Worker Deletion Blocked",
+        `Blocked ${currentUserRole} from deleting employee ${id}. Only HR Manager is authorized.`
+      );
+      showHrManagerOnlyPolicyToast(
+        "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና መሰረዝ የሚችለው HR manager ብቻ ነው።",
+        "According to company policy, only the HR Manager can modify or remove employee information."
+      );
+      return;
+    }
     const worker = workers.find(w => w.id === id);
     setWorkers((prev) => prev.filter((w) => w.id !== id));
     await DbService.deleteWorker(id);
@@ -1937,15 +2054,15 @@ export default function App() {
           setLocationGranted(null);
           setIsCheckingLocation(false);
 
-          // Route Warehouse Manager, Site Manager, Store Manager, Material Handling & Gate Security directly to unified Warehouse & Site Store ERP
+          // Route Warehouse Manager, Material Handling & Gate Security to Warehouse & Site Store; Site/Store Manager to Site Store App
           if (
             activeRole === UserRole.WAREHOUSE_MANAGER ||
-            activeRole === UserRole.SITE_MANAGER ||
-            activeRole === UserRole.STORE_MANAGER ||
             activeRole === UserRole.MATERIAL_HANDLING ||
             activeRole === UserRole.GATE_SECURITY_OFFICER
           ) {
             setActiveTab("warehouseSiteStore");
+          } else if (activeRole === UserRole.SITE_MANAGER || activeRole === UserRole.STORE_MANAGER) {
+            setActiveTab("storeOwnerApp");
           }
 
           logAction("User Secure Login", `Method: ${method} | Acted as Acting Role: ${activeRole} | Metadata: ${JSON.stringify(loginLog)}`, activeRole);
@@ -2849,7 +2966,7 @@ export default function App() {
               </button>
             )}
 
-            {/* Unified Warehouse & Site Store ERP Tab */}
+            {/* Unified Warehouse & Site Store Hub Tab */}
             {tabPermissions[currentUserRole]?.includes("warehouseSiteStore") && (
               <button
                 onClick={() => navigateToTab("warehouseSiteStore")}
@@ -2858,7 +2975,20 @@ export default function App() {
                 }`}
               >
                 <Building2 size={15} className="text-emerald-400" />
-                <span>{isAmharic ? "መጋዘንና ሳይት ስቶር ERP" : "Warehouse & Site Store ERP"}</span>
+                <span>{isAmharic ? "መጋዘን እና ሳይት ስቶር" : "Warehouse & Site Store"}</span>
+              </button>
+            )}
+
+            {/* Separate Site Store App Tab (Store Owner / Store Manager / Director / Super Admin / Head Office) */}
+            {tabPermissions[currentUserRole]?.includes("storeOwnerApp") && (
+              <button
+                onClick={() => navigateToTab("storeOwnerApp")}
+                className={`px-4 py-3 flex items-center space-x-1.5 text-teal-400 transition-colors cursor-pointer border-b-2 ${
+                  activeTab === "storeOwnerApp" ? "text-white border-teal-500 bg-slate-800 font-bold" : "border-transparent hover:text-white hover:bg-slate-800"
+                }`}
+              >
+                <Store size={15} className="text-teal-400" />
+                <span>{isAmharic ? "የሳይት ስቶር መተግበሪያ" : "Site Store App"}</span>
               </button>
             )}
 
@@ -2987,7 +3117,8 @@ export default function App() {
                   </h4>
                   <div className="space-y-0.5">
                     {[
-                      { id: "warehouseSiteStore", num: 7, nameEn: "Warehouse & Site Store ERP", nameAm: "7. መጋዘንና ሳይት ስቶር ERP", icon: Building2 },
+                      { id: "warehouseSiteStore", num: 7, nameEn: "Warehouse & Site Store", nameAm: "7. መጋዘን እና ሳይት ስቶር", icon: Building2 },
+                      { id: "storeOwnerApp", num: 8, nameEn: "Site Store App", nameAm: "8. የሳይት ስቶር መተግበሪያ", icon: Store },
                       { id: "enterpriseErp", num: 9, nameEn: "Enterprise ERP Suite", nameAm: "9. ኢንተርፕራይዝ ERP (Enterprise ERP)", icon: Cpu },
                       { id: "procurementWorkflow", num: "9.1", nameEn: "Procurement Governance", nameAm: "9.1 የግዢ ሥርዓት እና ቁጥጥር", icon: ShoppingCart },
                       { id: "financeErp", num: 10, nameEn: "Finance ERP Hub", nameAm: "10. የፋይናንስ ERP (Finance ERP Hub)", icon: DollarSign },
@@ -3640,6 +3771,20 @@ export default function App() {
             isAmharic={isAmharic}
             onToggleLanguage={() => setIsAmharic(!isAmharic)}
             workers={workers}
+            initialSection={warehouseInitialSection}
+            onLogAction={(action, details) => logAction(action, details)}
+            onCreateNotification={handleCreateNotification}
+          />
+        )}
+
+        {activeTab === "storeOwnerApp" && hasAccess("storeOwnerApp") && (
+          <StoreOwnerApp
+            mode="siteStore"
+            initialMode="store_owner"
+            isAmharic={isAmharic}
+            currentUserRole={currentUserRole}
+            currentUserProfile={currentUserProfile}
+            workers={workers}
             onLogAction={(action, details) => logAction(action, details)}
             onCreateNotification={handleCreateNotification}
           />
@@ -3991,10 +4136,29 @@ export default function App() {
                           <div className="p-2 bg-emerald-500/10 text-emerald-400 rounded-lg group-hover:scale-110 transition-transform">
                             <Building2 size={18} />
                           </div>
-                          <span className="font-extrabold text-sm text-white">{isAmharic ? "7. መጋዘንና ሳይት ስቶር ERP" : "7. Warehouse & Site Store ERP"}</span>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "7. መጋዘን እና ሳይት ስቶር" : "7. Warehouse & Site Store"}</span>
                         </div>
                         <p className="text-xs text-slate-400 leading-normal">
-                          {isAmharic ? "የመጋዘን፣ የሳይት ስቶር፣ GRV፣ GIV፣ ፎርምወርክ እና ሪፖርቶች አንድ ወጥ ERP" : "Unified Warehouse Manager, Site Manager & Store Ops, GRV, Plans, GIV, FATOV/FATIV, Quarantine, QR Gate Pass & Reports"}
+                          {isAmharic ? "የመጋዘን፣ የሳይት ስቶር፣ GRV፣ GIV፣ ፎርምወርክ እና ሪፖርቶች አንድ ወጥ ERP" : "Unified Warehouse Operations, Master Data, Catalog Governance, GRV, Plans, GIV, FATOV/FATIV, Quarantine, QR Gate Pass & Reports"}
+                        </p>
+                      </button>
+                    )}
+
+                    {hasAccess("storeOwnerApp") && (
+                      <button
+                        onClick={() => { navigateToTab("storeOwnerApp"); setShowModulesMenu(false); }}
+                        className={`p-4 rounded-xl border text-left transition-all cursor-pointer flex flex-col justify-between group ${
+                          activeTab === "storeOwnerApp" ? "bg-teal-950/40 border-teal-500 shadow-md shadow-teal-900/20" : "bg-slate-850/60 hover:bg-slate-800 border-slate-800 hover:border-slate-700"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3 mb-2">
+                          <div className="p-2 bg-teal-500/10 text-teal-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Store size={18} />
+                          </div>
+                          <span className="font-extrabold text-sm text-white">{isAmharic ? "8. የሳይት ስቶር መተግበሪያ" : "8. Site Store App"}</span>
+                        </div>
+                        <p className="text-xs text-slate-400 leading-normal">
+                          {isAmharic ? "የሳይት ስቶር ክምችት፣ የቡድን/ጋንግ እቃ ወጪ፣ ተመላሽ እና የእለት ሪፖርት" : "Dedicated Store Owner / Site Store field stock, crew requisitions, returns & site count"}
                         </p>
                       </button>
                     )}

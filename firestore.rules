@@ -557,6 +557,17 @@ service cloud.firestore {
       ]);
     }
 
+    function biometricEnrollmentFieldsOnlyChanged() {
+      return incoming().diff(existing()).affectedKeys().hasOnly([
+        'biometricEnrollmentStatus', 'biometricWorkflowStage', 'biometricDeviceId',
+        'biometricDeviceName', 'biometricDeviceModel', 'biometricDeviceSerialNumber',
+        'biometricDeviceUserId', 'biometricEnrollmentDate', 'biometricMappingStatus',
+        'biometricMappingId', 'biometricAttendanceActivated',
+        'biometricAttendanceActivatedAt', 'biometricEnrolledBy',
+        'biometricEnrolledByUid', 'biometricRegistered', 'updatedAt'
+      ]);
+    }
+
     function hasNoEnrollmentActivationOnCreate() {
       return (!('biometricDeviceId' in incoming()) || incoming().biometricDeviceId == '') &&
         (!('biometricDeviceUserId' in incoming()) || incoming().biometricDeviceUserId == '') &&
@@ -581,6 +592,7 @@ service cloud.firestore {
         );
     }
 
+    // Company Policy: ONLY HR Manager can modify/update employee profile information
     match /employees/{employeeId} {
       allow read: if isHrmOfficer() || isFinanceManager() || (
         isApprovedUser() && (
@@ -588,47 +600,31 @@ service cloud.firestore {
           ('uid' in resource.data && resource.data.uid == request.auth.uid)
         )
       );
-      allow create: if isValidId(employeeId) && hasNoProhibitedBiometricTemplates() && (
-        (isSuperAdmin() && hasNoEnrollmentActivationOnCreate()) || (
-          isHRManager() &&
-          (!('role' in incoming()) || incoming().role != 'Super Admin') &&
-          isValidHrOnboardingTransaction()
-        ) || (
-          hasAnyRole(['Head Office', 'admin', 'head_office']) &&
-          hasNoEnrollmentActivationOnCreate() &&
-          (!('role' in incoming()) || incoming().role != 'Super Admin')
-        )
-      );
-      allow update: if isValidId(employeeId) && hasNoProhibitedBiometricTemplates() && (
-        (isSuperAdmin() && biometricEnrollmentFieldsUnchanged()) || (
-          isHRManager() &&
-          (!('role' in incoming()) || incoming().role != 'Super Admin') &&
-          (!('role' in existing()) || existing().role != 'Super Admin')
-        ) || (
-          hasAnyRole(['Head Office', 'admin', 'head_office']) &&
-          biometricEnrollmentFieldsUnchanged() &&
-          (!('role' in incoming()) || incoming().role != 'Super Admin') &&
-          (!('role' in existing()) || existing().role != 'Super Admin')
-        )
-      );
-      allow delete: if isSuperAdmin() || (
-        isAdminOrHeadOffice() &&
-        (!('role' in existing()) || existing().role != 'Super Admin')
-      );
+      allow create: if isValidId(employeeId) && hasNoProhibitedBiometricTemplates() &&
+        isStrictHrManagerRole() &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('recruitmentRequestId' in incoming()) || isValidHrOnboardingTransaction());
+      allow update: if isValidId(employeeId) && hasNoProhibitedBiometricTemplates() &&
+        (!('role' in incoming()) || incoming().role != 'Super Admin') &&
+        (!('role' in existing()) || existing().role != 'Super Admin') && (
+          isStrictHrManagerRole() ||
+          (hasRole('HR') && biometricEnrollmentFieldsOnlyChanged())
+        );
+      allow delete: if isStrictHrManagerRole() &&
+        (!('role' in existing()) || existing().role != 'Super Admin');
     }
 
+    // Company Policy: ONLY HR Manager can modify/update worker profile information
     match /workers/{workerId} {
       allow read: if isApprovedUser();
-      allow create: if isValidId(workerId) && hasNoProhibitedBiometricTemplates() && (
-        isSuperAdmin() ||
-        (isHRManager() && isValidHrOnboardingTransaction()) ||
-        ((isDirectorOrAdmin() || hasAnyRole(['Project Manager', 'Supervisor', 'Section Head'])) && hasNoEnrollmentActivationOnCreate())
-      );
+      allow create: if isValidId(workerId) && hasNoProhibitedBiometricTemplates() &&
+        isStrictHrManagerRole() &&
+        (!('recruitmentRequestId' in incoming()) || isValidHrOnboardingTransaction());
       allow update: if isValidId(workerId) && hasNoProhibitedBiometricTemplates() && (
-        isHRManager() ||
-        ((isDirectorOrAdmin() || hasAnyRole(['Project Manager', 'Supervisor', 'Section Head'])) && biometricEnrollmentFieldsUnchanged())
+        isStrictHrManagerRole() ||
+        (hasRole('HR') && biometricEnrollmentFieldsOnlyChanged())
       );
-      allow delete: if isHrmOfficer();
+      allow delete: if isStrictHrManagerRole();
     }
 
     match /teams/{teamId} {
@@ -1544,11 +1540,10 @@ service cloud.firestore {
       allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
-    // 21B.6 employeeTransfers (Site/Project Transfers & Position History)
+    // 21B.6 employeeTransfers (Site/Project Transfers & Position History — HR Manager ONLY)
     match /employeeTransfers/{transferId} {
       allow read: if isHrmWorkflowApprover() || isAuditor();
-      allow create, update: if (isHrmOfficer() || isOperationManager() || isProjectManager()) && mfaSafe();
-      allow delete: if isDirectorOrAdmin() && mfaSafe();
+      allow create, update, delete: if isStrictHrManagerRole() && mfaSafe();
     }
 
     // 21B.7 salaryStructures (Grade Salary & Allowance Matrices)
@@ -1585,13 +1580,12 @@ service cloud.firestore {
       allow delete: if isDirectorOrAdmin() && mfaSafe();
     }
 
-    // 21B.11 hrmPrivateProfiles (AES-GCM Encrypted Fayda ID, Bank Account & Biometric Ref)
+    // 21B.11 hrmPrivateProfiles (AES-GCM Encrypted Fayda ID, Bank Account & Biometric Ref — HR Manager ONLY writes)
     match /hrmPrivateProfiles/{workerId} {
       allow read: if isDirectorOrAdmin() || isHRManager() || isFinanceManager() || (
         isApprovedUser() && ('userId' in resource.data && resource.data.userId == request.auth.uid)
       );
-      allow create, update: if (isDirectorOrAdmin() || isHRManager()) && mfaSafe();
-      allow delete: if isDirectorOrAdmin() && mfaSafe();
+      allow create, update, delete: if isStrictHrManagerRole() && mfaSafe();
     }
 
     // 21B.12 hrmPayslips (Disbursed Employee Payslips with Self-Service Scoped Access)

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ArrowRightLeft,
@@ -7,6 +7,7 @@ import {
   BookOpen,
   Building2,
   ClipboardCheck,
+  Database,
   FileCheck2,
   FileSpreadsheet,
   FileText,
@@ -36,10 +37,18 @@ import {
   getAuthorizedSectionsForRole,
   WarehouseSectionKey,
 } from "../../services/warehouseStoreRbac";
+import {
+  canViewWarehouseHubSection,
+  getWarehouseHubSectionsForRole,
+  isWarehouseHubSectionReadOnly,
+  WarehouseHubSectionConfig,
+  WarehouseHubSectionId,
+} from "../../config/warehouseSections";
 import { getWarehouseSectionLabel, tr } from "./warehouseI18n";
 import { ActionFeedbackBanner, PrintPreviewModal } from "./WarehouseSharedUi";
 import { InventoryDashboardView } from "./InventoryDashboardView";
 import { MasterDataAndFacilitiesView } from "./MasterDataAndFacilitiesView";
+import { MasterDataCatalogGovernanceView } from "./MasterDataCatalogGovernanceView";
 import { MaterialPlanningAndRequestsView } from "./MaterialPlanningAndRequestsView";
 import { GrvAndCommercialInvoiceView } from "./GrvAndCommercialInvoiceView";
 import { DispatchAndGivView } from "./DispatchAndGivView";
@@ -49,31 +58,53 @@ import { TransportAndGatePassView } from "./TransportAndGatePassView";
 import { WarehouseReportsLedgerAuditView } from "./WarehouseReportsLedgerAuditView";
 import { StoreOwnerApp } from "../StoreOwnerApp";
 
-const SECTION_META: Array<{ key: WarehouseSectionKey; label: string; icon: React.ComponentType<any> }> = [
-  { key: "dashboard", label: "Dashboard (15 KPIs)", icon: BarChart3 },
-  { key: "warehouse_inventory", label: "Warehouse & Catalog", icon: Building2 },
-  { key: "site_stores", label: "Project Site Stores", icon: Store },
-  { key: "material_planning", label: "Material Plans", icon: FileText },
-  { key: "material_requests", label: "Requests & Plan Verification", icon: Send },
-  { key: "director_approvals", label: "Director Approvals", icon: ShieldCheck },
-  { key: "grv", label: "GRV & Receiving", icon: PackagePlus },
-  { key: "commercial_invoices", label: "Commercial Invoices", icon: FileCheck2 },
-  { key: "giv_dispatch", label: "Dispatch & GIV", icon: PackageCheck },
-  { key: "fixed_assets_big_balance", label: "Assets BIG BALANCE", icon: Wrench },
-  { key: "project_fixed_assets", label: "Project Assets", icon: Store },
-  { key: "fatov_fativ", label: "Asset Transfers (FATOV/FATIV)", icon: ArrowRightLeft },
-  { key: "transportation", label: "Transportation (11)", icon: Truck },
-  { key: "gate_pass", label: "Gate Passes (QR)", icon: QrCode },
-  { key: "returns_mrv", label: "Two-Way Returns (MRV)", icon: RotateCcw },
-  { key: "quarantine_stock", label: "Quarantine Stock", icon: AlertTriangle },
-  { key: "stock_ledger", label: "Stock Ledger", icon: BookOpen },
-  { key: "reports", label: "Reports (22 Excel/PDF)", icon: FileSpreadsheet },
-  { key: "warehouse_fleet_formwork", label: "Fleet, Depots & Formwork Ops", icon: Truck },
-  { key: "store_field_operations", label: "Site Requisitions & Crew Ops", icon: ClipboardCheck },
-  { key: "notifications", label: "Notifications", icon: Bell },
-  { key: "audit_logs", label: "Audit Trail", icon: Shield },
-  { key: "settings", label: "Valuation Settings", icon: Settings },
-];
+const HUB_SECTION_ICONS: Record<WarehouseHubSectionId, React.ComponentType<any>> = {
+  overview: BarChart3,
+  warehouse_operations: ClipboardCheck,
+  master_data_facilities: Building2,
+  catalog_governance: Database,
+  planning_requests: FileText,
+  grv_invoices: PackagePlus,
+  dispatch_giv: PackageCheck,
+  fixed_assets_transfers: Wrench,
+  transport_gate_pass: Truck,
+  returns_quarantine: RotateCcw,
+  reports_ledger_audit: FileSpreadsheet,
+};
+
+const CHILD_SUBTAB_META: Record<WarehouseSectionKey, { en: string; icon: React.ComponentType<any> }> = {
+  dashboard: { en: "Dashboard (15 KPIs)", icon: BarChart3 },
+  warehouse_inventory: { en: "Warehouse & Stock Master", icon: Building2 },
+  site_stores: { en: "Project Site Stores", icon: Store },
+  material_planning: { en: "Material Plans", icon: FileText },
+  material_requests: { en: "Requests & Plan Verification", icon: Send },
+  director_approvals: { en: "Director Approvals", icon: ShieldCheck },
+  grv: { en: "GRV & Receiving", icon: PackagePlus },
+  commercial_invoices: { en: "Commercial Invoices", icon: FileCheck2 },
+  giv_dispatch: { en: "Dispatch & GIV", icon: PackageCheck },
+  fixed_assets_big_balance: { en: "Assets BIG BALANCE", icon: Wrench },
+  project_fixed_assets: { en: "Project Assets", icon: Store },
+  fatov_fativ: { en: "Asset Transfers (FATOV/FATIV)", icon: ArrowRightLeft },
+  transportation: { en: "Transportation (11)", icon: Truck },
+  gate_pass: { en: "Gate Passes (QR)", icon: QrCode },
+  returns_mrv: { en: "Two-Way Returns (MRV)", icon: RotateCcw },
+  quarantine_stock: { en: "Quarantine Stock", icon: AlertTriangle },
+  stock_ledger: { en: "Stock Ledger", icon: BookOpen },
+  reports: { en: "Reports (22 Excel/PDF)", icon: FileSpreadsheet },
+  warehouse_fleet_formwork: { en: "Warehouse Daily Operations", icon: Truck },
+  store_field_operations: { en: "Site Requisitions & Crew Ops", icon: ClipboardCheck },
+  notifications: { en: "Notifications", icon: Bell },
+  audit_logs: { en: "Audit Trail", icon: Shield },
+  settings: { en: "Valuation Settings", icon: Settings },
+};
+
+function findParentHubSection(
+  childKey: WarehouseSectionKey,
+  visibleHubSections: WarehouseHubSectionConfig[]
+): WarehouseHubSectionId | null {
+  const match = visibleHubSections.find((sec) => sec.childSectionKeys.includes(childKey));
+  return match ? match.id : null;
+}
 
 export function WarehouseSiteStoreModule({
   currentUserRole,
@@ -83,6 +114,7 @@ export function WarehouseSiteStoreModule({
   workers = [],
   onLogAction,
   onCreateNotification,
+  initialSection,
 }: {
   currentUserRole: UserRole;
   currentUserProfile: any;
@@ -91,6 +123,7 @@ export function WarehouseSiteStoreModule({
   workers?: Worker[];
   onLogAction?: (action: string, details: string) => void;
   onCreateNotification?: (notification: any) => void;
+  initialSection?: WarehouseHubSectionId;
 }) {
   const [localAmharicOverride, setLocalAmharicOverride] = useState<boolean | null>(null);
   const effectiveAmharic = localAmharicOverride !== null ? localAmharicOverride : isAmharic;
@@ -112,8 +145,13 @@ export function WarehouseSiteStoreModule({
     assignedSite: currentUserProfile?.assignedSite || currentUserProfile?.siteId,
   };
 
-  const authorizedSections = React.useMemo(
+  const authorizedChildSections = useMemo(
     () => getAuthorizedSectionsForRole(currentUserRole),
+    [currentUserRole]
+  );
+
+  const visibleHubSections = useMemo(
+    () => getWarehouseHubSectionsForRole(currentUserRole),
     [currentUserRole]
   );
 
@@ -122,9 +160,15 @@ export function WarehouseSiteStoreModule({
     !canPerformWarehouseModuleAction(currentUserRole, "VERIFY_RETURN_MATERIAL_REQUEST") &&
     !canPerformWarehouseModuleAction(currentUserRole, "PREPARE_CONFIRM_DISPATCH_GIV");
 
-  const [activeSection, setActiveSection] = useState<WarehouseSectionKey>(
-    authorizedSections[0] || "dashboard"
-  );
+  const resolvedInitialSection = useMemo<WarehouseHubSectionId>(() => {
+    if (initialSection && canViewWarehouseHubSection(currentUserRole, initialSection)) {
+      return initialSection;
+    }
+    return visibleHubSections[0]?.id || "overview";
+  }, [initialSection, currentUserRole, visibleHubSections]);
+
+  const [activeSection, setActiveSection] = useState<WarehouseHubSectionId>(resolvedInitialSection);
+  const [activeSubTabs, setActiveSubTabs] = useState<Partial<Record<WarehouseHubSectionId, WarehouseSectionKey>>>({});
   const [snapshot, setSnapshot] = useState<ErpWarehouseSnapshot | null>(null);
   const [filters, setFilters] = useState<WarehouseDashboardFilters>({
     dateFrom: "",
@@ -136,6 +180,21 @@ export function WarehouseSiteStoreModule({
   });
   const [feedback, setFeedback] = useState<{ type: "success" | "error" | "info"; message: string } | null>(null);
   const [printPreview, setPrintPreview] = useState<{ title: string; html: string } | null>(null);
+
+  useEffect(() => {
+    if (initialSection && canViewWarehouseHubSection(currentUserRole, initialSection)) {
+      setActiveSection(initialSection);
+    } else if (initialSection && !canViewWarehouseHubSection(currentUserRole, initialSection)) {
+      setFeedback({
+        type: "error",
+        message: tr(
+          effectiveAmharic,
+          `Access Denied: Role '${currentUserRole}' is not authorized to open '${initialSection}'.`,
+          `መዳረሻ ተከልክሏል፡ '${currentUserRole}' ይህንን ክፍል መክፈት አይችልም።`
+        ),
+      });
+    }
+  }, [initialSection, currentUserRole, effectiveAmharic]);
 
   useEffect(() => {
     const unsub = subscribeWarehouseErpModule(
@@ -152,10 +211,10 @@ export function WarehouseSiteStoreModule({
   }, [currentUserRole, actor.uid, actor.assignedProject]);
 
   useEffect(() => {
-    if (!authorizedSections.includes(activeSection)) {
-      setActiveSection(authorizedSections[0] || "dashboard");
+    if (!visibleHubSections.some((s) => s.id === activeSection)) {
+      setActiveSection(visibleHubSections[0]?.id || "overview");
     }
-  }, [authorizedSections, activeSection]);
+  }, [visibleHubSections, activeSection]);
 
   const showFeedback = (type: "success" | "error" | "info", message: string) => {
     setFeedback({ type, message });
@@ -166,7 +225,7 @@ export function WarehouseSiteStoreModule({
       <div className="p-8 text-center text-xs text-slate-400">
         {tr(
           effectiveAmharic,
-          "Connecting to Enterprise Warehouse & Site Store Firestore streams...",
+          "Connecting to Warehouse & Site Store Firestore streams...",
           "ከመጋዘን እና ሳይት ስቶር የFirestore መረጃ ስርዓት ጋር በመገናኘት ላይ..."
         )}
       </div>
@@ -182,12 +241,50 @@ export function WarehouseSiteStoreModule({
   const unreadCount = visibleNotifications.filter(
     (n) => !(n.readByUids || []).includes(actor.uid)
   ).length;
-  const visibleTabs = SECTION_META.filter((m) => authorizedSections.includes(m.key));
-  const isFinanceReadOnly = currentUserRole === UserRole.FINANCE_MANAGER;
+
+  const currentSectionConfig =
+    visibleHubSections.find((s) => s.id === activeSection) || visibleHubSections[0];
+  const isCurrentSectionReadOnly = isWarehouseHubSectionReadOnly(
+    currentUserRole,
+    activeSection
+  );
+
+  // Filter internal sub-tabs for the active consolidated section based on role permissions
+  const getAllowedSubTabs = (secConfig: WarehouseHubSectionConfig | undefined): WarehouseSectionKey[] => {
+    if (!secConfig) return [];
+    const allowed = secConfig.childSectionKeys.filter((k) => authorizedChildSections.includes(k));
+    // Fallback to configured keys if user has section visibility without explicit child override
+    return allowed.length > 0 ? allowed : secConfig.childSectionKeys;
+  };
+
+  const activeSectionSubTabs = getAllowedSubTabs(currentSectionConfig);
+  const resolvedSubTab: WarehouseSectionKey | undefined = (() => {
+    const saved = activeSubTabs[activeSection];
+    if (saved && activeSectionSubTabs.includes(saved)) return saved;
+    return activeSectionSubTabs[0];
+  })();
+
+  const setSubTabForSection = (sectionId: WarehouseHubSectionId, key: WarehouseSectionKey) => {
+    setActiveSubTabs((prev) => ({ ...prev, [sectionId]: key }));
+  };
+
+  const handleDashboardNavigateChildSection = (childKey: WarehouseSectionKey) => {
+    const parentId = findParentHubSection(childKey, visibleHubSections);
+    if (!parentId) return;
+    setActiveSection(parentId);
+    setSubTabForSection(parentId, childKey);
+  };
+
+  const showSubTabBar =
+    activeSection !== "overview" &&
+    activeSection !== "warehouse_operations" &&
+    activeSection !== "catalog_governance" &&
+    activeSection !== "dispatch_giv" &&
+    activeSectionSubTabs.length > 1;
 
   return (
     <div className="space-y-4">
-      {/* Module Header */}
+      {/* Unified Hub Header */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2 flex-wrap">
@@ -199,7 +296,7 @@ export function WarehouseSiteStoreModule({
             </span>
           </div>
           <h2 className="text-lg font-extrabold text-white mt-1">
-            {tr(effectiveAmharic, "Warehouse & Site Store Management", "የመጋዘን እና ሳይት ስቶር አስተዳደር")}
+            {tr(effectiveAmharic, "Warehouse & Site Store", "መጋዘን እና ሳይት ስቶር")}
           </h2>
           <p className="text-xs text-slate-400">
             {tr(effectiveAmharic, "Role", "ሚና")}: <strong className="text-white">{currentUserRole}</strong>
@@ -208,14 +305,16 @@ export function WarehouseSiteStoreModule({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {isFinanceReadOnly && (
+          {isCurrentSectionReadOnly && (
             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-amber-300 text-xs font-semibold">
               <Lock size={13} />
-              {tr(
-                effectiveAmharic,
-                "Read-Only Financial Oversight (+ Valuation Settings)",
-                "ለንባብ ብቻ የፋይናንስ ቁጥጥር (+ የዋጋ ግምት ቅንብር)"
-              )}
+              {currentUserRole === UserRole.FINANCE_MANAGER
+                ? tr(
+                    effectiveAmharic,
+                    "Read-Only Financial Oversight (+ Valuation Settings)",
+                    "ለንባብ ብቻ የፋይናንስ ቁጥጥር (+ የዋጋ ግምት ቅንብር)"
+                  )
+                : tr(effectiveAmharic, "Read-Only Role View", "ለንባብ ብቻ የተፈቀደ እይታ")}
             </span>
           )}
           <button
@@ -227,34 +326,39 @@ export function WarehouseSiteStoreModule({
             <Languages size={14} />
             <span>{effectiveAmharic ? "English" : "አማርኛ"}</span>
           </button>
-          {authorizedSections.includes("notifications") && (
-            <button
-              type="button"
-              onClick={() => setActiveSection("notifications")}
-              className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-semibold flex items-center gap-1.5 cursor-pointer"
-            >
-              <Bell size={14} className="text-amber-400" />
-              <span>
-                {tr(effectiveAmharic, "Alerts", "ማስጠንቀቂያ")} ({unreadCount})
-              </span>
-            </button>
-          )}
+          {authorizedChildSections.includes("notifications") &&
+            canViewWarehouseHubSection(currentUserRole, "reports_ledger_audit") && (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSection("reports_ledger_audit");
+                  setSubTabForSection("reports_ledger_audit", "notifications");
+                }}
+                className="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white font-semibold flex items-center gap-1.5 cursor-pointer"
+              >
+                <Bell size={14} className="text-amber-400" />
+                <span>
+                  {tr(effectiveAmharic, "Alerts", "ማስጠንቀቂያ")} ({unreadCount})
+                </span>
+              </button>
+            )}
         </div>
       </div>
 
-      {/* Role-Filtered Section Navigation Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap gap-1.5">
-        {visibleTabs.map((tab) => {
-          const Icon = tab.icon;
-          const active = activeSection === tab.key;
-          const label = getWarehouseSectionLabel(tab.key, tab.label, effectiveAmharic, {
-            isStoreOrSiteSide,
-          });
+      {/* Single Top-Level Consolidated Section Bar (Hidden if Unauthorized) */}
+      <nav
+        aria-label={tr(effectiveAmharic, "Warehouse & Site Store Sections", "የመጋዘን እና ሳይት ስቶር ክፍሎች")}
+        className="bg-slate-900 border border-slate-800 rounded-2xl p-2 flex flex-wrap gap-1.5"
+      >
+        {visibleHubSections.map((sec) => {
+          const Icon = HUB_SECTION_ICONS[sec.id] || BarChart3;
+          const active = activeSection === sec.id;
           return (
             <button
-              key={tab.key}
+              key={sec.id}
               type="button"
-              onClick={() => setActiveSection(tab.key)}
+              data-section-id={sec.id}
+              onClick={() => setActiveSection(sec.id)}
               className={`px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
                 active
                   ? "bg-amber-600 text-white shadow-sm"
@@ -262,136 +366,190 @@ export function WarehouseSiteStoreModule({
               }`}
             >
               <Icon size={13} />
-              <span>{label}</span>
+              <span>{effectiveAmharic ? sec.titleAm : sec.titleEn}</span>
             </button>
           );
         })}
-      </div>
+      </nav>
+
+      {/* Internal Sub-Tab Bar for Consolidated Multi-View Sections */}
+      {showSubTabBar && (
+        <div className="bg-slate-950/80 border border-slate-800/80 rounded-xl px-3 py-2 flex flex-wrap items-center gap-1.5">
+          {activeSectionSubTabs.map((subKey) => {
+            const meta = CHILD_SUBTAB_META[subKey];
+            const SubIcon = meta.icon;
+            const isSubActive = resolvedSubTab === subKey;
+            const label = getWarehouseSectionLabel(subKey, meta.en, effectiveAmharic, {
+              isStoreOrSiteSide,
+            });
+            return (
+              <button
+                key={subKey}
+                type="button"
+                data-subtab-id={subKey}
+                onClick={() => setSubTabForSection(activeSection, subKey)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  isSubActive
+                    ? "bg-emerald-600 text-white"
+                    : "bg-slate-900 text-slate-300 hover:bg-slate-800"
+                }`}
+              >
+                <SubIcon size={12} />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <ActionFeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
 
       {/* Active Workspace View */}
       <div>
-        {activeSection === "dashboard" && (
+        {activeSection === "overview" && canViewWarehouseHubSection(currentUserRole, "overview") && (
           <InventoryDashboardView
             snapshot={snapshot}
             filters={filters}
             onChangeFilters={setFilters}
-            authorizedSections={authorizedSections}
+            authorizedSections={authorizedChildSections}
             isAmharic={effectiveAmharic}
-            onNavigateSection={(sec) => {
-              if (authorizedSections.includes(sec)) setActiveSection(sec);
-            }}
+            onNavigateSection={(sec) => handleDashboardNavigateChildSection(sec)}
           />
         )}
 
-        {(activeSection === "warehouse_inventory" || activeSection === "site_stores") && (
-          <MasterDataAndFacilitiesView
-            mode={activeSection}
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-          />
-        )}
+        {activeSection === "warehouse_operations" &&
+          canViewWarehouseHubSection(currentUserRole, "warehouse_operations") && (
+            <StoreOwnerApp
+              mode="warehouse"
+              isAmharic={effectiveAmharic}
+              currentUserRole={currentUserRole}
+              currentUserProfile={currentUserProfile}
+              workers={workers}
+              embeddedMode={true}
+              warehouseSnapshot={snapshot}
+              onLogAction={onLogAction}
+              onCreateNotification={onCreateNotification}
+            />
+          )}
 
-        {(activeSection === "material_planning" ||
-          activeSection === "material_requests" ||
-          activeSection === "director_approvals") && (
-          <MaterialPlanningAndRequestsView
-            mode={activeSection}
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-          />
-        )}
+        {activeSection === "master_data_facilities" &&
+          canViewWarehouseHubSection(currentUserRole, "master_data_facilities") &&
+          (resolvedSubTab === "warehouse_inventory" || resolvedSubTab === "site_stores") && (
+            <MasterDataAndFacilitiesView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+            />
+          )}
 
-        {(activeSection === "grv" || activeSection === "commercial_invoices") && (
-          <GrvAndCommercialInvoiceView
-            mode={activeSection}
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-            onOpenPrint={(title, html) => setPrintPreview({ title, html })}
-          />
-        )}
+        {activeSection === "catalog_governance" &&
+          canViewWarehouseHubSection(currentUserRole, "catalog_governance") && (
+            <MasterDataCatalogGovernanceView
+              isAmharic={effectiveAmharic}
+              currentUserRole={currentUserRole}
+              currentUserName={actor.name}
+              readOnly={isCurrentSectionReadOnly}
+            />
+          )}
 
-        {activeSection === "giv_dispatch" && (
-          <DispatchAndGivView
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-            onOpenPrint={(title, html) => setPrintPreview({ title, html })}
-          />
-        )}
+        {activeSection === "planning_requests" &&
+          canViewWarehouseHubSection(currentUserRole, "planning_requests") &&
+          (resolvedSubTab === "material_planning" ||
+            resolvedSubTab === "material_requests" ||
+            resolvedSubTab === "director_approvals") && (
+            <MaterialPlanningAndRequestsView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+            />
+          )}
 
-        {(activeSection === "fixed_assets_big_balance" ||
-          activeSection === "project_fixed_assets" ||
-          activeSection === "fatov_fativ") && (
-          <FixedAssetsAndTransfersView
-            mode={activeSection}
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-            onOpenPrint={(title, html) => setPrintPreview({ title, html })}
-          />
-        )}
+        {activeSection === "grv_invoices" &&
+          canViewWarehouseHubSection(currentUserRole, "grv_invoices") &&
+          (resolvedSubTab === "grv" || resolvedSubTab === "commercial_invoices") && (
+            <GrvAndCommercialInvoiceView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+              onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+            />
+          )}
 
-        {(activeSection === "returns_mrv" || activeSection === "quarantine_stock") && (
-          <ReturnsAndQuarantineView
-            mode={activeSection}
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-            onOpenPrint={(title, html) => setPrintPreview({ title, html })}
-          />
-        )}
+        {activeSection === "dispatch_giv" &&
+          canViewWarehouseHubSection(currentUserRole, "dispatch_giv") && (
+            <DispatchAndGivView
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+              onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+            />
+          )}
 
-        {(activeSection === "transportation" || activeSection === "gate_pass") && (
-          <TransportAndGatePassView
-            mode={activeSection}
-            snapshot={snapshot}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-            onOpenPrint={(title, html) => setPrintPreview({ title, html })}
-          />
-        )}
+        {activeSection === "fixed_assets_transfers" &&
+          canViewWarehouseHubSection(currentUserRole, "fixed_assets_transfers") &&
+          (resolvedSubTab === "fixed_assets_big_balance" ||
+            resolvedSubTab === "project_fixed_assets" ||
+            resolvedSubTab === "fatov_fativ") && (
+            <FixedAssetsAndTransfersView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+              onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+            />
+          )}
 
-        {(activeSection === "stock_ledger" ||
-          activeSection === "reports" ||
-          activeSection === "audit_logs" ||
-          activeSection === "notifications" ||
-          activeSection === "settings") && (
-          <WarehouseReportsLedgerAuditView
-            mode={activeSection}
-            snapshot={snapshot}
-            filters={filters}
-            actor={actor}
-            isAmharic={effectiveAmharic}
-            onFeedback={showFeedback}
-            onOpenPrint={(title, html) => setPrintPreview({ title, html })}
-          />
-        )}
+        {activeSection === "transport_gate_pass" &&
+          canViewWarehouseHubSection(currentUserRole, "transport_gate_pass") &&
+          (resolvedSubTab === "transportation" || resolvedSubTab === "gate_pass") && (
+            <TransportAndGatePassView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+              onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+            />
+          )}
 
-        {(activeSection === "warehouse_fleet_formwork" || activeSection === "store_field_operations") && (
-          <StoreOwnerApp
-            isAmharic={effectiveAmharic}
-            currentUserRole={currentUserRole}
-            currentUserProfile={currentUserProfile}
-            workers={workers}
-            embeddedMode={true}
-            embeddedCategory={activeSection}
-            initialMode={activeSection === "warehouse_fleet_formwork" ? "warehouse_manager" : "store_owner"}
-            onLogAction={onLogAction}
-            onCreateNotification={onCreateNotification}
-          />
-        )}
+        {activeSection === "returns_quarantine" &&
+          canViewWarehouseHubSection(currentUserRole, "returns_quarantine") &&
+          (resolvedSubTab === "returns_mrv" || resolvedSubTab === "quarantine_stock") && (
+            <ReturnsAndQuarantineView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+              onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+            />
+          )}
+
+        {activeSection === "reports_ledger_audit" &&
+          canViewWarehouseHubSection(currentUserRole, "reports_ledger_audit") &&
+          (resolvedSubTab === "stock_ledger" ||
+            resolvedSubTab === "reports" ||
+            resolvedSubTab === "audit_logs" ||
+            resolvedSubTab === "notifications" ||
+            resolvedSubTab === "settings") && (
+            <WarehouseReportsLedgerAuditView
+              mode={resolvedSubTab}
+              snapshot={snapshot}
+              filters={filters}
+              actor={actor}
+              isAmharic={effectiveAmharic}
+              onFeedback={showFeedback}
+              onOpenPrint={(title, html) => setPrintPreview({ title, html })}
+            />
+          )}
       </div>
 
       {printPreview && (

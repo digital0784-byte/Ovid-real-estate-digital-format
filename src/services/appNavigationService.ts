@@ -84,8 +84,15 @@ export const ERP_TAB_METADATA: Record<string, TabMetadata> = {
   warehouseSiteStore: {
     id: "warehouseSiteStore",
     num: 7,
-    nameEn: "Warehouse & Site Store ERP",
-    nameAm: "መጋዘንና የሳይት ስቶር ERP",
+    nameEn: "Warehouse & Site Store",
+    nameAm: "መጋዘን እና ሳይት ስቶር",
+    category: "formwork"
+  },
+  storeOwnerApp: {
+    id: "storeOwnerApp",
+    num: 8,
+    nameEn: "Site Store App",
+    nameAm: "የሳይት ስቶር መተግበሪያ",
     category: "formwork"
   },
   panelTraceability: {
@@ -322,7 +329,7 @@ class AppNavigationService {
     }
   ): NavLocation {
     const normalizedTab =
-      tab === "warehouseManagerApp" || tab === "storeOwnerApp"
+      tab === "warehouseManagerApp"
         ? "warehouseSiteStore"
         : tab;
     const meta = ERP_TAB_METADATA[normalizedTab];

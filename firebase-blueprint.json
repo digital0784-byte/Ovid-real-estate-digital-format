@@ -2212,7 +2212,11 @@
     },
     "/employees/{employeeId}": {
       "schema": "Employee",
-      "description": "Master employee records."
+      "description": "Master employee records. Creation, profile updates, and deletion are restricted strictly to HR Manager."
+    },
+    "/workers/{workerId}": {
+      "schema": "Employee",
+      "description": "Master worker/employee directory records. Creation, profile updates, and deletion are restricted strictly to HR Manager."
     },
     "/attendance/{attendanceId}": {
       "schema": "AttendanceRecord",
@@ -2488,7 +2492,7 @@
     },
     "/hrmPrivateProfiles/{workerId}": {
       "schema": "HrmPrivateProfile",
-      "description": "Role-restricted encrypted employee Fayda ID, bank account, and biometric references."
+      "description": "Role-restricted encrypted employee Fayda ID, bank account, and biometric references. Modification strictly restricted to HR Manager."
     },
     "/hrmPayslips/{payslipId}": {
       "schema": "HrmPayslip",

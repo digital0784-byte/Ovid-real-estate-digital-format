@@ -85,21 +85,14 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
   currentUserRole,
   onLogAction
 }) => {
-  // Check authorization (Super Admin/Head Office and Project Manager are authorized)
+  // Per company policy, ONLY the HR Manager can modify and update employee information
   const isAuthorized = useMemo(() => {
-    return currentUserRole === UserRole.HEAD_OFFICE || currentUserRole === UserRole.PROJECT_MANAGER;
+    return currentUserRole === UserRole.HR_MANAGER;
   }, [currentUserRole]);
 
-  // Check if authorized to assign/muddib work zones (Section Head, Supervisor, Team Leader, and higher Admins)
+  // Modifying any employee record field (including work zone) requires HR Manager authority
   const isZoneAssignmentAuthorized = useMemo(() => {
-    return [
-      UserRole.HEAD_OFFICE,
-      UserRole.PROJECT_MANAGER,
-      UserRole.SECTION_HEAD,
-      UserRole.SUPERVISOR,
-      UserRole.TEAM_LEADER,
-      UserRole.SUPER_ADMIN
-    ].includes(currentUserRole);
+    return currentUserRole === UserRole.HR_MANAGER;
   }, [currentUserRole]);
 
   // Roster States
@@ -182,13 +175,28 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
 
   // Start edit handler
   const startEdit = (worker: Worker) => {
-    if (!isAuthorized) return;
+    if (!isAuthorized) {
+      setFormError(
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can modify and update employee information."
+      );
+      return;
+    }
     setEditForm({ ...worker });
     setIsEditing(true);
   };
 
   // Save edit handler
   const saveEdit = () => {
+    if (!isAuthorized) {
+      setFormError(
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can modify and update employee information."
+      );
+      return;
+    }
     if (!editForm.id || !editForm.name) {
       setFormError(isAmharic ? "እባክዎ ስምና መለያ ቁጥር ያስገቡ!" : "Name and ID are required!");
       return;
@@ -205,6 +213,14 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
   // Add new worker handler
   const handleAddNewWorker = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAuthorized) {
+      setFormError(
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማስመዝገብና ማሻሻል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can register or modify employee information."
+      );
+      return;
+    }
     if (!addForm.id || !addForm.name) {
       setFormError(isAmharic ? "እባክዎ ስምና መለያ ቁጥር ያስገቡ!" : "Name and ID are required!");
       return;
@@ -256,7 +272,11 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
       status: "Active",
       photo: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&h=150&fit=crop",
       teamId: "T-01",
-      zone: ""
+      zone: "",
+      bankName: "Commercial Bank of Ethiopia (CBE)",
+      bankAccountNumber: "",
+      mobileMoneyType: "Telebirr",
+      mobileMoneyNumber: ""
     });
     setFormError("");
 
@@ -298,7 +318,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
             {isAuthorized ? (
               <>
                 <ShieldCheck size={16} className="text-emerald-600" />
-                <span>{isAmharic ? "ፈቃድ አለዎት (አድሚን / ስራ አስኪያጅ)" : "Write Permission Granted"}</span>
+                <span>{isAmharic ? "ፈቃድ አለዎት (HR Manager)" : "Write Permission Granted (HR Manager)"}</span>
               </>
             ) : (
               <>
@@ -617,6 +637,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                         id="zone-assignment-dropdown"
                         value={activeWorker.zone || ""}
                         onChange={(e) => {
+                          if (!isAuthorized || !isZoneAssignmentAuthorized) return;
                           const newZone = e.target.value;
                           const updatedWorker = { ...activeWorker, zone: newZone || undefined };
                           onUpdateWorker(updatedWorker);
@@ -643,8 +664,8 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                   ) : (
                     <div className="text-[10px] text-amber-600 bg-amber-50 p-3 rounded-xl border border-amber-100 font-medium leading-relaxed">
                       {isAmharic 
-                        ? "እያንዳንዱን ሰራተኛ ዞን መመደብ የsection head supervisor and team leader ስራ ነው።" 
-                        : "Assigning worker zones is restricted to Section Heads, Supervisors, and Team Leaders."}
+                        ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃና ምደባ ማሻሻል የሚችለው HR manager ብቻ ነው።" 
+                        : "According to company policy, only the HR Manager is authorized to modify employee assignments and records."}
                     </div>
                   )}
                 </div>
@@ -985,8 +1006,8 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                     </p>
                     <p className="mt-1 font-medium text-amber-700">
                       {isAmharic 
-                        ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችሉት 'Super Admin' ወይም 'Project Manager' ብቻ ናቸው። እባክዎ መለያዎን በራስጌው ላይ ይቀይሩ።" 
-                        : "According to compliance bylaws, modifying worker profile fields is restricted to 'Super Admin' (Head Office) or 'Project Manager' profiles. Please switch session roles in the header dropdown to gain write permissions."}
+                        ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችለው HR manager ብቻ ነው።" 
+                        : "According to company policy, only the HR Manager can modify and update employee information."}
                     </p>
                   </div>
                 </div>
@@ -1001,6 +1022,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                   </div>
                   <button
                     onClick={() => {
+                      if (!isAuthorized) return;
                       if (confirm(isAmharic ? `${activeWorker.name} ን ከድርጅት መዝገብ ላይ ለመሰረዝ እርግጠኛ ነዎት?` : `Are you absolutely sure you want to remove ${activeWorker.name} from organization registry?`)) {
                         onDeleteWorker(activeWorker.id);
                         setSelectedWorkerId(workers[0]?.id || null);
@@ -1216,7 +1238,7 @@ export const WorkerProfiles: React.FC<WorkerProfilesProps> = ({
                   </select>
                   {!isZoneAssignmentAuthorized && (
                     <p className="text-[9px] text-amber-600 mt-1 italic">
-                      {isAmharic ? "እያንዳንዱን ሰራተኛ ዞን መመደብ የsection head supervisor and team leader ስራ ነው።" : "Zone assignment is restricted to section head, supervisor, and team leader."}
+                      {isAmharic ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃና ምደባ ማሻሻል የሚችለው HR manager ብቻ ነው።" : "Per company policy, only the HR Manager is authorized to assign or modify employee records."}
                     </p>
                   )}
                 </div>

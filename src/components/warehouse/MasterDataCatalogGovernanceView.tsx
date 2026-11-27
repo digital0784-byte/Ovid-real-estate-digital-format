@@ -36,17 +36,22 @@ import {
 import { MasterDataService, INITIAL_PANEL_CATALOG } from "../../services/masterDataService";
 import { SearchableSmartDropdown, DropdownOption } from "../common/SearchableSmartDropdown";
 
+import { canPerformWarehouseModuleAction } from "../../services/warehouseStoreRbac";
+
 interface MasterDataCatalogGovernanceViewProps {
   isAmharic?: boolean;
   currentUserRole?: string;
   currentUserName?: string;
+  readOnly?: boolean;
 }
 
 export const MasterDataCatalogGovernanceView: React.FC<MasterDataCatalogGovernanceViewProps> = ({
   isAmharic = false,
   currentUserRole = "Warehouse Manager",
-  currentUserName = "System Administrator"
+  currentUserName = "System Administrator",
+  readOnly = false
 }) => {
+  const canEditCatalog = !readOnly && canPerformWarehouseModuleAction(currentUserRole, "MANAGE_MASTER_DATA");
   // Navigation inside Master Data view
   const [activeTab, setActiveTab] = useState<"catalog" | "hierarchy" | "interactive_demo">("catalog");
 
@@ -268,13 +273,15 @@ export const MasterDataCatalogGovernanceView: React.FC<MasterDataCatalogGovernan
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => handleOpenAddModal()}
-              className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20 transition transform active:scale-95"
-            >
-              <Plus size={15} />
-              <span>{isAmharic ? "+ አዲስ ካታሎግ መዝግብ" : "+ Add Catalog Record"}</span>
-            </button>
+            {canEditCatalog && (
+              <button
+                onClick={() => handleOpenAddModal()}
+                className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 cursor-pointer shadow-lg shadow-amber-500/20 transition transform active:scale-95"
+              >
+                <Plus size={15} />
+                <span>{isAmharic ? "+ አዲስ ካታሎግ መዝግብ" : "+ Add Catalog Record"}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -454,14 +461,18 @@ export const MasterDataCatalogGovernanceView: React.FC<MasterDataCatalogGovernan
                           )}
                         </td>
                         <td className="py-2.5 px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => handleOpenAddModal(item)}
-                            className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition cursor-pointer"
-                            title="Edit Catalog Record"
-                          >
-                            <Edit3 size={14} />
-                          </button>
+                          {canEditCatalog ? (
+                            <button
+                              type="button"
+                              onClick={() => handleOpenAddModal(item)}
+                              className="p-1.5 hover:bg-slate-800 text-slate-400 hover:text-amber-400 rounded-lg transition cursor-pointer"
+                              title="Edit Catalog Record"
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                          ) : (
+                            <span className="text-[10px] text-slate-500 font-mono">Read-Only</span>
+                          )}
                         </td>
                       </tr>
                     ))

@@ -153,8 +153,11 @@ export function resolveHrmPermissions(role: UserRole | string) {
     isOfficeTechEng,
     isAuditor,
     isEmployee,
-    canManageEmployees: isDirector || isHrManager,
-    canRegisterApprovedEmployees: isHrManager || isSuperAdmin,
+    // Company Policy: ONLY the HR Manager can modify, update, or manage employee profile records
+    canEditEmployeeProfiles: isStrictHrManager,
+    canManageEmployees: isStrictHrManager,
+    canManageHrmOperations: isDirector || isHrManager,
+    canRegisterApprovedEmployees: isStrictHrManager,
     // Integrated Employee Biometric Registration: Strictly HR Department ONLY
     canManageBiometricEnrollment: isStrictHrManager || isHrOfficer,
     // Recruitment & Hiring Part 1: Section Head submits Manpower Request Form (Super Admin override)

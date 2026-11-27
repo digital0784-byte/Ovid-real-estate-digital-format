@@ -264,9 +264,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
       });
     }
 
-    // Also ensure registrant is in workers & employees collections
+    // Also ensure registrant is in workers & employees collections when approved by HR Manager
     const existingWorker = workers.find((w) => w.id === uid || w.id === userRec.employeeId);
-    if (!existingWorker) {
+    if (!existingWorker && currentUserRole === UserRole.HR_MANAGER) {
       const wId = userRec.employeeId || uid;
       onAddWorker({
         id: wId,
@@ -300,6 +300,15 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
   const handleCreateWorker = (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUserRole !== UserRole.HR_MANAGER) {
+      setNotifyMsg(
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማስመዝገብና ማሻሻል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can register or modify employee information."
+      );
+      setTimeout(() => setNotifyMsg(""), 3500);
+      return;
+    }
     if (!workerName.trim()) return;
 
     const newW: Worker = {
@@ -637,9 +646,14 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
 
             <button
               type="submit"
-              className="w-full py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg transition-colors"
+              disabled={currentUserRole !== UserRole.HR_MANAGER}
+              className="w-full py-2 bg-red-600 hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-lg transition-colors"
             >
-              Recruit Worker
+              {currentUserRole === UserRole.HR_MANAGER
+                ? "Recruit Worker"
+                : isAmharic
+                ? "ለHR Manager ብቻ የተፈቀደ"
+                : "HR Manager Only"}
             </button>
           </form>
         </div>
@@ -755,13 +769,19 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({
                       </span>
                     </td>
                     <td className="p-3 text-right">
-                      <button 
-                        onClick={() => onDeleteWorker(w.id)}
-                        className="p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
-                        title="Delete Worker"
-                      >
-                        <Trash2 size={14} />
-                      </button>
+                      {currentUserRole === UserRole.HR_MANAGER ? (
+                        <button 
+                          onClick={() => onDeleteWorker(w.id)}
+                          className="p-1.5 hover:bg-red-50 text-red-600 hover:text-red-700 rounded-lg transition-colors cursor-pointer"
+                          title="Delete Worker"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      ) : (
+                        <span className="text-[10px] text-slate-400 font-semibold">
+                          {isAmharic ? "HR Manager ብቻ" : "HR Manager Only"}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 );

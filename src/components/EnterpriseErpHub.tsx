@@ -5230,6 +5230,14 @@ export const EnterpriseErpHub: React.FC<EnterpriseErpHubProps> = ({
 
                         <button
                           onClick={async () => {
+                            if (currentUserRole !== UserRole.HR_MANAGER) {
+                              alert(
+                                isAmharic
+                                  ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማስመዝገብና ማሻሻል የሚችለው HR manager ብቻ ነው።"
+                                  : "According to company policy, only the HR Manager can register or modify employee information."
+                              );
+                              return;
+                            }
                             if (!registeredNewEmployeeName || biometricEnrollmentStatus === "Not Started") {
                               alert("Please fill name and capture both face and fingerprint.");
                               return;

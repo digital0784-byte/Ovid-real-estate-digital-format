@@ -251,6 +251,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       perms.canDisbursePayroll ||
       perms.canApproveFinanceStage ||
       perms.canManageEmployees ||
+      perms.isHrManager ||
+      perms.isDirector ||
       perms.isOperationManager ||
       perms.isProjectManager ||
       perms.isAuditor;
@@ -616,7 +618,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const handleSaveManpowerPlan = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees && !perms.isOperationManager) {
+    if (!perms.canManageEmployees && !perms.isHrManager && !perms.isDirector && !perms.isOperationManager) {
       return showToast("error", "Only HR Manager, Operation Manager, or Director can update Manpower Plans.");
     }
     const nowIso = new Date().toISOString();
@@ -989,6 +991,14 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   };
 
   const openEditEmployeeModal = (w: Worker) => {
+    if (!perms.canEditEmployeeProfiles) {
+      return showToast(
+        "error",
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can modify and update employee information."
+      );
+    }
     const dec = decryptedPiiMap[w.id];
     setOnboardingFromRec(null);
     setEditingWorkerId(w.id);
@@ -1280,8 +1290,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const handleSaveEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees) {
-      return showToast("error", "Only HR Manager or Director can create/modify employee profiles.");
+    if (!perms.canEditEmployeeProfiles) {
+      return showToast(
+        "error",
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማሻሻልና ማስተካከል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can create or modify employee profiles."
+      );
     }
     if (!empForm.name.trim()) {
       return showToast("error", "Employee full name is required.");
@@ -2259,7 +2274,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const handleSaveSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees && !perms.isOperationManager && !perms.isProjectManager) {
+    if (!perms.canManageEmployees && !perms.isHrManager && !perms.isDirector && !perms.isOperationManager && !perms.isProjectManager) {
       return showToast("error", "Insufficient permission to edit work schedules.");
     }
     const targetWorker =
@@ -2365,8 +2380,8 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
       patch.sectionHeadApproval = log;
       nextStatus = "Pending HR Manager";
     } else if (lv.status === "Pending HR Manager") {
-      if (!perms.canApproveHrStage) {
-        return showToast("error", "Only HR Manager or Director can give final leave approval.");
+      if (!perms.isStrictHrManager) {
+        return showToast("error", "Only HR Manager can give final leave approval and update employee leave balances.");
       }
       patch.hrManagerApproval = log;
       nextStatus = "Approved";
@@ -2458,8 +2473,13 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const handleCreateTransfer = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees && !perms.isOperationManager && !perms.isProjectManager) {
-      return showToast("error", "Insufficient permission to initiate site transfers.");
+    if (!perms.canEditEmployeeProfiles) {
+      return showToast(
+        "error",
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃና ምደባ ማሻሻል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can modify employee assignments and profiles."
+      );
     }
     const w = workers.find((x) => x.id === transferForm.workerId) || workers[0];
     if (!w) return showToast("error", "Select an employee to transfer.");
@@ -2562,7 +2582,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   });
 
   const handleGeneratePayrollRun = async () => {
-    if (!perms.canManageEmployees && !perms.canApproveFinanceStage) {
+    if (!perms.canManageEmployees && !perms.isHrManager && !perms.isDirector && !perms.canApproveFinanceStage) {
       return showToast("error", "Only HR Manager, Finance Manager, or Director can generate payroll runs.");
     }
     try {
@@ -2645,7 +2665,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
   const handleSaveLineAdjustment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adjustLineTarget) return;
-    if (!perms.canManageEmployees && !perms.canApproveFinanceStage) {
+    if (!perms.canManageEmployees && !perms.isHrManager && !perms.isDirector && !perms.canApproveFinanceStage) {
       return showToast("error", "Only HR/Finance/Director can adjust payroll line items.");
     }
     const targetRun = payrollRuns.find((r) => r.id === adjustLineTarget.runId);
@@ -2702,7 +2722,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const handleSaveSalaryStructure = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees && !perms.canApproveFinanceStage) {
+    if (!perms.canManageEmployees && !perms.isHrManager && !perms.isDirector && !perms.canApproveFinanceStage) {
       return showToast("error", "Only HR/Finance/Director can manage salary structures.");
     }
     const nowIso = new Date().toISOString();
@@ -2726,7 +2746,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
 
   const handleSaveTaxConfig = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!perms.canManageEmployees && !perms.canApproveFinanceStage) {
+    if (!perms.canManageEmployees && !perms.isHrManager && !perms.isDirector && !perms.canApproveFinanceStage) {
       return showToast("error", "Only HR/Finance/Director can configure tax & pension rules.");
     }
     const nowIso = new Date().toISOString();
@@ -4518,8 +4538,10 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
             <div className="flex items-center gap-2 text-xs text-slate-300">
               <Lock size={15} className="text-emerald-400 shrink-0" />
               <span>
-                <strong>Director-Gated Employee Onboarding:</strong> New employee profiles can only be registered by{" "}
-                <strong>HR Manager</strong> after a Manpower Recruitment Request receives{" "}
+                <strong>HR Manager Policy Control:</strong>{" "}
+                {isAmharic
+                  ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማስመዝገብና ማሻሻል የሚችለው HR Manager ብቻ ነው።"
+                  : "Per company policy, ONLY the HR Manager can register or modify employee information."} New employee onboarding requires{" "}
                 <strong>Director Final Approval</strong> ({approvedRequestsWithOpenSlots.length} open authorized requisition(s)).
               </span>
             </div>
@@ -4708,7 +4730,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                           >
                             {perms.canManageBiometricEnrollment ? "Profile & Biometric" : "View Profile"}
                           </button>
-                          {perms.canManageEmployees && (
+                          {perms.canEditEmployeeProfiles && (
                             <button
                               type="button"
                               onClick={() => openEditEmployeeModal(w)}
@@ -6834,12 +6856,20 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                   onChange={(e) => setTransferForm((p) => ({ ...p, reason: e.target.value }))}
                   className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-xs text-white"
                 />
+                {!perms.canEditEmployeeProfiles && (
+                  <div className="p-2.5 rounded-xl bg-amber-950/50 border border-amber-500/30 text-[11px] text-amber-200">
+                    {isAmharic
+                      ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃና ምደባ ማሻሻል የሚችለው HR manager ብቻ ነው።"
+                      : "Per company policy, only the HR Manager can execute employee transfers or modify employee records."}
+                  </div>
+                )}
                 <button
                   type="submit"
-                  className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
+                  disabled={!perms.canEditEmployeeProfiles}
+                  className="w-full py-2 rounded-xl bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer"
                 >
                   <ArrowRightLeft size={14} />
-                  <span>Execute Transfer</span>
+                  <span>{perms.canEditEmployeeProfiles ? "Execute Transfer" : "Locked (HR Manager Only)"}</span>
                 </button>
               </form>
 
@@ -7027,7 +7057,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
               )}
 
               {/* Generate Monthly Run */}
-              {(perms.canManageEmployees || perms.canApproveFinanceStage) && (
+              {(perms.canManageEmployees || perms.isHrManager || perms.isDirector || perms.canApproveFinanceStage) && (
                 <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <div className="flex flex-wrap items-end justify-between gap-4">
                     <div className="flex flex-wrap items-end gap-3">
@@ -7306,7 +7336,7 @@ export const HrmEnterpriseModule: React.FC<HrmEnterpriseModuleProps> = ({
                           <td className="py-2.5 px-2 text-right">
                             {perms.canViewPayrollAmounts && (
                               <div className="inline-flex items-center gap-1">
-                                {activeRun.workflowStage !== "Paid" && (perms.canManageEmployees || perms.canApproveFinanceStage) && (
+                                {activeRun.workflowStage !== "Paid" && (perms.canManageEmployees || perms.isHrManager || perms.isDirector || perms.canApproveFinanceStage) && (
                                   <button
                                     type="button"
                                     onClick={() =>

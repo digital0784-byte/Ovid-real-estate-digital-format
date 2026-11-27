@@ -3312,5 +3312,350 @@ export function createWarehouseStoreRouter(deps: WarehouseBackendMiddlewareDeps)
     }
   });
 
+  // =========================================================================
+  // 14. CENTRAL WAREHOUSE OPERATIONS & FORMWORK/ERP SYNC ISOLATION GUARD
+  // Store Owner / Store Manager / Site Manager / Gate Security / Material Handling -> 403
+  // =========================================================================
+  const isCentralWriteAuthorized = (role: string) => {
+    const ext = resolveExtendedWarehouseRole(role);
+    return ext === "warehouse_manager" || ext === "director" || ext === "super_admin";
+  };
+
+  const isCentralReadAuthorized = (role: string) => {
+    const ext = resolveExtendedWarehouseRole(role);
+    const trimmed = String(role || "").trim().toLowerCase();
+    return (
+      ext === "warehouse_manager" ||
+      ext === "director" ||
+      ext === "super_admin" ||
+      ext === "finance_manager" ||
+      ext === "operation_manager" ||
+      ext === "office_manager_engineer" ||
+      trimmed === "auditor" ||
+      trimmed === "section head" ||
+      trimmed === "section_head"
+    );
+  };
+
+  router.get("/api/warehouse/central/inventory", ...guard, async (req: Request, res: Response) => {
+    const actor = actorFromReq(req);
+    const extRole = resolveExtendedWarehouseRole(actor.role);
+    if (!isCentralReadAuthorized(actor.role) || extRole === "site_manager" || extRole === "store_manager") {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_central_warehouse_only",
+        message: "Access Denied: Central Warehouse Inventory Master is restricted from Site/Store Managers.",
+      });
+    }
+
+    try {
+      const ctx = ctxFromReq(req);
+      const [warehouses, items, balances] = await Promise.all([
+        store.listCollection<WarehouseRecord>("warehouses", ctx),
+        store.listCollection<InventoryItemRecord>("inventoryItems", ctx),
+        store.listCollection<StockBalanceRecord>("stockBalances", ctx),
+      ]);
+      const centralBalances = balances.filter((b) => b.locationType === "Warehouse");
+      return res.json({
+        success: true,
+        data: {
+          warehouses,
+          items,
+          stockBalances: centralBalances,
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: "central_inventory_failed",
+        message: err?.message || "Failed to load central warehouse inventory",
+      });
+    }
+  });
+
+  router.post("/api/warehouse/central/erp-sync", ...guard, async (req: Request, res: Response) => {
+    const actor = actorFromReq(req);
+    if (!isCentralWriteAuthorized(actor.role)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_central_erp_sync",
+        message: "Access Denied: Only Warehouse Manager, Director, or Super Admin can execute Central ERP Sync.",
+      });
+    }
+
+    try {
+      const result = await mutex.run(async () => {
+        const ctx = ctxFromReq(req);
+        const { syncScope = "FULL_WAREHOUSE", warehouseId = "MAIN-WH", notes = "" } = req.body || {};
+        const now = new Date().toISOString();
+        const syncId = `SYNC-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+        const syncRecord = {
+          id: syncId,
+          syncScope: String(syncScope).trim() || "FULL_WAREHOUSE",
+          warehouseId: String(warehouseId).trim() || "MAIN-WH",
+          notes: String(notes || ""),
+          syncedByUid: actor.uid,
+          syncedByName: actor.name,
+          syncedByRole: actor.role,
+          syncedAt: now,
+        };
+
+        await store.commitWrites(
+          [
+            { collection: "warehouseSyncLogs", docId: syncId, data: syncRecord },
+            makeAuditOp({
+              action: "CENTRAL_WAREHOUSE_ERP_SYNC",
+              module: "MasterData",
+              entityType: "WarehouseSync",
+              entityId: syncId,
+              newState: { syncScope: syncRecord.syncScope, warehouseId: syncRecord.warehouseId },
+              details: `${actor.name} executed central ERP sync (${syncRecord.syncScope}).`,
+              locationId: syncRecord.warehouseId,
+              actor,
+            }),
+          ],
+          ctx
+        );
+
+        return syncRecord;
+      });
+      return res.status(201).json({ success: true, data: result });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: "central_erp_sync_failed",
+        message: err?.message || "Central ERP sync failed",
+      });
+    }
+  });
+
+  router.get("/api/warehouse/central/formwork", ...guard, async (req: Request, res: Response) => {
+    const actor = actorFromReq(req);
+    const extRole = resolveExtendedWarehouseRole(actor.role);
+    if (!isCentralReadAuthorized(actor.role) || extRole === "site_manager" || extRole === "store_manager") {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_central_formwork_only",
+        message: "Access Denied: Central Formwork Registry is restricted from Site/Store Managers.",
+      });
+    }
+
+    try {
+      const ctx = ctxFromReq(req);
+      const panels = await store.listCollection("formworkPanels", ctx);
+      return res.json({ success: true, data: panels });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: "central_formwork_failed",
+        message: err?.message || "Failed to load central formwork registry",
+      });
+    }
+  });
+
+  router.post("/api/warehouse/central/formwork", ...guard, async (req: Request, res: Response) => {
+    const actor = actorFromReq(req);
+    if (!isCentralWriteAuthorized(actor.role)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_central_formwork_write",
+        message: "Access Denied: Only Warehouse Manager, Director, or Super Admin can modify Central Formwork GPS & Zones.",
+      });
+    }
+
+    try {
+      const result = await mutex.run(async () => {
+        const ctx = ctxFromReq(req);
+        const { panelCode, panelType, warehouseId, zoneName, gpsLat, gpsLng, status = "In Central Yard" } =
+          req.body || {};
+        if (!panelCode || !panelType) {
+          throw new Error("400:panelCode and panelType are required.");
+        }
+        const now = new Date().toISOString();
+        const id = `FW-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const panel = {
+          id,
+          panelCode: String(panelCode).trim(),
+          panelType: String(panelType).trim(),
+          warehouseId: String(warehouseId || "MAIN-WH").trim(),
+          zoneName: String(zoneName || "Central Yard").trim(),
+          gpsLat: gpsLat !== undefined ? Number(gpsLat) : undefined,
+          gpsLng: gpsLng !== undefined ? Number(gpsLng) : undefined,
+          status: String(status),
+          updatedByUid: actor.uid,
+          updatedByName: actor.name,
+          updatedAt: now,
+        };
+
+        await store.commitWrites(
+          [
+            { collection: "formworkPanels", docId: id, data: panel },
+            makeAuditOp({
+              action: "CENTRAL_FORMWORK_PANEL_REGISTERED",
+              module: "MasterData",
+              entityType: "FormworkPanel",
+              entityId: id,
+              entityNumber: panel.panelCode,
+              newState: { panelCode: panel.panelCode, zoneName: panel.zoneName, status: panel.status },
+              details: `${actor.name} updated central formwork panel ${panel.panelCode}.`,
+              locationId: panel.warehouseId,
+              actor,
+            }),
+          ],
+          ctx
+        );
+
+        return panel;
+      });
+      return res.status(201).json({ success: true, data: result });
+    } catch (err: any) {
+      const msg = String(err?.message || "Failed to update central formwork");
+      const code = msg.startsWith("400:") ? 400 : 500;
+      return res.status(code).json({
+        success: false,
+        error: "central_formwork_write_failed",
+        message: msg.replace(/^\d{3}:/, ""),
+      });
+    }
+  });
+
+  // =========================================================================
+  // 15. PRIVATE SITE-STORE OPERATIONS ISOLATION GUARD
+  // Strictly for Store Manager / Site Manager / Director / Super Admin.
+  // Warehouse Manager is EXPLICITLY BLOCKED (403).
+  // =========================================================================
+  const isSiteStorePrivateAuthorized = (role: string) => {
+    const ext = resolveExtendedWarehouseRole(role);
+    return (
+      ext === "site_manager" ||
+      ext === "store_manager" ||
+      ext === "director" ||
+      ext === "super_admin"
+    );
+  };
+
+  router.get("/api/warehouse/site-store/operations", ...guard, async (req: Request, res: Response) => {
+    const actor = actorFromReq(req);
+    const extRole = resolveExtendedWarehouseRole(actor.role);
+    if (extRole === "warehouse_manager" || !isSiteStorePrivateAuthorized(actor.role)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_site_store_private",
+        message: "Access Denied: Private Site-Store operations are restricted to Store/Site Managers, Director, and Super Admin.",
+      });
+    }
+
+    try {
+      const ctx = ctxFromReq(req);
+      const [projectStores, issueRecords, returnRecords] = await Promise.all([
+        store.listCollection<ProjectStoreRecord>("projectStores", ctx),
+        store.listCollection<Record<string, any>>("materialIssueRecords", ctx),
+        store.listCollection<Record<string, any>>("materialReturnRecords", ctx),
+      ]);
+
+      const filterByScope = <T extends Record<string, any>>(rows: T[]) =>
+        rows.filter((row) =>
+          canUserAccessProjectRecord(
+            actor.role,
+            actor.assignedProject,
+            actor.assignedSite,
+            row.projectId || row.projectName,
+            row.id || row.siteStoreId || row.locationId
+          )
+        );
+
+      return res.json({
+        success: true,
+        data: {
+          projectStores: filterByScope(projectStores),
+          issueRecords: filterByScope(issueRecords),
+          returnRecords: filterByScope(returnRecords),
+        },
+      });
+    } catch (err: any) {
+      return res.status(500).json({
+        success: false,
+        error: "site_store_operations_failed",
+        message: err?.message || "Failed to load site store operations",
+      });
+    }
+  });
+
+  router.post("/api/warehouse/site-store/operations", ...guard, async (req: Request, res: Response) => {
+    const actor = actorFromReq(req);
+    const extRole = resolveExtendedWarehouseRole(actor.role);
+    if (extRole === "warehouse_manager" || !isSiteStorePrivateAuthorized(actor.role)) {
+      return res.status(403).json({
+        success: false,
+        error: "forbidden_site_store_private",
+        message: "Access Denied: Warehouse Manager and non-site roles cannot execute private Site-Store operations.",
+      });
+    }
+
+    try {
+      const result = await mutex.run(async () => {
+        const ctx = ctxFromReq(req);
+        const { operationType, projectId, siteStoreId, crewOrTeam, items } = req.body || {};
+        const validOps = new Set(["CREW_ISSUE", "EVENING_RETURN", "DAILY_CONSUMPTION", "STOCK_COUNT"]);
+        if (!validOps.has(String(operationType)) || !projectId || !siteStoreId || !Array.isArray(items) || items.length === 0) {
+          throw new Error("400:operationType, projectId, siteStoreId, and non-empty items array are required.");
+        }
+
+        if (!canUserAccessProjectRecord(actor.role, actor.assignedProject, actor.assignedSite, projectId, siteStoreId)) {
+          throw new Error("403:Store/Site Manager can only execute operations within their assigned project/site.");
+        }
+
+        const now = new Date().toISOString();
+        const opId = `SSOP-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+        const targetCollection =
+          operationType === "EVENING_RETURN" ? "materialReturnRecords" : "materialIssueRecords";
+
+        const record = {
+          id: opId,
+          operationType: String(operationType),
+          projectId: String(projectId).trim(),
+          siteStoreId: String(siteStoreId).trim(),
+          crewOrTeam: String(crewOrTeam || "Site Crew").trim(),
+          items,
+          recordedByUid: actor.uid,
+          recordedByName: actor.name,
+          recordedByRole: actor.role,
+          recordedAt: now,
+        };
+
+        await store.commitWrites(
+          [
+            { collection: targetCollection, docId: opId, data: record },
+            makeAuditOp({
+              action: `SITE_STORE_${String(operationType)}`,
+              module: operationType === "EVENING_RETURN" ? "ReturnMRV" : "GIVDispatch",
+              entityType: "SiteStoreOperation",
+              entityId: opId,
+              newState: { operationType, siteStoreId: record.siteStoreId, itemCount: items.length },
+              details: `${actor.name} recorded site-store ${operationType} for ${record.siteStoreId}.`,
+              projectId: record.projectId,
+              locationId: record.siteStoreId,
+              actor,
+            }),
+          ],
+          ctx
+        );
+
+        return record;
+      });
+      return res.status(201).json({ success: true, data: result });
+    } catch (err: any) {
+      const msg = String(err?.message || "Site store operation failed");
+      const code = msg.startsWith("403:") ? 403 : msg.startsWith("400:") ? 400 : 500;
+      return res.status(code).json({
+        success: false,
+        error: "site_store_operation_failed",
+        message: msg.replace(/^\d{3}:/, ""),
+      });
+    }
+  });
+
   return { router, store };
 }
+

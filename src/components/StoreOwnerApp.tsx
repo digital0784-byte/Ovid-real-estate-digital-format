@@ -72,6 +72,10 @@ import {
   canAccessAppMode,
   canPerformAction
 } from "../services/warehouseStoreRbac";
+import {
+  ErpWarehouseSnapshot,
+  subscribeWarehouseErpModule,
+} from "../services/warehouseStoreDataService";
 
 // --- INTERFACES ---
 export interface TruckFleetItem {
@@ -510,13 +514,15 @@ export const WorkerAutocomplete: React.FC<WorkerAutocompleteProps> = ({
 interface StoreOwnerAppProps {
   isAmharic: boolean;
   currentUserRole?: UserRole;
-  currentUserProfile?: { displayName?: string; role?: UserRole } | null;
+  currentUserProfile?: { displayName?: string; role?: UserRole; uid?: string } | null;
   workers?: Worker[];
   onLogAction?: (action: string, details: string) => void;
   onCreateNotification?: (notification: any) => void;
   initialMode?: "warehouse_manager" | "store_owner";
+  mode?: "warehouse" | "siteStore";
   embeddedMode?: boolean;
   embeddedCategory?: "warehouse_fleet_formwork" | "store_field_operations";
+  warehouseSnapshot?: ErpWarehouseSnapshot | null;
 }
 
 export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
@@ -527,9 +533,20 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   onLogAction,
   onCreateNotification,
   initialMode = "warehouse_manager",
+  mode,
   embeddedMode = false,
-  embeddedCategory
+  embeddedCategory,
+  warehouseSnapshot = null
 }) => {
+  const effectiveInitialMode: "warehouse_manager" | "store_owner" =
+    mode === "warehouse"
+      ? "warehouse_manager"
+      : mode === "siteStore"
+      ? "store_owner"
+      : initialMode === "store_owner"
+      ? "store_owner"
+      : "warehouse_manager";
+
   const assignedWarehouseManager = useMemo(() => {
     const found = workers.find(w =>
       String(w.position ?? "").toLowerCase().includes("warehouse manager") ||
@@ -545,36 +562,36 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const authorizedDefaultMode: "warehouse_manager" | "store_owner" =
     isStoreManagerOnly || canonicalRole === "site_manager"
       ? "store_owner"
-      : embeddedCategory === "warehouse_fleet_formwork"
+      : mode === "warehouse" || embeddedCategory === "warehouse_fleet_formwork"
       ? "warehouse_manager"
-      : embeddedCategory === "store_field_operations"
+      : mode === "siteStore" || embeddedCategory === "store_field_operations"
       ? "store_owner"
       : canonicalRole === "warehouse_manager"
       ? "warehouse_manager"
-      : (initialMode === "store_owner" ? "store_owner" : "warehouse_manager");
+      : (effectiveInitialMode === "store_owner" ? "store_owner" : "warehouse_manager");
 
   const [appMode, setAppMode] = useState<"warehouse_manager" | "store_owner">(authorizedDefaultMode);
   const [unauthorizedRouteAttempt, setUnauthorizedRouteAttempt] = useState<string | null>(null);
 
   useEffect(() => {
     if (canonicalRole === "warehouse_manager") {
-      if (initialMode === "store_owner" && !embeddedMode) {
+      if ((effectiveInitialMode === "store_owner" || mode === "siteStore") && !embeddedMode) {
         setUnauthorizedRouteAttempt("/site-store/dashboard");
       }
       setAppMode("warehouse_manager");
     } else if (canonicalRole === "site_manager" || canonicalRole === "store_manager") {
-      if ((initialMode === "warehouse_manager" || embeddedCategory === "warehouse_fleet_formwork") && !embeddedMode) {
+      if ((effectiveInitialMode === "warehouse_manager" || mode === "warehouse" || embeddedCategory === "warehouse_fleet_formwork") && !embeddedMode) {
         setUnauthorizedRouteAttempt("/warehouse/dashboard");
       }
       setAppMode("store_owner");
-    } else if (embeddedCategory === "warehouse_fleet_formwork") {
+    } else if (mode === "warehouse" || embeddedCategory === "warehouse_fleet_formwork") {
       setAppMode("warehouse_manager");
-    } else if (embeddedCategory === "store_field_operations") {
+    } else if (mode === "siteStore" || embeddedCategory === "store_field_operations") {
       setAppMode("store_owner");
-    } else if (initialMode) {
-      setAppMode(initialMode);
+    } else if (effectiveInitialMode) {
+      setAppMode(effectiveInitialMode);
     }
-  }, [initialMode, canonicalRole, embeddedMode, embeddedCategory]);
+  }, [effectiveInitialMode, mode, canonicalRole, embeddedMode, embeddedCategory]);
 
   // Navigation State across Master Modules
   const [activeTab, setActiveTab] = useState<
@@ -600,7 +617,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     | "integrations"
   >(
     embeddedMode
-      ? embeddedCategory === "warehouse_fleet_formwork"
+      ? mode === "warehouse" || embeddedCategory === "warehouse_fleet_formwork"
         ? "warehouse-dashboard"
         : "requests"
       : "architecture-command"
@@ -608,14 +625,14 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
   useEffect(() => {
     if (!embeddedMode) return;
-    if (embeddedCategory === "warehouse_fleet_formwork") {
+    if (mode === "warehouse" || embeddedCategory === "warehouse_fleet_formwork") {
       setActiveTab("warehouse-dashboard");
     } else if (embeddedCategory === "store_field_operations") {
       setActiveTab("requests");
     }
-  }, [embeddedMode, embeddedCategory]);
+  }, [embeddedMode, embeddedCategory, mode]);
 
-  // Keep activeTab strictly valid when appMode/role changes (Super Admin can access ALL tabs without restriction)
+  // Keep activeTab strictly valid when appMode/role changes (Super Admin and merged Warehouse Operations can access daily ops tabs without restriction)
   useEffect(() => {
     if (isStoreManagerOnly) {
       const storeManagerAllowedTabs = [
@@ -635,7 +652,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
       }
       return;
     }
-    if (isSuperAdminOrHQ) return;
+    if (isSuperAdminOrHQ || mode === "warehouse") return;
     // Aluminum Formwork Management ("formwork-tracking" & "site-panel-breakdown") is strictly controlled ONLY by Warehouse Manager App, Head Office Manager App, and Admin App
     const warehouseOnlyTabs = ["warehouse-dashboard", "site-panel-breakdown", "formwork-tracking"];
     const siteStoreOnlyTabs = ["dashboard", "morning-requisitions", "evening-returns", "daily-auto-reports"];
@@ -644,7 +661,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
     } else if (appMode === "store_owner" && warehouseOnlyTabs.includes(activeTab)) {
       setActiveTab("architecture-command");
     }
-  }, [appMode, activeTab, isSuperAdminOrHQ]);
+  }, [appMode, activeTab, isSuperAdminOrHQ, isStoreManagerOnly, mode]);
 
   const lang = isAmharic ? "am" : "en";
 
@@ -723,6 +740,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [dailyReturnReports, setDailyReturnReports] = useState<DailyReturnReport[]>([]);
   const [dailyConsolidatedReports, setDailyConsolidatedReports] = useState<DailyConsolidatedReport[]>([]);
   const [storeNotifications, setStoreNotifications] = useState<any[]>([]);
+  const [internalWarehouseSnapshot, setInternalWarehouseSnapshot] = useState<ErpWarehouseSnapshot | null>(null);
+
+  useEffect(() => {
+    if (warehouseSnapshot) return;
+    const unsub = subscribeWarehouseErpModule(
+      (snap) => setInternalWarehouseSnapshot(snap),
+      { role: currentUserRole, uid: currentUserProfile?.uid }
+    );
+    return () => unsub();
+  }, [warehouseSnapshot, currentUserRole, currentUserProfile?.uid]);
+
+  const activeWarehouseSnapshot = warehouseSnapshot ?? internalWarehouseSnapshot;
+
   const visibleStoreNotifications = useMemo(() => {
     return storeNotifications.filter((n) =>
       NotificationService.isNotificationTargetedToUser(n, {
@@ -1849,22 +1879,152 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
   const [searchFilter, setSearchFilter] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("All");
 
+  // Reconcile StoreOwnerApp views with warehouseStoreDataService shared source of truth so numbers never diverge
+  const unifiedStoreItems = useMemo<StoreMaterialItem[]>(() => {
+    const map = new Map<string, StoreMaterialItem>();
+    for (const item of storeItems) {
+      map.set((item.code || item.name || item.id).toLowerCase(), item);
+    }
+    if (activeWarehouseSnapshot) {
+      for (const invItem of activeWarehouseSnapshot.items) {
+        const balances = activeWarehouseSnapshot.stockBalances.filter((b) => b.itemId === invItem.id);
+        const totalAvail = balances.reduce((s, b) => s + (Number(b.availableQty) || 0), 0);
+        const totalQuarantine = balances.reduce((s, b) => s + (Number(b.quarantineQty) || 0), 0);
+        const key = (invItem.itemCode || invItem.itemName || invItem.id).toLowerCase();
+        const mapped: StoreMaterialItem = {
+          id: invItem.id,
+          category: (invItem.categoryName as any) || "Consumables",
+          name: invItem.itemName,
+          code: invItem.itemCode,
+          dimensions: invItem.specification || "Standard",
+          unit: invItem.unit || "pcs",
+          unitCost: invItem.standardUnitCost || 0,
+          totalStock: totalAvail + totalQuarantine,
+          availableStock: totalAvail,
+          reservedStock: totalQuarantine,
+          minThreshold: invItem.minStockLevel || 10,
+          warehouseLocation: balances[0]?.locationName || "Central Warehouse",
+          status: totalAvail <= 0 ? "Out of Stock" : totalAvail <= (invItem.minStockLevel || 10) ? "Low Stock" : "In Stock",
+        };
+        const existing = map.get(key);
+        if (existing && balances.length === 0) {
+          map.set(key, existing);
+        } else {
+          map.set(key, mapped);
+        }
+      }
+    }
+    return Array.from(map.values());
+  }, [storeItems, activeWarehouseSnapshot]);
+
+  const unifiedReceivingReports = useMemo<MaterialReceivingReport[]>(() => {
+    const list: MaterialReceivingReport[] = [...receivingReports];
+    const seenIds = new Set(list.map((r) => r.id));
+    if (activeWarehouseSnapshot) {
+      for (const grv of activeWarehouseSnapshot.grvs) {
+        const id = grv.grvNumber || grv.id;
+        if (seenIds.has(id) || seenIds.has(grv.id)) continue;
+        seenIds.add(id);
+        const firstLine = grv.items?.[0];
+        const totalQty = (grv.items || []).reduce((s, i) => s + (Number(i.quantityReceived) || 0), 0);
+        list.unshift({
+          id,
+          materialName: grv.items.length > 1 ? `${firstLine?.itemName || "Material"} (+${grv.items.length - 1} more)` : firstLine?.itemName || "Warehouse GRV",
+          materialType: firstLine?.inventoryType || "Consumable",
+          dimensions: firstLine?.specification || "Standard",
+          quantity: totalQty,
+          unit: firstLine?.unit || "pcs",
+          source: "Supplier",
+          batchNumber: firstLine?.batchNumber || grv.poNumber || grv.commercialInvoiceNumber || "-",
+          bundleNumber: grv.commercialInvoiceNumber || "-",
+          serialNumber: firstLine?.serialNumbers?.[0] || "-",
+          qrCode: grv.grvNumber,
+          deliveryDate: grv.receivedDate || grv.createdAt || "",
+          driverName: grv.receivedByName || "Warehouse Receiver",
+          truckPlate: grv.warehouseName || "Central Warehouse",
+          gpsLocation: grv.warehouseName || "Central Warehouse",
+          receivedBy: grv.receivedByName || "Warehouse Manager",
+          signatureSigned: true,
+          photoUploaded: Boolean(grv.commercialInvoiceId),
+        });
+      }
+    }
+    return list;
+  }, [receivingReports, activeWarehouseSnapshot]);
+
+  const unifiedIssueRecords = useMemo<MaterialIssueRecord[]>(() => {
+    const list: MaterialIssueRecord[] = [...issueRecords];
+    const seenIds = new Set(list.map((r) => r.id));
+    if (activeWarehouseSnapshot) {
+      for (const giv of activeWarehouseSnapshot.givs) {
+        const id = giv.givNumber || giv.id;
+        if (seenIds.has(id) || seenIds.has(giv.id)) continue;
+        seenIds.add(id);
+        const firstLine = giv.items?.[0];
+        const totalQty = (giv.items || []).reduce((s, i) => s + (Number(i.dispatchedQty) || 0), 0);
+        list.unshift({
+          id,
+          receiverName: giv.driverName || giv.projectStoreName || "Site Store",
+          receiverRole: "Project Site Store",
+          department: giv.projectName || "Project Operations",
+          siteName: giv.projectStoreName || giv.projectName || "Site Store",
+          building: giv.warehouseName || "Central Warehouse",
+          floor: giv.requestNumber || "-",
+          zone: giv.vehicleNumber || "-",
+          materialName: giv.items.length > 1 ? `${firstLine?.itemName || "Material"} (+${giv.items.length - 1} more)` : firstLine?.itemName || "GIV Dispatch",
+          quantity: totalQty,
+          unit: firstLine?.unit || "pcs",
+          issueDate: giv.dispatchedAt || giv.createdAt || "",
+          qrScanned: true,
+          gpsLocation: giv.projectStoreName || "Project Site",
+          signatureSigned: true,
+        });
+      }
+    }
+    return list;
+  }, [issueRecords, activeWarehouseSnapshot]);
+
+  const unifiedReturnRecords = useMemo<MaterialReturnRecord[]>(() => {
+    const list: MaterialReturnRecord[] = [...returnRecords];
+    const seenIds = new Set(list.map((r) => r.id));
+    if (activeWarehouseSnapshot) {
+      for (const mrv of activeWarehouseSnapshot.mrvs) {
+        const id = mrv.mrvNumber || mrv.id;
+        if (seenIds.has(id) || seenIds.has(mrv.id)) continue;
+        seenIds.add(id);
+        const firstLine = mrv.items?.[0];
+        const totalQty = (mrv.items || []).reduce((s, i) => s + (Number(i.quantityReturned) || 0), 0);
+        const cond = firstLine?.condition === "Damaged" ? "Damaged" : firstLine?.condition === "Defective" ? "Needs Repair" : "Good Condition";
+        list.unshift({
+          id,
+          materialName: mrv.items.length > 1 ? `${firstLine?.itemName || "Return"} (+${mrv.items.length - 1} more)` : firstLine?.itemName || "MRV Return",
+          quantity: totalQty,
+          returnedBy: mrv.returnedByName || mrv.sourceLocationName || "Site Return",
+          condition: cond,
+          returnDate: mrv.returnedDate || mrv.createdAt || "",
+          notes: `${mrv.direction} · ${mrv.status}`,
+        });
+      }
+    }
+    return list;
+  }, [returnRecords, activeWarehouseSnapshot]);
+
   // Filtered store inventory
   const filteredStoreItems = useMemo(() => {
-    return storeItems.filter(item => {
+    return unifiedStoreItems.filter(item => {
       const matchSearch = item.name.toLowerCase().includes(searchFilter.toLowerCase()) ||
                           item.code.toLowerCase().includes(searchFilter.toLowerCase()) ||
-                          item.warehouseLocation.toLowerCase().includes(searchFilter.toLowerCase());
+                          (item.warehouseLocation || "").toLowerCase().includes(searchFilter.toLowerCase());
       const matchCategory = categoryFilter === "All" || item.category === categoryFilter;
       return matchSearch && matchCategory;
     });
-  }, [storeItems, searchFilter, categoryFilter]);
+  }, [unifiedStoreItems, searchFilter, categoryFilter]);
 
-  // COMPUTED DASHBOARD METRICS - Guarded against non-number / undefined values
-  const totalMaterialStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + (Number(i?.totalStock) || 0), 0), [storeItems]);
-  const availableStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + (Number(i?.availableStock) || 0), 0), [storeItems]);
-  const reservedStockSum = useMemo(() => storeItems.reduce((acc, i) => acc + (Number(i?.reservedStock) || 0), 0), [storeItems]);
-  const lowStockCount = useMemo(() => storeItems.filter(i => (Number(i?.availableStock) || 0) <= (Number(i?.minThreshold) || 10)).length, [storeItems]);
+  // COMPUTED DASHBOARD METRICS - Driven by shared warehouseStoreDataService & store state
+  const totalMaterialStockSum = useMemo(() => unifiedStoreItems.reduce((acc, i) => acc + (Number(i?.totalStock) || 0), 0), [unifiedStoreItems]);
+  const availableStockSum = useMemo(() => unifiedStoreItems.reduce((acc, i) => acc + (Number(i?.availableStock) || 0), 0), [unifiedStoreItems]);
+  const reservedStockSum = useMemo(() => unifiedStoreItems.reduce((acc, i) => acc + (Number(i?.reservedStock) || 0), 0), [unifiedStoreItems]);
+  const lowStockCount = useMemo(() => unifiedStoreItems.filter(i => (Number(i?.availableStock) || 0) <= (Number(i?.minThreshold) || 10)).length, [unifiedStoreItems]);
 
   const totalFormworkPanelsCount = dbPanels.length || 850;
   const cleaningQueueCount = 18;
@@ -2457,19 +2617,19 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
               <span className="text-[10px] text-slate-400 block uppercase font-mono">{isAmharic ? "የማዕከላዊ እቃዎች ክምችት" : "Central Yard Stock"}</span>
-              <span className="text-lg font-black text-amber-400 font-mono">18,450 Units</span>
+              <span className="text-lg font-black text-amber-400 font-mono">{formatNumber(totalMaterialStockSum)} Units</span>
             </div>
             <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
               <span className="text-[10px] text-slate-400 block uppercase font-mono">{isAmharic ? "ንቁ የጭነት መኪኖች" : "Dispatch Trucks"}</span>
-              <span className="text-lg font-black text-emerald-400 font-mono">6 Fleets</span>
+              <span className="text-lg font-black text-emerald-400 font-mono">{truckFleets.length || activeWarehouseSnapshot?.transports.length || 0} Fleets</span>
             </div>
             <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
               <span className="text-[10px] text-slate-400 block uppercase font-mono">{isAmharic ? "የአቅራቢዎች ደረሰኝ" : "Supplier Deliveries"}</span>
-              <span className="text-lg font-black text-cyan-400 font-mono">4 Shipments</span>
+              <span className="text-lg font-black text-cyan-400 font-mono">{unifiedReceivingReports.length} Shipments</span>
             </div>
             <div className="bg-slate-900/90 p-3 rounded-xl border border-slate-800">
               <span className="text-[10px] text-slate-400 block uppercase font-mono">{isAmharic ? "የሳይቶች ማስተላለፊያ" : "Inter-Site Transfers"}</span>
-              <span className="text-lg font-black text-indigo-400 font-mono">12 Vouchers</span>
+              <span className="text-lg font-black text-indigo-400 font-mono">{interSiteTransfers.length + (activeWarehouseSnapshot?.fatovs.length || 0)} Vouchers</span>
             </div>
           </div>
         </div>
@@ -2477,7 +2637,24 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
 
       {/* STRICTLY ROLE-FILTERED TOP NAVIGATION (EMBEDDED CATEGORY OR STANDALONE) */}
       <div className="flex flex-wrap border-b border-slate-800 gap-1 overflow-x-auto pb-1">
-        {(embeddedMode && embeddedCategory === "warehouse_fleet_formwork"
+        {(embeddedMode && mode === "warehouse"
+          ? [
+              { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ እና ትራንስፖርት" : "Warehouse Fleet & Depots", icon: Building2 },
+              { id: "receiving", label: isAmharic ? "እቃ መቀበያ (GRN)" : "Goods Receiving (GRN)", icon: Truck },
+              { id: "issue", label: isAmharic ? "ከዋና መጋዘን ወጪ" : "Main Warehouse Issue", icon: ArrowRightLeft },
+              { id: "morning-requisitions", label: isAmharic ? "ለቡድን/ጋንግ እቃ ወጪ" : "Issue to Team/Gang", icon: FileText },
+              { id: "evening-returns", label: isAmharic ? "የማታ ተመላሽ" : "Evening Dismantling Returns", icon: RotateCcw },
+              { id: "daily-auto-reports", label: isAmharic ? "የእለት ፍጆታ እና ሪፖርት" : "Daily Consumption & Site Reports", icon: BarChart3 },
+              { id: "audit", label: isAmharic ? "የክምችት ኦዲት እና ግምት" : "Inventory Audit & Valuation", icon: ClipboardList },
+              { id: "formwork-tracking", label: isAmharic ? "ፎርምወርክ GPS እና ዞኖች" : "Formwork GPS & Zones", icon: Package },
+              { id: "site-panel-breakdown", label: isAmharic ? "የሳይቶች ድልድል" : "Site Allocation & Formwork", icon: Box },
+              { id: "inventory", label: isAmharic ? "ማዕከላዊ ክምችት" : "Central Inventory & Master", icon: Box },
+              { id: "qr-barcode", label: isAmharic ? "QR / Barcode" : "QR & Barcode", icon: QrCode },
+              { id: "integrations", label: isAmharic ? "ERP ማመሳሰያ" : "ERP Sync", icon: RefreshCw },
+              { id: "ai-analytics", label: isAmharic ? "AI ትንበያ" : "AI Analytics", icon: Cpu },
+              { id: "architecture-command", label: isAmharic ? "የመጋዘን አርክቴክቸር" : "Warehouse RBAC Command", icon: ShieldCheck }
+            ]
+          : embeddedMode && embeddedCategory === "warehouse_fleet_formwork"
           ? [
               { id: "warehouse-dashboard", label: isAmharic ? "መጋዘን ዳሽቦርድ እና ትራንስፖርት" : "Warehouse Fleet & Depots", icon: Building2 },
               { id: "site-panel-breakdown", label: isAmharic ? "የሳይቶች ድልድል (Site Allocation)" : "Site Allocation & Formwork", icon: Box },
@@ -4241,7 +4418,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                    {receivingReports.map(rep => (
+                    {unifiedReceivingReports.map(rep => (
                       <tr key={rep.id} className="hover:bg-slate-900/40 text-slate-200">
                         <td className="p-4 font-bold text-slate-400">{rep.id}</td>
                         <td className="p-4 font-sans font-bold text-white">{rep.materialName}</td>
@@ -4305,7 +4482,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                    {issueRecords.map(iss => (
+                    {unifiedIssueRecords.map(iss => (
                       <tr key={iss.id} className="hover:bg-slate-900/40 text-slate-200">
                         <td className="p-4 font-bold text-slate-400">{iss.id}</td>
                         <td className="p-4 font-sans font-bold text-white">{iss.receiverName}</td>
@@ -4352,7 +4529,7 @@ export const StoreOwnerApp: React.FC<StoreOwnerAppProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-mono text-xs">
-                  {returnRecords.map(ret => (
+                  {unifiedReturnRecords.map(ret => (
                     <tr key={ret.id} className="hover:bg-slate-900/40 text-slate-200">
                       <td className="p-4 font-bold text-slate-400">{ret.id}</td>
                       <td className="p-4 font-sans font-bold text-white">{ret.materialName}</td>

@@ -254,6 +254,14 @@ export const Attendance: React.FC<AttendanceProps> = ({
 
   const handleRegisterSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (currentUserRole !== UserRole.HR_MANAGER) {
+      setRegSuccessMsg(
+        isAmharic
+          ? "በድርጅቱ ሕግ መሠረት የሠራተኞችን መረጃ ማስመዝገብና ማሻሻል የሚችለው HR manager ብቻ ነው።"
+          : "According to company policy, only the HR Manager can register or modify employee information."
+      );
+      return;
+    }
     if (!regName.trim()) return;
 
     // Generate numeric employee ID
@@ -1456,7 +1464,7 @@ export const Attendance: React.FC<AttendanceProps> = ({
                               <QrCode size={14} />
                             </button>
 
-                            {(currentUserRole === UserRole.TIME_KEEPER || currentUserRole === UserRole.HEAD_OFFICE) && (
+                            {currentUserRole === UserRole.HR_MANAGER && (
                               <button 
                                 onClick={() => {
                                   if (confirm(isAmharic ? `ሰራተኛ ${w.name}ን መሰረዝ ይፈልጋሉ?` : `Are you sure you want to remove ${w.name} from the roster?`)) {
